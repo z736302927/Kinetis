@@ -4,9 +4,12 @@
 #ifdef __cplusplus
  extern "C" {
 #endif
-                                              
+   
+/*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
+
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_hal.h"
+#include "stdio.h"
 
 extern int dbg_level;
 
@@ -23,6 +26,8 @@ extern int dbg_level;
 #ifdef DEBUG
 
 #define OS_TIME_MS()    0
+
+/*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 #define ERR_PRINT_TIME  printf("[E: %d.%03d] ",  OS_TIME_MS()/1000, OS_TIME_MS()%1000)
 #define DBG_PRINT_TIME  printf("[E: %d.%03d] ",  OS_TIME_MS()/1000, OS_TIME_MS()%1000)

@@ -4,7 +4,9 @@
 #ifdef __cplusplus
  extern "C" {
 #endif
-                                              
+
+/*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
+   
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_hal.h"
 
@@ -21,6 +23,7 @@ void BSP_LED_On(Led_TypeDef Led);
 void BSP_LED_Off(Led_TypeDef Led);
 void BSP_LED_Toggle(Led_TypeDef Led);
 
+/*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 
 #ifdef __cplusplus

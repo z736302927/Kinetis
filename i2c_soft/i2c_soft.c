@@ -2,6 +2,7 @@
 
 static uint8_t I2C_FastMode = 0;
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
+
 void I2c_Soft_Init(void)
 {
 
@@ -11,6 +12,7 @@ void I2c_Soft_delay(void)
 { 
 //  Delay_us(5);
 }
+
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 

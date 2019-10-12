@@ -4,6 +4,8 @@
 #ifdef __cplusplus
  extern "C" {
 #endif
+   
+/*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
                                               
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_hal.h"
@@ -36,5 +38,7 @@ uint8_t IIC_Write_1Byte(uint8_t SlaveAddress,uint16_t REG_Address,uint8_t REG_da
 uint8_t IIC_Read_1Byte(uint8_t SlaveAddress,uint16_t REG_Address,uint8_t *REG_data);
 uint8_t IIC_Write_nByte(uint8_t SlaveAddress, uint16_t REG_Address, uint8_t *buf, uint8_t len);
 uint8_t IIC_Read_nByte(uint8_t SlaveAddress, uint16_t REG_Address, uint8_t *buf, uint8_t len);
+
+/*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 #endif /* __I2C_SOFT_H */
