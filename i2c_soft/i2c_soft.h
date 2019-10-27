@@ -8,24 +8,26 @@
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
                                               
 /* Includes ------------------------------------------------------------------*/
-#include "stm32f4xx_hal.h"
+#include "stm32l4xx_hal.h"
 
-#define I2C_Pin_SCL     GPIO_PIN_6
-#define I2C_Pin_SDA     GPIO_PIN_3
+#define I2C_Pin_SCL     GPIO_PIN_13
+#define I2C_Pin_SDA     GPIO_PIN_14
+#define I2C_Port_SCL    GPIOB
+#define I2C_Port_SDA    GPIOB
 
-#define SCL_H           GPIOH->BSRR = I2C_Pin_SCL
-#define SCL_L           GPIOH->BSRR = (uint32_t)I2C_Pin_SCL << 16U
-#define SDA_H           GPIOI->BSRR = I2C_Pin_SDA
-#define SDA_L           GPIOI->BSRR = (uint32_t)I2C_Pin_SDA << 16U
+#define SCL_H           HAL_GPIO_WritePin(I2C_Port_SCL, I2C_Pin_SCL, GPIO_PIN_SET)//I2C_Port_SCL->BSRR = (uint32_t)I2C_Pin_SCL
+#define SCL_L           HAL_GPIO_WritePin(I2C_Port_SCL, I2C_Pin_SCL, GPIO_PIN_RESET)//I2C_Port_SCL->BRR  = (uint32_t)I2C_Pin_SCL
+#define SDA_H           HAL_GPIO_WritePin(I2C_Port_SDA, I2C_Pin_SDA, GPIO_PIN_SET)//I2C_Port_SDA->BSRR = (uint32_t)I2C_Pin_SDA
+#define SDA_L           HAL_GPIO_WritePin(I2C_Port_SDA, I2C_Pin_SDA, GPIO_PIN_RESET)//I2C_Port_SDA->BRR  = (uint32_t)I2C_Pin_SDA
 
-#define SDA_NUM         3
-#define SDA_IN          GPIOI->MODER &= ~(3 << SDA_NUM * 2);GPIOI->MODER |= 0 << SDA_NUM * 2
-#define SDA_OUT         GPIOI->MODER &= ~(3 << SDA_NUM * 2);GPIOI->MODER |= 1 << SDA_NUM * 2
-#define SDA_READ        GPIOI->IDR  & I2C_Pin_SDA
+#define SDA_NUM         14
+#define SDA_IN          I2C_Port_SDA->MODER &= ~(3 << SDA_NUM * 2);I2C_Port_SDA->MODER |= 0 << SDA_NUM * 2
+#define SDA_OUT         I2C_Port_SDA->MODER &= ~(3 << SDA_NUM * 2);I2C_Port_SDA->MODER |= 1 << SDA_NUM * 2
+#define SDA_READ        ((I2C_Port_SDA->IDR  & I2C_Pin_SDA) != 0x00u)
 
 #define ADDRESS_16      1
 #define ADDRESS_8       0
-#define ADDRESS_MODE    ADDRESS_16
+#define ADDRESS_MODE    ADDRESS_8
 
 
 void I2c_Soft_Init(void);

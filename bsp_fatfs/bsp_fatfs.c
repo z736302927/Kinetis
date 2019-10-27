@@ -1,11 +1,6 @@
-#include "bsp_fatfs.h"
+#include "bsp_fatfs/bsp_fatfs.h"
 #include "ff.h"
 #include "string.h"
-
-#define DEBUG
-#include "idebug.h"
-
-#define FatFs_printf    p_dbg
 
 
 FATFS DISKFatFs;  /* File system object for  disk logical drive */
@@ -21,12 +16,24 @@ static FRESULT FatFs_Scan_Files (char* path);
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
-#define STM32_MICROCONTROLER    0
+/**
+  * @step 1:  Modify the corresponding function according to the modified area and the corresponding function name.
+  * @step 2:  .
+  * @step 3:  .
+  * @step 4:  .
+  * @step 5:
+  */
 
-static void FatFs_Error_Handler(void)
-{
-  
-}
+#include "ff_gen_drv.h"
+#include "sd_diskio.h"
+
+#define DEBUG
+#include "idebug/idebug.h"
+
+#define FatFs_printf    p_dbg
+#define FatFs_err       p_err_fun
+
+#define STM32_MICROCONTROLER    1
 
 int FatFs_Test(void)
 {
@@ -37,30 +44,33 @@ int FatFs_Test(void)
 
 #if STM32_MICROCONTROLER  
   /*##-1- Link the  disk I/O driver #######################################*/
-  if(FATFS_LinkDriver(&SDRAMDISK_Driver, DISKPath) == 0)
+  if(FATFS_LinkDriver(&SD_Driver, DISKPath) == 0)
 #endif
   {
     /*##-2- Register the file system object to the FatFs module ##############*/
-    if(f_mount(&DISKFatFs, (TCHAR const*)DISKPath, 0) != FR_OK)
+    res = f_mount(&DISKFatFs, (TCHAR const*)DISKPath, 0);
+    if(res != FR_OK)
     {
       /* FatFs Initialization Error */
-      FatFs_Error_Handler();
+      Printf_FatFs_Err(res);
     }
     else
     {
       /*##-3- Create a FAT file system (format) on the logical drive #########*/
-      if(f_mkfs((TCHAR const*)DISKPath, FM_ANY, 0, buffer, sizeof(buffer)) != FR_OK) 
+      res = f_mkfs((TCHAR const*)DISKPath, FM_ANY, 0, buffer, sizeof(buffer));
+      if(res != FR_OK) 
       {
         /* FatFs Format Error */
-        FatFs_Error_Handler();
+        Printf_FatFs_Err(res);
       }
       else
       {
         /*##-4- Create and Open a new text file object with write access #####*/
-        if(f_open(&MyFile, "STM32.TXT", FA_CREATE_ALWAYS | FA_WRITE) != FR_OK) 
+        res = f_open(&MyFile, "STM32.TXT", FA_CREATE_ALWAYS | FA_WRITE);
+        if(res != FR_OK) 
         {
           /* 'STM32.TXT' file Open for write Error */
-          FatFs_Error_Handler();
+          Printf_FatFs_Err(res);
         }
         else
         {
@@ -70,7 +80,7 @@ int FatFs_Test(void)
           if((byteswritten == 0) || (res != FR_OK))
           {
             /* 'STM32.TXT' file Write or EOF Error */
-            FatFs_Error_Handler();
+            Printf_FatFs_Err(res);
           }
           else
           {
@@ -78,10 +88,11 @@ int FatFs_Test(void)
             f_close(&MyFile);
             
               /*##-7- Open the text file object with read access ###############*/
-            if(f_open(&MyFile, "STM32.TXT", FA_READ) != FR_OK)
+            res = f_open(&MyFile, "STM32.TXT", FA_READ);
+            if(res != FR_OK)
             {
               /* 'STM32.TXT' file Open for read Error */
-              FatFs_Error_Handler();
+              Printf_FatFs_Err(res);
             }
             else
             {
@@ -91,7 +102,7 @@ int FatFs_Test(void)
               if((bytesread == 0) || (res != FR_OK))
               {
                 /* 'STM32.TXT' file Read or EOF Error */
-                FatFs_Error_Handler();
+                Printf_FatFs_Err(res);
               }
               else
               {
@@ -102,7 +113,7 @@ int FatFs_Test(void)
                 if ((bytesread != byteswritten))
                 {                
                   /* Read data is different from the expected data */
-                  FatFs_Error_Handler(); 
+                  Printf_FatFs_Err(res); 
                 }
                 else
                 {
@@ -235,12 +246,12 @@ static FRESULT Miscellaneous(void)
       byteswritten = f_printf(&MyFile, "add a new line to the original file.");
       if(byteswritten == EOF)
       {
-        FatFs_Error_Handler();
+        FatFs_err;
       }
       byteswritten = f_printf(&MyFile, "Total equipment space:%6lu MB.\r\nAvailable space: %6lu MB.", tot_sect * 4 / 1024, fre_sect * 4 / 1024);
       if(byteswritten == EOF)
       {
-        FatFs_Error_Handler();
+        FatFs_err;
       }
 
       /* The file is positioned at the start of the file. */

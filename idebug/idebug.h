@@ -8,7 +8,7 @@
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 /* Includes ------------------------------------------------------------------*/
-#include "stm32f4xx_hal.h"
+#include "stm32l4xx_hal.h"
 #include "stdio.h"
 
 extern int dbg_level;
@@ -25,7 +25,7 @@ extern int dbg_level;
 
 #ifdef DEBUG
 
-#define OS_TIME_MS()    0
+#define OS_TIME_MS()    HAL_GetTick()
 
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -47,7 +47,7 @@ extern int dbg_level;
     printf("%s[", tag);\
     for (dump_hex_i = 0; dump_hex_i < size; dump_hex_i++)\
     {\
-        printf("%02x ", ((char*)buff)[dump_hex_i]);\
+        printf("%02X ", ((char*)buff)[dump_hex_i]);\
     }\
     printf("]\r\n");\
 }while(0)

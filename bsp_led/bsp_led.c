@@ -1,12 +1,20 @@
-#include "bsp_led.h"
+#include "bsp_led/bsp_led.h"
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
-GPIO_TypeDef* GPIO_PORT[LEDn] = {GPIOG, 
-                                 GPIOG};
+/**
+  * @step 1:  Modify the corresponding function according to the modified area and the corresponding function name.
+  * @step 2:  Modify four areas: GPIO_PORT/GPIO_PIN/Led_TypeDef/LEDn.
+  * @step 3:  .
+  * @step 4:  .
+  * @step 5:
+  */
 
-const uint16_t GPIO_PIN[LEDn] = {GPIO_PIN_13, 
-                                 GPIO_PIN_14};
+GPIO_TypeDef* GPIO_PORT[LEDn] = {GPIOA, 
+                                 };
+
+const uint16_t GPIO_PIN[LEDn] = {GPIO_PIN_15, 
+                                 };
 
 /**
   * @brief  Configures LED GPIO.

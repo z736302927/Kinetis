@@ -1,4 +1,4 @@
-#include "bsp_key.h"
+#include "bsp_key/bsp_key.h"
 
 #define EVENT_CB(ev) if(handle->CB[ev]) handle->CB[ev]((Button_TypeDef*)handle)
   
@@ -6,11 +6,37 @@ static struct Button_TypeDef* head_handle = NULL;
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
-#include "string.h"
+/**
+  * @step 1:  Modify the corresponding function according to the modified area and the corresponding function name.
+  * @step 2:  Modify Multi_Button_Test function, register the corresponding button and Button_Callback callback function.
+  * @step 3:  Call function Button_Ticks periodically for 5 ms.
+  * @step 4:  Call function Multi_Button_Test once in function main.
+  */
 
+#include "string.h"
+#include "bsp_timtask/bsp_timtask.h"
+
+#define DEBUG
+#include "idebug/idebug.h"
+
+#define Button_printf    p_dbg
 
 static void Button_Handler(struct Button_TypeDef* handle);
 
+static struct Button_TypeDef Button_Test_Inst;
+
+struct TimTask_TypeDef ButtonTask;
+
+void ButtonTask_Callback(void)
+{
+  Button_Ticks();
+}
+
+void ButtonTask_Init(void)
+{
+  TimTask_Init(&ButtonTask, ButtonTask_Callback, 5, 5); //1s loop
+  TimTask_Start(&ButtonTask);
+}
 
 /**
   * @brief  Initializes the button struct handle.
@@ -114,6 +140,64 @@ void Button_Ticks(void)
   }
 }
 
+static uint8_t Button_Read_Pin(void) 
+{
+  return HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_0);
+}
+
+static void Button_Callback(void *btn)
+{
+  uint32_t btn_event_val; 
+  
+  btn_event_val = Get_Button_Event((struct Button_TypeDef *)btn); 
+  
+  switch(btn_event_val)
+  {
+    case PRESS_DOWN:
+        Button_printf("Button press down"); 
+    break; 
+
+    case PRESS_UP: 
+        Button_printf("Button press up");
+    break; 
+
+    case PRESS_REPEAT: 
+        Button_printf("Button press repeat");
+    break; 
+
+    case SINGLE_CLICK: 
+        Button_printf("Button single click");
+    break; 
+
+    case DOUBLE_CLICK: 
+        Button_printf("Button double click");
+    break; 
+
+    case LONG_RRESS_START: 
+        Button_printf("Button long press start");
+    break; 
+
+    case LONG_PRESS_HOLD: 
+        Button_printf("Button long press hold");
+    break; 
+  }
+}
+
+int Multi_Button_Test(void)
+{
+  /* low level drive */
+  Button_Init  (&Button_Test_Inst, Button_Read_Pin, 0);
+  Button_Attach(&Button_Test_Inst, PRESS_DOWN,       Button_Callback);
+  Button_Attach(&Button_Test_Inst, PRESS_UP,         Button_Callback);
+  Button_Attach(&Button_Test_Inst, PRESS_REPEAT,     Button_Callback);
+  Button_Attach(&Button_Test_Inst, SINGLE_CLICK,     Button_Callback);
+  Button_Attach(&Button_Test_Inst, DOUBLE_CLICK,     Button_Callback);
+  Button_Attach(&Button_Test_Inst, LONG_RRESS_START, Button_Callback);
+  Button_Attach(&Button_Test_Inst, LONG_PRESS_HOLD,  Button_Callback);
+  Button_Start (&Button_Test_Inst);
+
+  return 0; 
+}
 
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 

@@ -1,16 +1,45 @@
-#include "i2c_soft.h"
+#include "i2c_soft/i2c_soft.h"
 
-static uint8_t I2C_FastMode = 0;
+static uint8_t I2C_FastMode = 1;
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
+
+/**
+  * @step 1:  Modify the corresponding function according to the modified area and the corresponding function name.
+  * @step 2:  Modify the read-write function of I2C corresponding pin in the header file.
+  * @step 3:  Modify the read-write address length in the header file.
+  */
 
 void I2c_Soft_Init(void)
 {
 
 }
 
+/* The current delay time is 5 us on an 80M clock */
+void I2c_Soft_Subdelay(void)
+{
+  int i = 0;
+  
+  for(i = 0;i < 100;i++)
+    asm("nop");
+}
+
 void I2c_Soft_delay(void)
 { 
-//  Delay_us(5);
+  switch(I2C_FastMode)
+  {
+    case 0:
+      I2c_Soft_Subdelay();
+      I2c_Soft_Subdelay();
+      I2c_Soft_Subdelay();
+      I2c_Soft_Subdelay();
+      break;
+    case 1:
+      I2c_Soft_Subdelay();
+      break;
+    default:
+      I2c_Soft_Subdelay();
+      break;
+  }
 }
 
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
@@ -30,6 +59,7 @@ static int I2c_Soft_Start(void)
     return 0;
   SDA_L;
   I2c_Soft_delay();
+  
   return 1;
 }
 
@@ -93,6 +123,7 @@ static int I2c_Soft_WaitAsk(void)
   }
   SCL_L;
   I2c_Soft_delay();
+  
   return 0;
 }
 
@@ -141,6 +172,7 @@ static uint8_t I2c_Soft_ReadByte(uint8_t ask)
     I2c_Soft_Ask();
   else
     I2c_Soft_NoAsk();  
+  
   return ReceiveByte;
 } 
 
@@ -162,7 +194,8 @@ uint8_t IIC_Write_1Byte(uint8_t SlaveAddress,uint16_t REG_Address,uint8_t REG_da
   I2c_Soft_WaitAsk();  
   I2c_Soft_SendByte(REG_data);
   I2c_Soft_WaitAsk();   
-  I2c_Soft_Stop(); 
+  I2c_Soft_Stop();
+  
   return 0;
 }
 
@@ -188,6 +221,7 @@ uint8_t IIC_Read_1Byte(uint8_t SlaveAddress,uint16_t REG_Address,uint8_t *REG_da
   I2c_Soft_WaitAsk();
   *REG_data = I2c_Soft_ReadByte(0);
   I2c_Soft_Stop();
+  
   return 0;
 }  
 
@@ -213,6 +247,7 @@ uint8_t IIC_Write_nByte(uint8_t SlaveAddress, uint16_t REG_Address, uint8_t *buf
     I2c_Soft_WaitAsk();
   }
   I2c_Soft_Stop();
+  
   return 0;
 }
 
@@ -246,6 +281,7 @@ uint8_t IIC_Read_nByte(uint8_t SlaveAddress, uint16_t REG_Address, uint8_t *buf,
     len--;
   }
   I2c_Soft_Stop();
+  
   return 0;
 }
 

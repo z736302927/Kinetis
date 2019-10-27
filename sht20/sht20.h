@@ -1,5 +1,5 @@
-#ifndef __BSP_LED_H
-#define __BSP_LED_H
+#ifndef __SHT20_H
+#define __SHT20_H
 
 #ifdef __cplusplus
  extern "C" {
@@ -10,24 +10,19 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm32l4xx_hal.h"
 
-typedef enum 
-{
-  LED1 = 0,
-  LED2 = 1
-}Led_TypeDef;
 
-#define LEDn              1
+#define SHT20_IIC_ADDR              0x40
+#define SHT20_MEASURE_TEMP_CMD      0xE3
+#define SHT20_MEASURE_RH_CMD        0xE5
+#define SHT20_SOFT_RESET_CMD        0xFE
 
-void BSP_LED_Init(Led_TypeDef Led);
-void BSP_LED_On(Led_TypeDef Led);
-void BSP_LED_Off(Led_TypeDef Led);
-void BSP_LED_Toggle(Led_TypeDef Led);
+void SHT20_Init(void);
+void SHT20_Read_TempAndRH(float *Temperature, float *Humidit);
 
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
-
 #ifdef __cplusplus
-}
+} 
 #endif
 
-#endif /* __BSP_LED_H */
+#endif /* __SHT20_H */
