@@ -37,6 +37,8 @@ void Task_Temperature_Humidit_Callback(void)
   Hydrology_WriteStoreInfo(HYDROLOGY_ANALOG1, tmpvalue, HYDROLOGY_ANALOG_LEN);
   memcpy(tmpvalue, (char*)(&SHT20_Humidit), 4);
   Hydrology_WriteStoreInfo(HYDROLOGY_ANALOG2, tmpvalue, HYDROLOGY_ANALOG_LEN);
+  
+  Hydrology_SetObservationTime(Element_table[0].ID, 0);
 }
 
 void HydrologyTask_LinkMaintenance_Callback(void)
@@ -61,19 +63,19 @@ void HydrologyTask_Hour_Callback(void)
 
 void HydrologyTask_Init(void)
 {
-  TimTask_Init(&HydrologyTask_LinkMaintenance, HydrologyTask_LinkMaintenance_Callback, 40 * 1000, 40 * 1000); 
-  TimTask_Start(&HydrologyTask_LinkMaintenance);
+//  TimTask_Init(&HydrologyTask_LinkMaintenance, HydrologyTask_LinkMaintenance_Callback, 40 * 1000, 40 * 1000); 
+//  TimTask_Start(&HydrologyTask_LinkMaintenance);
   
-  TimTask_Init(&Task_Temperature_Humidit, Task_Temperature_Humidit_Callback, 10 * 1000, 10 * 1000); 
+  TimTask_Init(&Task_Temperature_Humidit, Task_Temperature_Humidit_Callback, 60 * 1000, 60 * 1000); 
   TimTask_Start(&Task_Temperature_Humidit);
  
-  RTCTask_Init(&HydrologyTask_Test, HydrologyTask_Test_Callback, 0, 1, 0);
-  RTCTask_Start(&HydrologyTask_Test);
+//  RTCTask_Init(&HydrologyTask_Test, HydrologyTask_Test_Callback, 0, 1, 0);
+//  RTCTask_Start(&HydrologyTask_Test);
   
   RTCTask_Init(&HydrologyTask_TimerReport, HydrologyTask_TimerReport_Callback, 0, 5, 0);
   RTCTask_Start(&HydrologyTask_TimerReport);
   
-  RTCTask_Init(&HydrologyTask_Hour, HydrologyTask_Hour_Callback, 1, 0, 0);
-  RTCTask_Start(&HydrologyTask_Hour);
+//  RTCTask_Init(&HydrologyTask_Hour, HydrologyTask_Hour_Callback, 1, 0, 0);
+//  RTCTask_Start(&HydrologyTask_Hour);
 }
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/

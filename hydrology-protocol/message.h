@@ -39,7 +39,7 @@
 #define HYDROLOGY_IO_STATUS             2
 #define HYDROLOGY_RS485                 3
 
-#define ELEMENT_REGISTER(id,type,D,d,Mode) {id,type,D,d,Mode}
+#define ELEMENT_REGISTER(id, type, D, d, Mode) {id, type, D, d, Mode}
 #define RS485RegisterCount              2
 
 #define ERC1                            1
@@ -181,19 +181,19 @@ void Hydrology_SetTime(char* time);
 
 void Hydrology_ReadRTUType(char* type);
 
-void Hydrology_ReadObservationTime(char id,char* observationtime,int index);
+void Hydrology_ReadObservationTime(char id, char* observationtime, int index);
 
-void Hydrology_SetObservationTime(char id,char* observationtime,int index);
+void Hydrology_SetObservationTime(char id, int index);
 
-int Hydrology_ReadStoreInfo(long addr,char *data,int len);
+int Hydrology_ReadStoreInfo(long addr, char *data, int len);
 
-int Hydrology_WriteStoreInfo(long addr,char *data,int len);
+int Hydrology_WriteStoreInfo(long addr, char *data, int len);
 
 short hydrologyCRC16(char* pchMsg, int wDataLen);
 
 int hydrologyProcessSend(char funcode);
 
-int hydrologyProcessReceieve(char* input,int inputlen);
+int hydrologyProcessReceieve(char* input, int inputlen);
 
 void Hydrology_Printf(char *buff);
 

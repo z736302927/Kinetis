@@ -32,6 +32,7 @@ hydrologyElement inputPara[MAX_ELEMENT];
 #include "rtc.h"
 #include "ff.h"
 #include "fatfs.h"
+#include "nb_iot/nb_app.h"
 
 #define DEBUG
 #include "idebug/idebug.h"
@@ -135,26 +136,27 @@ void Hydrology_ReadTime(char* time)
 
 void Hydrology_SetTime(char* time_temp)
 {
-  uint8_t temp[7];
-  uint8_t time[12];
-  uint8_t i = 0;
-  
-  for(i = 0;i < 12;i++)
-    time[i] = time_temp[i] - '0';
-  
-  temp[0] = (time[0] << 4) + time[1];
-  temp[1] = (time[2] << 4) + time[3];
-  temp[2] = (time[4] << 4) + time[5];
-  temp[3] = (time[6] << 4) + time[7];
-  temp[4] = (time[8] << 4) + time[9];
-  temp[5] = (time[10] << 4) + time[11];
+//  uint8_t temp[7];
+//  uint8_t time[12];
+//  uint8_t i = 0;
+//  
+//  for(i = 0;i < 12;i++)
+//    time[i] = time_temp[i] - '0';
+//  
+//  temp[0] = (time[0] << 4) + time[1];
+//  temp[1] = (time[2] << 4) + time[3];
+//  temp[2] = (time[4] << 4) + time[5];
+//  temp[3] = (time[6] << 4) + time[7];
+//  temp[4] = (time[8] << 4) + time[9];
+//  temp[5] = (time[10] << 4) + time[11];
 
-  RTC_CalendarConfig(temp[0], temp[1], temp[2], temp[3], temp[4], temp[5], 0x07);
+  RTC_CalendarConfig(time_temp[0], time_temp[1], time_temp[2], time_temp[3], time_temp[4], time_temp[5], 0x07);
 }
 
 int Hydrology_SendData(char* data, int len)
 {
   p_hex(data, len);
+  NB_IOT_SendData(data, len);
   return 0;
 }
 
@@ -197,13 +199,15 @@ void Hydrology_ReadObservationTime(char id, char* observationtime, int index)
     }
     i++;
   }
+  
   Hydrology_ReadStoreInfo(addr, observationtime, HYDROLOGY_OBSERVATION_TIME_LEN);
 }
 
-void Hydrology_SetObservationTime(char id, char* observationtime, int index)
+void Hydrology_SetObservationTime(char id, int index)
 {
   long addr = HYDROLOGY_ANALOG1_OBSERVATION_TIME + index * HYDROLOGY_OBSERVATION_TIME_LEN;
   int i = 0;
+  char observationtime[6] = {0,0,0,0,0,0};
   
   while(Element_table[i].ID != 0)
   {
@@ -232,6 +236,8 @@ void Hydrology_SetObservationTime(char id, char* observationtime, int index)
     }
     i++;
   }
+  
+  Hydrology_ReadTime(observationtime);
   Hydrology_WriteStoreInfo(addr, observationtime, HYDROLOGY_OBSERVATION_TIME_LEN);
 }
 
@@ -308,7 +314,7 @@ static int getEvenNum(int num)
     return num+1;
 }
 
-/*字节高5位，D表示数据字节数，字节低3位，d表示小数点后位数*/
+/* The byte is 5 bits high, D represents the number of data bytes, and 3 bits low, D represents the number of decimal places */
 static void getguideid(char* value, char D,  char d)
 {
   char high5 = 0;
@@ -319,25 +325,25 @@ static void getguideid(char* value, char D,  char d)
 
   high5 = evenD/2;
   high5 = high5 << 3;
-  low3 = d; //d的范围是0-7之间，才能用3位表示
+  low3 = d; //D has to be between 0 and 7 to be represented in 3 digits.
   *value = high5 | low3;
 }
 
 
 static int converToHexElement(double input,  int D, int d, char* out)
 {
-  char strInterValue[20] = {0}; //strInterValue表示整数值
-  char strDeciValue[20] = {0};  //strDeciValue表示小数值
-  int integer =0;               //interger表示整数位数
-  int decimer =0;               //decimer表示小数位数
-  //int intergerValue = 0 ;     //表示整数值
-  //int decimerValue = 0 ;      //表示小数值
-  int total = 0;                //total 表示input总的位数（除去小数点）
-  int evenD = 0;                //偶数D
-  int difftotal = 0;            //表示evenD与total差值
-  int diffInterger = 0;         //表示整数位需要补齐
-  int diffDecimer = 0;          //表示小数位需要补齐
-  //int delDecimer = 0 ;        //表示小数位需要删除的位数
+  char strInterValue[20] = {0}; //StrInterValue represents an integer value
+  char strDeciValue[20] = {0};  //StrDeciValue means a small value
+  int integer =0;               //Interger represents an integer number
+  int decimer =0;               //Interger for integer number decimer for decimal number
+  //int intergerValue = 0 ;     //Represents integral value
+  //int decimerValue = 0 ;      //Representing a small number
+  int total = 0;                //Total represents the total number of input digits (minus the decimal point).
+  int evenD = 0;                //Even D
+  int difftotal = 0;            //Represents the difference between evenD and total
+  int diffInterger = 0;         //Indicates that integer bits need to be completed
+  int diffDecimer = 0;          //Indicates that the decimal place needs to be filled
+  //int delDecimer = 0 ;        //Represents the number of digits in the decimal place to delete
   int i = 0;
   int j = 0;
   int m = 0;
@@ -351,16 +357,19 @@ static int converToHexElement(double input,  int D, int d, char* out)
   evenD = getEvenNum(D);
   total = integer + decimer;
 
-  if ( evenD >= total )         //有输入配置参数保证
+  if ( evenD >= total )         //Input configuration parameters are guaranteed
   {
     difftotal = evenD - total;
-    if( d >= decimer )          //这个是肯定发生的，getBCDnums保证
+    if( d >= decimer )          //This is definitely going to happen, getBCDnums guarantees
     {
-      diffDecimer = d - decimer;//小数位需要补0的位数，，往后补0
-      diffInterger = difftotal - diffDecimer;//整数位需要补0 的位数, 假设difftotal总是大于diffDecimer，往前补0
+      diffDecimer = d - decimer;//The number of digits in the decimal place that need to be filled in
+      diffInterger = difftotal - diffDecimer;/* Integer bit needs to fill in the number of digits of 0, 
+                                                assuming that difftotal is always greater than diffDecimer */
     }
-    /*将当前小数位和整数位都整合到tmp数组中，分为下面几个部分 0--->diffInterger-1 整数补0的个数，diffInterger---> diffInterger+ interger是整数位个数，
-    diffInter+ interge ---> evenD是小数位个数*/
+    /* The current decimal and integer bits are integrated into the TMP array, 
+        divided into the following parts 0-- >diffInterger-1 integer fill 0 number, 
+        diffInterger-- >diffInterger + interger is the number of integer bits, 
+        diffInter+ interge --> evenD is the number of decimal bits */
     memcpy(&tmp[diffInterger],strInterValue,  integer);
     memcpy(&tmp[diffInterger+integer],strDeciValue,  decimer);
 
@@ -371,7 +380,7 @@ static int converToHexElement(double input,  int D, int d, char* out)
       out[j++] = (tmp[i] - '0') * 16 + (tmp[i+1]-'0');
     }
   }
-  else //当前这种情况不会发生
+  else //That will not happen now
   {
     return -1;
   }

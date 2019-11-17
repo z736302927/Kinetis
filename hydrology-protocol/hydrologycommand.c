@@ -950,24 +950,24 @@ static int hydrologyReadPara(void)
 
 static int hydrologyInitializeSolidStorage(void)
 {
-    char _src[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-    int writelen = HYDROLOGY_END - HYDROLOGY_CONFIG_ADDR;
-    int writeaddr = HYDROLOGY_CONFIG_ADDR;
-    
-    if(writelen >= 0x07FF)
-      writelen = 0x07FF;
-    
-    while (writelen > 16)
-    {
-      Hydrology_WriteStoreInfo(writeaddr,  _src,  16);
+  char _src[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  int writelen = HYDROLOGY_END - HYDROLOGY_CONFIG_ADDR;
+  int writeaddr = HYDROLOGY_CONFIG_ADDR;
+  
+  if(writelen >= 0x07FF)
+    writelen = 0x07FF;
+  
+  while (writelen > 16)
+  {
+    Hydrology_WriteStoreInfo(writeaddr,  _src,  16);
 
-      writeaddr = writeaddr + 16;
-      writelen = writelen - 16;
-    }
+    writeaddr = writeaddr + 16;
+    writelen = writelen - 16;
+  }
 
-    Hydrology_WriteStoreInfo(writeaddr,  _src,  writelen);
-      
-    return 0;
+  Hydrology_WriteStoreInfo(writeaddr,  _src,  writelen);
+    
+  return 0;
 }
 
 int Hydrology_Reset(void)
@@ -1189,6 +1189,7 @@ int hydrologyCommand(int type)
     }
     case Reset:
     {
+      hydrologySetClock();
       Hydrology_Reset();
       break;
     }        
@@ -1313,23 +1314,4 @@ int HydrologyReadSuiteElement(int type, char* guide, char* value)
   }                
   return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
