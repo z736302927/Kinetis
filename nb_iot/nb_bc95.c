@@ -237,7 +237,7 @@ const char*  AT_NTSETID      = "AT+NTSETID";
 #define REMOTE_SERVER_PORT      "6000"
 
 
-#define REMOTE_COAP_INFO        "115.29.240.46,5683"
+#define REMOTE_COAP_INFO        "117.60.157.137,5683"
 
 #define LOCAL_UDP_SET           "DGRAM,17,10000,1"
 
@@ -273,7 +273,7 @@ const NB_ModuleTypeDef BC95_FxnTable = {
   .coapSetReceMode       = bc95_coapReceIndication,
   .coapSentMsg           = bc95_coapSendMsg,
   .coapReceMsg           = bc95_coapReadMsg,
-  .mainThread = bc95_main
+  .mainThread            = bc95_main
 };
 
 //******************************************************************************
@@ -290,7 +290,7 @@ const NB_ModuleTypeDef BC95_FxnTable = {
 struct ReceBuf
 {
   char    Buf[NB_UART_RECE_BUF_MAX_LEN];
-  uint16_t  len;                                    //有效数据长度
+  uint16_t  len;            //有效数据长度
 }gNBReceBuf;
 
 //Send buffer
@@ -400,54 +400,10 @@ const uint8_t nb95_udpst_process[] = {SUB_NONE,SUB_UDP_ST,SUB_END};
 //==============================================================================
 
 //声明区域
-//******************************************************************************
-// fn : nbsend_msg_app
-//
-// brief : 通过回调函数，向应用层发送指令参数
-//
-// param : 
-//
-// return : none
 static void nbsend_msg_app(NB_Handle handle, char**buf,Bool isOk);
-
-//******************************************************************************
-// fn : NB_Strtoul
-//
-// brief : 将字符型数字转成整型
-//
-// param : pStr -> 要转换内容地址
-//         base -> 转换内容以多少进制进行转换（2-36）
-//
-// return : 整形数据
 static uint32_t NB_Strtoul(const char* pStr,int base);
-//******************************************************************************
-// fn : NB_HexStrToNUM
-//
-// brief : 将十六进制字符串转成数字
-//
-// param : len -> 字符长度
-//         str -> 十六进制字符串内容
-//
-// return : 返回转换后的长度
 static uint16_t NB_HexStrToNum(char* str);
-//******************************************************************************
-// fn : cmd_generate
-//
-// brief : 通过cmd_info_t类型变量，生成AT指令
-//
-// param : cmdHandle->AT指令结构指针
-//
-// return : 生成字符串指令长度
 static int cmd_generate(CmdHandle cmdHandle);
-//******************************************************************************
-// fn : bc95_receUDP
-//
-// brief : 接收UDP数据
-//
-// param : handle -> NB 结构信息指针
-//
-//
-// return : FAIL -> 没有创建UDP,SUCCESS->指令执行成功
 int bc95_receUDP(NB_Handle handle);
 
 
@@ -456,12 +412,9 @@ static void nbset_event(int event_id)
   g_event_regTable |= event_id;
 }
 //******************************************************************************
-// fn : nbsend_msg_app
-//
-// brief : 通过回调函数，向应用层发送指令参数
-//
+// fn : nbstop_timer
+// brief : 
 // param : 
-//
 // return : none
 static void nbstop_timer(HWAttrs_Handle hw_handle)
 {
@@ -472,12 +425,9 @@ static void nbstop_timer(HWAttrs_Handle hw_handle)
 }
 //******************************************************************************
 // fn : NB_SendCmd
-//
 // brief : 通过注册的串口函数向外发送at指令
-//
 // param : hw_handle ->  硬件操作函数指针
 //         cmdHandle -> 将要发送指令信息
-//
 // return : none
 static void NB_SendCmd(HWAttrs_Handle hw_handle,CmdHandle cmdHandle)
 {
@@ -498,11 +448,8 @@ static void NB_SendCmd(HWAttrs_Handle hw_handle,CmdHandle cmdHandle)
 }
 //******************************************************************************
 // fn : reset_rece_buf
-//
 // brief : 复位接收缓存
-//
 // param : none
-//
 // return : none
 static void reset_rece_buf(void)
 {
@@ -510,11 +457,8 @@ static void reset_rece_buf(void)
 }
 //******************************************************************************
 // fn : cmd_param_init
-//
 // brief : 对cmd_info_t类型变理进行初始化
-//
 // param : cmdHandle->AT指令结构指针
-//
 // return : none
 static void cmd_param_init(CmdHandle cmdHandle,const char* AT,char* argument,NB_CmdProperty property)
 {
@@ -534,11 +478,8 @@ static void cmd_param_init(CmdHandle cmdHandle,const char* AT,char* argument,NB_
 }
 //******************************************************************************
 // fn : cmd_next
-//
 // brief : 产生下一条AT指令
-//
 // param : none
-//
 // return : FALSE -> 所有要执行的指令都执行完成，TRUE->OK
 // ACTION:
 // 会用到全局变量nb_handle,nb_state
@@ -710,11 +651,8 @@ static Bool cmd_next()
 
 //******************************************************************************
 // fn : cmd_generate
-//
 // brief : 通过cmd_info_t类型变量，生成AT指令
-//
 // param : cmdHandle->AT指令结构指针
-//
 // return : 生成字符串指令长度
 static int cmd_generate(CmdHandle cmdHandle)
 {
@@ -757,11 +695,8 @@ static int cmd_generate(CmdHandle cmdHandle)
 }
 //******************************************************************************
 // fn : cmd_isPass
-//
 // brief : 判断bc95执行的AT指令是否执行成功
-//
 // param : none
-//
 // return : none
 static int8_t cmd_isPass(char* buf)
 {
@@ -803,11 +738,8 @@ static int8_t cmd_isPass(char* buf)
 }
 //******************************************************************************
 // fn : addr_adjust
-//
 // brief : 根据异步消息，调整指令响应数据
-//
 // param : 
-//
 // return : TRUE ->表示要执行指令响应，FALSE ->不执行 
 uint8_t addr_adjust(char* buf,char* pStart,uint16_t* plen)
 {
@@ -922,12 +854,9 @@ uint8_t bc95_AsyncNotification(char* buf, uint16_t* len)
 }
 //******************************************************************************
 // fn : bc95_receCb
-//
 // brief : bc95 处理串口返回数据
-//
 // param : buf -> 接收的数据缓存地址
 //         len -> 数据长度
-//
 // return : none
 static void bc95_receCb(char* buf, uint16 len)
 {
@@ -945,9 +874,12 @@ static void bc95_receCb(char* buf, uint16 len)
     }
     if((gNBReceBuf.len + len) < NB_UART_RECE_BUF_MAX_LEN)
     {   
-      memcpy(gNBReceBuf.Buf + gNBReceBuf.len ,buf,len);
+      memcpy(gNBReceBuf.Buf + gNBReceBuf.len, buf, len);
       gNBReceBuf.len += len;
     }
+//    reset_rece_buf();
+//    memcpy(gNBReceBuf.Buf, buf, len);
+//    gNBReceBuf.len = len;
     nbset_event(NB_SP_RECE_EVENT);
   }
 
@@ -955,11 +887,8 @@ static void bc95_receCb(char* buf, uint16 len)
 
 //******************************************************************************
 // fn : bc95_timeout_cb
-//
 // brief : bc95 处理串口返回数据
-//
 // param : none
-//
 // return : none
 static void bc95_timeoutCb(void)
 {
@@ -967,11 +896,8 @@ static void bc95_timeoutCb(void)
 }
 //******************************************************************************
 // fn : state_reset
-//
 // brief : 复位NBiot进程状态
-//
 // param : none
-//
 // return : none
 static void state_reset()
 {
@@ -980,16 +906,13 @@ static void state_reset()
 }
 //******************************************************************************
 // fn : bc95_open
-//
 // brief : 打开bc95使用的uart串口硬件
-//
 // param : handle ->nb对象指针
-//
 // return : none
 
 int bc95_open(NB_Handle handle)
 {
-  HWAttrs_Handle  hw_handle = (HWAttrs_Handle)handle->Object;
+  HWAttrs_Handle hw_handle = (HWAttrs_Handle)handle->Object;
   
   g_event_regTable = 0;
   state_reset();
@@ -1000,6 +923,39 @@ int bc95_open(NB_Handle handle)
   
   //注册定时器超时回调函数
   hw_handle->Timer->Init(bc95_timeoutCb);
+  
+  return SUCCESS;
+}
+
+//******************************************************************************
+// fn : bc95_setbaud
+// brief : 设置BC95模块波特率
+// param : handle ->nb对象指针
+// return : FALSE -> 操作失败，TRUE -> 操作成功
+int bc95_setbaud(NB_Handle handle, int baud)
+{
+  HWAttrs_Handle hw_handle = (HWAttrs_Handle)handle->Object;
+  
+  if(g_nb_state.state != PROCESS_NONE)
+  {
+    return FAIL;
+  }
+  
+  char  buf[NB_UART_SEND_BUF_MAX_LEN - 40];
+  memset(buf,0,NB_UART_SEND_BUF_MAX_LEN - 40);
+  
+  snprintf(buf, NB_UART_SEND_BUF_MAX_LEN-40, "%d,3,1,2", baud);
+  
+  cmd_param_init(&g_at_cmd,AT_NATSPEED,buf,CMD_SET);
+  
+  //更改NBiot操作进程，进入Init状态
+  g_nb_state.state = PROCESS_NONE;
+  g_nb_state.sub_state = 0;
+  
+  //发送ASYNC 指令
+  g_at_cmd.max_timeout = 2000;
+  
+  NB_SendCmd(hw_handle,&g_at_cmd);
   
   return SUCCESS;
 }
@@ -1089,11 +1045,8 @@ const char* bc95_getIMSI(NB_Handle handle)
 
 //******************************************************************************
 // fn : bc95_getSignal
-//
 // brief : 读取当前信号强度
-//
 // param : handle ->nb对象指针
-//
 // return : none
 int bc95_getSignal(NB_Handle handle)
 {
@@ -1115,13 +1068,11 @@ int bc95_getSignal(NB_Handle handle)
   NB_SendCmd(hw_handle,&g_at_cmd);
   
   return SUCCESS;
-}//******************************************************************************
+}
+//******************************************************************************
 // fn : bc95_createUDP
-//
 // brief : 创建UDP
-//
 // param : handle ->nb对象指针
-//
 // return : none
 int bc95_createUDP(NB_Handle handle)
 {
@@ -1148,11 +1099,8 @@ int bc95_createUDP(NB_Handle handle)
 }
 //******************************************************************************
 // fn : bc95_closeUDP
-//
 // brief : 关闭当前创建UDP
-//
 // param : handle ->nb对象指针
-//
 // return : none
 int bc95_closeUDP(NB_Handle handle)
 {
@@ -1228,7 +1176,7 @@ int bc95_sendUDP(NB_Handle handle,int len,char* msg)
   
   for(uint16_t i = 0 ; i < str_len ; i++)
   {
-    sprintf(&buf[msg_len + (i << 1)],"%02X",(uint8)msg[i]);
+    sprintf(&buf[msg_len + (i << 1)],"%02X",(uint8_t)msg[i]);
   }
   
   cmd_param_init(&g_at_cmd,AT_NSOST,buf,CMD_SET);
@@ -1263,7 +1211,6 @@ int bc95_receUDP(NB_Handle handle)
   {
     read_len = g_bc95_status.nb95_udp_len.nb_data_len;
   }
-  read_len = max_len;
   
   char buf[10] ;
   
@@ -1382,7 +1329,7 @@ int bc95_coapSendMsg(NB_Handle handle,int len,char*msg)
   
   for(uint16_t i = 0 ; i < str_len ; i++)
   {
-    sprintf(&buf[msg_len + (i << 1)],"%02X",(uint8)msg[i]);
+    sprintf(&buf[msg_len + (i << 1)],"%02X",(uint8_t)msg[i]);
   }
   
   cmd_param_init(&g_at_cmd,AT_NMGS,buf,CMD_SET);
@@ -1428,22 +1375,22 @@ extern int bc95_coapReadMsg(NB_Handle handle)
 // return : FALSE -> 操作失败，TRUE -> 操作成功
 int bc95_reboot(NB_Handle handle)
 {
-  HWAttrs_Handle hw_handle = (HWAttrs_Handle)handle->Object;
-  
-//  if(g_nb_state.state != PROCESS_NONE)
-//  {
-//    return FAIL;
-//  }
-  
-  cmd_param_init(&g_at_cmd, AT_NRB, null, CMD_EXCUTE);
-
-  g_nb_state.state = PROCESS_NONE;
-  g_nb_state.sub_state = 0;
-  
-//  g_at_cmd.cmd_try = 0;
-//  g_at_cmd.max_timeout = 3000;
-  
-  NB_SendCmd(hw_handle, &g_at_cmd);
+//  HWAttrs_Handle hw_handle = (HWAttrs_Handle)handle->Object;
+//  
+////  if(g_nb_state.state != PROCESS_NONE)
+////  {
+////    return FAIL;
+////  }
+//  
+//  cmd_param_init(&g_at_cmd, AT_NRB, null, CMD_EXCUTE);
+//
+//  g_nb_state.state = PROCESS_NONE;
+//  g_nb_state.sub_state = 0;
+//  
+////  g_at_cmd.cmd_try = 0;
+////  g_at_cmd.max_timeout = 3000;
+//  
+//  NB_SendCmd(hw_handle, &g_at_cmd);
   
   
   return SUCCESS;
@@ -1625,11 +1572,8 @@ int bc95_main(NB_Handle handle)
 
 //******************************************************************************
 // fn : nbsend_msg_app
-//
 // brief : 通过回调函数，向应用层发送指令参数
-//
 // param : 
-//
 // return : none
 void nbsend_msg_app(NB_Handle handle, char**buf, Bool isOk)
 {
@@ -1824,7 +1768,6 @@ void nbsend_msg_app(NB_Handle handle, char**buf, Bool isOk)
   {
     if(g_nb_state.sub_state == 1)
     {
-      //
       char* param[6];
       uint16_t index = 0;
       char* tmp_buf = buf[0];
@@ -1855,6 +1798,7 @@ void nbsend_msg_app(NB_Handle handle, char**buf, Bool isOk)
     if(g_nb_state.sub_state == 1)
     {
       char* tmp_buf = NULL;
+      
       if(strstr(buf[0],"OK"))
       {
         tmp_buf = "S";
@@ -1883,16 +1827,22 @@ void nbsend_msg_app(NB_Handle handle, char**buf, Bool isOk)
     if(g_nb_state.sub_state == 1)
     {
       uint16_t index = 0;
+      uint8_t i = 0;
+      
       char* tmp_buf = NULL;
      
-      tmp_buf = strchr(buf[0],',');
-      if(tmp_buf)
+      while(i < 3)
       {
-        tmp_buf++;
-        index =  NB_HexStrToNum(tmp_buf);
-        handle->AppReceiveCallback((NB_MessageTypeDef)PROCESS_COAP_RE,index,tmp_buf); 
+        tmp_buf = strchr(buf[i],',');
+        if(tmp_buf != NULL)
+        {
+          tmp_buf++;
+          index =  NB_HexStrToNum(tmp_buf);
+          handle->AppReceiveCallback((NB_MessageTypeDef)PROCESS_COAP_RE,index,tmp_buf);
+          break;
+        }
+        i++;
       }
-   
     }
   }
     

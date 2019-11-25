@@ -7,6 +7,7 @@ extern "C"
 #endif
   
 #include "nb_types.h" 
+#include "stdint.h"
   
 //Error const number
  
@@ -108,22 +109,23 @@ typedef struct NB_ConfigTypeDef
 }NB_ConfigTypeDef;
 
 
-extern uint8 NBModule_open(NB_Handle handle);
-extern uint8 NBModule_Reboot(NB_Handle handle);
-extern uint8 NBModule_Init(NB_Handle handle);
-extern uint8 NBModule_Info(NB_Handle handle);
-extern uint8 NBModule_isRegister(NB_Handle handle);
+extern uint8_t NBModule_open(NB_Handle handle);
+extern uint8_t NBModule_Reboot(NB_Handle handle);
+extern uint8_t NBModule_Init(NB_Handle handle);
+extern uint8_t NBModule_Info(NB_Handle handle);
+extern uint8_t NBModule_isRegister(NB_Handle handle);
 extern const char* NBModule_IMSI(NB_Handle handle);
-extern uint8 NBModule_Sign(NB_Handle handle);
-extern uint8 NBModule_DeactPDP(NB_Handle handle);
-extern uint8 NBModule_CreateUDP(NB_Handle handle);
-extern uint8 NBModule_CloseUDP(NB_Handle handle);
-extern uint8 NBModule_SendData(NB_Handle handle, int len, char* msg);
-extern uint8 NBModule_ReceiveData(NB_Handle handle);
-extern uint8 NBModule_CoAPServer(NB_Handle handle, Bool isSet, char*coap);
-extern uint8 NBModule_CoAPSentIndication(NB_Handle handle, int code);
-extern uint8 NBModule_CoAPReceIndication(NB_Handle handle, int code);
-extern uint8 NBModule_CoAPSendMsg(NB_Handle handle, int len, char*msg);
+extern uint8_t NBModule_Sign(NB_Handle handle);
+extern uint8_t NBModule_DeactPDP(NB_Handle handle);
+extern uint8_t NBModule_CreateUDP(NB_Handle handle);
+extern uint8_t NBModule_CloseUDP(NB_Handle handle);
+extern uint8_t NBModule_SendData(NB_Handle handle, int len, char* msg);
+extern uint8_t NBModule_ReceiveData(NB_Handle handle);
+extern uint8_t NBModule_CoAPServer(NB_Handle handle, Bool isSet, char*coap);
+extern uint8_t NBModule_CoAPSentIndication(NB_Handle handle, int code);
+extern uint8_t NBModule_CoAPReceIndication(NB_Handle handle, int code);
+extern uint8_t NBModule_CoAPSendMsg(NB_Handle handle, int len, char*msg);
+extern uint8_t NBModule_CoAPReceMsg(NB_Handle handle);
 extern void NBModule_Reset(NB_Handle handle);
 extern void NBModule_Ping(NB_Handle handle, char *ipAddr);
 extern int NBModule_Main(NB_Handle handle);

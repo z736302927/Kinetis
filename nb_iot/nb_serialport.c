@@ -5,159 +5,195 @@
 
 /**
   * @step 1:  Modify the corresponding function according to the modified area and the corresponding function name.
-  * @step 2:  According to the example in structure SerialPort1, design the function you need and initialize it in the main function.
-  * @step 3:  You need to provide an ms timer for function SerialPort_GetTick.
+  * @step 2:  According to the example in structure NB_IOT_UART1, design the function you need and initialize it in the main function.
+  * @step 3:  You need to provide an ms timer for function NB_IOT_UART_GetTick.
   * @step 4:  For receiving data, you need to put it in like a ring, using interrupts or DMA.
   * @step 5:  Finally, you can process the received data in function NB_InterRxCallback.Note: maximum 256 bytes received.
   */
 
 #include "usart.h"
 #include "string.h"
+#include "stdlib.h"
 #include "bsp_serialport/bsp_serialport.h"
 
 #define DEBUG
 #include "idebug/idebug.h"
 
-#define NB_UART_printf    p_dbg
+#define NB_IOT_UART_printf    p_dbg
 
-#define NB_PORT_RXBUFFER_SIZE    256
+#define NB_IOT_UART_RXBUFFER_TYPE    uint16_t
+#define NB_IOT_UART_RXBUFFER_SIZE    256
 
-static void NB_IOT_UART_Buffer_FindTail(void);
-static void NB_IOT_UART_Extract_ValidData(void);
+void NB_IOT_UART_RxBuffer_FindTail(void);
+void NB_IOT_UART_Extract_ValidData(void);
 
 NB_RxCallback  NB_InterRxCallback = NULL;
-
-extern SerialPort_TypeDef SerialPort1;
-
-uint8_t NB_Port_RxBuffer[NB_PORT_RXBUFFER_SIZE];
-uint8_t NB_Port_RxBuffer_pHead = 0;
-uint8_t NB_Port_RxBuffer_pTail = 0;
-uint8_t NB_Port_Tx_Done = 0;
-uint32_t NB_Port_RxBeginTime = 0;
-uint32_t NB_Port_RxCurrentTime = 0;
-uint32_t NB_Port_RxTimeDiff = 0;
-
+SerialPort_TypeDef NB_IOT_UART1;
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
   if(huart->Instance == LPUART1)
   {
-    NB_Port_Tx_Done = 1;
+    NB_IOT_UART1.Tx_SendDone = 1;
   }
   if(huart->Instance == USART1)
   {
-    SerialPort1.Tx_SendDone = 1;
+ 
   }
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-  if(huart->Instance == LPUART1)
-  {
-    HAL_UART_Receive_IT(&hlpuart1, NB_Port_RxBuffer, sizeof(NB_Port_RxBuffer)); 
-  }
   if(huart->Instance == USART1)
   {
-//    HAL_UART_Receive_IT(&huart1, (uint8_t*)SerialPort1.RxBuffer, SerialPort1.RxBuffer_Size); 
+//    HAL_UART_Receive_IT(&huart1, (uint8_t*)NB_IOT_UART1.RxBuffer, NB_IOT_UART1.RxBuffer_Size); 
+  }
+  if(huart->Instance == LPUART1)
+  {
+//    HAL_UART_Receive_IT(&hlpuart1, (uint8_t*)NB_IOT_UART1.RxBuffer, NB_IOT_UART1.RxBuffer_Size); 
   }
 }
 
-void NB_IOT_UART_Buffer_Reset(void)
+void NB_IOT_UART_RxBuffer_Process(uint8_t* pdata, uint16_t len)
 {
-  NB_Port_RxBuffer_pHead = 0;
-  NB_Port_RxBuffer_pTail = 0;
-  NB_Port_Tx_Done = 0;
-  memset(NB_Port_RxBuffer, 0xFF, sizeof(NB_Port_RxBuffer));
+  NB_InterRxCallback((char*)pdata, len);
+//  HAL_UART_Transmit(&huart3, pdata, len, 0xFFFF);
+//  p_hex(pdata, len);
+}
+
+uint32_t NB_IOT_UART_GetTick(void)
+{
+  return HAL_GetTick();
+}
+
+void NB_IOT_UART_RxBuffer_Init(void)
+{
+  NB_IOT_UART1.Rx_pHead = 0;
+  NB_IOT_UART1.Rx_pTail = 0;
+  NB_IOT_UART1.Tx_SendDone = 0;
 }
 
 void NB_IOT_UART_Open(NB_RxCallback cb, uint32_t baud)
 {
   NB_InterRxCallback = cb;
-  memset(NB_Port_RxBuffer, 0xFF, sizeof(NB_Port_RxBuffer));
-  HAL_UART_Receive_IT(&hlpuart1, NB_Port_RxBuffer, sizeof(NB_Port_RxBuffer));  
+  NB_IOT_UART1.RxScanInterval = 10;
+  NB_IOT_UART1.RxBuffer_Size = NB_IOT_UART_RXBUFFER_SIZE;
+//  NB_IOT_UART1.RxBuffer = (uint16_t*)malloc(NB_IOT_UART1.RxBuffer_Size * sizeof(NB_IOT_UART_RXBUFFER_TYPE));
+  if(NB_IOT_UART1.RxBuffer == NULL)
+  {
+    NB_IOT_UART_printf("NB_IOT_UART malloc failed !");
+    return;
+  }
+  
+  memset(NB_IOT_UART1.RxBuffer, 0xFF, NB_IOT_UART1.RxBuffer_Size * sizeof(NB_IOT_UART_RXBUFFER_TYPE));
+  HAL_UART_Receive_DMA(&hlpuart1, (uint8_t*)NB_IOT_UART1.RxBuffer, NB_IOT_UART1.RxBuffer_Size);  
 }
 
 void NB_IOT_UART_Close(void)
 {
+//  free(NB_IOT_UART1.RxBuffer);
   HAL_UART_MspDeInit(&hlpuart1); 
 }
 
-void NB_IOT_UART_Send(uint8_t* pdata,uint16_t len)
+void NB_IOT_UART_Send(uint8_t* pdata, uint16_t len)
 {
   HAL_UART_Transmit_IT(&hlpuart1, pdata, len);
-//  NB_UART_printf("%s", pdata);
+//  HAL_UART_Transmit(&huart1, pdata, len, 0xFFFF);
 }
 
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 void NB_IOT_UART_Receive(void)
 {
-  uint8_t rxdata_tmptail = NB_Port_RxBuffer_pTail;
+  uint8_t rxdata_tmptail = NB_IOT_UART1.Rx_pTail;
   uint8_t wait_rx_done = 0;
   
-  if(NB_Port_Tx_Done == 1)
-  {
-    NB_IOT_UART_Buffer_FindTail();
+//  if(NB_IOT_UART1.Tx_SendDone == 1)
+//  {
+    NB_IOT_UART_RxBuffer_FindTail();
     
-    if(NB_Port_RxBuffer_pHead != NB_Port_RxBuffer_pTail)
+    if(NB_IOT_UART1.Rx_pHead != NB_IOT_UART1.Rx_pTail)
     {
-      if(rxdata_tmptail != NB_Port_RxBuffer_pTail)
+      if(rxdata_tmptail != NB_IOT_UART1.Rx_pTail)
       {
-        NB_Port_RxBeginTime = HAL_GetTick();
+        NB_IOT_UART1.RxBeginTime = NB_IOT_UART_GetTick();
       }
       else
       {
-        NB_Port_RxCurrentTime = HAL_GetTick();
-        NB_Port_RxTimeDiff = NB_Port_RxCurrentTime >= NB_Port_RxBeginTime ? 
-                                                 NB_Port_RxCurrentTime - NB_Port_RxBeginTime : 
-                                                 NB_Port_RxCurrentTime + UINT32_MAX - NB_Port_RxBeginTime;
-        if(NB_Port_RxTimeDiff > 10)
+        NB_IOT_UART1.RxCurrentTime = NB_IOT_UART_GetTick();
+        NB_IOT_UART1.RxTimeDiff = NB_IOT_UART1.RxCurrentTime >= NB_IOT_UART1.RxBeginTime ? 
+                                                 NB_IOT_UART1.RxCurrentTime - NB_IOT_UART1.RxBeginTime : 
+                                                 NB_IOT_UART1.RxCurrentTime + UINT32_MAX - NB_IOT_UART1.RxBeginTime;
+        if(NB_IOT_UART1.RxTimeDiff > NB_IOT_UART1.RxScanInterval)
         {
           wait_rx_done = 1;
         }
       }
     }
- 
+
     if(wait_rx_done == 1)
     {
-      NB_Port_Tx_Done = 0;
-      
+      NB_IOT_UART1.Tx_SendDone = 0;
       NB_IOT_UART_Extract_ValidData();
     }
-  }
+//  }
 }
 
-static void NB_IOT_UART_Buffer_FindTail(void)
+void NB_IOT_UART_RxBuffer_FindTail(void)
 {
-  while(NB_Port_RxBuffer[NB_Port_RxBuffer_pTail] != 0xFF)
+  uint16_t buffer_cnt = 0;
+  
+  while((NB_IOT_UART1.RxBuffer[NB_IOT_UART1.Rx_pTail] >> 8) != 0xFF)
   {
-    if(NB_Port_RxBuffer_pTail == NB_PORT_RXBUFFER_SIZE - 1)
+    buffer_cnt++;
+    
+    if(NB_IOT_UART1.Rx_pTail == NB_IOT_UART_RXBUFFER_SIZE - 1)
     {
-      NB_Port_RxBuffer_pTail = 0;
+      NB_IOT_UART1.Rx_pTail = 0;
     }
     else
     {
-      NB_Port_RxBuffer_pTail++;
+      NB_IOT_UART1.Rx_pTail++;
+    }
+    
+    if(buffer_cnt == NB_IOT_UART_RXBUFFER_SIZE - 1)
+    {
+      break;
     }
   }
 }
 
-static void NB_IOT_UART_Extract_ValidData(void)
+void NB_IOT_UART_Extract_ValidData(void)
 {
-  uint8_t rxdata_temp[NB_PORT_RXBUFFER_SIZE];
+  uint8_t rxdata_tmp[NB_IOT_UART_RXBUFFER_SIZE];
   uint8_t rxdata_size = 0;
+  uint16_t i, j;
   
-  memset(rxdata_temp, 0, sizeof(rxdata_temp));
-  if(NB_Port_RxBuffer_pTail > NB_Port_RxBuffer_pHead)
+  memset(rxdata_tmp, 0, sizeof(rxdata_tmp));
+  if(NB_IOT_UART1.Rx_pTail > NB_IOT_UART1.Rx_pHead)
   {
-    rxdata_size = NB_Port_RxBuffer_pTail - NB_Port_RxBuffer_pHead;
-    memcpy(rxdata_temp, &NB_Port_RxBuffer[NB_Port_RxBuffer_pHead], rxdata_size);
+    rxdata_size = NB_IOT_UART1.Rx_pTail - NB_IOT_UART1.Rx_pHead;
+    
+    for(i = NB_IOT_UART1.Rx_pHead, j = 0;i < NB_IOT_UART1.Rx_pTail;i++, j++)
+    {
+      rxdata_tmp[j] = NB_IOT_UART1.RxBuffer[i];
+    }
+    memset(&NB_IOT_UART1.RxBuffer[NB_IOT_UART1.Rx_pHead], 0xFF, rxdata_size * sizeof(NB_IOT_UART_RXBUFFER_TYPE));
   }
-  else if(NB_Port_RxBuffer_pTail < NB_Port_RxBuffer_pHead)
+  else if(NB_IOT_UART1.Rx_pTail < NB_IOT_UART1.Rx_pHead)
   {
-    rxdata_size = NB_PORT_RXBUFFER_SIZE - NB_Port_RxBuffer_pHead + NB_Port_RxBuffer_pTail;
-    memcpy(rxdata_temp, &NB_Port_RxBuffer[NB_Port_RxBuffer_pHead], NB_PORT_RXBUFFER_SIZE - NB_Port_RxBuffer_pHead);
-    memcpy(&rxdata_temp[NB_PORT_RXBUFFER_SIZE - NB_Port_RxBuffer_pHead], &NB_Port_RxBuffer[0], NB_Port_RxBuffer_pTail);
+    rxdata_size = NB_IOT_UART_RXBUFFER_SIZE - NB_IOT_UART1.Rx_pHead + NB_IOT_UART1.Rx_pTail;
+    
+    for(i = NB_IOT_UART1.Rx_pHead, j = 0;i < NB_IOT_UART_RXBUFFER_SIZE;i++, j++)
+    {
+      rxdata_tmp[j] = NB_IOT_UART1.RxBuffer[i];
+    }
+    for(i = 0;i < NB_IOT_UART1.Rx_pTail;i++, j++)
+    {
+      rxdata_tmp[j] = NB_IOT_UART1.RxBuffer[i];
+    }
+    memset(&NB_IOT_UART1.RxBuffer[NB_IOT_UART1.Rx_pHead], 0xFF, (NB_IOT_UART_RXBUFFER_SIZE - NB_IOT_UART1.Rx_pHead) * sizeof(NB_IOT_UART_RXBUFFER_TYPE));
+    memset(&NB_IOT_UART1.RxBuffer[0], 0xFF, NB_IOT_UART1.Rx_pTail * sizeof(NB_IOT_UART_RXBUFFER_TYPE));
   }
   else
   {
@@ -166,10 +202,8 @@ static void NB_IOT_UART_Extract_ValidData(void)
   
   if(rxdata_size != 0)
   {
-//    NB_UART_printf("%s",rxdata_temp);
-    NB_InterRxCallback((char*)rxdata_temp, rxdata_size);
+    NB_IOT_UART_RxBuffer_Process(rxdata_tmp, rxdata_size);
     
-    memset(NB_Port_RxBuffer, 0xFF, sizeof(NB_Port_RxBuffer));
-    NB_Port_RxBuffer_pHead = NB_Port_RxBuffer_pTail;
+    NB_IOT_UART1.Rx_pHead = NB_IOT_UART1.Rx_pTail;
   }
 }

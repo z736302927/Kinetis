@@ -212,6 +212,10 @@ State FSM_Step(pStateMachine machine, SM_VAR * sm_var)
     {
       machine->current = sNB_UDP_CLOSE;
     }
+    else if(machine->current == sNB_UDP_CLOSE)
+    {
+      machine->current = sNB_END;
+    }
     else
     {
       machine->current = sNB_RESET;

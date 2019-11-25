@@ -11,7 +11,7 @@
 #include "stm32l4xx_hal.h"
 
 typedef struct SerialPort_TypeDef {
-  uint16_t* RxBuffer;
+  uint16_t RxBuffer[256];
   uint16_t RxBuffer_Size;
   uint16_t Rx_pHead;
   uint16_t Rx_pTail;

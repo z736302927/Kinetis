@@ -7,7 +7,7 @@ extern "C"
 #endif
  
 #include <stdint.h>
-#include "NB_Board.h"
+#include "nb_board.h"
   
 /*
 BC95 series of modules mainly interact with users based on UART.
@@ -118,6 +118,7 @@ typedef struct
 
 typedef NB_HW_Object* HWAttrs_Handle;
 extern int bc95_open(NB_Handle handle);
+extern int bc95_setbaud(NB_Handle handle, int baud);
 extern int bc95_reboot(NB_Handle handle);
 extern int bc95_init(NB_Handle handle);
 extern int bc95_moduleInfo(NB_Handle handle);

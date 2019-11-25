@@ -21,7 +21,7 @@
 
 #define SerialPort_printf    p_dbg
 
-#define SerialPort_RxBuffer_Type    uint16_t
+#define SERIALPORT_RXBUFFER_TYPE    uint16_t
 #define SERIALPORT_RXBUFFER_SIZE    256
 
 void SerialPort_RxBuffer_FindTail(void);
@@ -29,26 +29,11 @@ void SerialPort_Extract_ValidData(void);
 
 SerialPort_TypeDef SerialPort1;
 
-//void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
-//{
-//  if(huart->Instance == USART1)
-//  {
-//    SerialPort1.Tx_SendDone = 1;
-//  }
-//}
-//
-//void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-//{
-//  if(huart->Instance == USART1)
-//  {
-//    HAL_UART_Receive_IT(&huart1, (uint8_t*)SerialPort1.RxBuffer, SerialPort1.RxBuffer_Size); 
-//  }
-//}
-
 void SerialPort_RxBuffer_Process(uint8_t* pdata, uint16_t len)
 {
+//  HAL_UART_Transmit(&huart1, pdata, len, 0xFFFF);
 //  p_hex(pdata, len);
-  hydrologyProcessReceieve((char*)pdata, len - 2);
+  hydrologyProcessReceieve((char*)pdata, len);
 }
 
 uint32_t SerialPort_GetTick(void)
@@ -56,32 +41,31 @@ uint32_t SerialPort_GetTick(void)
   return HAL_GetTick();
 }
 
-void SerialPort_RxBuffer_Reset(void)
+void SerialPort_RxBuffer_Init(void)
 {
   SerialPort1.Rx_pHead = 0;
   SerialPort1.Rx_pTail = 0;
   SerialPort1.Tx_SendDone = 0;
-  memset(SerialPort1.RxBuffer, 0xFF, SerialPort1.RxBuffer_Size * sizeof(SerialPort_RxBuffer_Type));
 }
 
 void SerialPort_Open(void)
 {
   SerialPort1.RxScanInterval = 10;
   SerialPort1.RxBuffer_Size = SERIALPORT_RXBUFFER_SIZE;
-  SerialPort1.RxBuffer = (uint16_t*)malloc(SerialPort1.RxBuffer_Size * sizeof(SerialPort_RxBuffer_Type));
+//  SerialPort1.RxBuffer = (uint16_t*)malloc(SerialPort1.RxBuffer_Size * sizeof(SERIALPORT_RXBUFFER_TYPE));
   if(SerialPort1.RxBuffer == NULL)
   {
     SerialPort_printf("SerialPort malloc failed !");
     return;
   }
   
-  memset(SerialPort1.RxBuffer, 0xFF, SerialPort1.RxBuffer_Size * sizeof(SerialPort_RxBuffer_Type));
+  memset(SerialPort1.RxBuffer, 0xFF, SerialPort1.RxBuffer_Size * sizeof(SERIALPORT_RXBUFFER_TYPE));
   HAL_UART_Receive_DMA(&huart1, (uint8_t*)SerialPort1.RxBuffer, SerialPort1.RxBuffer_Size);  
 }
 
 void SerialPort_Close(void)
 {
-  free(SerialPort1.RxBuffer);
+//  free(SerialPort1.RxBuffer);
   HAL_UART_MspDeInit(&huart1); 
 }
 
@@ -127,8 +111,12 @@ void SerialPort_Receive(void)
 
 void SerialPort_RxBuffer_FindTail(void)
 {
+  uint16_t buffer_cnt = 0;
+  
   while((SerialPort1.RxBuffer[SerialPort1.Rx_pTail] >> 8) != 0xFF)
   {
+    buffer_cnt++;
+    
     if(SerialPort1.Rx_pTail == SERIALPORT_RXBUFFER_SIZE - 1)
     {
       SerialPort1.Rx_pTail = 0;
@@ -136,6 +124,11 @@ void SerialPort_RxBuffer_FindTail(void)
     else
     {
       SerialPort1.Rx_pTail++;
+    }
+    
+    if(buffer_cnt == SERIALPORT_RXBUFFER_SIZE - 1)
+    {
+      break;
     }
   }
 }
@@ -155,7 +148,7 @@ void SerialPort_Extract_ValidData(void)
     {
       rxdata_tmp[j] = SerialPort1.RxBuffer[i];
     }
-    memset(&SerialPort1.RxBuffer[SerialPort1.Rx_pHead], 0xFF, rxdata_size * sizeof(SerialPort_RxBuffer_Type));
+    memset(&SerialPort1.RxBuffer[SerialPort1.Rx_pHead], 0xFF, rxdata_size * sizeof(SERIALPORT_RXBUFFER_TYPE));
   }
   else if(SerialPort1.Rx_pTail < SerialPort1.Rx_pHead)
   {
@@ -169,8 +162,8 @@ void SerialPort_Extract_ValidData(void)
     {
       rxdata_tmp[j] = SerialPort1.RxBuffer[i];
     }
-    memset(&SerialPort1.RxBuffer[SerialPort1.Rx_pHead], 0xFF, (SERIALPORT_RXBUFFER_SIZE - SerialPort1.Rx_pHead) * sizeof(SerialPort_RxBuffer_Type));
-    memset(&SerialPort1.RxBuffer[0], 0xFFFF, SerialPort1.Rx_pTail * sizeof(SerialPort_RxBuffer_Type));
+    memset(&SerialPort1.RxBuffer[SerialPort1.Rx_pHead], 0xFF, (SERIALPORT_RXBUFFER_SIZE - SerialPort1.Rx_pHead) * sizeof(SERIALPORT_RXBUFFER_TYPE));
+    memset(&SerialPort1.RxBuffer[0], 0xFF, SerialPort1.Rx_pTail * sizeof(SERIALPORT_RXBUFFER_TYPE));
   }
   else
   {
@@ -184,7 +177,4 @@ void SerialPort_Extract_ValidData(void)
     SerialPort1.Rx_pHead = SerialPort1.Rx_pTail;
   }
 }
-
-/*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
-
 

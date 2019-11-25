@@ -1,5 +1,4 @@
 #include "nb_iot/nb_board.h"
-
 /**
   * @step 1:  For file nb_app.c call, no need to care about the implementation process.
   */
@@ -39,7 +38,7 @@ extern Bool NBModule_Init(NB_Handle handle)
   return TRUE;
 }
 
-uint8 NBModule_Info(NB_Handle handle)
+uint8_t NBModule_Info(NB_Handle handle)
 {
   if(handle == null)
   {
@@ -56,7 +55,7 @@ uint8 NBModule_Info(NB_Handle handle)
 }
 
 //Check if NB module is registered in the network
-uint8 NBModule_isRegister(NB_Handle handle)
+uint8_t NBModule_isRegister(NB_Handle handle)
 {
   if(handle == null)
   {
@@ -88,7 +87,7 @@ const char* NBModule_IMSI(NB_Handle handle)
 // return : TRUE->Instruction executed£¬FALSE->An error occurred during the execution of the instruction
 // Note£º
 // The original signal value is asynchronous to the callback function by message
-extern uint8 NBModule_Sign(NB_Handle handle)
+extern uint8_t NBModule_Sign(NB_Handle handle)
 {
   if(handle == null)
   {
@@ -102,7 +101,7 @@ extern uint8 NBModule_Sign(NB_Handle handle)
   return handle->Module->getSign(handle);
 }
 
-uint8 NBModule_CreateUDP(NB_Handle handle)
+uint8_t NBModule_CreateUDP(NB_Handle handle)
 {
   if(handle == null)
   {
@@ -116,7 +115,7 @@ uint8 NBModule_CreateUDP(NB_Handle handle)
   return handle->Module->createUdp(handle);
 }
 
-uint8 NBModule_CloseUDP(NB_Handle handle)
+uint8_t NBModule_CloseUDP(NB_Handle handle)
 {
   if(handle == null)
   {
@@ -130,7 +129,7 @@ uint8 NBModule_CloseUDP(NB_Handle handle)
   return handle->Module->closeUdp(handle);
 }
 
-uint8 NBModule_SendData(NB_Handle handle, int len, char* msg)
+uint8_t NBModule_SendData(NB_Handle handle, int len, char* msg)
 {
   if(handle == null)
   {
@@ -144,7 +143,7 @@ uint8 NBModule_SendData(NB_Handle handle, int len, char* msg)
   return handle->Module->sendUdp(handle, len, msg);
 }
 
-uint8 NBModule_ReceiveData(NB_Handle handle)
+uint8_t NBModule_ReceiveData(NB_Handle handle)
 {
   if(handle == null)
   {
@@ -161,7 +160,7 @@ uint8 NBModule_ReceiveData(NB_Handle handle)
 // brief : Set and query NB module current CoAP server information
 //         isSet  -> true -> write,
 //                   false-> read
-uint8 NBModule_CoAPServer(NB_Handle handle, Bool isSet, char*coap)
+uint8_t NBModule_CoAPServer(NB_Handle handle, Bool isSet, char*coap)
 {
   if(handle == null)
   {
@@ -178,7 +177,7 @@ uint8 NBModule_CoAPServer(NB_Handle handle, Bool isSet, char*coap)
 // brief : Set the result indication mode after CoAP sends the message
 //         code   -> 0  no response
 //                   !0 response
-uint8 NBModule_CoAPSentIndication(NB_Handle handle, int code)
+uint8_t NBModule_CoAPSentIndication(NB_Handle handle, int code)
 {
   if(handle == null)
   {
@@ -194,7 +193,7 @@ uint8 NBModule_CoAPSentIndication(NB_Handle handle, int code)
 
 // brief : Set CoAP receive message prompt mode
 //         code -> 0 means cache and 1 means receive directly.(currently only two modes are supported)
-uint8 NBModule_CoAPReceIndication(NB_Handle handle, int code)
+uint8_t NBModule_CoAPReceIndication(NB_Handle handle, int code)
 {
   if(handle == null)
   {
@@ -208,7 +207,7 @@ uint8 NBModule_CoAPReceIndication(NB_Handle handle, int code)
   return handle->Module->coapSetReceMode(handle, code);
 }
 
-uint8 NBModule_CoAPSendMsg(NB_Handle handle, int len, char*msg)
+uint8_t NBModule_CoAPSendMsg(NB_Handle handle, int len, char*msg)
 {
   if(handle == null)
   {
@@ -222,7 +221,7 @@ uint8 NBModule_CoAPSendMsg(NB_Handle handle, int len, char*msg)
   return handle->Module->coapSentMsg(handle, len, msg);
 }
 
-uint8 NBModule_CoAPReceMsg(NB_Handle handle)
+uint8_t NBModule_CoAPReceMsg(NB_Handle handle)
 {
   if(handle == null)
   {
@@ -236,7 +235,7 @@ uint8 NBModule_CoAPReceMsg(NB_Handle handle)
   return handle->Module->coapReceMsg(handle);
 }
 
-uint8 NBModule_Reboot(NB_Handle handle)
+uint8_t NBModule_Reboot(NB_Handle handle)
 {
   if(handle == null)
   {

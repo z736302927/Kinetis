@@ -24,15 +24,16 @@
 
 
 #define NB_printf    p_dbg
+#define NB_error     p_err_fun
 
-#define NB_Communication_Mode   1
+#define NB_Communication_Mode   0
 
 int NB_IOT_ResponseCallback(NB_MessageTypeDef, int ,char*);
 
 extern void NB_IOT_UART_Open(NB_RxCallback cb, uint32_t baud);
 extern void NB_IOT_UART_Send(uint8_t* pdata,uint16_t len);
 extern void NB_IOT_UART_Close(void);
-extern void NB_IOT_UART_Buffer_Reset(void);
+extern void NB_IOT_UART_RxBuffer_Init(void);
 
 char* NB_UserDataPacket = NULL;
 int NB_UserDataLength = 0;
@@ -226,6 +227,7 @@ int NB_IOT_ResponseCallback(NB_MessageTypeDef types, int len, char* msg)
       }
       else
       {
+        NB_MessageComing = 0;
         NB_Response_Result = TRUE;
         if(len > 3)
         {
@@ -269,16 +271,18 @@ int NB_IOT_ResponseCallback(NB_MessageTypeDef types, int len, char* msg)
 
     case MSG_COAP_RECE:
     {
-      NB_printf("COAP_RECE = ");
+      NB_printf("COAP_RECE = %s", msg);
       p_hex(msg,  len);
       NB_Response_Done = TRUE;
 
       if(*msg == 'F')
       {
+        NB_MessageComing = 1;
         NB_Response_Result = FALSE;
       }
       else
       {
+        NB_MessageComing = 0;
         NB_Response_Result = TRUE;
         if(len > 3)
         {
@@ -297,6 +301,8 @@ int NB_IOT_ResponseCallback(NB_MessageTypeDef types, int len, char* msg)
 void NB_IOT_Init(void)
 {
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
+  
+  NB_IOT_UART_RxBuffer_Init();
   
   NBModule_open(&NB_Config_Inst);
   
@@ -334,9 +340,8 @@ int NB_IOT_ProcessRespond(void)
     else
     {
       currenttime = HAL_GetTick();
-      timediff = currenttime >= begintime ? 
-                                               currenttime - begintime : 
-                                               currenttime + UINT32_MAX - begintime;
+      timediff = currenttime >= begintime ? currenttime - begintime : 
+                                            currenttime + UINT32_MAX - begintime;
       if(timediff > 5000) /* 5s */
       {
         return FALSE;
@@ -345,7 +350,7 @@ int NB_IOT_ProcessRespond(void)
   }
 }
 
-int NB_IOT_JudgeArrivalofMsg(void)
+int NB_IOT_WaitArrivalofMsg(void)
 {
   uint32_t begintime;
   uint32_t currenttime;
@@ -356,22 +361,33 @@ int NB_IOT_JudgeArrivalofMsg(void)
   while(1)
   {
     HAL_IWDG_Refresh(&hiwdg);
-    if(NB_MessageComing == 1)
+    NB_IOT_UART_Receive();
+    NBModule_Main(&NB_Config_Inst);
+    NB_IOT_PollTim();
+    if(NB_Response_Done == TRUE)
     {
-      NB_MessageComing = 0;
+      NB_Response_Done = FALSE;
       
-      return TRUE;
+      if(NB_Response_Result == TRUE)
+      {
+        NB_Response_Result = FALSE;
+        
+        return TRUE;
+      }
+      else
+      {
+        return FALSE;
+      }
     }
     else
     {
       currenttime = HAL_GetTick();
-      timediff = currenttime >= begintime ? 
-                                               currenttime - begintime : 
-                                               currenttime + UINT32_MAX - begintime;
-      if(timediff > 10000) /* 10s */
+      timediff = currenttime >= begintime ? currenttime - begintime : 
+                                            currenttime + UINT32_MAX - begintime;
+      if(timediff > 15000) /* 10s */
       {
         NB_printf("No data came !");
-        return FALSE;
+        return -1;
       }
     }
   }
@@ -397,7 +413,6 @@ int NB_IOT_Shutdown(void)
   
   NB_Response_Result = FALSE;
   NB_Response_Done = FALSE;
-  NB_IOT_UART_Buffer_Reset();
   
 //  retValue = NBModule_Reboot(&NB_Config_Inst);
 //  HAL_Delay(3000);
@@ -464,7 +479,6 @@ int FSM_NB_Init(pStateMachine machine, SM_VAR * sm_var)
 {
   int _retValue = FALSE;
   
-  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
   NBModule_Init(&NB_Config_Inst);
   _retValue = NB_IOT_ProcessRespond();
   
@@ -479,6 +493,7 @@ int FSM_NB_Init(pStateMachine machine, SM_VAR * sm_var)
   {
     sm_var->_condition = cERROR_REPEATS_S3;
     NB_printf("NB-IOT Device initialization failed.");
+    NB_error;
   }
 
   return _retValue;
@@ -502,6 +517,7 @@ int FSM_NB_GetSign(pStateMachine machine, SM_VAR * sm_var)
   {
     sm_var->_condition = cERROR_REPEATS_S3;
     NB_printf("No signal detected in this area.");
+    NB_error;
   }
 
   return _retValue;
@@ -525,6 +541,7 @@ int FSM_NB_GetModuleInfo(pStateMachine machine, SM_VAR * sm_var)
   {
     sm_var->_condition = cERROR_REPEATS_S3;
     NB_printf("Failed to get device information.");
+    NB_error;
   }
 
   return _retValue;
@@ -537,7 +554,7 @@ int FSM_NB_CreateUDP(pStateMachine machine, SM_VAR * sm_var)
 #if NB_Communication_Mode 
   NBModule_CreateUDP(&NB_Config_Inst);
 #else
-  NBModule_CoAPServer(&NB_Config_Inst,1,NULL);
+  NBModule_CoAPServer(&NB_Config_Inst, 1, NULL);
 #endif
   _retValue = NB_IOT_ProcessRespond();
   
@@ -552,6 +569,7 @@ int FSM_NB_CreateUDP(pStateMachine machine, SM_VAR * sm_var)
   {
     sm_var->_condition = cERROR_REPEATS_S3;
     NB_printf("Failed to create UDP communication");
+    NB_error;
   }
 
   return _retValue;
@@ -561,8 +579,13 @@ int FSM_NB_CloseUDP(pStateMachine machine, SM_VAR * sm_var)
 {
   int _retValue = FALSE;
 
+#if NB_Communication_Mode 
   NBModule_CloseUDP(&NB_Config_Inst);
   _retValue = NB_IOT_ProcessRespond();
+#else
+  _retValue = TRUE;
+#endif
+  HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
   
   if(_retValue == TRUE)
   {
@@ -575,6 +598,7 @@ int FSM_NB_CloseUDP(pStateMachine machine, SM_VAR * sm_var)
   {
     sm_var->_condition = cERROR_REPEATS_S3;
     NB_printf("Shutdown UDP communication failed.");
+    NB_error;
   }
 
   return _retValue;
@@ -583,20 +607,22 @@ int FSM_NB_CloseUDP(pStateMachine machine, SM_VAR * sm_var)
 int FSM_NB_UDPRegister(pStateMachine machine, SM_VAR * sm_var)
 {
   int _retValue = FALSE;
+  
+#if NB_Communication_Mode
   char regPacket[30];
   uint8_t msgLen = 0;
+//  char* regPacket = "ep=863703036005069&pw=123456";
   
   msgLen = sprintf(regPacket, "ep=%s&pw=736302", "1RFN7HGAL3VKMD95");//NB_Module_IMEI
   regPacket[msgLen] = 0;
-  
-  //char* regPacket = "ep=863703036005069&pw=123456";
-  
-#if NB_Communication_Mode 
   NBModule_SendData(&NB_Config_Inst, msgLen, regPacket);
-#else
-  NBModule_CoAPSendMsg(&NB_Config_Inst, msgLen, regPacket);
-#endif
   _retValue = NB_IOT_ProcessRespond();
+#else
+//  msgLen = sprintf(regPacket, "ep=%s&pw=736302", NB_Module_IMEI);
+//  regPacket[msgLen] = 0;
+//  NBModule_CoAPSendMsg(&NB_Config_Inst, msgLen, regPacket);
+  _retValue = TRUE;
+#endif
   
   if(_retValue == TRUE)
   {
@@ -609,6 +635,7 @@ int FSM_NB_UDPRegister(pStateMachine machine, SM_VAR * sm_var)
   {
     sm_var->_condition = cERROR_REPEATS_S3;
     NB_printf("Guyu server registration failed.");
+    NB_error;
   }
 
   return _retValue;
@@ -618,7 +645,9 @@ int FSM_NB_UDPSendData(pStateMachine machine, SM_VAR * sm_var)
 {
   int _retValue = FALSE;
   
-#if NB_Communication_Mode 
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+  
+#if NB_Communication_Mode
   NBModule_SendData(&NB_Config_Inst, NB_UserDataLength, NB_UserDataPacket);
 #else
   NBModule_CoAPSendMsg(&NB_Config_Inst, NB_UserDataLength, NB_UserDataPacket);
@@ -636,6 +665,7 @@ int FSM_NB_UDPSendData(pStateMachine machine, SM_VAR * sm_var)
   {
     sm_var->_condition = cERROR_REPEATS_S3;
     NB_printf("Data transmission failure.");
+    NB_error;
   }
 
   return _retValue;
@@ -644,16 +674,8 @@ int FSM_NB_UDPSendData(pStateMachine machine, SM_VAR * sm_var)
 int FSM_NB_WaitReceiveData(pStateMachine machine, SM_VAR * sm_var)
 {
   int _retValue = FALSE;
-  
-  if(NB_IOT_JudgeArrivalofMsg() == TRUE)
-  {
-#if NB_Communication_Mode 
-    NBModule_ReceiveData(&NB_Config_Inst);
-#else
-    NBModule_CoAPReceMsg(&NB_Config_Inst);
-#endif
-    _retValue = NB_IOT_ProcessRespond();
-  }
+   
+  _retValue = NB_IOT_WaitArrivalofMsg();
   
   if(_retValue == TRUE)
   {
@@ -662,10 +684,16 @@ int FSM_NB_WaitReceiveData(pStateMachine machine, SM_VAR * sm_var)
     
     return _retValue;
   }
-  else
+  else if(_retValue == FALSE)
   {
     sm_var->_condition = cERROR_REPEATS_S3;
     NB_printf("Data received failure.");
+    NB_error;
+  }
+  else
+  {
+    sm_var->_condition = cOK;
+    _retValue = TRUE;
   }
 
   return _retValue;
@@ -688,6 +716,7 @@ int FSM_NB_Reset(pStateMachine machine, SM_VAR * sm_var)
   {
     sm_var->_condition = cERROR_REPEATS_S3;
     NB_printf("NB Device reset failure.");
+    NB_error;
   }
 
   return _retValue;
@@ -697,7 +726,6 @@ int FSM_NB_End(pStateMachine machine, SM_VAR * sm_var)
 {
   int _retValue = FALSE;
   
-  HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
   _retValue = TRUE;
   
   if(_retValue == TRUE)
@@ -711,6 +739,7 @@ int FSM_NB_End(pStateMachine machine, SM_VAR * sm_var)
   {
     sm_var->_condition = cERROR_REPEATS_S3;
     NB_printf("The state machine failed to enter the final state.");
+    NB_error;
   }
 
   return _retValue;

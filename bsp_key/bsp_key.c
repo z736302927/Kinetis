@@ -15,6 +15,7 @@ static struct Button_TypeDef* head_handle = NULL;
 
 #include "string.h"
 #include "bsp_timtask/bsp_timtask.h"
+#include "hydrology-protocol/message.h"
 
 #define DEBUG
 #include "idebug/idebug.h"
@@ -154,7 +155,7 @@ static void Button_Callback(void *btn)
   switch(btn_event_val)
   {
     case PRESS_DOWN:
-//        hydrologyProcessSend(Test);
+        hydrologyProcessSend(Test);
         Button_printf("Button press down"); 
     break; 
 
