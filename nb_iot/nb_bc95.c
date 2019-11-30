@@ -785,12 +785,9 @@ uint8_t addr_adjust(char* buf,char* pStart,uint16_t* plen)
 }
 //******************************************************************************
 // fn : bc95_AsyncNotification
-//
 // brief : 处理BC95异步返回的通知
-//
 // param : buf-> 消息内容指针
 //         len-> 消息长度
-//
 // return : >0 是异步通知；=0 不是异步通知
 uint8_t bc95_AsyncNotification(char* buf, uint16_t* len)
 {
@@ -1449,11 +1446,8 @@ Bool bc95_result_handle(NB_Handle handle , Bool isOk)
 }
 //******************************************************************************
 // fn : bc95_main
-//
 // brief : 处理BC95所有事务
-//
 // param : none
-//
 // return : FALSE -> 操作失败，TRUE -> 操作成功
 int bc95_main(NB_Handle handle)
 {

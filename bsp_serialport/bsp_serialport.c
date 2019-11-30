@@ -33,6 +33,7 @@ void SerialPort_RxBuffer_Process(uint8_t* pdata, uint16_t len)
 {
 //  HAL_UART_Transmit(&huart1, pdata, len, 0xFFFF);
 //  p_hex(pdata, len);
+  hydrologySetMsgSrc(MsgFormClient);
   hydrologyProcessReceieve((char*)pdata, len);
 }
 

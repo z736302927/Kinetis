@@ -79,7 +79,6 @@ int NB_IOT_ResponseCallback(NB_MessageTypeDef types, int len, char* msg)
   {
     case MSG_INIT:
     {
-      NB_printf("INIT = %s", msg);
       NB_Response_Done = TRUE;
 
       if(*msg == 'S')
@@ -169,7 +168,6 @@ int NB_IOT_ResponseCallback(NB_MessageTypeDef types, int len, char* msg)
     
     case MSG_UDP_CREATE:
     {
-      NB_printf("UDP_CR = %s", msg);
       NB_Response_Done = TRUE;
       
       if(*msg == 'S')
@@ -185,7 +183,6 @@ int NB_IOT_ResponseCallback(NB_MessageTypeDef types, int len, char* msg)
     
     case MSG_UDP_CLOSE:
     {
-      NB_printf("UDP_CL = %s", msg);
       NB_Response_Done = TRUE;
 
       if(*msg == 'S')
@@ -201,7 +198,6 @@ int NB_IOT_ResponseCallback(NB_MessageTypeDef types, int len, char* msg)
     
     case MSG_UDP_SEND:
     {
-      NB_printf("UDP_SEND = %s", msg);
       NB_Response_Done = TRUE;
 
       if(*msg == 'S')
@@ -231,6 +227,7 @@ int NB_IOT_ResponseCallback(NB_MessageTypeDef types, int len, char* msg)
         NB_Response_Result = TRUE;
         if(len > 3)
         {
+          hydrologySetMsgSrc(MsgFormServer);
           hydrologyProcessReceieve((char*)msg, len);
         }
       }
@@ -239,7 +236,6 @@ int NB_IOT_ResponseCallback(NB_MessageTypeDef types, int len, char* msg)
     
     case MSG_COAP:
     {
-      NB_printf("COAP = %s", msg);
       NB_Response_Done = TRUE;
 
       if(*msg == 'S')
@@ -255,7 +251,6 @@ int NB_IOT_ResponseCallback(NB_MessageTypeDef types, int len, char* msg)
     
     case MSG_COAP_SEND:
     {
-      NB_printf("COAP_SENT = %s", msg);
       NB_Response_Done = TRUE;
 
       if(*msg == 'S')
@@ -286,6 +281,7 @@ int NB_IOT_ResponseCallback(NB_MessageTypeDef types, int len, char* msg)
         NB_Response_Result = TRUE;
         if(len > 3)
         {
+          hydrologySetMsgSrc(MsgFormServer);
           hydrologyProcessReceieve((char*)msg, len);
         }
       }

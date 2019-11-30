@@ -16,6 +16,7 @@ uint8_t RS485ElementCount = 0;
 hydrologyHeader g_HydrologyUpHeader;
 hydrologyHeader g_HydrologyDownHeader;
 packet g_HydrologyMsg;
+uint8_t g_hydrologyMsgSrc = MsgFormServer;
 
 hydrologyElement inputPara[MAX_ELEMENT];
 
@@ -156,7 +157,13 @@ void Hydrology_SetTime(char* time_temp)
 int Hydrology_SendData(char* data, int len)
 {
   p_hex(data, len);
-  NB_IOT_SendData(data, len);
+  if(hydrologyReadMsgSrc() == MsgFormServer)
+  {
+    NB_IOT_SendData(data, len);
+  }
+  
+  hydrologySetMsgSrc(MsgFormServer);
+  
   return 0;
 }
 
@@ -328,7 +335,6 @@ static void getguideid(char* value, char D,  char d)
   low3 = d; //D has to be between 0 and 7 to be represented in 3 digits.
   *value = high5 | low3;
 }
-
 
 static int converToHexElement(double input,  int D, int d, char* out)
 {
@@ -1246,7 +1252,6 @@ static void hydrologyMakeUpTail(char* buffer, int *pbuffer, char funcode)
     *pbuffer += 1;
   }
 }
-  
 
 static void hydrologyInitSend(void)
 {
@@ -1576,6 +1581,13 @@ int hydrologyProcessReceieve(char* input, int inputlen)
   return 0;
 }
   
-  
-  
+void hydrologySetMsgSrc(char Src)
+{
+  g_hydrologyMsgSrc = Src;
+}
+
+int hydrologyReadMsgSrc(void)
+{
+  return g_hydrologyMsgSrc;
+}
 

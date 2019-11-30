@@ -98,8 +98,14 @@ typedef enum taghydrologyBodyType
     
 }hydrologyBodyType;
 
+typedef enum taghydrologyMsgSrcType
+{
+  MsgFormServer,
+  MsgFormClient
+}hydrologyBMsgSrcType;
+
 #pragma pack(1)
-//要素基本定义
+//Basic definition of elements
 typedef struct tagHydrologyElement
 {
   char guide[2];
@@ -194,6 +200,10 @@ short hydrologyCRC16(char* pchMsg, int wDataLen);
 int hydrologyProcessSend(char funcode);
 
 int hydrologyProcessReceieve(char* input, int inputlen);
+
+void hydrologySetMsgSrc(char Src);
+
+int hydrologyReadMsgSrc(void);
 
 void Hydrology_Printf(char *buff);
 

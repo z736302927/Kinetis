@@ -1233,7 +1233,6 @@ int hydrologyCommand(int type)
   return 0;
 }
 
-
 int HydrologyReadSuiteElement(int type, char* guide, char* value)
 {
   switch(type)
