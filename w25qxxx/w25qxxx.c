@@ -97,7 +97,7 @@ typedef struct _StatusRegisters_TypeDef
   unsigned HOLD_RST:1;
 }StatusRegisters_TypeDef;
 
-uint32_t g_Max_Addr = 0xFFFFFF;
+uint32_t g_w25qxxx_Max_Addr = 0xFFFFFF;
 uint32_t g_w25qxxx = 0x17;
 
 void w25qxxx_PortTransmmit(uint8_t Data)
@@ -1105,7 +1105,7 @@ void w25qxxx_WriteData(uint32_t Addr, uint8_t* pData, uint16_t Length)
 {
   uint32_t RemainSpace = 0;
   
-  RemainSpace = g_Max_Addr - Addr;
+  RemainSpace = g_w25qxxx_Max_Addr - Addr;
   
   if(RemainSpace < Length)
   {
@@ -1475,11 +1475,11 @@ void w25qxxx_Init(void)
   switch(g_w25qxxx)
   {
     case W25Q128:
-      g_Max_Addr = 0xFFFFFF;
+      g_w25qxxx_Max_Addr = 0xFFFFFF;
     break;
     
     case W25Q256:
-      g_Max_Addr = 0x1FFFFFF;
+      g_w25qxxx_Max_Addr = 0x1FFFFFF;
       if(w25qxxx_Read_ADS() == 0)
       {
         w25q256_Enter4ByteAddressMode();
@@ -1487,7 +1487,7 @@ void w25qxxx_Init(void)
     break;
     
     default:
-      g_Max_Addr = 0;
+      g_w25qxxx_Max_Addr = 0;
     break;
   }
 }
@@ -1509,7 +1509,6 @@ void w25qxxx_ReadInfo(void)
 }
 
 #if 0
-
 static uint8_t Tx_Buffer[32767];
 static uint8_t Rx_Buffer[32767];
 
@@ -1593,5 +1592,4 @@ void w25qxxx_Test(void)
   
   w25qxxx_printf("w25qxxx Read and write TEST PASSED !");
 }
-
 #endif
