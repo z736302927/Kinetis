@@ -1,5 +1,5 @@
-#ifndef __BSP_TEMPLATE_H
-#define __BSP_TEMPLATE_H
+#ifndef __HMC5883L_H
+#define __HMC5883L_H
 
 #ifdef __cplusplus
  extern "C" {
@@ -18,4 +18,4 @@
 }
 #endif
 
-#endif /* __BSP_TEMPLATE_H */
+#endif /* __HMC5883L_H */

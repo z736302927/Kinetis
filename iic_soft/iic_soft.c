@@ -209,7 +209,7 @@ uint8_t IIC_Soft_ReadByte(uint8_t Ack)
   return ReceiveByte;
 } 
 
-uint8_t IIC_Soft_WriteSingleByteWithAddr(uint8_t SlaveAddr,uint16_t RegAddr,uint8_t Regdata)
+uint8_t IIC_Soft_WriteSingleByteWithAddr(uint8_t SlaveAddr, uint16_t RegAddr, uint8_t Regdata)
 {
   IIC_Soft_Start();
   IIC_Soft_SendByte((SlaveAddr << 1) | 0x00);   
@@ -232,7 +232,7 @@ uint8_t IIC_Soft_WriteSingleByteWithAddr(uint8_t SlaveAddr,uint16_t RegAddr,uint
   return 0;
 }
 
-uint8_t IIC_Soft_ReadSingleByteWithAddr(uint8_t SlaveAddr,uint16_t RegAddr,uint8_t *Regdata)
+uint8_t IIC_Soft_ReadSingleByteWithAddr(uint8_t SlaveAddr, uint16_t RegAddr, uint8_t *Regdata)
 {
   IIC_Soft_Start();
   IIC_Soft_SendByte((SlaveAddr << 1) | 0x00); 

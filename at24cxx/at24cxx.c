@@ -41,6 +41,7 @@ uint8_t at24cxx_PortReceive(uint8_t Ack)
   
   return Data;
 }
+
 void at24cxx_PortMultiTransmmit(uint8_t Addr, uint8_t *pData, uint32_t Length)
 {
   IIC_Soft_WriteMultiByteWithAddr(AT24CXX_ADDR, Addr, pData, Length);

@@ -1,5 +1,5 @@
-#ifndef __HYDROLOGYTASK_H
-#define __HYDROLOGYTASK_H
+#ifndef __SSD1306_H
+#define __SSD1306_H
 
 #ifdef __cplusplus
  extern "C" {
@@ -11,7 +11,6 @@
 #include "stm32f4xx_hal.h"
 
 
-void HydrologyTask_Init(void);
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 
@@ -19,4 +18,4 @@ void HydrologyTask_Init(void);
 }
 #endif
 
-#endif /* __HYDROLOGYTASK_H */
+#endif /* __SSD1306_H */

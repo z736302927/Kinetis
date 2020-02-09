@@ -21,6 +21,68 @@
 
 #define w25qxxx_printf                  p_dbg
 
+void w25qxxx_PortTransmmit(uint8_t Data)
+{
+  HAL_SPI_Transmit(&hspi5, &Data, 1, 1000);
+}
+
+uint8_t w25qxxx_PortReceive(void)
+{
+  uint8_t Data = 0;
+  
+  HAL_SPI_Receive(&hspi5, &Data, 1, 1000);
+  
+  return Data;
+}
+
+void w25qxxx_PortMultiTransmmit(uint8_t *pData, uint32_t Length)
+{
+  HAL_SPI_Transmit(&hspi5, pData, Length, 1000);  
+  while (HAL_SPI_GetState(&hspi5) != HAL_SPI_STATE_READY)
+  {
+  } 
+}
+
+void w25qxxx_PortMultiReceive(uint8_t *pData, uint32_t Length)
+{
+  HAL_SPI_Receive(&hspi5, pData, Length, 1000);  
+  while (HAL_SPI_GetState(&hspi5) != HAL_SPI_STATE_READY)
+  {
+  } 
+}
+
+void w25qxxx_CS_Low(void)
+{
+  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_RESET);
+}
+
+void w25qxxx_CS_High(void)
+{
+  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_SET);
+}
+
+void w25qxxx_HardReset(void)
+{
+  
+}
+
+void w25qxxx_Delayus(uint32_t ticks)
+{
+  HAL_Delay(ticks);
+}
+
+void w25qxxx_Delayms(uint32_t ticks)
+{
+  HAL_Delay(ticks);
+}
+
+uint32_t w25qxxx_GetTick(void)
+{
+  return HAL_GetTick();
+}
+
+/*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
+
 #define W25Q128                         0x17
 #define W25Q256                         0x18
 #define PAGE_SIZE                       256
@@ -99,67 +161,6 @@ typedef struct _StatusRegisters_TypeDef
 
 uint32_t g_w25qxxx_Max_Addr = 0xFFFFFF;
 uint32_t g_w25qxxx = 0x17;
-
-void w25qxxx_PortTransmmit(uint8_t Data)
-{
-  HAL_SPI_Transmit(&hspi5, &Data, 1, 1000);
-}
-
-uint8_t w25qxxx_PortReceive(void)
-{
-  uint8_t Data = 0;
-  
-  HAL_SPI_Receive(&hspi5, &Data, 1, 1000);
-  
-  return Data;
-}
-
-void w25qxxx_PortMultiTransmmit(uint8_t *pData, uint32_t Length)
-{
-  HAL_SPI_Transmit(&hspi5, pData, Length, 1000);  
-  while (HAL_SPI_GetState(&hspi5) != HAL_SPI_STATE_READY)
-  {
-  } 
-}
-
-void w25qxxx_PortMultiReceive(uint8_t *pData, uint32_t Length)
-{
-  HAL_SPI_Receive(&hspi5, pData, Length, 1000);  
-  while (HAL_SPI_GetState(&hspi5) != HAL_SPI_STATE_READY)
-  {
-  } 
-}
-
-void w25qxxx_CS_Low(void)
-{
-  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_RESET);
-}
-
-void w25qxxx_CS_High(void)
-{
-  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_SET);
-}
-
-void w25qxxx_HardReset(void)
-{
-  
-}
-
-void w25qxxx_Delayus(uint32_t ticks)
-{
-  HAL_Delay(ticks);
-}
-
-void w25qxxx_Delayms(uint32_t ticks)
-{
-  HAL_Delay(ticks);
-}
-
-uint32_t w25qxxx_GetTick(void)
-{
-  return HAL_GetTick();
-}
-/*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 void w25qxxx_TransCmd(uint8_t Cmd)
 {

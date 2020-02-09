@@ -1,4 +1,4 @@
-#include "bsp_template/bsp_template.h"
+#include "rak477/rak477.h"
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 

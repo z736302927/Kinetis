@@ -8,7 +8,7 @@
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
    
 /* Includes ------------------------------------------------------------------*/
-#include "stm32l4xx_hal.h"
+#include "stm32f4xx_hal.h"
 
 typedef struct SerialPort_TypeDef {
   uint16_t RxBuffer[256];

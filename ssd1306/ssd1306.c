@@ -1,4 +1,4 @@
-#include "oled/oled.h"
+#include "ssd1306/ssd1306.h"
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 

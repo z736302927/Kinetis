@@ -1,4 +1,4 @@
-#include "oled/oled.h"
+#include "bsp_general/bsp_general.h"
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
