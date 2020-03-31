@@ -1,7 +1,7 @@
-#include "nb_iot/nb_timer.h"
-#include "nb_iot/nb_app.h"
-#include "nb_iot/nb_board.h"
-#include "nb_iot/nb_bc95.h"
+#include "peripheral/nb_timer.h"
+#include "peripheral/nb_app.h"
+#include "peripheral/nb_board.h"
+#include "peripheral/nb_bc95.h"
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -13,14 +13,14 @@
   * @step 5:  Finally, you only need to call NB_IOT_SendData to send and receive data to the cloud platform.
   * @step 6:  Note that you can use NB_IOT_Turnoff_Pipe to decide whether to close the channel or not.
   */
-#include "bsp_fsm/bsp_fsm.h"
+#include "algorithm/bsp_fsm.h"
 #include "string.h"
 #include "usart.h"
-#include "iwdg.h"
-#include "hydrology-protocol/message.h"
+//#include "iwdg.h"
+#include "protocol/hydrology.h"
 
 #define DEBUG
-#include "idebug/idebug.h"
+#include "idebug.h"
 
 
 #define NB_printf    p_dbg
@@ -356,7 +356,7 @@ int NB_IOT_WaitArrivalofMsg(void)
   
   while(1)
   {
-    HAL_IWDG_Refresh(&hiwdg);
+//    HAL_IWDG_Refresh(&hiwdg);
     NB_IOT_UART_Receive();
     NBModule_Main(&NB_Config_Inst);
     NB_IOT_PollTim();

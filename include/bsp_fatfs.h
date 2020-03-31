@@ -1,15 +1,16 @@
-#ifndef __BSP_TIMEOUT_H
-#define __BSP_TIMEOUT_H
+#ifndef __BSP_FATFS_H
+#define __BSP_FATFS_H
 
 #ifdef __cplusplus
  extern "C" {
 #endif
-
-/*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
    
-/* Includes ------------------------------------------------------------------*/
-#include "stm32f4xx_hal.h"
+/*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
+/* Includes ------------------------------------------------------------------*/
+#include "core_common.h"
+
+int FatFs_Test(void);
 
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -18,4 +19,4 @@
 }
 #endif
 
-#endif /* __BSP_TIMEOUT_H */
+#endif /* __BSP_FATFS_H */

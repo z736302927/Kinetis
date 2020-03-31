@@ -8,7 +8,7 @@
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 /* Includes ------------------------------------------------------------------*/
-#include "stm32f4xx_hal.h"
+#include "core_common.h"
 #include "stdio.h"
 
 extern int dbg_level;
@@ -31,7 +31,7 @@ extern int dbg_level;
 
 #define ERR_PRINT_TIME  printf("[E: %d.%03d] ",  OS_TIME_MS()/1000, OS_TIME_MS()%1000)
 #define DBG_PRINT_TIME  printf("[E: %d.%03d] ",  OS_TIME_MS()/1000, OS_TIME_MS()%1000)
-#define p_info(...)     do{if(!(dbg_level & DEBUG_LEVEL_INFO))break;printf("[I: %d.%03d] ",  OS_TIME_MS()/1000, OS_TIME_MS()%1000);printf(__VA_ARGS__); printf("\r\n");}while(0)
+#define p_info(...)     do{if(!(dbg_level &DEBUG_LEVEL_INFO))break;printf("[I: %d.%03d] ",  OS_TIME_MS()/1000, OS_TIME_MS()%1000);printf(__VA_ARGS__); printf("\r\n");}while(0)
 #define p_err(...)      do{if(!(dbg_level & DEBUG_LEVEL_ERR))break;printf("[E: %d.%03d] ",  OS_TIME_MS()/1000, OS_TIME_MS()%1000);printf(__VA_ARGS__); printf("\r\n");}while(0)
 #define p_dbg_track     do{if(!(dbg_level & DEBUG_LEVEL_DBG))break;printf("[D: %d.%03d] ",  OS_TIME_MS()/1000, OS_TIME_MS()%1000);printf("%s,%d",  __FUNCTION__, __LINE__ ); printf("\r\n");}while(0)
 #define p_dbg(...)      do{if(!(dbg_level & DEBUG_LEVEL_DBG))break;printf("[D: %d.%03d] ",  OS_TIME_MS()/1000, OS_TIME_MS()%1000);printf(__VA_ARGS__); printf("\r\n");}while(0)

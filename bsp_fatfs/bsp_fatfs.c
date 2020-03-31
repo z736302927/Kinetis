@@ -25,7 +25,6 @@ static FRESULT FatFs_Scan_Files (char* path);
   */
 
 #include "ff_gen_drv.h"
-#include "sd_diskio.h"
 
 #define DEBUG
 #include "idebug/idebug.h"
@@ -33,7 +32,7 @@ static FRESULT FatFs_Scan_Files (char* path);
 #define FatFs_printf    p_dbg
 #define FatFs_err       p_err_fun
 
-#define STM32_MICROCONTROLER    1
+#define STM32_MICROCONTROLER    0
 
 int FatFs_Test(void)
 {
@@ -57,7 +56,8 @@ int FatFs_Test(void)
     else
     {
       /*##-3- Create a FAT file system (format) on the logical drive #########*/
-      res = f_mkfs((TCHAR const*)DISKPath, FM_ANY, 0, buffer, sizeof(buffer));
+      if(res == FR_NO_FILESYSTEM)
+        res = f_mkfs((TCHAR const*)DISKPath, FM_ANY, 0, buffer, sizeof(buffer));
       if(res != FR_OK) 
       {
         /* FatFs Format Error */
@@ -118,7 +118,7 @@ int FatFs_Test(void)
                 else
                 {
                   /* Success of the demo: no error occurrence */
-
+                  FatFs_printf("FatFs TEST PASS");
                 }
               }
             }

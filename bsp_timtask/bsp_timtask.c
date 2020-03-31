@@ -1,4 +1,4 @@
-#include "bsp_timtask/bsp_timtask.h"
+#include "task/bsp_timtask.h"
 
 //TimTask Handle list head.
 static struct TimTask_TypeDef* TimTask_HeadHandler = NULL;
@@ -17,7 +17,7 @@ static uint32_t _TimTask_ticks = 0;
   */
 
 #define DEBUG
-#include "idebug/idebug.h"
+#include "idebug.h"
 
 #define TimTask_printf    p_dbg
 

@@ -1,6 +1,6 @@
 
-#ifndef __MESSAGE_H
-#define __MESSAGE_H
+#ifndef __MHYDROLOGY_H
+#define __MHYDROLOGY_H
 
 #include "stdint.h"
 
@@ -195,8 +195,6 @@ int Hydrology_ReadStoreInfo(long addr, char *data, int len);
 
 int Hydrology_WriteStoreInfo(long addr, char *data, int len);
 
-short hydrologyCRC16(char* pchMsg, int wDataLen);
-
 int hydrologyProcessSend(char funcode);
 
 int hydrologyProcessReceieve(char* input, int inputlen);
@@ -204,6 +202,8 @@ int hydrologyProcessReceieve(char* input, int inputlen);
 void hydrologySetMsgSrc(char Src);
 
 int hydrologyReadMsgSrc(void);
+
+void hydrologyProcessUARTReceieve(void);
 
 void Hydrology_Printf(char *buff);
 
@@ -218,4 +218,5 @@ extern uint8_t ADCElementCount;
 extern uint8_t ISR_COUNTElementCount;
 extern uint8_t IO_STATUSElementCount;
 extern uint8_t RS485ElementCount;
+
 #endif

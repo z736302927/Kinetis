@@ -1,5 +1,5 @@
-#ifndef __BSP_TEMPLATE_H
-#define __BSP_TEMPLATE_H
+#ifndef __AT24CXX_H
+#define __AT24CXX_H
 
 #ifdef __cplusplus
  extern "C" {
@@ -8,8 +8,9 @@
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
    
 /* Includes ------------------------------------------------------------------*/
-#include "core_common.h"
+#include "stm32f4xx_hal.h"
 
+void at24cxx_Test(void);
 
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -18,4 +19,4 @@
 }
 #endif
 
-#endif /* __BSP_TEMPLATE_H */
+#endif /* __AT24CXX_H */

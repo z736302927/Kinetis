@@ -8,20 +8,28 @@
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
    
 /* Includes ------------------------------------------------------------------*/
-#include "stm32f4xx_hal.h"
+#include "core_common.h"
 
-typedef enum 
+typedef enum
 {
   LED1 = 0,
-  LED2 = 1
-}Led_TypeDef;
+  LED2,
+  LED3,
+  LED4
+}LEDn_Type;
 
-#define LEDn              1
+typedef struct LED_TypeDef {
+  uint8_t UniqueID;
+  char *Color;
+  struct LED_TypeDef *Next;
+}LED_TypeDef;
 
-void BSP_LED_Init(Led_TypeDef Led);
-void BSP_LED_On(Led_TypeDef Led);
-void BSP_LED_Off(Led_TypeDef Led);
-void BSP_LED_Toggle(Led_TypeDef Led);
+#define LEDn              4
+
+void BSP_LED_Init(LEDn_Type LED);
+void BSP_LED_On(LEDn_Type LED);
+void BSP_LED_Off(LEDn_Type LED);
+void BSP_LED_Toggle(LEDn_Type LED);
 
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 

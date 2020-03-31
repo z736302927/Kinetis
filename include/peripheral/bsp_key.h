@@ -8,13 +8,7 @@
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
    
 /* Includes ------------------------------------------------------------------*/
-#include "stm32l4xx_hal.h"
-
-//According to your need to modify the constants.
-#define TICKS_INTERVAL    5 //ms
-#define DEBOUNCE_TICKS    3 //MAX 8
-#define SHORT_TICKS       (300  / TICKS_INTERVAL)
-#define LONG_TICKS        (1000 / TICKS_INTERVAL)
+#include "core_common.h"
 
 typedef void (*BtnCallback)(void*);
 
@@ -26,7 +20,7 @@ typedef enum {
   DOUBLE_CLICK,
   LONG_RRESS_START,
   LONG_PRESS_HOLD,
-  number_of_event,
+  PRESSEVENT_NBR,
   NONE_PRESS
 }PressEvent;
 
@@ -39,7 +33,7 @@ typedef struct Button_TypeDef {
   uint8_t  ActiveLevel : 1;
   uint8_t  ButtonLevel : 1;
   uint8_t  (*HALButtonLevel)(void);
-  BtnCallback  CB[number_of_event];
+  BtnCallback  CB[PRESSEVENT_NBR];
   struct Button_TypeDef* Next;
 }Button_TypeDef;
 

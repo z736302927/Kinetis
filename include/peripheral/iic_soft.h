@@ -8,10 +8,11 @@
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
                                               
 /* Includes ------------------------------------------------------------------*/
-#include "stm32f4xx_hal.h"
+#include "core_common.h"
 
 
 void IIC_Soft_Init(void);
+void IIC_Soft_delay(uint32_t ticks);
 int IIC_Soft_Start(void);
 void IIC_Soft_Stop(void);
 int IIC_Soft_WaitAck(void);

@@ -1,6 +1,6 @@
-#include "hydrology-protocol/hydrologytask.h"
-#include "hydrology-protocol/message.h"
-#include "hydrology-protocol/hydrologycommand.h"
+#include "task/hydrologytask.h"
+#include "protocol/hydrology.h"
+#include "protocol/hydrologycommand.h"
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -12,9 +12,9 @@
   * @step 5:  Finally, HydrologyTask_Init is called in the main function.
   */
 
-#include "bsp_timtask/bsp_timtask.h"
-#include "bsp_rtctask/bsp_rtctask.h"
-#include "sht20/sht20.h"
+#include "task/bsp_timtask.h"
+#include "task/bsp_rtctask.h"
+#include "chip/sht20.h"
 #include "string.h"
 
 struct TimTask_TypeDef HydrologyTask_LinkMaintenance;
@@ -31,7 +31,7 @@ void Task_Temperature_Humidit_Callback(void)
 {
   char tmpvalue[4] = {0,0,0,0};
   
-  SHT20_Read_TempAndRH(&SHT20_Temperature, &SHT20_Humidit);
+//  SHT20_Read_TempAndRH(&SHT20_Temperature, &SHT20_Humidit);
   
   memcpy(tmpvalue, (char*)(&SHT20_Temperature), 4);
   Hydrology_WriteStoreInfo(HYDROLOGY_ANALOG1, tmpvalue, HYDROLOGY_ANALOG_LEN);

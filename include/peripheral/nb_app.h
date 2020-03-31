@@ -11,7 +11,6 @@ extern "C"
 /* Includes ------------------------------------------------------------------*/
 
 #include "nb_board.h"
-#include "bsp_fsm/bsp_fsm.h"
 
 
 void NB_IOT_UART_Receive(void);

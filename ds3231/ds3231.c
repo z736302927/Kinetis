@@ -1,4 +1,4 @@
-#include "ds3231/ds3231.h"
+#include "chip/ds3231.h"
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -10,50 +10,68 @@
   * @step 5:
   */
 
-#include "iic_soft/iic_soft.h"
+#include "peripheral/iic_soft.h"
+#include "i2c.h"
+#include "string.h"
 
 #define DEBUG
-#include "idebug/idebug.h"
+#include "idebug.h"
 
 #define ds3231_printf                   p_dbg
 
-#define DS3231_ADDR                     0x00
+#define DS3231_ADDR                     0x68
 
-void ds3231_Delayus(uint32_t ticks)
+static inline void ds3231_Delayus(uint32_t ticks)
 {
   HAL_Delay(ticks);
 }
 
-void ds3231_Delayms(uint32_t ticks)
+static inline void ds3231_Delayms(uint32_t ticks)
 {
   HAL_Delay(ticks);
 }
 
-void ds3231_PortTransmmit(uint8_t Addr, uint8_t Data)
+static inline void ds3231_PortTransmmit(uint8_t Addr, uint8_t Data)
 {
+#ifdef USING_I2C_SOFT
   IIC_Soft_WriteSingleByteWithAddr(DS3231_ADDR, Addr, Data);
+#else
+  HAL_I2C_Mem_Write(&hi2c1, (uint16_t)(DS3231_ADDR << 1),
+                            (uint16_t)Addr, I2C_MEMADD_SIZE_8BIT, &Data, 1, 10000);
+#endif
 }
 
-void ds3231_PortReceive(uint8_t Addr, uint8_t *pData)
+static inline void ds3231_PortReceive(uint8_t Addr, uint8_t *pData)
 {
+#ifdef USING_I2C_SOFT
   IIC_Soft_ReadSingleByteWithAddr(DS3231_ADDR, Addr, pData);
+#else
+  HAL_I2C_Mem_Read (&hi2c1, (uint16_t)(DS3231_ADDR << 1),
+                            (uint16_t)Addr, I2C_MEMADD_SIZE_8BIT, pData, 1, 10000);
+#endif
 }
 
-void ds3231_PortMultiTransmmit(uint8_t Addr, uint8_t *pData, uint32_t Length)
+static inline void ds3231_PortMultiTransmmit(uint8_t Addr, uint8_t *pData, uint32_t Length)
 {
+#ifdef USING_I2C_SOFT
   IIC_Soft_WriteMultiByteWithAddr(DS3231_ADDR, Addr, pData, Length);
+#else
+  HAL_I2C_Mem_Write(&hi2c1, (uint16_t)(DS3231_ADDR << 1),
+                            (uint16_t)Addr, I2C_MEMADD_SIZE_8BIT, pData, Length, 10000);
+#endif
 }
 
-void ds3231_PortMultiReceive(uint8_t Addr, uint8_t *pData, uint32_t Length)
+static inline void ds3231_PortMultiReceive(uint8_t Addr, uint8_t *pData, uint32_t Length)
 {
+#ifdef USING_I2C_SOFT
   IIC_Soft_ReadMultiByteWithAddr(DS3231_ADDR, Addr, pData, Length);
+#else
+  HAL_I2C_Mem_Read (&hi2c1, (uint16_t)(DS3231_ADDR << 1),
+                            (uint16_t)Addr, I2C_MEMADD_SIZE_8BIT, pData, Length, 10000);
+#endif
 }
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
-#define HOURS24                         0x00
-#define HOURS12                         0x01
-#define AM                              0x00
-#define PM                              0x01
 #define ALARM_MASK                      0x80
 #define ALARM_MASK_1                    0x01
 #define ALARM_MASK_2                    0x02
@@ -87,8 +105,28 @@ void ds3231_PortMultiReceive(uint8_t Addr, uint8_t *pData, uint32_t Length)
 #define MSB_OF_TEMP                     0x11
 #define LSB_OF_TEMP                     0x12
 
-uint8_t g_TimeMode = HOURS24;
-uint8_t g_TimeRegion = AM;
+volatile uint8_t g_TimeMode = DS3231_HOURS24;
+volatile uint8_t g_TimeRegion = DS3231_AM;
+
+uint8_t ds3231_GetTimeMode(void)
+{
+  return g_TimeMode;
+}
+
+void ds3231_SetTimeMode(uint8_t Data)
+{
+  g_TimeMode = Data;
+}
+
+uint8_t ds3231_GetTimeRegion(void)
+{
+  return g_TimeRegion;
+}
+
+void ds3231_SetTimeRegion(uint8_t Data)
+{
+  g_TimeRegion = Data;
+}
 
 void ds3231_ReadTimeWithDec(uint8_t *pData)
 {
@@ -99,20 +137,20 @@ void ds3231_ReadTimeWithDec(uint8_t *pData)
   
   if(Tmp[2] & 0x40)
   {
-    g_TimeMode = HOURS12;
+    g_TimeMode = DS3231_HOURS12;
     Hour10 = (Tmp[2] & 0x10) >> 4;
     if(Tmp[2] & 0x20)
     {
-      g_TimeRegion = PM;
+      g_TimeRegion = DS3231_PM;
     }
     else
     {
-      g_TimeRegion = AM;
+      g_TimeRegion = DS3231_AM;
     }
   }
   else
   {
-    g_TimeMode = HOURS24;
+    g_TimeMode = DS3231_HOURS24;
     Hour10 = (Tmp[2] & 0x30) >> 4;
   }
   
@@ -124,28 +162,86 @@ void ds3231_ReadTimeWithDec(uint8_t *pData)
   pData[5] = (Tmp[6] >> 4) * 10 + (Tmp[6] & 0x0F);
 }
 
+void ds3231_SetTimeWithDec(uint8_t *pData)
+{
+  uint8_t Tmp[7] = {0,0,0,0,0,0,0};
+  
+  ds3231_PortMultiTransmmit(SECONDS, Tmp, 3);
+  ds3231_PortMultiTransmmit(DATE, Tmp, 3);
+  
+  Tmp[6] |= (pData[0] / 10) << 4;
+  Tmp[6] |= (pData[0] % 10) << 0;
+  Tmp[5] |= (pData[1] / 10) << 4;
+  Tmp[5] |= (pData[1] % 10) << 0;
+  Tmp[4] |= (pData[2] / 10) << 4;
+  Tmp[4] |= (pData[2] % 10) << 0;
+  ds3231_PortMultiTransmmit(DATE, &Tmp[4], 3);
+  
+  Tmp[2] |= (pData[3] / 10) << 4;
+  Tmp[2] |= (pData[3] % 10) << 0;
+  if(g_TimeMode == DS3231_HOURS12)
+  {
+    if(g_TimeRegion == DS3231_PM)
+    {
+      Tmp[2] |= 0x20;
+    }
+    else
+    {
+      Tmp[2] &= ~0x20;
+    }
+    Tmp[2] |= 0x40;
+  }
+  else
+  {
+    Tmp[2] &= ~0x40;
+  }
+  Tmp[1] |= (pData[4] / 10) << 4;
+  Tmp[1] |= (pData[4] % 10) << 0;
+  Tmp[0] |= (pData[5] / 10) << 4;
+  Tmp[0] |= (pData[5] % 10) << 0;
+  ds3231_PortMultiTransmmit(SECONDS, Tmp, 3);
+}
+
 void ds3231_ReadTimeWithString(char *pData)
 {
   uint8_t Tmp[6];
   
   ds3231_ReadTimeWithDec(Tmp);
-  pData[0] = (Tmp[0] % 10) + '0';
-  pData[1] = (Tmp[0] / 10) + '0';
-  pData[2] = (Tmp[1] % 10) + '0';
-  pData[3] = (Tmp[1] / 10) + '0';
-  pData[4] = (Tmp[2] % 10) + '0';
-  pData[5] = (Tmp[2] / 10) + '0';
-  pData[6] = (Tmp[3] % 10) + '0';
-  pData[7] = (Tmp[3] / 10) + '0';
-  pData[8] = (Tmp[4] % 10) + '0';
-  pData[9] = (Tmp[4] / 10) + '0';
-  pData[10] = (Tmp[5] % 10) + '0';
-  pData[11] = (Tmp[5] / 10) + '0';
+  pData[11] = (Tmp[0] % 10) + '0';
+  pData[10] = (Tmp[0] / 10) + '0';
+  pData[9] = (Tmp[1] % 10) + '0';
+  pData[8] = (Tmp[1] / 10) + '0';
+  pData[7] = (Tmp[2] % 10) + '0';
+  pData[6] = (Tmp[2] / 10) + '0';
+  pData[5] = (Tmp[3] % 10) + '0';
+  pData[4] = (Tmp[3] / 10) + '0';
+  pData[3] = (Tmp[4] % 10) + '0';
+  pData[2] = (Tmp[4] / 10) + '0';
+  pData[1] = (Tmp[5] % 10) + '0';
+  pData[0] = (Tmp[5] / 10) + '0';
+}
+
+void ds3231_SetTimeWithString(char *pData)
+{
+  uint8_t Tmp[6];
+  
+  Tmp[0] = (pData[0] - '0') * 10 + (pData[1] - '0');
+  Tmp[1] = (pData[2] - '0') * 10 + (pData[3] - '0');
+  Tmp[2] = (pData[4] - '0') * 10 + (pData[5] - '0');
+  Tmp[3] = (pData[6] - '0') * 10 + (pData[7] - '0');
+  Tmp[4] = (pData[8] - '0') * 10 + (pData[9] - '0');
+  Tmp[5] = (pData[10] - '0') * 10 + (pData[11] - '0');
+  ds3231_SetTimeWithDec(Tmp);
 }
 
 void ds3231_ReadWeek(uint8_t *pData)
 {
   ds3231_PortReceive(DAY, pData);
+}
+
+void ds3231_SetWeek(uint8_t Data)
+{
+  ds3231_PortTransmmit(DAY, Data);
 }
 
 void ds3231_SetAlarm1(uint8_t *pData, uint8_t DateorDay, uint8_t Data)
@@ -176,7 +272,7 @@ void ds3231_SetAlarm1(uint8_t *pData, uint8_t DateorDay, uint8_t Data)
   Unit = (pData[1] & 0x7F) % 10;
   Tens = (pData[1] & 0x7F) / 10;
   Tmp[1] = (Tens << 4) | Unit;
-  if(g_TimeMode == HOURS24)
+  if(g_TimeMode == DS3231_HOURS24)
   {
     Unit = (pData[2] & 0x3F) % 10;
     Tens = (pData[2] & 0x3F) / 10;
@@ -232,7 +328,7 @@ void ds3231_SetAlarm2(uint8_t *pData, uint8_t DateorDay, uint8_t Data)
   Unit = (pData[0] & 0x7F) % 10;
   Tens = (pData[0] & 0x7F) / 10;
   Tmp[0] = (Tens << 4) | Unit;
-  if(g_TimeMode == HOURS24)
+  if(g_TimeMode == DS3231_HOURS24)
   {
     Unit = (pData[1] & 0x3F) % 10;
     Tens = (pData[1] & 0x3F) / 10;
@@ -498,56 +594,33 @@ void ds3231_GetTemperature(float *pData)
 
 #if 0
 
-static uint8_t Tx_Buffer[256];
-static uint8_t Rx_Buffer[256];
+static uint8_t Tx_Buffer[20];
+static uint8_t Rx_Buffer[20];
 
 void ds3231_Test(void)
 {
-  uint32_t TmpRngdata = 0;
-  uint16_t BufferLength = 0;
-  uint32_t TestAddr = 0;
+  char Time[16];
   
-  HAL_RNG_GenerateRandomNumber(&hrng, &TmpRngdata);
-  BufferLength = TmpRngdata & 0xFF;
-  ds3231_printf("BufferLength = %d.", BufferLength);
+  ds3231_SetTimeMode(DS3231_HOURS24);
+  ds3231_SetTimeRegion(PM);
+  ds3231_SetTimeWithString("200308202020");
+  ds3231_SetWeek(7);
   
-  if(Tx_Buffer == NULL || Rx_Buffer == NULL)
+  while(1)
   {
-    ds3231_printf("Failed to allocate memory !");
-    return;
-  }
-  memset(Tx_Buffer, 0, BufferLength);
-  memset(Rx_Buffer, 0, BufferLength);
-  
-  HAL_RNG_GenerateRandomNumber(&hrng, &TmpRngdata);
-  TestAddr = TmpRngdata & 0xFF;
-  ds3231_printf("TestAddr = 0x%02X.", TestAddr);
-
-  for(uint16_t i = 0;i < BufferLength;i += 4)
-  {
-    HAL_RNG_GenerateRandomNumber(&hrng, &TmpRngdata);
-    Tx_Buffer[i + 3] = (TmpRngdata & 0xFF000000) >> 24;;
-    Tx_Buffer[i + 2] = (TmpRngdata & 0x00FF0000) >> 16;
-    Tx_Buffer[i + 1] = (TmpRngdata & 0x0000FF00) >> 8;
-    Tx_Buffer[i + 0] = (TmpRngdata & 0x000000FF);
-  }
-  
-  ds3231_WriteData(TestAddr, Tx_Buffer, BufferLength);
-  ds3231_ReadData(TestAddr, Rx_Buffer, BufferLength);
-  
-  for(uint16_t i = 0;i < BufferLength;i++)
-  {
-    if(Tx_Buffer[i] != Rx_Buffer[i])
+    ds3231_ReadTimeWithString(Time);
+    
+    if(g_TimeRegion == DS3231_AM)
     {
-      ds3231_printf("Tx_Buffer[%d] = 0x%02X, Rx_Buffer[%d] = 0x%02X", 
-                     i, Tx_Buffer[i],
-                     i, Rx_Buffer[i]);
-      ds3231_printf("Data writes and reads do not match, TEST FAILED !");
-      return ;
+      snprintf(&Time[12], 4, " DS3231_AM");
     }
+    else
+    {
+      snprintf(&Time[12], 4, " PM");
+    }
+    ds3231_printf("%s", Time);
+    ds3231_Delayms(1000);
   }
-  
-  ds3231_printf("ds3231 Read and write TEST PASSED !");
 }
 
 #endif

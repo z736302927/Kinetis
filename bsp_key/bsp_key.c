@@ -1,6 +1,4 @@
-#include "bsp_key/bsp_key.h"
-
-#define EVENT_CB(ev) if(handle->CB[ev]) handle->CB[ev]((Button_TypeDef*)handle)
+#include "peripheral/bsp_key.h"
   
 static struct Button_TypeDef* head_handle = NULL;
 
@@ -14,13 +12,19 @@ static struct Button_TypeDef* head_handle = NULL;
   */
 
 #include "string.h"
-#include "bsp_timtask/bsp_timtask.h"
-#include "hydrology-protocol/message.h"
+#include "task/bsp_timtask.h"
+#include "protocol/hydrology.h"
 
 #define DEBUG
-#include "idebug/idebug.h"
+#include "idebug.h"
 
 #define Button_printf    p_dbg
+
+//According to your need to modify the constants.
+#define TICKS_INTERVAL    5 //ms
+#define DEBOUNCE_TICKS    3 //MAX 8
+#define SHORT_TICKS       (300  / TICKS_INTERVAL)
+#define LONG_TICKS        (1000 / TICKS_INTERVAL)
 
 static void Button_Handler(struct Button_TypeDef* handle);
 
@@ -38,6 +42,72 @@ void ButtonTask_Init(void)
   TimTask_Init(&ButtonTask, ButtonTask_Callback, 5, 5); //1s loop
   TimTask_Start(&ButtonTask);
 }
+
+#if 0
+static uint8_t Button_Read_Pin(void) 
+{
+  return HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_0);
+}
+
+static void Button_Callback(void *btn)
+{
+  uint32_t btn_event_val; 
+  
+  btn_event_val = Get_Button_Event((struct Button_TypeDef *)btn); 
+  
+  switch(btn_event_val)
+  {
+    case PRESS_DOWN:
+        hydrologyProcessSend(Test);
+        Button_printf("Button press down"); 
+    break; 
+
+    case PRESS_UP: 
+        Button_printf("Button press up");
+    break; 
+
+    case PRESS_REPEAT: 
+        Button_printf("Button press repeat");
+    break; 
+
+    case SINGLE_CLICK: 
+        Button_printf("Button single click");
+    break; 
+
+    case DOUBLE_CLICK: 
+        Button_printf("Button double click");
+    break; 
+
+    case LONG_RRESS_START: 
+        Button_printf("Button long press start");
+    break; 
+
+    case LONG_PRESS_HOLD: 
+        Button_printf("Button long press hold");
+    break; 
+  }
+}
+
+int Multi_Button_Test(void)
+{
+  /* low level drive */
+  Button_Init  (&Button_Test_Inst, Button_Read_Pin, 0);
+  Button_Attach(&Button_Test_Inst, PRESS_DOWN,       Button_Callback);
+  Button_Attach(&Button_Test_Inst, PRESS_UP,         Button_Callback);
+  Button_Attach(&Button_Test_Inst, PRESS_REPEAT,     Button_Callback);
+  Button_Attach(&Button_Test_Inst, SINGLE_CLICK,     Button_Callback);
+  Button_Attach(&Button_Test_Inst, DOUBLE_CLICK,     Button_Callback);
+  Button_Attach(&Button_Test_Inst, LONG_RRESS_START, Button_Callback);
+  Button_Attach(&Button_Test_Inst, LONG_PRESS_HOLD,  Button_Callback);
+  Button_Start (&Button_Test_Inst);
+
+  return 0; 
+}
+#endif
+
+/*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
+
+#define EVENT_CB(ev) if(handle->CB[ev]) handle->CB[ev]((Button_TypeDef*)handle)
 
 /**
   * @brief  Initializes the button struct handle.
@@ -140,70 +210,6 @@ void Button_Ticks(void)
     Button_Handler(target);
   }
 }
-
-static uint8_t Button_Read_Pin(void) 
-{
-  return HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_0);
-}
-
-static void Button_Callback(void *btn)
-{
-  uint32_t btn_event_val; 
-  
-  btn_event_val = Get_Button_Event((struct Button_TypeDef *)btn); 
-  
-  switch(btn_event_val)
-  {
-    case PRESS_DOWN:
-        hydrologyProcessSend(Test);
-        Button_printf("Button press down"); 
-    break; 
-
-    case PRESS_UP: 
-        Button_printf("Button press up");
-    break; 
-
-    case PRESS_REPEAT: 
-        Button_printf("Button press repeat");
-    break; 
-
-    case SINGLE_CLICK: 
-        Button_printf("Button single click");
-    break; 
-
-    case DOUBLE_CLICK: 
-        Button_printf("Button double click");
-    break; 
-
-    case LONG_RRESS_START: 
-        Button_printf("Button long press start");
-    break; 
-
-    case LONG_PRESS_HOLD: 
-        Button_printf("Button long press hold");
-    break; 
-  }
-}
-
-int Multi_Button_Test(void)
-{
-  /* low level drive */
-  Button_Init  (&Button_Test_Inst, Button_Read_Pin, 0);
-  Button_Attach(&Button_Test_Inst, PRESS_DOWN,       Button_Callback);
-  Button_Attach(&Button_Test_Inst, PRESS_UP,         Button_Callback);
-  Button_Attach(&Button_Test_Inst, PRESS_REPEAT,     Button_Callback);
-  Button_Attach(&Button_Test_Inst, SINGLE_CLICK,     Button_Callback);
-  Button_Attach(&Button_Test_Inst, DOUBLE_CLICK,     Button_Callback);
-  Button_Attach(&Button_Test_Inst, LONG_RRESS_START, Button_Callback);
-  Button_Attach(&Button_Test_Inst, LONG_PRESS_HOLD,  Button_Callback);
-  Button_Start (&Button_Test_Inst);
-
-  return 0; 
-}
-
-/*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
-
-
 
 /**
   * @brief  button driver core function, driver state machine.

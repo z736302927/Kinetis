@@ -1,5 +1,5 @@
-#ifndef __BSP_TEMPLATE_H
-#define __BSP_TEMPLATE_H
+#ifndef __BSP_DELAY_H
+#define __BSP_DELAY_H
 
 #ifdef __cplusplus
  extern "C" {
@@ -10,7 +10,14 @@
 /* Includes ------------------------------------------------------------------*/
 #include "core_common.h"
 
-
+void Delay_EnableTimer(void);
+void Delay_DisableTimer(void);
+void Delay_Init(void);
+void Delay_SetFlag(void);
+void Delay_ClearFlag(void);
+void Delay_us(uint32_t Delay);
+void Delay_ms(uint32_t Delay);
+void Delay_s(uint32_t Delay);
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 
@@ -18,4 +25,4 @@
 }
 #endif
 
-#endif /* __BSP_TEMPLATE_H */
+#endif /* __BSP_DELAY_H */

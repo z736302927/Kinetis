@@ -1,4 +1,4 @@
-#include "at24cxx/at24cxx.h"
+#include "chip/at24cxx.h"
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -10,18 +10,19 @@
   * @step 5:
   */
 
-#include "iic_soft/iic_soft.h"
+#include "peripheral/iic_soft.h"
 #include "string.h"
 #include "rng.h"
+#include "i2c.h"
 
 #define DEBUG
-#include "idebug/idebug.h"
+#include "idebug.h"
 
 #define at24cxx_printf                  p_dbg
 
-#define AT24CXX_ADDR                    0x17
+#define AT24CXX_ADDR                    0x50
 #define PAGE_SIZE                       8
-#define AT24CXX_MAX_ADDR                256
+#define AT24CXX_MAX_ADDR                255
 
 void at24cxx_Delayus(uint32_t ticks)
 {
@@ -33,23 +34,26 @@ void at24cxx_Delayms(uint32_t ticks)
   HAL_Delay(ticks);
 }
 
-uint8_t at24cxx_PortReceive(uint8_t Ack)
-{
-  uint8_t Data = 0;
-  
-  Data = IIC_Soft_ReadByte(Ack);
-  
-  return Data;
-}
-
 void at24cxx_PortMultiTransmmit(uint8_t Addr, uint8_t *pData, uint32_t Length)
 {
+#ifdef USING_I2C_SOFT
   IIC_Soft_WriteMultiByteWithAddr(AT24CXX_ADDR, Addr, pData, Length);
+#else
+//  HAL_I2C_Mem_Write(&hi2c2, (uint16_t)(AT24CXX_ADDR << 1),
+//                            (uint16_t)Addr, I2C_MEMADD_SIZE_8BIT, pData, Length, 10000);
+#endif
+  at24cxx_Delayms(10);
 }
 
 void at24cxx_PortMultiReceive(uint8_t Addr, uint8_t *pData, uint32_t Length)
 {
+#ifdef USING_I2C_SOFT
   IIC_Soft_ReadMultiByteWithAddr(AT24CXX_ADDR, Addr, pData, Length);
+#else
+//  HAL_I2C_Mem_Read (&hi2c2, (uint16_t)(AT24CXX_ADDR << 1),
+//                            (uint16_t)Addr, I2C_MEMADD_SIZE_8BIT, pData, Length, 10000);
+#endif
+  at24cxx_Delayms(10);
 }
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -222,7 +226,7 @@ void at24cxx_SequentialRead(uint8_t *pData, uint32_t Length)
   IIC_Soft_Stop();
 }
 
-#if 1
+#if 0
 
 static uint8_t Tx_Buffer[256];
 static uint8_t Rx_Buffer[256];
@@ -234,28 +238,28 @@ void at24cxx_Test(void)
   uint32_t TestAddr = 0;
   
   HAL_RNG_GenerateRandomNumber(&hrng, &TmpRngdata);
-  BufferLength = TmpRngdata & 0xFF;
-  at24cxx_printf("BufferLength = %d.", BufferLength);
-  
-  if(Tx_Buffer == NULL || Rx_Buffer == NULL)
+  BufferLength = 5;//TmpRngdata & 0xFF;
+  if(BufferLength <= 0)
   {
-    at24cxx_printf("Failed to allocate memory !");
-    return;
+    BufferLength = 10;
   }
-  memset(Tx_Buffer, 0, BufferLength);
-  memset(Rx_Buffer, 0, BufferLength);
   
   HAL_RNG_GenerateRandomNumber(&hrng, &TmpRngdata);
   TestAddr = TmpRngdata & 0xFF;
+  if(BufferLength >= (AT24CXX_MAX_ADDR - TestAddr + 1))
+  {
+    BufferLength = AT24CXX_MAX_ADDR - TestAddr + 1;
+  }
+  
+  memset(Tx_Buffer, 0, BufferLength);
+  memset(Rx_Buffer, 0, BufferLength);
+  at24cxx_printf("BufferLength = %d.", BufferLength);
   at24cxx_printf("TestAddr = 0x%02X.", TestAddr);
 
-  for(uint16_t i = 0;i < BufferLength;i += 4)
+  for(uint16_t i = 0;i < BufferLength;i++)
   {
     HAL_RNG_GenerateRandomNumber(&hrng, &TmpRngdata);
-    Tx_Buffer[i + 3] = (TmpRngdata & 0xFF000000) >> 24;;
-    Tx_Buffer[i + 2] = (TmpRngdata & 0x00FF0000) >> 16;
-    Tx_Buffer[i + 1] = (TmpRngdata & 0x0000FF00) >> 8;
-    Tx_Buffer[i + 0] = (TmpRngdata & 0x000000FF);
+    Tx_Buffer[i] = (TmpRngdata & 0x000000FF);
   }
   
   at24cxx_WriteData(TestAddr, Tx_Buffer, BufferLength);

@@ -1,5 +1,5 @@
-#include "hydrology-protocol/message.h"
-#include "hydrology-protocol/hydrologycommand.h"
+#include "protocol/hydrology.h"
+#include "protocol/hydrologycommand.h"
 #include <string.h>
 #include "stdint.h"
 
@@ -16,7 +16,7 @@ extern const hydrologyElementInfo Element_table[];
   */
 
 #define DEBUG
-#include "idebug/idebug.h"
+#include "idebug.h"
 
 #define HydrologyCmd_printf    p_dbg
 

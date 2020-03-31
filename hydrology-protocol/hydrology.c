@@ -1,5 +1,5 @@
-#include "hydrology-protocol/message.h"
-#include "hydrology-protocol/hydrologycommand.h"
+#include "protocol/hydrology.h"
+#include "protocol/hydrologycommand.h"
 #include "string.h"
 #include "stdlib.h"
 #include "stdio.h" 
@@ -30,16 +30,20 @@ hydrologyElement inputPara[MAX_ELEMENT];
   * @step 5:
   */
 
-#include "rtc.h"
+#include "timer/bsp_rtc.h"
+#include "peripheral/nb_app.h"
+#include "peripheral/bsp_serialport.h"
+#include "algorithm/bsp_crc.h"
 #include "ff.h"
 #include "fatfs.h"
-#include "nb_iot/nb_app.h"
 
 #define DEBUG
-#include "idebug/idebug.h"
+#include "idebug.h"
 
 
 #define HydrologyMsg_printf    p_dbg
+
+#define Hydrology_UseSelfCRC   0
 
 const hydrologyElementInfo Element_table[] = {
   ELEMENT_REGISTER(0x03, HYDROLOGY_ANALOG, 3, 1, HYDROLOGY_ADC),
@@ -58,6 +62,10 @@ static int SinglePacketSendCount = 0;
 static int PacketSendTimes = 0;
 
 char HYDROLOGY_MODE = HYDROLOGY_M1;
+
+#if Hydrology_UseSelfCRC
+short hydrologyCRC16(char* pchMsg, int wDataLen);
+#endif
 
 int Hydrology_ReadStoreInfo(long addr, char *data, int len)
 {
@@ -119,20 +127,8 @@ int Hydrology_WriteStoreInfo(long addr, char *data, int len)
 
 void Hydrology_ReadTime(char* time)
 {
-  RTC_DateTypeDef sdatestructureget;
-  RTC_TimeTypeDef stimestructureget;
-
-  /* Get the RTC current Time */
-  HAL_RTC_GetTime(&hrtc,  &stimestructureget, RTC_FORMAT_BCD);
-  /* Get the RTC current Date */
-  HAL_RTC_GetDate(&hrtc,  &sdatestructureget, RTC_FORMAT_BCD);
-  
-  time[0] = sdatestructureget.Year;
-  time[1] = sdatestructureget.Month;
-  time[2] = sdatestructureget.Date;
-  time[3] = stimestructureget.Hours;
-  time[4] = stimestructureget.Minutes;
-  time[5] = stimestructureget.Seconds;
+  RTC_CalendarShow((uint8_t*)&time[0], (uint8_t*)&time[1], (uint8_t*)&time[2], \
+                   (uint8_t*)&time[3], (uint8_t*)&time[4], (uint8_t*)&time[5], NULL);
 }
 
 void Hydrology_SetTime(char* time_temp)
@@ -151,7 +147,8 @@ void Hydrology_SetTime(char* time_temp)
 //  temp[4] = (time[8] << 4) + time[9];
 //  temp[5] = (time[10] << 4) + time[11];
 
-  RTC_CalendarConfig(time_temp[0], time_temp[1], time_temp[2], time_temp[3], time_temp[4], time_temp[5], 0x07);
+  RTC_CalendarConfig(time_temp[0], time_temp[1], time_temp[2], time_temp[3], \
+                     time_temp[4], time_temp[5], NULL);
 }
 
 int Hydrology_SendData(char* data, int len)
@@ -811,6 +808,8 @@ static int hydrologyMakeUpBody(int count)
   return 0;
 }
 
+#if Hydrology_UseSelfCRC
+
 const char chCRCHTalbe[] =
 {
 0x00,  0xC1,  0x81,  0x40,  0x01,  0xC0,  0x80,  0x41,  0x01,  0xC0,  0x80,  0x41, 
@@ -860,7 +859,7 @@ const char chCRCLTalbe[] =
 0x44,  0x84,  0x85,  0x45,  0x87,  0x47,  0x46,  0x86,  0x82,  0x42,  0x43,  0x83, 
 0x41,  0x81,  0x80,  0x40};
 
-short hydrologyCRC16(char* pchMsg,  int wDataLen)
+short CRC16_Calculate(char* pchMsg,  int wDataLen)
 {
   char chCRCHi = 0xFF;
   char chCRCLo = 0xFF;
@@ -874,13 +873,15 @@ short hydrologyCRC16(char* pchMsg,  int wDataLen)
   return ((chCRCHi << 8) | chCRCLo) ;
 }
 
+#endif
+
 int hydrologyCheck(char* input, int inputlen)
 {
   short crcRet = 0;
   short inputCrc = 0;
   int bodylen = 0;
 
-  crcRet = hydrologyCRC16(input, inputlen - 2);
+  crcRet = CRC16_Calculate(input, inputlen - 2);
 
   inputCrc = (input[inputlen - 2] << 8) | input[inputlen - 1];
 
@@ -890,7 +891,7 @@ int hydrologyCheck(char* input, int inputlen)
   }
   else
   {
-    HydrologyMsg_printf("CRC check fail !");
+    HydrologyMsg_printf("CRC check failed !");
     return -1;
   }
 
@@ -900,7 +901,7 @@ int hydrologyCheck(char* input, int inputlen)
   }
   else
   {
-    HydrologyMsg_printf("Frame head check fail !");
+    HydrologyMsg_printf("Frame head check failed !");
     return -2;
   }
 
@@ -912,7 +913,7 @@ int hydrologyCheck(char* input, int inputlen)
   }
   else
   {
-    HydrologyMsg_printf("Hydrolog length check fail !");
+    HydrologyMsg_printf("Hydrolog length check failed !");
     return -3;
   }
   return 0;
@@ -1204,7 +1205,7 @@ static void hydrologyMakeUpTail(char* buffer, int *pbuffer, char funcode)
     pheader->dir_len[1] |= bodylen&0xFF;
     memcpy(&buffer[11],pheader->dir_len, 2);
     
-    g_HydrologyMsg.crc16 = hydrologyCRC16(buffer,*pbuffer);
+    g_HydrologyMsg.crc16 = CRC16_Calculate(buffer,*pbuffer);
     buffer[*pbuffer] = g_HydrologyMsg.crc16 >> 8;
     *pbuffer += 1;
     buffer[*pbuffer] = g_HydrologyMsg.crc16 & 0xFF;
@@ -1221,7 +1222,7 @@ static void hydrologyMakeUpTail(char* buffer, int *pbuffer, char funcode)
     pheader->dir_len[1] |= bodylen&0xFF;
     memcpy(&buffer[11],pheader->dir_len, 2);
     
-    g_HydrologyMsg.crc16 = hydrologyCRC16(buffer,*pbuffer);
+    g_HydrologyMsg.crc16 = CRC16_Calculate(buffer,*pbuffer);
     buffer[*pbuffer] = g_HydrologyMsg.crc16 >> 8;
     *pbuffer += 1;
     buffer[*pbuffer] = g_HydrologyMsg.crc16 & 0xFF;
@@ -1245,7 +1246,7 @@ static void hydrologyMakeUpTail(char* buffer, int *pbuffer, char funcode)
     pheader->dir_len[1] |= bodylen&0xFF;
     memcpy(&buffer[11],pheader->dir_len, 2);
     
-    g_HydrologyMsg.crc16 = hydrologyCRC16(buffer,*pbuffer);
+    g_HydrologyMsg.crc16 = CRC16_Calculate(buffer,*pbuffer);
     buffer[*pbuffer] = g_HydrologyMsg.crc16 >> 8;
     *pbuffer += 1;
     buffer[*pbuffer] = g_HydrologyMsg.crc16 & 0xFF;
@@ -1591,3 +1592,16 @@ int hydrologyReadMsgSrc(void)
   return g_hydrologyMsgSrc;
 }
 
+void hydrologyProcessUARTReceieve(void)
+{
+  uint8_t* pdata = NULL;
+  uint16_t len = NULL;
+  
+  SerialPort_Receive(&SerialPort_2, pdata, &len);
+  if(pdata != NULL)
+  {
+    hydrologySetMsgSrc(MsgFormClient);
+    hydrologyProcessReceieve((char*)pdata, len);
+    free(pdata);
+  }
+}

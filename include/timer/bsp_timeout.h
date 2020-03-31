@@ -1,5 +1,5 @@
-#ifndef __NB_SERIALPORT_H
-#define __NB_SERIALPORT_H
+#ifndef __BSP_TIMEOUT_H
+#define __BSP_TIMEOUT_H
 
 #ifdef __cplusplus
  extern "C" {
@@ -8,8 +8,7 @@
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
    
 /* Includes ------------------------------------------------------------------*/
-#include "stm32l4xx_hal.h"
-
+#include "core_common.h"
 
 
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
@@ -19,4 +18,4 @@
 }
 #endif
 
-#endif /* __NB_SERIALPORT_H */
+#endif /* __BSP_TIMEOUT_H */

@@ -1,5 +1,5 @@
-#ifndef __AT24CXX_H
-#define __AT24CXX_H
+#ifndef __CORE_COMMON_H
+#define __CORE_COMMON_H
 
 #ifdef __cplusplus
  extern "C" {
@@ -9,6 +9,8 @@
    
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_hal.h"
+//#include "stm32f1xx_hal.h"
+//#include "stm32l4xx_hal.h"
 
 
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
@@ -18,4 +20,4 @@
 }
 #endif
 
-#endif /* __AT24CXX_H */
+#endif /* __CORE_COMMON_H */

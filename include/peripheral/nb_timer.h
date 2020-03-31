@@ -9,7 +9,7 @@ extern "C"
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 /* Includes ------------------------------------------------------------------*/
-#include "stm32l4xx_hal.h"
+#include "core_common.h"
 #include "nb_bc95.h"
   
 void NB_IOT_SetTim(NB_TimeoutCallback cb);

@@ -1,4 +1,4 @@
-#include "bsp_rtctask/bsp_rtctask.h"
+#include "task/bsp_rtctask.h"
 #include "stdio.h"
 #include "string.h"
 //RTCTask Handle list head.
@@ -17,7 +17,7 @@ static RTCTask_DateTime_TypeDef _RTCTask_CurrentTime;
   */
 
 #define DEBUG
-#include "idebug/idebug.h"
+#include "idebug.h"
 
 #define RTCTask_printf    p_dbg
 

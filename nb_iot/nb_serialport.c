@@ -1,5 +1,5 @@
-#include "nb_iot/nb_serialport.h"
-#include "nb_iot/nb_bc95.h"
+#include "peripheral/nb_serialport.h"
+#include "peripheral/nb_bc95.h"
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -14,10 +14,10 @@
 #include "usart.h"
 #include "string.h"
 #include "stdlib.h"
-#include "bsp_serialport/bsp_serialport.h"
+#include "peripheral/bsp_serialport.h"
 
 #define DEBUG
-#include "idebug/idebug.h"
+#include "idebug.h"
 
 #define NB_IOT_UART_printf    p_dbg
 
@@ -32,7 +32,7 @@ SerialPort_TypeDef NB_IOT_UART1;
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-  if(huart->Instance == LPUART1)
+  if(huart->Instance == UART4)
   {
     NB_IOT_UART1.Tx_SendDone = 1;
   }
@@ -48,9 +48,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   {
 //    HAL_UART_Receive_IT(&huart1, (uint8_t*)NB_IOT_UART1.RxBuffer, NB_IOT_UART1.RxBuffer_Size); 
   }
-  if(huart->Instance == LPUART1)
+  if(huart->Instance == UART4)
   {
-//    HAL_UART_Receive_IT(&hlpuart1, (uint8_t*)NB_IOT_UART1.RxBuffer, NB_IOT_UART1.RxBuffer_Size); 
+//    HAL_UART_Receive_IT(&huart4, (uint8_t*)NB_IOT_UART1.RxBuffer, NB_IOT_UART1.RxBuffer_Size); 
   }
 }
 
@@ -78,7 +78,7 @@ void NB_IOT_UART_Open(NB_RxCallback cb, uint32_t baud)
   NB_InterRxCallback = cb;
   NB_IOT_UART1.RxScanInterval = 10;
   NB_IOT_UART1.RxBuffer_Size = NB_IOT_UART_RXBUFFER_SIZE;
-//  NB_IOT_UART1.RxBuffer = (uint16_t*)malloc(NB_IOT_UART1.RxBuffer_Size * sizeof(NB_IOT_UART_RXBUFFER_TYPE));
+  NB_IOT_UART1.RxBuffer = (uint16_t*)malloc(NB_IOT_UART1.RxBuffer_Size * sizeof(NB_IOT_UART_RXBUFFER_TYPE));
   if(NB_IOT_UART1.RxBuffer == NULL)
   {
     NB_IOT_UART_printf("NB_IOT_UART malloc failed !");
@@ -86,18 +86,18 @@ void NB_IOT_UART_Open(NB_RxCallback cb, uint32_t baud)
   }
   
   memset(NB_IOT_UART1.RxBuffer, 0xFF, NB_IOT_UART1.RxBuffer_Size * sizeof(NB_IOT_UART_RXBUFFER_TYPE));
-  HAL_UART_Receive_DMA(&hlpuart1, (uint8_t*)NB_IOT_UART1.RxBuffer, NB_IOT_UART1.RxBuffer_Size);  
+//  HAL_UART_Receive_DMA(&huart4, (uint8_t*)NB_IOT_UART1.RxBuffer, NB_IOT_UART1.RxBuffer_Size);  
 }
 
 void NB_IOT_UART_Close(void)
 {
 //  free(NB_IOT_UART1.RxBuffer);
-  HAL_UART_MspDeInit(&hlpuart1); 
+//  HAL_UART_MspDeInit(&huart4); 
 }
 
 void NB_IOT_UART_Send(uint8_t* pdata, uint16_t len)
 {
-  HAL_UART_Transmit_IT(&hlpuart1, pdata, len);
+//  HAL_UART_Transmit_IT(&huart4, pdata, len);
 //  HAL_UART_Transmit(&huart1, pdata, len, 0xFFFF);
 }
 

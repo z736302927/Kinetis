@@ -1,4 +1,4 @@
-#include "nb_iot/nb_board.h"
+#include "peripheral/nb_board.h"
 /**
   * @step 1:  For file nb_app.c call, no need to care about the implementation process.
   */

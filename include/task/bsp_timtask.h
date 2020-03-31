@@ -8,7 +8,7 @@
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
    
 /* Includes ------------------------------------------------------------------*/
-#include "stm32f4xx_hal.h"
+#include "core_common.h"
 
 typedef struct TimTask_TypeDef {
   uint32_t Timeout;
@@ -16,7 +16,6 @@ typedef struct TimTask_TypeDef {
   void (*Timeout_cb)(void);
   struct TimTask_TypeDef* Next;
 }TimTask_TypeDef;
-
 
 void TimTask_Init(struct TimTask_TypeDef* Handle, void(*Timeout_cb)(), uint32_t Timeout, uint32_t Repeat);
 int  TimTask_Start(struct TimTask_TypeDef* Handle);

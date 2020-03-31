@@ -1,4 +1,4 @@
-#include "bsp_fsm/bsp_fsm.h"
+#include "algorithm/bsp_fsm.h"
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -10,10 +10,10 @@
   * @step 5:  Finally, HydrologyTask_Init is called in the main function.
   */
 
-#include "nb_iot/nb_app.h"
+#include "peripheral/nb_app.h"
 
 #define DEBUG
-#include "idebug/idebug.h"
+#include "idebug.h"
 
 #define FSM_printf    p_dbg
 
