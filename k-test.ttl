@@ -1,0 +1,165 @@
+single_file_enable = 1;
+single_file_number = 0;
+
+test_file_begin = 3;
+test_file_end = 3;
+
+print_log_enable = 0;
+linux = 0;
+
+file_nbr = 7;
+line_nbr = 0;
+strdim command_file_name file_nbr;
+
+command_file_dir = "E:\Program\Kinetis";
+command_file_name[0] = "Kinetis_Plan.txt";
+
+commandFinish_Flag = "/ # ";
+CommandPassFlag = "TEST PASS";
+CommandFailFlag = "TEST FAIL";
+CommandNonFlag = "TEST NOT EXSIST";
+SystemDeadFlag = "System Opps";
+
+getenv 'USERNAME' username
+gettime timestr "%Y-%m-%d-%H-%M-%S"
+getdir command_file_dir
+
+line_nr = 0;
+
+if(single_file_enable == 1) then
+    skipline = 0;
+	endline = 10;
+	/*inputbox "skip line(zero means no skipping)" "line nbr"
+	str2int skipline inputstr
+	inputbox "end line(999 means no end until test script end)" "line nbr"
+	str2int endline inputstr*/
+endif
+
+;changedir "E:\Script\"
+
+if(single_file_enable == 1) then
+	sprintf command_file_name[single_file_number] "%s\%s" command_file_dir command_file_name[single_file_number]
+	fileopen fhandle command_file_name[single_file_number] 0
+	call exec_command_file
+else
+	for i test_file_begin test_file_end
+		sprintf2 command_file_name[i] "%s\%s"
+		command_file_dir command_file_name[i]
+		fileopen fhandle command_file_name[i] 0
+		call exec_command_file
+		fileclose fhandle
+	next
+endif
+end
+
+:exec_command_file
+	segment_mark_flag = 0;
+
+	while 1
+		line_nbr = line_nbr + 1;
+		filereadln fhandle line
+
+		if(single_file_enable == 1) then
+		    if(line_nbr < skipline) then
+		        continue;
+			endif
+		endif
+
+		if(result) then
+		    fileclose fhandle;
+			break;
+		else 
+			if(single_file_enable == 1) then
+				if(line_nbr > endline) then
+					fileclose fhandle
+					break;
+				endif
+			endif
+
+			if(segment_mark_flag > 0) then
+			    strscan line "*/"
+				if(result > 0) then
+					segment_mark_flag = 0;
+					continue;
+				endif
+			else
+			    strscan line "/*"
+			    if(result > 0) then
+					segment_mark_flag = 1;
+					strremove line result 2
+					strscan line "*/"
+
+				if(result > 0) then
+				    segment_mark_flag = 0;
+				endif
+				continue;
+			endif
+
+			strscan line "//"
+			if(result > 0) then
+			    continue;
+			endif
+
+			strscan line "#"
+			if(result > 0) then
+			    continue;
+			endif
+
+			strscan line ";"
+			if(result > 0) then
+			    continue;
+			endif
+
+			strscan line #13#10
+			if(result > 0) then
+			    continue;
+			endif
+
+			strscan line "log begin"
+			if(result > 0) then
+			    call log_record;
+			continue;
+			endif
+
+			strscan line "log end"
+			if(result > 0) then
+			    call log_close;
+			continue;
+			endif
+			mpause 50;
+
+			if(linux == 1) then
+			    sprintf "echo %s > /sys/manu " line
+			    sendln inputstr
+			else
+			    sprintf "%s" line
+			    sendln inputstr
+			endif
+			call wait_ack;
+		endif
+	endwhile
+return;
+
+:log_record
+	if(print_log_enable) then
+	    strcpyline 11 5 chapter
+	    sprintf2 logname "%s_%s.log" chapter username
+	    logopen logname 0 0;
+	endif
+return
+
+:log_close
+	if(print_log_enable) then
+    	log_close
+    endif
+    return
+
+:wait_ack
+	wait commandFinish_Flag CommandPassFlag CommandFailFlag CommandNonFlag SystemDeadFlag
+	if(result > 2) then 
+		messagebox "Test Fail" "Error"
+		call log_close;
+		end
+	endif
+	mpause 20;
+return;

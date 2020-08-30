@@ -2,11 +2,11 @@
 #define __NB_SERIALPORT_H
 
 #ifdef __cplusplus
- extern "C" {
+extern "C" {
 #endif
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
-   
+
 /* Includes ------------------------------------------------------------------*/
 #include "core_common.h"
 

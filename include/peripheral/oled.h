@@ -2,11 +2,11 @@
 #define __OLED_H
 
 #ifdef __cplusplus
- extern "C" {
+extern "C" {
 #endif
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
-   
+
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_hal.h"
 

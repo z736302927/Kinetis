@@ -2,11 +2,11 @@
 #define __DS3231_H
 
 #ifdef __cplusplus
- extern "C" {
+extern "C" {
 #endif
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
-   
+
 /* Includes ------------------------------------------------------------------*/
 #include "core_common.h"
 
@@ -14,13 +14,15 @@
 #define DS3231_HOURS12                  0x01
 #define DS3231_AM                       0x00
 #define DS3231_PM                       0x01
-   
+#define DS3231_FORMAT_BIN               0x0U
+#define DS3231_FORMAT_BCD               0x1U
+
 uint8_t ds3231_GetTimeMode(void);
 void ds3231_SetTimeMode(uint8_t Data);
 uint8_t ds3231_GetTimeRegion(void);
 void ds3231_SetTimeRegion(uint8_t Data);
-void ds3231_ReadTimeWithDec(uint8_t *pData);
-void ds3231_SetTimeWithDec(uint8_t *pData);
+void ds3231_ReadTime(uint8_t *pData, uint8_t Format);
+void ds3231_SetTime(uint8_t *pData, uint8_t Format);
 void ds3231_ReadTimeWithString(char *pData);
 void ds3231_SetTimeWithString(char *pData);
 void ds3231_ReadWeek(uint8_t *pData);

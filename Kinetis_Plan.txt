@@ -1,0 +1,5 @@
+/* 获取时钟 */
+rtc.GetClock
+
+/* 测试Device端 M1模式下一些自报报文 */
+hydrology.Test Device M1

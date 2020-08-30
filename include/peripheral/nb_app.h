@@ -5,7 +5,7 @@
 extern "C"
 {
 #endif
-   
+
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 /* Includes ------------------------------------------------------------------*/
@@ -16,7 +16,7 @@ extern "C"
 void NB_IOT_UART_Receive(void);
 void NB_IOT_Init(void);
 void NB_IOT_Turnoff_Pipe(uint8_t onoff);
-void NB_IOT_SendData(char* pdata, int len);
+void NB_IOT_SendData(char *pdata, int len);
 
 extern NB_ConfigTypeDef  nb_config;
 

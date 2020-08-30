@@ -2,13 +2,13 @@
 #define __SHT20_H
 
 #ifdef __cplusplus
- extern "C" {
+extern "C" {
 #endif
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
-   
+
 /* Includes ------------------------------------------------------------------*/
-#include "stm32f4xx_hal.h"
+#include "core_common.h"
 
 
 #define SHT20_IIC_ADDR              0x40
@@ -22,7 +22,7 @@ void SHT20_Read_TempAndRH(float *Temperature, float *Humidit);
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 #ifdef __cplusplus
-} 
+}
 #endif
 
 #endif /* __SHT20_H */
