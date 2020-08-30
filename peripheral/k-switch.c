@@ -14,7 +14,7 @@ static LIST_HEAD(head_handle);
 #include "string.h"
 
 #define DEBUG
-#include "idebug.h"
+#include "core/idebug.h"
 
 #define Switch_printf    p_dbg
 
@@ -189,7 +189,7 @@ void Switch_Ticks(void)
 }
 
 #ifdef DESIGN_VERIFICATION_SWITCH
-#include "k-test.h"
+#include "dv/k-test.h"
 #include "task/k-timtask.h"
 
 static struct Switch_TypeDef Switch_Test_Inst;

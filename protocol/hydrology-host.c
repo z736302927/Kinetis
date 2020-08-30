@@ -5,7 +5,7 @@
 #include "string.h"
 #include "stdio.h"
 #include "stdlib.h"
-#include "k-memory.h"
+#include "core/k-memory.h"
 #include "timer/k-basictimer.h"
 #include "timer/k-delay.h"
 #include <linux/crc16.h>
@@ -21,7 +21,7 @@
   */
 
 #include "algorithm/k-crc.h"
-#include "idebug.h"
+#include "core/idebug.h"
 
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -2525,8 +2525,8 @@ int HydrologyH_Process(HydrologyElementInfo *Element_table, uint8_t Count,
 }
 
 #ifdef DESIGN_VERIFICATION_HYDROLOGY
-#include "k-test.h"
-#include "k-rng.h"
+#include "dv/k-test.h"
+#include "dv/k-rng.h"
 
 int t_HydrologyH_M1M2M3(HydrologyMode Mode)
 {

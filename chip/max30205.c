@@ -13,7 +13,7 @@
 #include "iic_soft/iic_soft.h"
 
 #define DEBUG
-#include "idebug.h"
+#include "core/idebug.h"
 
 #define max30205_printf                  p_dbg
 

@@ -1,4 +1,4 @@
-#include "k-memory.h"
+#include "core/k-memory.h"
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -121,11 +121,11 @@ void *kmalloc(unsigned int size, unsigned int flags)
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 #ifdef DESIGN_VERIFICATION_MEMORY
-#include "k-test.h"
-#include "k-rng.h"
+#include "dv/k-test.h"
+#include "dv/k-rng.h"
 
 #define DEBUG
-#include "idebug.h"
+#include "core/idebug.h"
 
 int t_memory_Test(int argc, char **argv)
 {

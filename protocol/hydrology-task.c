@@ -18,7 +18,7 @@
 #include "task/k-rtctask.h"
 #include "chip/sht20.h"
 #include "string.h"
-#include "idebug.h"
+#include "core/idebug.h"
 
 struct TimTask_TypeDef HydrologyTask_LinkMaintenance;
 struct TimTask_TypeDef Task_Temperature_Humidit;

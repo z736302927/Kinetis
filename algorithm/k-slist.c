@@ -1,6 +1,6 @@
 #include "algorithm/k-slist.h"
 #include "linux/gfp.h"
-#include "k-memory.h"
+#include "core/k-memory.h"
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -12,7 +12,7 @@
   * @step 5:
   */
 
-#include "idebug.h"
+#include "core/idebug.h"
 
 typedef struct SListNode
 {

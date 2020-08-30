@@ -8,7 +8,7 @@ extern "C" {
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 /* Includes ------------------------------------------------------------------*/
-#include "core_common.h"
+#include "core/core_common.h"
 
 void RS485_Master_Send(uint8_t Dev_addr, uint8_t Fun_code, uint16_t Reg_addr, uint8_t Len);
 

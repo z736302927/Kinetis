@@ -1,8 +1,8 @@
-#include "k-test.h"
-#include "k-shell.h"
+#include "dv/k-test.h"
+#include "dv/k-shell.h"
 #include "string.h"
 #include "stdio.h"
-#include "k-memory.h"
+#include "core/k-memory.h"
 #include "linux/gfp.h"
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
@@ -16,7 +16,7 @@
   */
 
 #define DEBUG
-#include "idebug.h"
+#include "core/idebug.h"
 
 #ifdef DESIGN_VERIFICATION_AT24CXX
 int t_at24cxx_ReadWirte(int argc, char **argv);

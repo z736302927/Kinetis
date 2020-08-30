@@ -8,7 +8,7 @@ extern "C" {
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 /* Includes ------------------------------------------------------------------*/
-#include "core_common.h"
+#include "core/core_common.h"
 
 short CRC16_Calculate(char *pchMsg,  int wDataLen);
 int CRC16_Check(char *input, int inputlen);

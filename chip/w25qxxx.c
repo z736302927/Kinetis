@@ -13,10 +13,10 @@
 
 #include "stdlib.h"
 #include "string.h"
-#include "k-rng.h"
+#include "dv/k-rng.h"
 #include "spi.h"
 #include "timer/k-delay.h"
-#include "idebug.h"
+#include "core/idebug.h"
 #include "timer/k-basictimer.h"
 
 static inline void w25qxxx_PortTransmmit(uint8_t w25qxxx, uint8_t Data)
@@ -1471,7 +1471,7 @@ void w25qxxx_ReadInfo(uint8_t w25qxxx)
 }
 
 #ifdef DESIGN_VERIFICATION_W25QXXX
-#include "k-test.h"
+#include "dv/k-test.h"
 
 static uint8_t Tx_Buffer[32767];
 static uint8_t Rx_Buffer[32767];

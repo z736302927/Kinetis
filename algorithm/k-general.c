@@ -16,7 +16,7 @@
   * @step 5:
   */
 
-#include "idebug.h"
+#include "core/idebug.h"
 
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -139,7 +139,7 @@ void General_ProcessCommand(GeneralCommand_TypeDef *Command)
 }
 
 #ifdef DESIGN_VERIFICATION_GENERAL
-#include "k-test.h"
+#include "dv/k-test.h"
 
 int t_General_Success(int argc, char **argv)
 {

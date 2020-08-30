@@ -1,4 +1,4 @@
-#include "k-shell.h"
+#include "dv/k-shell.h"
 #include "stdio.h"
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
@@ -14,7 +14,7 @@
 #include "usart.h"
 #include "peripheral/k-serialport.h"
 #include "linux/gfp.h"
-#include "k-memory.h"
+#include "core/k-memory.h"
 #include "string.h"
 
 static uint16_t shell_Buffer[128];

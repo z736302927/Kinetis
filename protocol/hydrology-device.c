@@ -3,7 +3,7 @@
 #include "protocol/hydrology-cmd.h"
 #include "protocol/hydrology-identifier.h"
 #include "string.h"
-#include "k-memory.h"
+#include "core/k-memory.h"
 #include "timer/k-basictimer.h"
 #include "timer/k-delay.h"
 #include <linux/crc16.h>
@@ -18,7 +18,7 @@
   * @step 5:
   */
 
-#include "idebug.h"
+#include "core/idebug.h"
 
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -2224,8 +2224,8 @@ int HydrologyD_Process(HydrologyElementInfo *Element_table, uint8_t Count,
 }
 
 #ifdef DESIGN_VERIFICATION_HYDROLOGY
-#include "k-test.h"
-#include "k-rng.h"
+#include "dv/k-test.h"
+#include "dv/k-rng.h"
 
 int t_HydrologyD_RandomElement(HydrologyMode Mode, HydrologyBodyType Funcode)
 {

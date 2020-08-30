@@ -15,7 +15,7 @@
 #include "string.h"
 
 #define DEBUG
-#include "idebug.h"
+#include "core/idebug.h"
 
 #define gt9271_printf                   p_dbg
 

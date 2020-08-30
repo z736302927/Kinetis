@@ -16,7 +16,7 @@
 #include "spi.h"
 
 #define DEBUG
-#include "idebug.h"
+#include "core/idebug.h"
 
 #define tlc5971_printf                  p_dbg
 

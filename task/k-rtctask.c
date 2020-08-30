@@ -16,7 +16,7 @@ static RTCTask_DateTime_TypeDef _RTCTask_CurrentTime;
   * @step 4:  An infinite loop calls function RTCTask_Loop.
   */
 
-#include "idebug.h"
+#include "core/idebug.h"
 
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -362,7 +362,7 @@ void RTCTask_GetCurrentTime(uint8_t TmpYear, uint8_t TmpMonth, uint8_t TmpDate, 
 }
 
 #ifdef DESIGN_VERIFICATION_RTCTASK
-#include "k-test.h"
+#include "dv/k-test.h"
 #include "timer/k-timeout.h"
 
 struct RTCTask_TypeDef RTCTask1;

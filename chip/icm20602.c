@@ -13,7 +13,7 @@
 #include "iic_soft/iic_soft.h"
 
 #define DEBUG
-#include "idebug.h"
+#include "core/idebug.h"
 
 #define icm20602_printf                  p_dbg
 

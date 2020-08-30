@@ -3,7 +3,7 @@
 #include "string.h"
 #include "stdlib.h"
 #include "linux/gfp.h"
-#include "k-memory.h"
+#include "core/k-memory.h"
 
 //LED Handle list head.
 static struct LED_TypeDef *LED_HeadHandler = NULL;
@@ -160,7 +160,7 @@ void K_LED_Toggle(LEDn_Type LED)
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 #ifdef DESIGN_VERIFICATION_LED
-#include "k-test.h"
+#include "dv/k-test.h"
 #include "task/k-timtask.h"
 
 struct TimTask_TypeDef LEDTask;

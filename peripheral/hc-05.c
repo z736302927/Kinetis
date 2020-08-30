@@ -12,7 +12,7 @@
   */
 
 #define DEBUG
-#include "idebug.h"
+#include "core/idebug.h"
 
 #define hc_05_printf                  p_dbg
 
@@ -44,7 +44,7 @@ void hc_05_TestCommand(void)
 }
 
 #ifdef DESIGN_VERIFICATION_HC_05
-#include "k-test.h"
+#include "dv/k-test.h"
 
 int t_hc_05_TestCommand(int argc, char **argv)
 {

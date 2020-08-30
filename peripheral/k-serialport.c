@@ -1,7 +1,7 @@
 #include "peripheral/k-serialport.h"
 #include "timer/k-delay.h"
 #include "linux/gfp.h"
-#include "k-memory.h"
+#include "core/k-memory.h"
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -17,7 +17,7 @@
 #include "string.h"
 #include "stdlib.h"
 #include "stdbool.h"
-#include "idebug.h"
+#include "core/idebug.h"
 #include "timer/k-basictimer.h"
 
 int SerialPort_RxDataFlag = 0;
@@ -295,7 +295,7 @@ uint8_t SerialPort_Receive(SerialPort_TypeDef *Instance)
 }
 
 #ifdef DESIGN_VERIFICATION_SEIRALPORT
-#include "k-test.h"
+#include "dv/k-test.h"
 
 int t_SerialPort_Shell(int argc, char **argv)
 {

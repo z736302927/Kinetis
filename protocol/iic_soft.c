@@ -11,7 +11,7 @@
 
 #include "timer/k-delay.h"
 
-#include "idebug.h"
+#include "core/idebug.h"
 
 //static uint8_t IIC_Soft_FastMode = 1;
 

@@ -1,4 +1,4 @@
-#include "idebug.h"
+#include "core/idebug.h"
 #include "timer/k-basictimer.h"
 #include "stdio.h"
 #include "stdarg.h"

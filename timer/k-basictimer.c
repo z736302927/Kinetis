@@ -11,7 +11,7 @@
   */
 
 #include "tim.h"
-#include "idebug.h"
+#include "core/idebug.h"
 
 volatile uint32_t timerTick_ss;
 #ifdef BASIC_16BIT_TIMER
@@ -100,7 +100,7 @@ void BasicTimer_ResumeTick(void)
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 #ifdef DESIGN_VERIFICATION_BASICTIMER
-#include "k-test.h"
+#include "dv/k-test.h"
 #include "stdlib.h"
 
 int t_BasicTimer_GetTick(int argc, char **argv)

@@ -13,7 +13,7 @@
   */
 
 #include "tim.h"
-#include "idebug.h"
+#include "core/idebug.h"
 
 //#define DELAY_USING_HARDWARE
 
@@ -209,7 +209,7 @@ void Delay_s(uint32_t Delay)
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 #ifdef DESIGN_VERIFICATION_DELAY
-#include "k-test.h"
+#include "dv/k-test.h"
 
 int t_Delay(int argc, char **argv)
 {

@@ -8,7 +8,7 @@ extern "C" {
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 /* Includes ------------------------------------------------------------------*/
-#include "core_common.h"
+#include "core/core_common.h"
 
 void RTC_CalendarConfig(uint8_t Year, uint8_t Month, uint8_t Date,
     uint8_t Hours, uint8_t Minutes, uint8_t Seconds, uint8_t WeekDay, uint8_t Format);

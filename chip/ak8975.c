@@ -14,7 +14,7 @@
 #include "iic_soft/iic_soft.h"
 
 #define DEBUG
-#include "idebug.h"
+#include "core/idebug.h"
 
 #define ak8975_printf                  p_dbg
 #define AK8975_USING_IIC
@@ -321,7 +321,7 @@ void ak8975_Init(void)
 }
 
 #ifdef DESIGN_VERIFICATION_AK8975
-#include "k-test.h"
+#include "dv/k-test.h"
 
 int t_ak8975_BasicInfo(int argc, char **argv)
 {

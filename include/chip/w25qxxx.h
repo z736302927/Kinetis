@@ -8,7 +8,7 @@ extern "C" {
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 /* Includes ------------------------------------------------------------------*/
-#include "core_common.h"
+#include "core/core_common.h"
 
 #define W25Q128                         0x17
 #define W25Q256                         0x18

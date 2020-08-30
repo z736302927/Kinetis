@@ -5,7 +5,7 @@
 #include "task/hydrology-task.h"
 #include "string.h"
 #include "stdio.h"
-#include "k-memory.h"
+#include "core/k-memory.h"
 #include <linux/crc16.h>
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
@@ -24,8 +24,8 @@
 #include "timer/k-delay.h"
 #include "timer/k-basictimer.h"
 #include "ff.h"
-#include "k-fatfs.h"
-#include "idebug.h"
+#include "other/k-fatfs.h"
+#include "core/idebug.h"
 
 int Hydrology_ReadFileSize(char *filename, uint32_t *Size)
 {
@@ -950,7 +950,7 @@ int Hydrology_ReadSpecifiedElementInfo(HydrologyElementInfo *Element,
 }
 
 #ifdef DESIGN_VERIFICATION_HYDROLOGY
-#include "k-test.h"
+#include "dv/k-test.h"
 
 int t_HydrologyD_M1M2(HydrologyMode Mode);
 int t_HydrologyH_M1M2M3(HydrologyMode Mode);

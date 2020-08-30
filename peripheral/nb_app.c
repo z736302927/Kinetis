@@ -20,7 +20,7 @@
 #include "protocol/hydrology.h"
 
 #define DEBUG
-#include "idebug.h"
+#include "core/idebug.h"
 
 
 #define NB_printf    p_dbg

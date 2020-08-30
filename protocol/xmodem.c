@@ -15,7 +15,7 @@
 #include "stdbool.h"
 
 #define DEBUG
-#include "idebug.h"
+#include "core/idebug.h"
 
 #define xmodem_printf                   p_dbg
 

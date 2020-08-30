@@ -1,4 +1,4 @@
-#include "k-rng.h"
+#include "dv/k-rng.h"
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -13,7 +13,7 @@
 #include "stdlib.h"
 #include "string.h"
 #include "rng.h"
-#include "idebug.h"
+#include "core/idebug.h"
 
 #define USING_HARDWARE_RNG
 #define USING_C_LIBRARY
@@ -102,8 +102,8 @@ void Random_GetArray(void *pData, uint32_t Length, uint8_t Bits)
 }
 
 #ifdef DESIGN_VERIFICATION_DELAY
-#include "k-test.h"
-#include "k-memory.h"
+#include "dv/k-test.h"
+#include "core/k-memory.h"
 #include "linux/gfp.h"
 #include "stdio.h"
 

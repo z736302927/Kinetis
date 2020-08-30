@@ -14,7 +14,7 @@
 #include "i2c.h"
 #include "string.h"
 #include "timer/k-delay.h"
-#include "idebug.h"
+#include "core/idebug.h"
 
 #define DS3231_ADDR                     0x68
 
@@ -545,7 +545,7 @@ void ds3231_GetTemperature(float *pData)
 }
 
 #ifdef DESIGN_VERIFICATION_DS3231
-#include "k-test.h"
+#include "dv/k-test.h"
 
 int t_ds3231_SetClock(int argc, char **argv)
 {

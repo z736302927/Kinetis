@@ -8,7 +8,7 @@ extern "C" {
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 /* Includes ------------------------------------------------------------------*/
-#include "core_common.h"
+#include "core/core_common.h"
 
 //#define HYDROLOGY_FILE_PATH             "0:/Hydrology_Data/"
 //#define HYDROLOGY_D_FILE_E_DATA          "HydrologyElement.txt"

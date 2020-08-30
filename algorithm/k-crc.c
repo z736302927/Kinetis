@@ -11,7 +11,7 @@
   * @step 5:
   */
 
-#include "idebug.h"
+#include "core/idebug.h"
 
 int CRC16_Check(char *input, int inputlen)
 {

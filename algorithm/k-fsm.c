@@ -13,7 +13,7 @@
 #include "peripheral/nb_app.h"
 
 #define DEBUG
-#include "idebug.h"
+#include "core/idebug.h"
 
 #define FSM_printf    p_dbg
 
@@ -53,7 +53,7 @@ State FSM_Step(pStateMachine machine, SM_VAR *sm_var, pTransition **table)
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
 #ifdef DESIGN_VERIFICATION_FSM
-#include "k-test.h"
+#include "dv/k-test.h"
 
 extern int FSM_NB_None(pStateMachine machine, SM_VAR *sm_var);
 extern int FSM_NB_Init(pStateMachine machine, SM_VAR *sm_var);

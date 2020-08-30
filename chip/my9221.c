@@ -12,12 +12,12 @@
 
 #include "stdlib.h"
 #include "string.h"
-#include "k-rng.h"
+#include "dv/k-rng.h"
 #include "spi.h"
 #include "timer/k-delay.h"
 
 #define DEBUG
-#include "idebug.h"
+#include "core/idebug.h"
 
 #define my9221_printf                  p_dbg
 

@@ -13,7 +13,7 @@
 #include "rtc.h"
 #include "chip/ds3231.h"
 #include "stdio.h"
-#include "idebug.h"
+#include "core/idebug.h"
 
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -199,8 +199,8 @@ uint8_t RTC_GetTimeFormat(void)
 }
 
 #ifdef DESIGN_VERIFICATION_RTC
-#include "k-test.h"
-#include "k-rng.h"
+#include "dv/k-test.h"
+#include "dv/k-rng.h"
 #include "stdlib.h"
 
 int t_RTC_SetClock(int argc, char **argv)

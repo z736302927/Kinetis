@@ -15,7 +15,7 @@ static struct Button_TypeDef *head_handle = NULL;
 #include "string.h"
 #include "task/k-timtask.h"
 #include "protocol/hydrology.h"
-#include "idebug.h"
+#include "core/idebug.h"
 
 /* According to your need to modify the constants. */
 #define TICKS_INTERVAL    5 //ms
@@ -294,7 +294,7 @@ void Button_Ticks(void)
 }
 
 #ifdef DESIGN_VERIFICATION_BUTTON
-#include "k-test.h"
+#include "dv/k-test.h"
 
 static struct Button_TypeDef Button_Test_Inst;
 

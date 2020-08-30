@@ -12,7 +12,7 @@
 
 #include "protocol/iic_soft.h"
 #include "timer/k-delay.h"
-#include "idebug.h"
+#include "core/idebug.h"
 
 #define MPU6050_ADDR                    0x00
 

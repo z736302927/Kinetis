@@ -17,7 +17,7 @@
 #include "i2c.h"
 
 #define DEBUG
-#include "idebug.h"
+#include "core/idebug.h"
 
 #define at24cxx_printf                  p_dbg
 
@@ -216,9 +216,9 @@ void at24cxx_SequentialRead(uint8_t *pData, uint32_t Length)
 }
 
 #ifdef DESIGN_VERIFICATION_AT24CXX
-#include "k-test.h"
+#include "dv/k-test.h"
 #include "stdlib.h"
-#include "k-rng.h"
+#include "dv/k-rng.h"
 #include "timer/k-basictimer.h"
 
 static uint8_t Tx_Buffer[AT24CXX_VOLUME];

@@ -17,7 +17,7 @@ static uint32_t _TimTask_ticks = 0;
   * @step 5:  Note that the base frequency determines your actual call time.Please calculate in advance.
   */
 
-#include "idebug.h"
+#include "core/idebug.h"
 
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
@@ -127,7 +127,7 @@ void TimTask_Ticks(void)
 }
 
 #ifdef DESIGN_VERIFICATION_TIMTASK
-#include "k-test.h"
+#include "dv/k-test.h"
 #include "timer/k-timeout.h"
 
 struct TimTask_TypeDef TimTask1;

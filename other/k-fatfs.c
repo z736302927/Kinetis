@@ -1,4 +1,4 @@
-#include "k-fatfs.h"
+#include "other/k-fatfs.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
@@ -19,7 +19,7 @@
 
 #include "ff_gen_drv.h"
 #include "flash_diskio.h"
-#include "idebug.h"
+#include "core/idebug.h"
 
 FATFS DISKFatFs;  /* File system object for  disk logical drive */
 FIL MyFile;       /* File object */
@@ -889,7 +889,7 @@ int FatFs_Raw_Speed(
 }
 
 #ifdef DESIGN_VERIFICATION_FATFS
-#include "k-test.h"
+#include "dv/k-test.h"
 
 int t_FatFs_ReadWrite(int argc, char **argv)
 {

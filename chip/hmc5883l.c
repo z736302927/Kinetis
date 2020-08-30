@@ -13,7 +13,7 @@
 #include "iic_soft/iic_soft.h"
 
 #define DEBUG
-#include "idebug.h"
+#include "core/idebug.h"
 
 #define hmc5883l_printf                  p_dbg
 
@@ -193,7 +193,7 @@ void hmc5883l_Identification(uint8_t *pData)
 }
 
 #ifdef DESIGN_VERIFICATION_HMC5883L
-#include "k-test.h"
+#include "dv/k-test.h"
 
 int t_hmc5883l_BasicInfo(int argc, char **argv)
 {

@@ -17,7 +17,7 @@
 #include "peripheral/k-serialport.h"
 
 #define DEBUG
-#include "idebug.h"
+#include "core/idebug.h"
 
 #define NB_IOT_UART_printf    p_dbg
 

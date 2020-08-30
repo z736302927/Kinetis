@@ -20,7 +20,7 @@
 #include "linux/gfp.h"
 
 #define DEBUG
-#include "idebug.h"
+#include "core/idebug.h"
 
 #define RS485_printf    p_dbg
 #define RS485_error     p_err_fun
