@@ -230,8 +230,8 @@ Test_Case_TypeDef Kinetis_Case_Table[] =
     {"memory.Test", t_memory_Test},
 #endif
 #ifdef DESIGN_VERIFICATION_RNG
-    {"Random.Number", t_Random_Number},
-    {"Random.Array", t_Random_Array},
+    {"random.Number", t_Random_Number},
+    {"random.Array", t_Random_Array},
 #endif
 #ifdef DESIGN_VERIFICATION_RS485
     {"test", fuction},

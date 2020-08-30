@@ -10,10 +10,6 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include "core/core_common.h"
 
-//#define HYDROLOGY_FILE_PATH             "0:/Hydrology_Data/"
-//#define HYDROLOGY_D_FILE_E_DATA          "HydrologyElement.txt"
-//#define HYDROLOGY_D_FILE_PICTURE          "HydrologyPicture.jpg"
-
 #define HYDROLOGY_H_PORT_TIMEOUT        10
 #define HYDROLOGY_D_PORT_TIMEOUT        10
 #define HYDROLOGY_BODY_MAX_LEN          128
@@ -29,7 +25,6 @@ extern "C" {
 
 #define HYDROLOGY_H_FILE_E_DATA         "HydrologyH_Element_Data.txt"
 #define HYDROLOGY_H_FILE_E_INFO         "HydrologyH_Element_Info.txt"
-
 
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 

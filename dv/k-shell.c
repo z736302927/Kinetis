@@ -22,9 +22,8 @@ uint16_t *shell_Pointer = shell_Buffer;
 
 void shell_Init(void)
 {
-
     HAL_UART_Receive_DMA(&huart1, (uint8_t *)shell_Buffer, 128);
-    memset(shell_Buffer, 0xFF, sizeof(shell_Buffer) * 2);
+    memset(shell_Buffer, 0xFF, sizeof(shell_Buffer));
 }
 
 static inline uint8_t shell_PortReceive(void)

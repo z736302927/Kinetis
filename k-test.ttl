@@ -1,8 +1,8 @@
-single_file_enable = 1;
+single_file_enable = 0;
 single_file_number = 0;
 
-test_file_begin = 3;
-test_file_end = 3;
+test_file_begin = 0;
+test_file_end = 0;
 
 print_log_enable = 0;
 linux = 0;
@@ -43,8 +43,7 @@ if(single_file_enable == 1) then
 	call exec_command_file
 else
 	for i test_file_begin test_file_end
-		sprintf2 command_file_name[i] "%s\%s"
-		command_file_dir command_file_name[i]
+		sprintf2 command_file_name[i] "%s\%s" command_file_dir command_file_name[i]
 		fileopen fhandle command_file_name[i] 0
 		call exec_command_file
 		fileclose fhandle

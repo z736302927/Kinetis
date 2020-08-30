@@ -1,3 +1,16 @@
+/* 绝对时钟测试 */
+basictimer.GetTick
+
+/* 延时函数测试 */
+delay.Delay
+
+/* 内存读写测试 */
+memory.Test
+
+/* 随机数测试 */
+random.Number
+random.Array
+
 /* 获取时钟 */
 rtc.GetClock
 
