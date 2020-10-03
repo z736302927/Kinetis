@@ -1,4 +1,4 @@
-#include "other/k-trans-speed.h"
+#include "lib/k-trans-speed.h"
 
 /*The following program is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 

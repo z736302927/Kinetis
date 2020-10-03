@@ -21,6 +21,7 @@
 #include "timer/k-basictimer.h"
 
 int SerialPort_RxDataFlag = 0;
+uint16_t serialport_index;
 
 uint32_t SerialPort_GetTick(void)
 {
@@ -35,6 +36,16 @@ void SerialPort_SetRxState(int state)
 int SerialPort_GetRxState(void)
 {
     return SerialPort_RxDataFlag;
+}
+
+void serialport_get_rxdata(uint16_t data)
+{
+    Instance->TempBuffer[serialport_index] = data;
+    serialport_index++;
+    if(serialport_index >= Instance->TempBuffer_Size)
+    {
+        serialport_index = 0;
+    }
 }
 
 void SerialPort_RxBuffer_Init(SerialPort_TypeDef *Instance)
@@ -81,10 +92,8 @@ uint32_t SerialPort_GetMinInterval(SerialPort_TypeDef *Instance)
 {
     uint32_t Baud = 0;
     uint32_t Interval;
-
     Baud = SerialPort_GetBaud(Instance);
     Interval = 1000 / (Baud / 10) + 1;
-
     return Interval;
 }
 
@@ -113,7 +122,6 @@ void SerialPort_Close(SerialPort_TypeDef *Instance)
 //        HAL_UART_MspDeInit(&huart2);
 //    else if(Instance->PortNbr == 3)
 //        HAL_UART_MspDeInit(&huart3);
-
     SerialPort_Free(Instance);
 }
 
@@ -237,7 +245,6 @@ uint8_t SerialPort_Receive(SerialPort_TypeDef *Instance)
     uint8_t rxdata_tmptail = Instance->Rx_pTail;
     uint8_t wait_rx_done = 0;
     uint16_t Size;
-
     SerialPort_RxBuffer_FindTail(Instance);
 
     if(Instance->Rx_pHead != Instance->Rx_pTail)
@@ -288,7 +295,6 @@ uint8_t SerialPort_Receive(SerialPort_TypeDef *Instance)
             SerialPort_Extract_ValidData(Instance);
             return true;
         }
-
     }
 
     return false;
@@ -301,7 +307,6 @@ int t_SerialPort_Shell(int argc, char **argv)
 {
     SerialPort_TypeDef Instance;
     char *word = "\r";
-
     memset(&Instance, 0, sizeof(SerialPort_TypeDef));
     Instance.PortNbr = 1;
     Instance.TxBuffer_Size = 128;

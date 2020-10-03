@@ -24,7 +24,7 @@
 #include "timer/k-delay.h"
 #include "timer/k-basictimer.h"
 #include "ff.h"
-#include "other/k-fatfs.h"
+#include "lib/k-fatfs.h"
 #include "core/idebug.h"
 
 int Hydrology_ReadFileSize(char *filename, uint32_t *Size)
