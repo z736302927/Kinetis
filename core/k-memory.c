@@ -36,9 +36,8 @@ void kfree(void *objp)
 #ifdef MALLOC_RECORD
     uint32_t i;
 
-    for(i = 0; i < 100; i++)
-    {
-        if(memory[i] == (uint32_t)objp)
+    for (i = 0; i < 100; i++) {
+        if (memory[i] == (uint32_t)objp)
             memory[i] = 0;
     }
 
@@ -109,9 +108,8 @@ void *kmalloc(unsigned int size, unsigned int flags)
     memory[pointer++] = (uint32_t)ret;
 #endif
 
-    if(ret != NULL)
-    {
-        if(flags | __GFP_ZERO)
+    if (ret != NULL) {
+        if (flags | __GFP_ZERO)
             memset(ret, 0, size);
     }
 
@@ -133,16 +131,15 @@ int t_memory_Test(int argc, char **argv)
     uint16_t size;
     uint16_t i, times = 10;
 
-    if(argc > 1)
+    if (argc > 1)
         times = strtoul(argv[1], &argv[1], 10);
 
-    for(i = 0; i < times; i++)
-    {
+    for (i = 0; i < times; i++) {
         size = Random_Get8bit();
         kinetis_debug_trace(KERN_DEBUG, "malloc size@%u", size);
         ret = kmalloc(size, GFP_KERNEL);
 
-        if(ret == NULL)
+        if (ret == NULL)
             return FAIL;
 
         kfree(ret);

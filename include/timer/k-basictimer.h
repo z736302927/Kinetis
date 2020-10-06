@@ -41,8 +41,7 @@ static inline void BasicTimer_IncSSTick(void)
 {
 #ifdef BASIC_16BIT_TIMER
 
-    if(timerTick_us >= 1000000)
-    {
+    if (timerTick_us >= 1000000) {
         timerTick_us = 0;
         timerTick_ss++;
     }

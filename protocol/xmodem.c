@@ -83,23 +83,21 @@ uint32_t xmodem_CheckSUM8(void *pData, uint32_t Length)
     uint32_t CheckSUM = 0;
     uint8_t *pTmp = (uint8_t *)pData;
 
-    if((pData == NULL) || (Length == 0))
+    if ((pData == NULL) || (Length == 0))
         return CheckSUM;
 
-    while(Length > 1)
-    {
+    while (Length > 1) {
         CheckSUM += ((uint16_t)pTmp[Index] << 8 & 0xFF00) | (uint16_t)pTmp[Index + 1] & 0x00FF;
         Length -= 2;
         Index += 2;
     }
 
-    if(Length > 0)
-    {
+    if (Length > 0) {
         CheckSUM += ((uint16_t)pTmp[Index] << 8) & 0xFFFF;
         Index += 1;
     }
 
-    while(CheckSUM >> 16)
+    while (CheckSUM >> 16)
         CheckSUM = (CheckSUM & 0xFFFF) + (CheckSUM >> 16);
 
     return ~CheckSUM;
@@ -134,26 +132,21 @@ void xmodem_ClearSendStatus(void)
 
 void xmodem_ProcessReceivePacket(uint8_t *pData, uint32_t Length)
 {
-    switch(pData[0])
-    {
+    switch (pData[0]) {
         case SOH:
-            if(xmodem_CheckSUM8(pData, BLOCK_SIZE1 + 4) == 0)
-            {
+            if (xmodem_CheckSUM8(pData, BLOCK_SIZE1 + 4) == 0) {
                 xmodem_SendReceiveRequest(ACK);
                 xmodem_ProcessDataBlock(&pData[3], BLOCK_SIZE1);
-            }
-            else
+            } else
                 xmodem_SendReceiveRequest(NAK);
 
             break;
 
         case STX:
-            if(xmodem_CheckSUM8(pData, BLOCK_SIZE1 + 4) == 0)
-            {
+            if (xmodem_CheckSUM8(pData, BLOCK_SIZE1 + 4) == 0) {
                 xmodem_SendReceiveRequest(ACK);
                 xmodem_ProcessDataBlock(&pData[3], BLOCK_SIZE2);
-            }
-            else
+            } else
                 xmodem_SendReceiveRequest(NAK);
 
             break;
@@ -163,13 +156,13 @@ void xmodem_ProcessReceivePacket(uint8_t *pData, uint32_t Length)
             break;
 
         case ACK:
-            if(g_CurrentPacketNumber != g_TotalPacketNumber)
+            if (g_CurrentPacketNumber != g_TotalPacketNumber)
                 xmodem_ProcessSendPacket();
 
             break;
 
         case NAK:
-            if(g_CurrentPacketNumber == 0)
+            if (g_CurrentPacketNumber == 0)
                 xmodem_ProcessSendPacket();
             else
                 xmodem_ResendErrorPacket();
@@ -195,19 +188,16 @@ uint8_t xmodem_Timeout(void)
 
     begintime = xmodem_GetTick();
 
-    while(1)
-    {
+    while (1) {
 
-        if(xmodem_Read_BUSY() == 0)
+        if (xmodem_Read_BUSY() == 0)
             return true;
-        else
-        {
+        else {
             currenttime = xmodem_GetTick();
             timediff = currenttime >= begintime ? currenttime - begintime :
                 currenttime + UINT32_MAX - begintime;
 
-            if(timediff > 30000) /* 3s */
-            {
+            if (timediff > 30000) { /* 3s */
                 kinetis_debug_trace(KERN_DEBUG, "Command execution timeout !");
                 return false;
             }

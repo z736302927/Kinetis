@@ -18,27 +18,23 @@ extern "C" {
 typedef int State;
 typedef int Condition;
 
-typedef struct _SM_VAR
-{
+typedef struct _SM_VAR {
     int _repeats;
     Condition _condition;
 } SM_VAR;
 
-typedef struct
-{
+typedef struct {
     State current;
 } StateMachine, *pStateMachine;
 
 typedef int (*ActionType)(pStateMachine machine, SM_VAR *sm_var);
 
-typedef struct
-{
+typedef struct {
     State next;
     ActionType action;
 } Transition, *pTransition;
 
-enum SState
-{
+enum SState {
     sNB_NONE,
     sNB_INIT,
     sNB_MODULE_INFO,
@@ -56,8 +52,7 @@ enum SState
     sNB_END
 };
 
-enum CCondition
-{
+enum CCondition {
     cOK,
     cERROR_REPEATS_S3, //Less than 3
     cERROR_REPEATS_L3, //greater than 3

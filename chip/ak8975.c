@@ -282,24 +282,21 @@ uint8_t ak8975_MagneticAdjustedMeasurements(uint16_t *pData)
 
     ak8975_EnterSingleMeasurementMode();
 
-    do
-    {
-        if(ak8975_DataReady() == true)
+    do {
+        if (ak8975_DataReady() == true)
             break;
         else
             Delay_ms(1);
-    }
-    while(Timeout--)
+    } while (Timeout--)
 
-        if(Timeout <= 0)
-        {
+        if (Timeout <= 0) {
             kinetis_debug_trace(KERN_DEBUG, "[Error] ak8975 Magnetic Data not ready");
             return FAIL;
         }
 
 //  Timeout_WaitMSDone(&ak8975_DR_Flag, true, 1000);
 
-    if(ak8975_DataOverrun() == true)
+    if (ak8975_DataOverrun() == true)
         kinetis_debug_trace(KERN_DEBUG, "[Warning] ak8975 Magnetic Data Overrun");
 
     ak8975_MagneticMeasurements(RawData);
@@ -330,10 +327,9 @@ int t_ak8975_BasicInfo(int argc, char **argv)
     ak8975_WhoAmI(&Data);
     kinetis_debug_trace(KERN_DEBUG, "Device ID of AKM8975 is 0x%x", Data);
 
-    if(Data != AKM_DEVID)
+    if (Data != AKM_DEVID)
         return PASS;
-    else
-    {
+    else {
         kinetis_debug_trace(KERN_DEBUG, "Device ID of AKM8975 is not correct");
         return FAIL;
     }
@@ -341,7 +337,7 @@ int t_ak8975_BasicInfo(int argc, char **argv)
     ak8975_DeviceInformation(&Data);
     kinetis_debug_trace(KERN_DEBUG, "Device information for AKM8975 %x", Data);
 
-    if(Data != 0x00)
+    if (Data != 0x00)
         return PASS;
     else
         return FAIL;
@@ -355,33 +351,29 @@ int t_ak8975_Magnetic(int argc, char **argv)
     uint32_t Timeout = 1000;
 
 
-    if(argc > 1)
+    if (argc > 1)
         times = strtoul(argv[1], &argv[1], 10);
 
     ak8975_EnterPowerdownMode();
 
-    for(i = 0; i < times; i++)
-    {
+    for (i = 0; i < times; i++) {
         ak8975_EnterSingleMeasurementMode();
 
-        do
-        {
-            if(ak8975_DataReady() == true)
+        do {
+            if (ak8975_DataReady() == true)
                 break;
             else
                 Delay_ms(1);
-        }
-        while(Timeout--)
+        } while (Timeout--)
 
-            if(Timeout <= 0)
-            {
+            if (Timeout <= 0) {
                 kinetis_debug_trace(KERN_DEBUG, "[Error] ak8975 Magnetic Data not ready");
                 return FAIL;
             }
 
 //    Timeout_WaitMSDone(&ak8975_DR_Flag, true, 1000);
 
-        if(ak8975_DataOverrun() == true)
+        if (ak8975_DataOverrun() == true)
             kinetis_debug_trace(KERN_DEBUG, "[Warning] ak8975 Magnetic Data Overrun");
 
         ak8975_MagneticMeasurements(Magnetic);
@@ -400,17 +392,14 @@ int t_ak8975_Selftest(int argc, char **argv)
     ak8975_SelfTestControl(true);
     ak8975_EnterSelftestMode();
 
-    do
-    {
-        if(ak8975_DataReady() == true)
+    do {
+        if (ak8975_DataReady() == true)
             break;
         else
             Delay_ms(1);
-    }
-    while(Timeout--)
+    } while (Timeout--)
 
-        if(Timeout <= 0)
-        {
+        if (Timeout <= 0) {
             kinetis_debug_trace(KERN_DEBUG, "[Error] ak8975 Magnetic Data not ready");
             return FAIL;
         }
@@ -421,7 +410,7 @@ int t_ak8975_Selftest(int argc, char **argv)
     ak8975_SelfTestControl(false);
     kinetis_debug_trace(KERN_DEBUG, "ak8975 Selftest Magnetic Data %x, %x, %x", Magnetic[0], Magnetic[1], Magnetic[2]);
 
-    if(Magnetic[0] <= AK8975_TBD && Magnetic[1] <= AK8975_TBD && Magnetic[2] >= AK8975_TBD)
+    if (Magnetic[0] <= AK8975_TBD && Magnetic[1] <= AK8975_TBD && Magnetic[2] >= AK8975_TBD)
         kinetis_debug_trace(KERN_DEBUG, "AK8975/B is working normally");
     else
         return FAIL;

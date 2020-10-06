@@ -19,29 +19,26 @@
 
 State FSM_Step(pStateMachine machine, SM_VAR *sm_var, pTransition **table)
 {
-    if(sm_var->_repeats < 2)
-    {
+    if (sm_var->_repeats < 2) {
         pTransition t = table[machine->current][sm_var->_condition];
         (*(t->action))(machine, sm_var);
 
-        if(machine->current == t->next)
+        if (machine->current == t->next)
             sm_var->_repeats++;
         else
             sm_var->_repeats = 0;
 
         machine->current = t->next;
-    }
-    else
-    {
+    } else {
         sm_var->_condition = cERROR_REPEATS_L3;
         pTransition t = table[machine->current][sm_var->_condition];
         (*(t->action))(machine, sm_var);
 
         sm_var->_repeats = 0;
 
-        if(machine->current == sNB_UDP_RECEIVE)
+        if (machine->current == sNB_UDP_RECEIVE)
             machine->current = sNB_UDP_CLOSE;
-        else if(machine->current == sNB_UDP_CLOSE)
+        else if (machine->current == sNB_UDP_CLOSE)
             machine->current = sNB_END;
         else
             machine->current = sNB_RESET;
@@ -67,44 +64,37 @@ extern int FSM_NB_WaitReceiveData(pStateMachine machine, SM_VAR *sm_var);
 extern int FSM_NB_Reset(pStateMachine machine, SM_VAR *sm_var);
 extern int FSM_NB_End(pStateMachine machine, SM_VAR *sm_var);
 
-Transition NB_Fail2Reset =
-{
+Transition NB_Fail2Reset = {
     sNB_RESET,
     FSM_NB_Reset
 };
 
-Transition NB_Reset2None =
-{
+Transition NB_Reset2None = {
     sNB_NONE,
     FSM_NB_None
 };
 
-Transition NB_None2Init =
-{
+Transition NB_None2Init = {
     sNB_INIT,
     FSM_NB_Init
 };
 
-Transition NB_Init2ModuleInfo =
-{
+Transition NB_Init2ModuleInfo = {
     sNB_MODULE_INFO,
     FSM_NB_GetModuleInfo
 };
 
-Transition NB_ModuleInfo2Sign =
-{
+Transition NB_ModuleInfo2Sign = {
     sNB_SIGN,
     FSM_NB_GetSign
 };
 
-Transition NB_Sign2UDPCreate =
-{
+Transition NB_Sign2UDPCreate = {
     sNB_UDP_CREATE,
     FSM_NB_CreateUDP
 };
 
-Transition NB_UDPCreate2Register =
-{
+Transition NB_UDPCreate2Register = {
     sNB_UDP_REGISTER,
     FSM_NB_UDPRegister
 };
@@ -127,20 +117,17 @@ Transition NB_UDPCreate2Register =
 //  FSM_NB_UDPSendData
 //};
 
-Transition NB_UDPRegister2SendData =
-{
+Transition NB_UDPRegister2SendData = {
     sNB_UDP_SEND,
     FSM_NB_UDPSendData
 };
 
-Transition NB_UDPSendData2ReceiveData =
-{
+Transition NB_UDPSendData2ReceiveData = {
     sNB_UDP_RECEIVE,
     FSM_NB_WaitReceiveData
 };
 
-Transition NB_UDPReceiveData2UDPClose =
-{
+Transition NB_UDPReceiveData2UDPClose = {
     sNB_UDP_CLOSE,
     FSM_NB_CloseUDP
 };
@@ -151,8 +138,7 @@ Transition NB_UDPReceiveData2UDPClose =
 //  FSM_NB_CloseUDP
 //};
 
-Transition NB_UDPClose2End =
-{
+Transition NB_UDPClose2End = {
     sNB_END,
     FSM_NB_End////////////////////////////
 };

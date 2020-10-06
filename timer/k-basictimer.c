@@ -108,22 +108,22 @@ int t_BasicTimer_GetTick(int argc, char **argv)
     uint16_t times1 = 3, times2 = 10, times3 = 10;
     uint16_t i = 0;
 
-    if(argc > 1)
+    if (argc > 1)
         times1 = strtoul(argv[1], &argv[1], 10);
 
-    if(argc > 2)
+    if (argc > 2)
         times2 = strtoul(argv[2], &argv[2], 10);
 
-    if(argc > 3)
+    if (argc > 3)
         times3 = strtoul(argv[3], &argv[3], 10);
 
-    for(i = 0; i < times1; i++)
+    for (i = 0; i < times1; i++)
         kinetis_debug_trace(KERN_DEBUG, "Current absolute second = %lu", BasicTimer_GetSSTick());
 
-    for(i = 0; i < times2; i++)
+    for (i = 0; i < times2; i++)
         kinetis_debug_trace(KERN_DEBUG, "Current absolute millisecond = %llu", BasicTimer_GetMSTick());
 
-    for(i = 0; i < times3; i++)
+    for (i = 0; i < times3; i++)
         kinetis_debug_trace(KERN_DEBUG, "Current absolute microsecond = %lu", BasicTimer_GetUSTick());
 
     return PASS;

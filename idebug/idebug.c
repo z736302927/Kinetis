@@ -28,8 +28,7 @@
   * @param  None
   * @retval None
   */
-PUTCHAR_PROTOTYPE
-{
+PUTCHAR_PROTOTYPE {
     /* Place your implementation of fputc here */
     /* e.g. write a character to the USART3 and Loop until the end of transmission */
     HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 0xFFFF);
@@ -45,13 +44,12 @@ void kinetis_debug_trace(int dbg_level, const char *format, ...)
     va_list args;
     int size;
 
-    if(dbg_level > KERN_DEFAULT)
+    if (dbg_level > KERN_DEFAULT)
         return;
 
     printf("[%5d.%06d] ", BasicTimer_GetSSTick(), BasicTimer_GetUSTick());
 
-    switch(dbg_level)
-    {
+    switch (dbg_level) {
         case KERN_EMERG:
         case KERN_ALERT:
         case KERN_CRIT:
@@ -73,22 +71,17 @@ void kinetis_debug_trace(int dbg_level, const char *format, ...)
     va_start(args, format);
     size = vsprintf(buffer, format, args);
     va_end(args);
-
     HAL_UART_Transmit(&huart1, (uint8_t *)buffer, size, 0xFFFF);
-
     printf("\r\n");
 }
 
 void kinetis_dump_buffer(void *Buffer, int Size)
 {
     int i;
-
     printf("[%5d.%06d] ", BasicTimer_GetSSTick(), BasicTimer_GetUSTick());
 
-    for(i = 0; i < Size; i++)
-    {
-        if((i % 32 == 0) && (i != 0))
-        {
+    for (i = 0; i < Size; i++) {
+        if ((i % 32 == 0) && (i != 0)) {
             printf("\r\n");
             printf("[%5d.%06d] ", BasicTimer_GetSSTick(), BasicTimer_GetUSTick());
         }

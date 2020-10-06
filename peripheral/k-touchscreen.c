@@ -40,12 +40,10 @@ void K_Pointer_Update(void)
     xDiff = (prev_state.X > ts.X) ? (prev_state.X - ts.X) : (ts.X - prev_state.X);
     yDiff = (prev_state.Y > ts.Y) ? (prev_state.Y - ts.Y) : (ts.Y - prev_state.Y);
 
-    if(ts.TouchDetected)
-    {
-        if((prev_state.TouchDetected != ts.TouchDetected) ||
+    if (ts.TouchDetected) {
+        if ((prev_state.TouchDetected != ts.TouchDetected) ||
             (xDiff > 3) ||
-            (yDiff > 3))
-        {
+            (yDiff > 3)) {
             prev_state = ts;
 
             TS_State.Layer = 0;
@@ -127,8 +125,7 @@ void K_TS_GetState(TS_StateTypeDef *TsState)
 
     TsState->TouchDetected = TsDrv->DetectTouch(TS_I2C_ADDRESS);
 
-    if(TsState->TouchDetected)
-    {
+    if (TsState->TouchDetected) {
         TsDrv->GetXY(TS_I2C_ADDRESS, &x, &y);
 
         /* Y value first correction */
@@ -138,9 +135,9 @@ void K_TS_GetState(TS_StateTypeDef *TsState)
         yr = y / 11;
 
         /* Return y position value */
-        if(yr <= 0)
+        if (yr <= 0)
             yr = 0;
-        else if(yr > TsYBoundary)
+        else if (yr > TsYBoundary)
             yr = TsYBoundary - 1;
         else
         {}
@@ -148,7 +145,7 @@ void K_TS_GetState(TS_StateTypeDef *TsState)
         y = yr;
 
         /* X value first correction */
-        if(x <= 3000)
+        if (x <= 3000)
             x = 3870 - x;
         else
             x = 3800 - x;
@@ -157,9 +154,9 @@ void K_TS_GetState(TS_StateTypeDef *TsState)
         xr = x / 15;
 
         /* Return X position value */
-        if(xr <= 0)
+        if (xr <= 0)
             xr = 0;
-        else if(xr > TsXBoundary)
+        else if (xr > TsXBoundary)
             xr = TsXBoundary - 1;
         else
         {}
@@ -168,8 +165,7 @@ void K_TS_GetState(TS_StateTypeDef *TsState)
         xDiff = x > _x ? (x - _x) : (_x - x);
         yDiff = y > _y ? (y - _y) : (_y - y);
 
-        if(xDiff + yDiff > 5)
-        {
+        if (xDiff + yDiff > 5) {
             _x = x;
             _y = y;
         }
@@ -206,28 +202,23 @@ uint8_t TP_Scan(uint8_t mode)
 
     t++;
 
-    if((t % 10) == 0 || t < 10)
-    {
+    if ((t % 10) == 0 || t < 10) {
         GTP_ReadCurrentTSCase(&mode);
 
-        if(mode & 0x80 && ((mode & 0x0F) < 11))
-        {
+        if (mode & 0x80 && ((mode & 0x0F) < 11)) {
             i = 0;
             GTP_WriteCurrentTSCase(i);
         }
 
-        if((mode & 0x0F) && ((mode & 0x0F) < 11))
-        {
+        if ((mode & 0x0F) && ((mode & 0x0F) < 11)) {
             temp = 0xFFFF << (mode & 0x0F);
             tempsta = TP_State;
             TP_State = (~temp) | 0x80 | 0x40;
             TP_X_Coordinates[9] = TP_X_Coordinates[0];
             TP_Y_Coordinates[9] = TP_Y_Coordinates[0];
 
-            for(i = 0; i < 10; i++)
-            {
-                if(TP_State & (1 << i))
-                {
+            for (i = 0; i < 10; i++) {
+                if (TP_State & (1 << i)) {
                     GTP_ReadCurrentTSPoint(GT9271_TPX_TBL[i], buf, 6);
 //          if(tp_dev.touchtype & 0x01)
 //          {
@@ -245,40 +236,33 @@ uint8_t TP_Scan(uint8_t mode)
 
             res = 1;
 
-            if(TP_X_Coordinates[0] > GTP_MAX_WIDTH || TP_Y_Coordinates[0] > GTP_MAX_HEIGHT)
-            {
-                if((mode & 0x0F) > 1)
-                {
+            if (TP_X_Coordinates[0] > GTP_MAX_WIDTH || TP_Y_Coordinates[0] > GTP_MAX_HEIGHT) {
+                if ((mode & 0x0F) > 1) {
                     TP_X_Coordinates[0] = TP_X_Coordinates[1];
                     TP_Y_Coordinates[0] = TP_Y_Coordinates[1];
                     t = 0;
-                }
-                else
-                {
+                } else {
                     TP_X_Coordinates[0] = TP_X_Coordinates[9];
                     TP_Y_Coordinates[0] = TP_Y_Coordinates[9];
                     mode = 0x80;
                     TP_State = tempsta;
                 }
-            }
-            else
+            } else
                 t = 0;
         }
     }
 
-    if((mode & 0x8F) == 0x80)
-    {
-        if(TP_State & 0x80)
+    if ((mode & 0x8F) == 0x80) {
+        if (TP_State & 0x80)
             TP_State &= ~0x80;
-        else
-        {
+        else {
             TP_X_Coordinates[0] = 0xffff;
             TP_Y_Coordinates[0] = 0xffff;
             TP_State &= 0xE000;
         }
     }
 
-    if(t > 240)
+    if (t > 240)
         t = 10;
 
     return res;
@@ -291,8 +275,7 @@ uint8_t TP_Scan(uint8_t mode)
   */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-    if(GPIO_Pin == GPIO_PIN_7)
-    {
+    if (GPIO_Pin == GPIO_PIN_7) {
 //    GTP_TouchProcess();
     }
 }

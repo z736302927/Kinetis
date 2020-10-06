@@ -10,8 +10,7 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include "core/core_common.h"
 
-typedef struct SerialPort_TypeDef
-{
+typedef struct SerialPort_TypeDef {
     uint16_t TempBuffer_Size;
     uint16_t *TempBuffer;
     uint16_t RxBuffer_Size;

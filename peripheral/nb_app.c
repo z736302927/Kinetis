@@ -44,29 +44,25 @@ uint8_t NB_Response_Result = FALSE;
 uint8_t NB_Response_Done = FALSE;
 uint8_t *NB_Module_IMEI = NULL;
 
-NB_SerilPortTypeDef  NB_UartPort_Inst =
-{
+NB_SerilPortTypeDef  NB_UartPort_Inst = {
     .Open = NB_IOT_UART_Open,
     .Send = NB_IOT_UART_Send,
     .Close = NB_IOT_UART_Close
 };
 
-NB_TimerTypeDef NB_Timer_Inst =
-{
+NB_TimerTypeDef NB_Timer_Inst = {
     .Init = NB_IOT_SetTim,
     .Start = NB_IOT_StartTim,
     .Stop = NB_IOT_StopTim
 };
 
-NB_HW_Object  HWAtrrs_Object =
-{
+NB_HW_Object  HWAtrrs_Object = {
     .Baudrate = 9600,
     .Uart = &NB_UartPort_Inst,
     .Timer = &NB_Timer_Inst
 };
 
-NB_ConfigTypeDef  NB_Config_Inst =
-{
+NB_ConfigTypeDef  NB_Config_Inst = {
     .Module = NULL,
     .Object = (void *) &HWAtrrs_Object,
     .AppReceiveCallback = NB_IOT_ResponseCallback,
@@ -75,84 +71,71 @@ NB_ConfigTypeDef  NB_Config_Inst =
 
 int NB_IOT_ResponseCallback(NB_MessageTypeDef types, int len, char *msg)
 {
-    switch(types)
-    {
-        case MSG_INIT:
-        {
+    switch (types) {
+        case MSG_INIT: {
             NB_Response_Done = TRUE;
 
-            if(*msg == 'S')
-            {
+            if (*msg == 'S') {
                 NB_printf("NET = ON");
                 NB_Response_Result = TRUE;
-            }
-            else
+            } else
                 NB_Response_Result = FALSE;
         }
         break;
 
-        case MSG_IMSI:
-        {
+        case MSG_IMSI: {
             NB_printf("IMSI = %s", msg);
             NB_Response_Done = TRUE;
             NB_Response_Result = TRUE;
         }
         break;
 
-        case MSG_REG:
-        {
+        case MSG_REG: {
             NB_printf("NET = %s", (*msg) == 1 ? "ON" : "0FF");
             NB_Response_Done = TRUE;
 
-            if((*msg) == 1)
+            if ((*msg) == 1)
                 NB_Response_Result = TRUE;
             else
                 NB_Response_Result = FALSE;
         }
         break;
 
-        case MSG_SIGN:
-        {
+        case MSG_SIGN: {
             NB_printf("%sdbm", msg);
             NB_Response_Done = TRUE;
             NB_Response_Result = TRUE;
         }
         break;
 
-        case MSG_MODULE_INFO:
-        {
+        case MSG_MODULE_INFO: {
             NB_printf("Minfo = %s", msg);
             NB_Response_Done = TRUE;
             NB_Response_Result = TRUE;
         }
         break;
 
-        case MSG_MID:
-        {
+        case MSG_MID: {
             NB_printf("MID = %s", msg);
         }
         break;
 
-        case MSG_MMODEL:
-        {
+        case MSG_MMODEL: {
             NB_printf("Model = %s", msg);
         }
         break;
 
-        case MSG_MREV:
-        {
+        case MSG_MREV: {
             NB_printf("REV = %s", msg);
         }
         break;
 
-        case MSG_BAND:
-        {
+        case MSG_BAND: {
             NB_printf("Freq = %s", msg);
         }
         break;
 
-        case MSG_IMEI:
-        {
+        case MSG_IMEI: {
             NB_printf("IMEI = %s", msg);
             NB_Module_IMEI = (uint8_t *)msg;
             NB_Response_Done = TRUE;
@@ -160,54 +143,48 @@ int NB_IOT_ResponseCallback(NB_MessageTypeDef types, int len, char *msg)
         }
         break;
 
-        case MSG_UDP_CREATE:
-        {
+        case MSG_UDP_CREATE: {
             NB_Response_Done = TRUE;
 
-            if(*msg == 'S')
+            if (*msg == 'S')
                 NB_Response_Result = TRUE;
             else
                 NB_Response_Result = FALSE;
         }
         break;
 
-        case MSG_UDP_CLOSE:
-        {
+        case MSG_UDP_CLOSE: {
             NB_Response_Done = TRUE;
 
-            if(*msg == 'S')
+            if (*msg == 'S')
                 NB_Response_Result = TRUE;
             else
                 NB_Response_Result = FALSE;
         }
         break;
 
-        case MSG_UDP_SEND:
-        {
+        case MSG_UDP_SEND: {
             NB_Response_Done = TRUE;
 
-            if(*msg == 'S')
+            if (*msg == 'S')
                 NB_Response_Result = TRUE;
             else
                 NB_Response_Result = FALSE;
         }
         break;
 
-        case MSG_UDP_RECE:
-        {
+        case MSG_UDP_RECE: {
             NB_printf("UDP_RECE = %s", msg);
             p_hex(msg,  len);
             NB_Response_Done = TRUE;
 
-            if(*msg == 'F')
+            if (*msg == 'F')
                 NB_Response_Result = FALSE;
-            else
-            {
+            else {
                 NB_MessageComing = 0;
                 NB_Response_Result = TRUE;
 
-                if(len > 3)
-                {
+                if (len > 3) {
                     HydrologySetMsgSrc(MsgFormServer);
                     HydrologyProcessReceieve((char *)msg, len);
                 }
@@ -215,46 +192,39 @@ int NB_IOT_ResponseCallback(NB_MessageTypeDef types, int len, char *msg)
         }
         break;
 
-        case MSG_COAP:
-        {
+        case MSG_COAP: {
             NB_Response_Done = TRUE;
 
-            if(*msg == 'S')
+            if (*msg == 'S')
                 NB_Response_Result = TRUE;
             else
                 NB_Response_Result = FALSE;
         }
         break;
 
-        case MSG_COAP_SEND:
-        {
+        case MSG_COAP_SEND: {
             NB_Response_Done = TRUE;
 
-            if(*msg == 'S')
+            if (*msg == 'S')
                 NB_Response_Result = TRUE;
             else
                 NB_Response_Result = FALSE;
         }
         break;
 
-        case MSG_COAP_RECE:
-        {
+        case MSG_COAP_RECE: {
             NB_printf("COAP_RECE = %s", msg);
             p_hex(msg,  len);
             NB_Response_Done = TRUE;
 
-            if(*msg == 'F')
-            {
+            if (*msg == 'F') {
                 NB_MessageComing = 1;
                 NB_Response_Result = FALSE;
-            }
-            else
-            {
+            } else {
                 NB_MessageComing = 0;
                 NB_Response_Result = TRUE;
 
-                if(len > 3)
-                {
+                if (len > 3) {
                     HydrologySetMsgSrc(MsgFormServer);
                     HydrologyProcessReceieve((char *)msg, len);
                 }
@@ -288,32 +258,26 @@ int NB_IOT_ProcessRespond(void)
 
     begintime = BasicTimer_GetMSTick();
 
-    while(1)
-    {
+    while (1) {
         NB_IOT_UART_Receive();
         NBModule_Main(&NB_Config_Inst);
         NB_IOT_PollTim();
 
-        if(NB_Response_Done == TRUE)
-        {
+        if (NB_Response_Done == TRUE) {
             NB_Response_Done = FALSE;
 
-            if(NB_Response_Result == TRUE)
-            {
+            if (NB_Response_Result == TRUE) {
                 NB_Response_Result = FALSE;
 
                 return TRUE;
-            }
-            else
+            } else
                 return FALSE;
-        }
-        else
-        {
+        } else {
             currenttime = BasicTimer_GetMSTick();
             timediff = currenttime >= begintime ? currenttime - begintime :
                 currenttime + UINT32_MAX - begintime;
 
-            if(timediff > 5000) /* 5s */
+            if (timediff > 5000) /* 5s */
                 return FALSE;
         }
     }
@@ -327,34 +291,27 @@ int NB_IOT_WaitArrivalofMsg(void)
 
     begintime = BasicTimer_GetMSTick();
 
-    while(1)
-    {
+    while (1) {
 //    HAL_IWDG_Refresh(&hiwdg);
         NB_IOT_UART_Receive();
         NBModule_Main(&NB_Config_Inst);
         NB_IOT_PollTim();
 
-        if(NB_Response_Done == TRUE)
-        {
+        if (NB_Response_Done == TRUE) {
             NB_Response_Done = FALSE;
 
-            if(NB_Response_Result == TRUE)
-            {
+            if (NB_Response_Result == TRUE) {
                 NB_Response_Result = FALSE;
 
                 return TRUE;
-            }
-            else
+            } else
                 return FALSE;
-        }
-        else
-        {
+        } else {
             currenttime = BasicTimer_GetMSTick();
             timediff = currenttime >= begintime ? currenttime - begintime :
                 currenttime + UINT32_MAX - begintime;
 
-            if(timediff > 15000) /* 10s */
-            {
+            if (timediff > 15000) { /* 10s */
                 NB_printf("No data came !");
                 return -1;
             }
@@ -369,7 +326,7 @@ int NB_IOT_Shutdown(void)
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);
     Delay_ms(1000);
 
-    if((GPIOA->IDR  & GPIO_PIN_0) != 0x00u)
+    if ((GPIOA->IDR  & GPIO_PIN_0) != 0x00u)
         retValue = FALSE;
     else
         retValue = TRUE;
@@ -396,7 +353,7 @@ void NB_IOT_SendData(char *pdata, int len)
     StateMachine machine;
     SM_VAR var;
 
-    if(NB_Turnoff_Pipe == 1)
+    if (NB_Turnoff_Pipe == 1)
         machine.current = sNB_NONE;
     else
         machine.current = sNB_UDP_REGISTER;
@@ -407,15 +364,14 @@ void NB_IOT_SendData(char *pdata, int len)
     NB_UserDataPacket = pdata;
     NB_UserDataLength = len;
 
-    while(machine.current != sNB_END)
-    {
+    while (machine.current != sNB_END) {
         state = FSM_Step(&machine, &var);
 
-        if(NB_Turnoff_Pipe == 0 && machine.current == sNB_UDP_CLOSE)
+        if (NB_Turnoff_Pipe == 0 && machine.current == sNB_UDP_CLOSE)
             break;
     }
 
-    if((state == sNB_END) && (var._condition == cOK))
+    if ((state == sNB_END) && (var._condition == cOK))
         NB_printf("The data was successfully sent through the nb-iot device to the server.");
 }
 
@@ -440,15 +396,12 @@ int FSM_NB_Init(pStateMachine machine, SM_VAR *sm_var)
     NBModule_Init(&NB_Config_Inst);
     _retValue = NB_IOT_ProcessRespond();
 
-    if(_retValue == TRUE)
-    {
+    if (_retValue == TRUE) {
         sm_var->_condition = cOK;
         NB_printf("NB-IOT Device initialization successful.");
 
         return _retValue;
-    }
-    else
-    {
+    } else {
         sm_var->_condition = cERROR_REPEATS_S3;
         NB_printf("NB-IOT Device initialization failed.");
         NB_error;
@@ -464,15 +417,12 @@ int FSM_NB_GetSign(pStateMachine machine, SM_VAR *sm_var)
     NBModule_Sign(&NB_Config_Inst);
     _retValue = NB_IOT_ProcessRespond();
 
-    if(_retValue == TRUE)
-    {
+    if (_retValue == TRUE) {
         sm_var->_condition = cOK;
         NB_printf("Signal detected in this area.");
 
         return _retValue;
-    }
-    else
-    {
+    } else {
         sm_var->_condition = cERROR_REPEATS_S3;
         NB_printf("No signal detected in this area.");
         NB_error;
@@ -488,15 +438,12 @@ int FSM_NB_GetModuleInfo(pStateMachine machine, SM_VAR *sm_var)
     NBModule_Info(&NB_Config_Inst);
     _retValue = NB_IOT_ProcessRespond();
 
-    if(_retValue == TRUE)
-    {
+    if (_retValue == TRUE) {
         sm_var->_condition = cOK;
         NB_printf("Device information obtained successfully.");
 
         return _retValue;
-    }
-    else
-    {
+    } else {
         sm_var->_condition = cERROR_REPEATS_S3;
         NB_printf("Failed to get device information.");
         NB_error;
@@ -516,15 +463,12 @@ int FSM_NB_CreateUDP(pStateMachine machine, SM_VAR *sm_var)
 #endif
     _retValue = NB_IOT_ProcessRespond();
 
-    if(_retValue == TRUE)
-    {
+    if (_retValue == TRUE) {
         sm_var->_condition = cOK;
         NB_printf("UDP Communication created successfully.");
 
         return _retValue;
-    }
-    else
-    {
+    } else {
         sm_var->_condition = cERROR_REPEATS_S3;
         NB_printf("Failed to create UDP communication");
         NB_error;
@@ -545,15 +489,12 @@ int FSM_NB_CloseUDP(pStateMachine machine, SM_VAR *sm_var)
 #endif
     HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
 
-    if(_retValue == TRUE)
-    {
+    if (_retValue == TRUE) {
         sm_var->_condition = cOK;
         NB_printf("UDP Communication closed successfully.");
 
         return _retValue;
-    }
-    else
-    {
+    } else {
         sm_var->_condition = cERROR_REPEATS_S3;
         NB_printf("Shutdown UDP communication failed.");
         NB_error;
@@ -582,15 +523,12 @@ int FSM_NB_UDPRegister(pStateMachine machine, SM_VAR *sm_var)
     _retValue = TRUE;
 #endif
 
-    if(_retValue == TRUE)
-    {
+    if (_retValue == TRUE) {
         sm_var->_condition = cOK;
         NB_printf("Guyu server registered successfully.");
 
         return _retValue;
-    }
-    else
-    {
+    } else {
         sm_var->_condition = cERROR_REPEATS_S3;
         NB_printf("Guyu server registration failed.");
         NB_error;
@@ -612,15 +550,12 @@ int FSM_NB_UDPSendData(pStateMachine machine, SM_VAR *sm_var)
 #endif
     _retValue = NB_IOT_ProcessRespond();
 
-    if(_retValue == TRUE)/////////////////////////////
-    {
+    if (_retValue == TRUE) { /////////////////////////////
         sm_var->_condition = cOK;
         NB_printf("Data sent successfully.");
 
         return _retValue;
-    }
-    else
-    {
+    } else {
         sm_var->_condition = cERROR_REPEATS_S3;
         NB_printf("Data transmission failure.");
         NB_error;
@@ -635,21 +570,16 @@ int FSM_NB_WaitReceiveData(pStateMachine machine, SM_VAR *sm_var)
 
     _retValue = NB_IOT_WaitArrivalofMsg();
 
-    if(_retValue == TRUE)
-    {
+    if (_retValue == TRUE) {
         sm_var->_condition = cOK;
         NB_printf("Data received successfully.");
 
         return _retValue;
-    }
-    else if(_retValue == FALSE)
-    {
+    } else if (_retValue == FALSE) {
         sm_var->_condition = cERROR_REPEATS_S3;
         NB_printf("Data received failure.");
         NB_error;
-    }
-    else
-    {
+    } else {
         sm_var->_condition = cOK;
         _retValue = TRUE;
     }
@@ -663,15 +593,12 @@ int FSM_NB_Reset(pStateMachine machine, SM_VAR *sm_var)
 
     _retValue = NB_IOT_Shutdown();
 
-    if(_retValue == TRUE)
-    {
+    if (_retValue == TRUE) {
         sm_var->_condition = cOK;
         NB_printf("NB Device reset successfully.");
 
         return _retValue;
-    }
-    else
-    {
+    } else {
         sm_var->_condition = cERROR_REPEATS_S3;
         NB_printf("NB Device reset failure.");
         NB_error;
@@ -686,15 +613,12 @@ int FSM_NB_End(pStateMachine machine, SM_VAR *sm_var)
 
     _retValue = TRUE;
 
-    if(_retValue == TRUE)
-    {
+    if (_retValue == TRUE) {
         sm_var->_condition = cOK;
         NB_printf("The state machine entered the final state successfully.");
 
         return _retValue;
-    }
-    else
-    {
+    } else {
         sm_var->_condition = cERROR_REPEATS_S3;
         NB_printf("The state machine failed to enter the final state.");
         NB_error;

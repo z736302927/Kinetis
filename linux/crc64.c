@@ -46,8 +46,7 @@ u64 __pure crc64_be(u64 crc, const void *p, size_t len)
 
     const unsigned char *_p = p;
 
-    for(i = 0; i < len; i++)
-    {
+    for (i = 0; i < len; i++) {
         t = ((crc >> 56) ^ (*_p++)) & 0xFF;
         crc = crc64table[t] ^ (crc << 8);
     }

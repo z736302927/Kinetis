@@ -62,12 +62,11 @@ void Random_GetArray(void *pData, uint32_t Length, uint8_t Bits)
     uint8_t *Data_32bits;
     uint8_t *Data_64bits;
 
-    switch(Bits)
-    {
+    switch (Bits) {
         case RNG_8BITS:
             Data_8bits = pData;
 
-            for(i = 0; i < Length; ++i)
+            for (i = 0; i < Length; ++i)
                 Data_8bits[i] = Random_GetNumber() % 0xFF;
 
             break;
@@ -75,7 +74,7 @@ void Random_GetArray(void *pData, uint32_t Length, uint8_t Bits)
         case RNG_16BITS:
             Data_16bits = pData;
 
-            for(i = 0; i < Length; ++i)
+            for (i = 0; i < Length; ++i)
                 Data_16bits[i] = Random_GetNumber() % 0xFFFF;
 
             break;
@@ -83,7 +82,7 @@ void Random_GetArray(void *pData, uint32_t Length, uint8_t Bits)
         case RNG_32BITS:
             Data_32bits = pData;
 
-            for(i = 0; i < Length; ++i)
+            for (i = 0; i < Length; ++i)
                 Data_32bits[i] = Random_GetNumber() % 0xFFFFFFFF;
 
             break;
@@ -91,8 +90,7 @@ void Random_GetArray(void *pData, uint32_t Length, uint8_t Bits)
         case RNG_64BITS:
             Data_64bits = pData;
 
-            for(i = 0; i < Length; ++i)
-            {
+            for (i = 0; i < Length; ++i) {
                 Data_64bits[i] = Random_GetNumber() % 0xFFFFFFFF;
                 Data_64bits[i] |= ((uint64_t)Random_GetNumber() % 0xFFFFFFFF) << 32;
             }
@@ -127,17 +125,16 @@ int t_Random_Array(int argc, char **argv)
     uint8_t Bits = RNG_32BITS;
     uint16_t i;
 
-    if(argc > 1)
+    if (argc > 1)
         Length = strtoul(argv[1], &argv[1], 10);
 
-    if(argc > 2)
+    if (argc > 2)
         Bits = strtoul(argv[2], &argv[2], 10);
 
 
     pData = kmalloc(Length, __GFP_ZERO);
 
-    if(pData == NULL)
-    {
+    if (pData == NULL) {
         kinetis_debug_trace(KERN_DEBUG, "Random array malloc failed !");
         return FAIL;
     }
@@ -145,11 +142,10 @@ int t_Random_Array(int argc, char **argv)
     Random_GetArray(pData, Length, Bits);
     kinetis_debug_trace(KERN_DEBUG, "random number is the following");
 
-    for(i = 0; i < Length; ++i)
-    {
+    for (i = 0; i < Length; ++i) {
         kinetis_debug_trace(KERN_DEBUG, "%u", pData[i]);
 
-        if((i % 4) == 0)
+        if ((i % 4) == 0)
             printf("\n");
     }
 

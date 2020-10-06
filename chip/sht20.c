@@ -64,7 +64,7 @@ float SHT20_Convert(uint16_t value, uint8_t isTemp)
 {
     float tmp = 0.0;
 
-    if(isTemp)
+    if (isTemp)
         tmp = -46.85 + (175.72 * value) / (1 << 16);
     else
         tmp = -6 + (125.0 * value) / (1 << 16);

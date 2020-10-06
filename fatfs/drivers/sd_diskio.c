@@ -65,8 +65,7 @@ DRESULT SD_write(BYTE, const BYTE *, DWORD, UINT);
 DRESULT SD_ioctl(BYTE, BYTE, void *);
 #endif /* _USE_IOCTL == 1 */
 
-const Diskio_drvTypeDef  SD_Driver =
-{
+const Diskio_drvTypeDef  SD_Driver = {
     SD_initialize,
     SD_status,
     SD_read,
@@ -91,7 +90,7 @@ DSTATUS SD_initialize(BYTE lun)
     Stat = STA_NOINIT;
 
     /* Configure the uSD device */
-    if(BSP_SD_Init() == MSD_OK)
+    if (BSP_SD_Init() == MSD_OK)
         Stat &= ~STA_NOINIT;
 
     return Stat;
@@ -106,7 +105,7 @@ DSTATUS SD_status(BYTE lun)
 {
     Stat = STA_NOINIT;
 
-    if(BSP_SD_GetCardState() == MSD_OK)
+    if (BSP_SD_GetCardState() == MSD_OK)
         Stat &= ~STA_NOINIT;
 
     return Stat;
@@ -125,13 +124,11 @@ DRESULT SD_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
     DRESULT res = RES_ERROR;
     uint32_t timeout = 100000;
 
-    if(BSP_SD_ReadBlocks((uint32_t *)buff,
+    if (BSP_SD_ReadBlocks((uint32_t *)buff,
             (uint32_t)(sector),
-            count, SD_DATATIMEOUT) == MSD_OK)
-    {
-        while(BSP_SD_GetCardState() != MSD_OK)
-        {
-            if(timeout-- == 0)
+            count, SD_DATATIMEOUT) == MSD_OK) {
+        while (BSP_SD_GetCardState() != MSD_OK) {
+            if (timeout-- == 0)
                 return RES_ERROR;
         }
 
@@ -155,13 +152,11 @@ DRESULT SD_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
     DRESULT res = RES_ERROR;
     uint32_t timeout = 100000;
 
-    if(BSP_SD_WriteBlocks((uint32_t *)buff,
+    if (BSP_SD_WriteBlocks((uint32_t *)buff,
             (uint32_t)(sector),
-            count, SD_DATATIMEOUT) == MSD_OK)
-    {
-        while(BSP_SD_GetCardState() != MSD_OK)
-        {
-            if(timeout-- == 0)
+            count, SD_DATATIMEOUT) == MSD_OK) {
+        while (BSP_SD_GetCardState() != MSD_OK) {
+            if (timeout-- == 0)
                 return RES_ERROR;
         }
 
@@ -185,11 +180,10 @@ DRESULT SD_ioctl(BYTE lun, BYTE cmd, void *buff)
     DRESULT res = RES_ERROR;
     BSP_SD_CardInfo CardInfo;
 
-    if(Stat & STA_NOINIT)
+    if (Stat & STA_NOINIT)
         return RES_NOTRDY;
 
-    switch(cmd)
-    {
+    switch (cmd) {
         /* Make sure that no pending write process */
         case CTRL_SYNC :
             res = RES_OK;

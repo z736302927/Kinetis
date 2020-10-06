@@ -14,8 +14,7 @@
  * aligned so the msbit of the byte is the x^6 coefficient
  * and the lsbit is not used.
  */
-const u8 crc7_be_syndrome_table[256] =
-{
+const u8 crc7_be_syndrome_table[256] = {
     0x00, 0x12, 0x24, 0x36, 0x48, 0x5a, 0x6c, 0x7e,
     0x90, 0x82, 0xb4, 0xa6, 0xd8, 0xca, 0xfc, 0xee,
     0x32, 0x20, 0x16, 0x04, 0x7a, 0x68, 0x5e, 0x4c,
@@ -65,7 +64,7 @@ EXPORT_SYMBOL(crc7_be_syndrome_table);
  */
 u8 crc7_be(u8 crc, const u8 *buffer, size_t len)
 {
-    while(len--)
+    while (len--)
         crc = crc7_be_byte(crc, *buffer++);
 
     return crc;

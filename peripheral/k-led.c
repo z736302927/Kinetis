@@ -78,15 +78,13 @@ int K_Add_LED(struct LED_TypeDef *Handle, uint8_t UniqueID, char *Color)
     Handle->UniqueID = UniqueID;
     Handle->Color = (char *)kmalloc(strlen(Color), __GFP_ZERO);
 
-    if(Handle->Color != NULL)
+    if (Handle->Color != NULL)
         strncpy(Handle->Color, Color, 10);
     else
         return -1;
 
-    while(target)
-    {
-        if(target == Handle)
-        {
+    while (target) {
+        if (target == Handle) {
             return -1;    //already exist.
         }
 
@@ -110,16 +108,13 @@ void K_Remove_LED(struct LED_TypeDef *Handle)
     Handle->UniqueID = 0;
     kfree(Handle->Color);
 
-    for(curr = &LED_HeadHandler; *curr;)
-    {
+    for (curr = &LED_HeadHandler; *curr;) {
         struct LED_TypeDef *entry = *curr;
 
-        if(entry == Handle)
-        {
+        if (entry == Handle) {
             *curr = entry->Next;
             //kfree(entry);
-        }
-        else
+        } else
             curr = &entry->Next;
     }
 }

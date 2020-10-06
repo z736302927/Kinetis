@@ -55,10 +55,8 @@ int TimTask_Start(struct TimTask_TypeDef *Handle)
 {
     struct TimTask_TypeDef *target = TimTask_HeadHandler;
 
-    while(target)
-    {
-        if(target == Handle)
-        {
+    while (target) {
+        if (target == Handle) {
             return -1;    //already exist.
         }
 
@@ -79,16 +77,13 @@ void TimTask_Stop(struct TimTask_TypeDef *Handle)
 {
     struct TimTask_TypeDef **curr;
 
-    for(curr = &TimTask_HeadHandler; *curr;)
-    {
+    for (curr = &TimTask_HeadHandler; *curr;) {
         struct TimTask_TypeDef *entry = *curr;
 
-        if(entry == Handle)
-        {
+        if (entry == Handle) {
             *curr = entry->Next;
 //      kfree(entry);
-        }
-        else
+        } else
             curr = &entry->Next;
     }
 }
@@ -102,11 +97,9 @@ void TimTask_Loop(void)
 {
     struct TimTask_TypeDef *target;
 
-    for(target = TimTask_HeadHandler; target; target = target->Next)
-    {
-        if(_TimTask_ticks >= target->Timeout)
-        {
-            if(target->Repeat == 0)
+    for (target = TimTask_HeadHandler; target; target = target->Next) {
+        if (_TimTask_ticks >= target->Timeout) {
+            if (target->Repeat == 0)
                 TimTask_Stop(target);
             else
                 target->Timeout = _TimTask_ticks + target->Repeat;
@@ -152,7 +145,7 @@ int t_TimTask_Add(int argc, char **argv)
     Timestamp = BasicTimer_GetMSTick() - Timestamp;
     kinetis_debug_trace(KERN_DEBUG, "TimTask elapse time = %lu ms.", Timestamp);
 
-    if(Timestamp > 1100)
+    if (Timestamp > 1100)
         return FAIL;
     else
         return PASS;

@@ -70,8 +70,7 @@ DRESULT SRAMDISK_write(BYTE, const BYTE *, DWORD, UINT);
 DRESULT SRAMDISK_ioctl(BYTE, BYTE, void *);
 #endif /* _USE_IOCTL == 1 */
 
-const Diskio_drvTypeDef SRAMDISK_Driver =
-{
+const Diskio_drvTypeDef SRAMDISK_Driver = {
     SRAMDISK_initialize,
     SRAMDISK_status,
     SRAMDISK_read,
@@ -95,7 +94,7 @@ DSTATUS SRAMDISK_initialize(BYTE lun)
     Stat = STA_NOINIT;
 
     /* Configure the SRAM device */
-    if(BSP_SRAM_Init() == SRAM_OK)
+    if (BSP_SRAM_Init() == SRAM_OK)
         Stat &= ~STA_NOINIT;
 
     return Stat;
@@ -124,7 +123,7 @@ DRESULT SRAMDISK_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
     uint32_t BufferSize = (BLOCK_SIZE * count);
     uint8_t *pSramAddress = (uint8_t *)(SRAM_DEVICE_ADDR + (sector * BLOCK_SIZE));
 
-    for(; BufferSize != 0; BufferSize--)
+    for (; BufferSize != 0; BufferSize--)
         *buff++ = *(volatile uint8_t *)pSramAddress++;
 
     return RES_OK;
@@ -144,7 +143,7 @@ DRESULT SRAMDISK_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
     uint32_t BufferSize = (BLOCK_SIZE * count) + count;
     uint8_t *pSramAddress = (uint8_t *)(SRAM_DEVICE_ADDR + (sector * BLOCK_SIZE));
 
-    for(; BufferSize != 0; BufferSize--)
+    for (; BufferSize != 0; BufferSize--)
         *(volatile uint8_t *)pSramAddress++ = *buff++;
 
     return RES_OK;
@@ -163,11 +162,10 @@ DRESULT SRAMDISK_ioctl(BYTE lun, BYTE cmd, void *buff)
 {
     DRESULT res = RES_ERROR;
 
-    if(Stat & STA_NOINIT)
+    if (Stat & STA_NOINIT)
         return RES_NOTRDY;
 
-    switch(cmd)
-    {
+    switch (cmd) {
         /* Make sure that no pending write process */
         case CTRL_SYNC :
             res = RES_OK;

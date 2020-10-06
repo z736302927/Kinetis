@@ -527,19 +527,16 @@ WCHAR ff_convert(  /* Converted character, Returns zero on error */
     WCHAR c;
 
 
-    if(chr < 0x80) 	/* ASCII */
+    if (chr < 0x80) 	/* ASCII */
         c = chr;
 
-    else
-    {
-        if(dir) 		/* OEMCP to Unicode */
+    else {
+        if (dir) 		/* OEMCP to Unicode */
             c = (chr >= 0x100) ? 0 : Tbl[chr - 0x80];
 
-        else  		/* Unicode to OEMCP */
-        {
-            for(c = 0; c < 0x80; c++)
-            {
-                if(chr == Tbl[c])
+        else {		/* Unicode to OEMCP */
+            for (c = 0; c < 0x80; c++) {
+                if (chr == Tbl[c])
                     break;
             }
 
@@ -560,7 +557,7 @@ WCHAR ff_wtoupper(  /* Upper converted character */
     int i;
 
 
-    for(i = 0; tbl_lower[i] && chr != tbl_lower[i]; i++) ;
+    for (i = 0; tbl_lower[i] && chr != tbl_lower[i]; i++) ;
 
     return tbl_lower[i] ? tbl_upper[i] : chr;
 }

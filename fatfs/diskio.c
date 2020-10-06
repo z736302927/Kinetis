@@ -93,8 +93,7 @@ DSTATUS disk_initialize(
 {
     DSTATUS stat = RES_OK;
 
-    if(disk.is_initialized[pdrv] == 0)
-    {
+    if (disk.is_initialized[pdrv] == 0) {
         disk.is_initialized[pdrv] = 1;
         stat = disk.drv[pdrv]->disk_initialize(disk.lun[pdrv]);
     }

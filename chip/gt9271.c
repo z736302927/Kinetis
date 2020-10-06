@@ -124,8 +124,7 @@ void I2C_ResetChip(void)
 #define GTP_REG_COMMAND                 0x8040
 #define GTP_COMMAND_READSTATUS          0
 
-static uint8_t CTP_CFG_GT9271[] =
-{
+static uint8_t CTP_CFG_GT9271[] = {
     0x41, 0x00, 0x05, 0x20, 0x03, 0x0A, 0x3D, 0x20, 0x01, 0x0A,
     0x28, 0x0F, 0x6E, 0x5A, 0x03, 0x05, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x18, 0x1A, 0x1E, 0x14, 0x8F, 0x2F, 0xAA,
@@ -147,8 +146,7 @@ static uint8_t CTP_CFG_GT9271[] =
     0x00, 0x00, 0x00, 0x00, 0x5D, 0x01
 };
 
-const uint16_t GT9271_TPX_TBL[10] =
-{
+const uint16_t GT9271_TPX_TBL[10] = {
     GT9271_TP1_REG,
     GT9271_TP2_REG,
     GT9271_TP3_REG,
@@ -264,51 +262,43 @@ static void Goodix_TS_Work_Func(void)
 
     finger = point_data[GTP_ADDR_LENGTH];//状态寄存器数据
 
-    if(finger == 0x00)    //没有数据，退出
+    if (finger == 0x00)   //没有数据，退出
         return;
 
-    if((finger & 0x80) == 0)//判断buffer status位
-    {
+    if ((finger & 0x80) == 0) { //判断buffer status位
         goto exit_work_func;//坐标未就绪，数据无效
     }
 
     touch_num = finger & 0x0F;//坐标点数
 
-    if(touch_num > GTP_MAX_TOUCH)
-    {
+    if (touch_num > GTP_MAX_TOUCH) {
         goto exit_work_func;//大于最大支持点数，错误退出
     }
 
-    if(touch_num > 1)//不止一个点
-    {
+    if (touch_num > 1) { //不止一个点
         uint8_t buf[8 * GTP_MAX_TOUCH];
 
         gt9271_PortMultiReceive(GTP_READ_COOR_ADDR, buf, 8 * (touch_num - 1));
         memcpy(&point_data[12], buf, 8 * (touch_num - 1));  //复制其余点数的数据到point_data
     }
 
-    if(pre_touch > touch_num)      //pre_touch>touch_num,表示有的点释放了
-    {
-        for(i = 0; i < pre_touch; i++)    //一个点一个点处理
-        {
-            for(j = 0; j < touch_num; j++)
-            {
+    if (pre_touch > touch_num) {   //pre_touch>touch_num,表示有的点释放了
+        for (i = 0; i < pre_touch; i++) { //一个点一个点处理
+            for (j = 0; j < touch_num; j++) {
                 coor_data = &point_data[j * 8 + 3];
                 id = coor_data[0] & 0x0F;      //track id
 
-                if(pre_id[i] == id)
+                if (pre_id[i] == id)
                     break;
 
-                if(j >= touch_num - 1)        //遍历当前所有id都找不到pre_id[i]，表示已释放
+                if (j >= touch_num - 1)       //遍历当前所有id都找不到pre_id[i]，表示已释放
                     GTP_Touch_Up(pre_id[i]);
             }
         }
     }
 
-    if(touch_num)
-    {
-        for(i = 0; i < touch_num; i++)    //一个点一个点处理
-        {
+    if (touch_num) {
+        for (i = 0; i < touch_num; i++) { //一个点一个点处理
             coor_data = &point_data[i * 8 + 3];
 
             id = coor_data[0] & 0x0F;        //track id
@@ -320,17 +310,14 @@ static void Goodix_TS_Work_Func(void)
 
             GTP_Touch_Down(id, input_x, input_y, input_w); //数据处理
         }
-    }
-    else if(pre_touch)    //touch_ num=0 且pre_touch！=0
-    {
-        for(i = 0; i < pre_touch; i++)
+    } else if (pre_touch) { //touch_ num=0 且pre_touch！=0
+        for (i = 0; i < pre_touch; i++)
             GTP_Touch_Up(pre_id[i]);
     }
 
     pre_touch = touch_num;
 
-exit_work_func:
-    {
+exit_work_func: {
         gt9271_PortMultiTransmmit(GTP_READ_COOR_ADDR, end_cmd, 1);
     }
 }
@@ -435,7 +422,7 @@ int32_t GTP_Read_Version(void)
 
     gt9271_PortMultiReceive(GTP_REG_VERSION, version, 4);
 
-    if(version[0] == '9' && version[1] == '2' && version[2] == '7' && version[3] == '1')
+    if (version[0] == '9' && version[1] == '2' && version[2] == '7' && version[3] == '1')
         return GT9271_ID;
 
     return ret;
@@ -460,25 +447,22 @@ int32_t GTP_Init_Panel(void)
 
     I2C_ResetChip();
 
-    if(GTP_I2C_Test() < 0)
-    {
+    if (GTP_I2C_Test() < 0) {
         kinetis_debug_trace(KERN_DEBUG, "I2C communication ERROR!");
         return ret;
     }
 
     //获取触摸IC的型号
     //根据IC的型号指向不同的配置
-    if(GTP_Read_Version() == GT9271_ID)
-    {
+    if (GTP_Read_Version() == GT9271_ID) {
         temp = 0x02;
         gt9271_PortMultiTransmmit(GT9271_CTRL_REG, &temp, 1);
         gt9271_PortMultiReceive(GT9271_CFGS_REG, config_data, 1);
 
-        if(config_data[0] < 0x41)
-        {
+        if (config_data[0] < 0x41) {
             config_data[0] = 0;
 
-            for(i = 0; i < sizeof(CTP_CFG_GT9271) - 2; i++)
+            for (i = 0; i < sizeof(CTP_CFG_GT9271) - 2; i++)
                 config_data[0] += CTP_CFG_GT9271[i];
 
             config_data[0] = (~config_data[0]) + 1;

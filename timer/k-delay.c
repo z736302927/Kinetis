@@ -41,7 +41,7 @@ void Delay_Init(void)
     DelayPrescaler = (DelayInputClock / DelayUnit / 1000000) - 1;
     DelayPeriod = DelayUnit - 1;
 
-    if(DelayInputClock >= 600000000)
+    if (DelayInputClock >= 600000000)
         kinetis_debug_trace(KERN_DEBUG, "Inputing clock is too large, please modify the delay unit.");
 
     Delay_EnableTimer();
@@ -58,7 +58,7 @@ void Delay_SetTimerPara(uint16_t Prescaler, uint32_t Period)
     htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
     htim2.Init.Period = Period;
 
-    if(HAL_TIM_Base_Init(&htim2) != HAL_OK)
+    if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
         Error_Handler();
 
 #else
@@ -90,12 +90,12 @@ void Delay_WaitCountEnd(void)
 {
 #ifdef DELAY_USING_STM32LIB
 
-    while(Delay_GetFlag() == 0) {}
+    while (Delay_GetFlag() == 0) {}
 
     Delay_ClearFlag();
 #else
 
-    while((TIM2->SR & TIM_FLAG_UPDATE) != SET);
+    while ((TIM2->SR & TIM_FLAG_UPDATE) != SET);
 
     TIM2->SR &= ~((uint16_t)TIM_FLAG_UPDATE);
 #endif
@@ -119,27 +119,22 @@ void Delay_us(uint32_t Delay)
     uint32_t delta = 0;
     uint32_t ticks = 0;
 
-    if(Delay > DELAY_TIMER_UNIT)
-    {
+    if (Delay > DELAY_TIMER_UNIT) {
         ticks = DELAY_TIMER_UNIT;
         refer = BasicTimer_GetUSTick();
 
-        while(delta < ticks)
-        {
+        while (delta < ticks) {
             delta = BasicTimer_GetUSTick() >= refer ?
                 BasicTimer_GetUSTick() - refer :
                 BasicTimer_GetUSTick() + (DELAY_TIMER_UNIT - refer);
         }
 
         Delay_us(Delay - DELAY_TIMER_UNIT);
-    }
-    else
-    {
+    } else {
         ticks = Delay;
         refer = BasicTimer_GetUSTick();
 
-        while(delta < ticks)
-        {
+        while (delta < ticks) {
             delta = BasicTimer_GetUSTick() >= refer ?
                 BasicTimer_GetUSTick() - refer :
                 BasicTimer_GetUSTick() + (DELAY_TIMER_UNIT - refer);
@@ -166,27 +161,22 @@ void Delay_ms(uint32_t Delay)
     uint32_t delta = 0;
     uint32_t ticks = 0;
 
-    if(Delay > DELAY_TIMER_UNIT)
-    {
+    if (Delay > DELAY_TIMER_UNIT) {
         ticks = DELAY_TIMER_UNIT;
         refer = BasicTimer_GetMSTick();
 
-        while(delta < ticks)
-        {
+        while (delta < ticks) {
             delta = BasicTimer_GetMSTick() >= refer ?
                 BasicTimer_GetMSTick() - refer :
                 BasicTimer_GetMSTick() + (DELAY_TIMER_UNIT - refer);
         }
 
         Delay_ms(Delay - DELAY_TIMER_UNIT);
-    }
-    else
-    {
+    } else {
         ticks = Delay;
         refer = BasicTimer_GetMSTick();
 
-        while(delta < ticks)
-        {
+        while (delta < ticks) {
             delta = BasicTimer_GetMSTick() >= refer ?
                 BasicTimer_GetMSTick() - refer :
                 BasicTimer_GetMSTick() + (DELAY_TIMER_UNIT - refer);

@@ -78,10 +78,9 @@ void SPI_WriteData(const uint8_t regAddr, const uint8_t regData)
      */
 
     /* Prepare to clock out the Address byte */
-    for(Count = 0; Count < 8; Count++)
-    {
+    for (Count = 0; Count < 8; Count++) {
         /* Check for a 1 and set the MOSI line appropriately*/
-        if(Data & 0x80)
+        if (Data & 0x80)
             SPI_MOSI_H;
         else
             SPI_MOSI_L;
@@ -97,9 +96,8 @@ void SPI_WriteData(const uint8_t regAddr, const uint8_t regData)
     /* Repeat for the Data byte, Preload the data to be sent with Data */
     Data = regData;
 
-    for(Count = 0; Count < 8; Count++)
-    {
-        if(Data & 0x80)
+    for (Count = 0; Count < 8; Count++) {
+        if (Data & 0x80)
             SPI_MOSI_H;
         else
             SPI_MOSI_L;
@@ -135,9 +133,8 @@ uint8_t SPI_ReadData(const uint8_t regAddr)
     SPI_CS_L;
 
     /* Prepare to clock out the Address and Data */
-    for(Count = 0; Count < 8; Count++)
-    {
-        if(Data & 0x80)
+    for (Count = 0; Count < 8; Count++) {
+        if (Data & 0x80)
             SPI_MOSI_H;
         else
             SPI_MOSI_L;
@@ -154,8 +151,7 @@ uint8_t SPI_ReadData(const uint8_t regAddr)
     Data = 0;
 
     /* Prepare to clock in the data to be read */
-    for(Count = 0; Count < 8; Count++)
-    {
+    for (Count = 0; Count < 8; Count++) {
         /* Rotate the data */
         Data <<= 1;
         /* Raise the clock to clock the data out of the chip */

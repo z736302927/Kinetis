@@ -82,13 +82,10 @@ crc32_body(u32 crc, unsigned char const *buf, size_t len, const u32(*tab)[256])
     u32 q;
 
     /* Align it */
-    if(unlikely((long)buf & 3 && len))
-    {
-        do
-        {
+    if (unlikely((long)buf & 3 && len)) {
+        do {
             DO_CRC(*buf++);
-        }
-        while((--len) && ((long)buf) & 3);
+        } while ((--len) && ((long)buf) & 3);
     }
 
 # if CRC_LE_BITS == 32
@@ -103,12 +100,10 @@ crc32_body(u32 crc, unsigned char const *buf, size_t len, const u32(*tab)[256])
 # ifdef CONFIG_X86
     --b;
 
-    for(i = 0; i < len; i++)
-    {
+    for (i = 0; i < len; i++) {
 # else
 
-    for(--b; len; --len)
-    {
+    for (--b; len; --len) {
 # endif
         q = crc ^ *++b; /* use pre increment for speed */
 # if CRC_LE_BITS == 32
@@ -123,21 +118,18 @@ crc32_body(u32 crc, unsigned char const *buf, size_t len, const u32(*tab)[256])
     len = rem_len;
 
     /* And the last few bytes */
-    if(len)
-    {
+    if (len) {
         u8 *p = (u8 *)(b + 1) - 1;
 # ifdef CONFIG_X86
 
-        for(i = 0; i < len; i++)
+        for (i = 0; i < len; i++)
             DO_CRC(*++p); /* use pre increment for speed */
 
 # else
 
-        do
-        {
+        do {
             DO_CRC(*++p); /* use pre increment for speed */
-        }
-        while(--len);
+        } while (--len);
 
 # endif
     }
@@ -168,18 +160,16 @@ static inline u32 __pure crc32_le_generic(u32 crc, unsigned char const *p,
 #if CRC_LE_BITS == 1
     int i;
 
-    while(len--)
-    {
+    while (len--) {
         crc ^= *p++;
 
-        for(i = 0; i < 8; i++)
+        for (i = 0; i < 8; i++)
             crc = (crc >> 1) ^ ((crc & 1) ? polynomial : 0);
     }
 
 # elif CRC_LE_BITS == 2
 
-    while(len--)
-    {
+    while (len--) {
         crc ^= *p++;
         crc = (crc >> 2) ^ tab[0][crc & 3];
         crc = (crc >> 2) ^ tab[0][crc & 3];
@@ -189,8 +179,7 @@ static inline u32 __pure crc32_le_generic(u32 crc, unsigned char const *p,
 
 # elif CRC_LE_BITS == 4
 
-    while(len--)
-    {
+    while (len--) {
         crc ^= *p++;
         crc = (crc >> 4) ^ tab[0][crc & 15];
         crc = (crc >> 4) ^ tab[0][crc & 15];
@@ -199,8 +188,7 @@ static inline u32 __pure crc32_le_generic(u32 crc, unsigned char const *p,
 # elif CRC_LE_BITS == 8
 
     /* aka Sarwate algorithm */
-    while(len--)
-    {
+    while (len--) {
         crc ^= *p++;
         crc = (crc >> 8) ^ tab[0][crc & 255];
     }
@@ -250,8 +238,7 @@ static u32 __attribute_const__ gf2_multiply(u32 x, u32 y, u32 modulus)
     u32 product = x & 1 ? y : 0;
     int i;
 
-    for(i = 0; i < 31; i++)
-    {
+    for (i = 0; i < 31; i++) {
         product = (product >> 1) ^ (product & 1 ? modulus : 0);
         x >>= 1;
         product ^= x & 1 ? y : 0;
@@ -279,23 +266,22 @@ static u32 __attribute_const__ crc32_generic_shift(u32 crc, size_t len,
     int i;
 
     /* Shift up to 32 bits in the simple linear way */
-    for(i = 0; i < 8 * (int)(len & 3); i++)
+    for (i = 0; i < 8 * (int)(len & 3); i++)
         crc = (crc >> 1) ^ (crc & 1 ? polynomial : 0);
 
     len >>= 2;
 
-    if(!len)
+    if (!len)
         return crc;
 
-    for(;;)
-    {
+    for (;;) {
         /* "power" is x^(2^i), modulo the polynomial */
-        if(len & 1)
+        if (len & 1)
             crc = gf2_multiply(crc, power, polynomial);
 
         len >>= 1;
 
-        if(!len)
+        if (!len)
             break;
 
         /* Square power, advancing to x^(2^(i+1)) */
@@ -333,11 +319,10 @@ static inline u32 __pure crc32_be_generic(u32 crc, unsigned char const *p,
 #if CRC_BE_BITS == 1
     int i;
 
-    while(len--)
-    {
+    while (len--) {
         crc ^= *p++ << 24;
 
-        for(i = 0; i < 8; i++)
+        for (i = 0; i < 8; i++)
             crc =
                 (crc << 1) ^ ((crc & 0x80000000) ? polynomial :
                     0);
@@ -345,8 +330,7 @@ static inline u32 __pure crc32_be_generic(u32 crc, unsigned char const *p,
 
 # elif CRC_BE_BITS == 2
 
-    while(len--)
-    {
+    while (len--) {
         crc ^= *p++ << 24;
         crc = (crc << 2) ^ tab[0][crc >> 30];
         crc = (crc << 2) ^ tab[0][crc >> 30];
@@ -356,8 +340,7 @@ static inline u32 __pure crc32_be_generic(u32 crc, unsigned char const *p,
 
 # elif CRC_BE_BITS == 4
 
-    while(len--)
-    {
+    while (len--) {
         crc ^= *p++ << 24;
         crc = (crc << 4) ^ tab[0][crc >> 28];
         crc = (crc << 4) ^ tab[0][crc >> 28];
@@ -365,8 +348,7 @@ static inline u32 __pure crc32_be_generic(u32 crc, unsigned char const *p,
 
 # elif CRC_BE_BITS == 8
 
-    while(len--)
-    {
+    while (len--) {
         crc ^= *p++ << 24;
         crc = (crc << 8) ^ tab[0][crc >> 24];
     }

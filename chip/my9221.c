@@ -23,15 +23,13 @@
 
 #define MY9221_NUM                     40
 
-typedef struct _RGBLED_TypeDef
-{
+typedef struct _RGBLED_TypeDef {
     uint16_t R;
     uint16_t G;
     uint16_t B;
 } RGBLED_TypeDef;
 
-typedef struct _MY9221_TypeDef
-{
+typedef struct _MY9221_TypeDef {
     unsigned TEMP: 5;
     unsigned HSPD: 1;
     unsigned BS: 2;
@@ -122,8 +120,7 @@ MY9221_TypeDef g_my9221[MY9221_NUM];
 
 void my9221_Init(unsigned osc, unsigned cntset, unsigned onest)
 {
-    for(uint8_t i = 0; i < MY9221_NUM; i++)
-    {
+    for (uint8_t i = 0; i < MY9221_NUM; i++) {
         /* Reserved */
         g_my9221[i].TEMP = 0;
         /* Selection of output current reaction rate */
@@ -196,8 +193,7 @@ void ds3231_Test(void)
     BufferLength = TmpRngdata & 0xFF;
     ds3231_printf("BufferLength = %d.", BufferLength);
 
-    if(Tx_Buffer == NULL || Rx_Buffer == NULL)
-    {
+    if (Tx_Buffer == NULL || Rx_Buffer == NULL) {
         ds3231_printf("Failed to allocate memory !");
         return;
     }
@@ -209,8 +205,7 @@ void ds3231_Test(void)
     TestAddr = TmpRngdata & 0xFF;
     ds3231_printf("TestAddr = 0x%02X.", TestAddr);
 
-    for(uint16_t i = 0; i < BufferLength; i += 4)
-    {
+    for (uint16_t i = 0; i < BufferLength; i += 4) {
         Random_Get8bit(&hrng, &TmpRngdata);
         Tx_Buffer[i + 3] = (TmpRngdata & 0xFF000000) >> 24;;
         Tx_Buffer[i + 2] = (TmpRngdata & 0x00FF0000) >> 16;
@@ -221,10 +216,8 @@ void ds3231_Test(void)
     ds3231_WriteData(TestAddr, Tx_Buffer, BufferLength);
     ds3231_ReadData(TestAddr, Rx_Buffer, BufferLength);
 
-    for(uint16_t i = 0; i < BufferLength; i++)
-    {
-        if(Tx_Buffer[i] != Rx_Buffer[i])
-        {
+    for (uint16_t i = 0; i < BufferLength; i++) {
+        if (Tx_Buffer[i] != Rx_Buffer[i]) {
             ds3231_printf("Tx_Buffer[%d] = 0x%02X, Rx_Buffer[%d] = 0x%02X",
                 i, Tx_Buffer[i],
                 i, Rx_Buffer[i]);

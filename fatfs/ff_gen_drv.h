@@ -62,8 +62,7 @@ extern "C" {
 /**
   * @brief  Disk IO Driver structure definition
   */
-typedef struct
-{
+typedef struct {
     DSTATUS(*disk_initialize)(BYTE);                       /*!< Initialize Disk Drive                     */
     DSTATUS(*disk_status)(BYTE);                           /*!< Get Disk Status                           */
     DRESULT(*disk_read)(BYTE, BYTE *, DWORD, UINT);              /*!< Read Sector(s)                            */
@@ -79,8 +78,7 @@ typedef struct
 /**
   * @brief  Global Disk IO Drivers structure definition
   */
-typedef struct
-{
+typedef struct {
     uint8_t                 is_initialized[FF_VOLUMES];
     Diskio_drvTypeDef       *drv[FF_VOLUMES];
     uint8_t                 lun[FF_VOLUMES];

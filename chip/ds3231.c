@@ -102,18 +102,15 @@ void ds3231_ReadTime(uint8_t *pData, uint8_t Format)
 
     ds3231_PortMultiReceive(SECONDS, Tmp, 7);
 
-    if(Tmp[2] & 0x40)
-    {
+    if (Tmp[2] & 0x40) {
         g_TimeMode = DS3231_HOURS12;
         Hour10 = (Tmp[2] & 0x10) >> 4;
 
-        if(Tmp[2] & 0x20)
+        if (Tmp[2] & 0x20)
             g_TimeRegion = DS3231_PM;
         else
             g_TimeRegion = DS3231_AM;
-    }
-    else
-    {
+    } else {
         g_TimeMode = DS3231_HOURS24;
         Hour10 = (Tmp[2] & 0x30) >> 4;
     }
@@ -144,16 +141,14 @@ void ds3231_SetTime(uint8_t *pData, uint8_t Format)
     Tmp[2] |= (pData[3] / 10) << 4;
     Tmp[2] |= (pData[3] % 10) << 0;
 
-    if(g_TimeMode == DS3231_HOURS12)
-    {
-        if(g_TimeRegion == DS3231_PM)
+    if (g_TimeMode == DS3231_HOURS12) {
+        if (g_TimeRegion == DS3231_PM)
             Tmp[2] |= 0x20;
         else
             Tmp[2] &= ~0x20;
 
         Tmp[2] |= 0x40;
-    }
-    else
+    } else
         Tmp[2] &= ~0x40;
 
     Tmp[1] |= (pData[4] / 10) << 4;
@@ -215,16 +210,16 @@ void ds3231_SetAlarm1(uint8_t *pData, uint8_t DateorDay, uint8_t Data)
     uint8_t Tmp[4] = {0, 0, 0, 0};
     uint8_t Tens = 0, Unit = 0;
 
-    if(Data & ALARM_MASK_1)
+    if (Data & ALARM_MASK_1)
         Tmp[0] |= ALARM_MASK;
 
-    if(Data & ALARM_MASK_2)
+    if (Data & ALARM_MASK_2)
         Tmp[1] |= ALARM_MASK;
 
-    if(Data & ALARM_MASK_3)
+    if (Data & ALARM_MASK_3)
         Tmp[2] |= ALARM_MASK;
 
-    if(Data & ALARM_MASK_4)
+    if (Data & ALARM_MASK_4)
         Tmp[3] |= ALARM_MASK;
 
     Unit = (pData[0] & 0x7F) % 10;
@@ -234,16 +229,13 @@ void ds3231_SetAlarm1(uint8_t *pData, uint8_t DateorDay, uint8_t Data)
     Tens = (pData[1] & 0x7F) / 10;
     Tmp[1] = (Tens << 4) | Unit;
 
-    if(g_TimeMode == DS3231_HOURS24)
-    {
+    if (g_TimeMode == DS3231_HOURS24) {
         Unit = (pData[2] & 0x3F) % 10;
         Tens = (pData[2] & 0x3F) / 10;
         Tmp[2] = (Tens << 4) | Unit;
         Tmp[2] &= ~TIMEMODE_MASK;
-    }
-    else
-    {
-        if(pData[2] > 12)
+    } else {
+        if (pData[2] > 12)
             pData[2] -= 12;
 
         Unit = (pData[2] & 0x1F) % 10;
@@ -252,14 +244,11 @@ void ds3231_SetAlarm1(uint8_t *pData, uint8_t DateorDay, uint8_t Data)
         Tmp[2] |= TIMEMODE_MASK;
     }
 
-    if(DateorDay == WEEK_CYCLE)
-    {
+    if (DateorDay == WEEK_CYCLE) {
         Unit = (pData[3] & 0x0F) % 10;
         Tmp[3] = Unit;
         Tmp[3] |= DY_DT_MASK;
-    }
-    else if(DateorDay == MONTH_CYCLE)
-    {
+    } else if (DateorDay == MONTH_CYCLE) {
         Unit = (pData[3] & 0x0F) % 10;
         Tens = (pData[3] & 0x0F) / 10;
         Tmp[3] = (Tens << 4) | Unit;
@@ -279,29 +268,26 @@ void ds3231_SetAlarm2(uint8_t *pData, uint8_t DateorDay, uint8_t Data)
     uint8_t Tmp[3] = {0, 0, 0};
     uint8_t Tens = 0, Unit = 0;
 
-    if(Data & ALARM_MASK_2)
+    if (Data & ALARM_MASK_2)
         Tmp[0] |= ALARM_MASK;
 
-    if(Data & ALARM_MASK_3)
+    if (Data & ALARM_MASK_3)
         Tmp[1] |= ALARM_MASK;
 
-    if(Data & ALARM_MASK_4)
+    if (Data & ALARM_MASK_4)
         Tmp[2] |= ALARM_MASK;
 
     Unit = (pData[0] & 0x7F) % 10;
     Tens = (pData[0] & 0x7F) / 10;
     Tmp[0] = (Tens << 4) | Unit;
 
-    if(g_TimeMode == DS3231_HOURS24)
-    {
+    if (g_TimeMode == DS3231_HOURS24) {
         Unit = (pData[1] & 0x3F) % 10;
         Tens = (pData[1] & 0x3F) / 10;
         Tmp[1] = (Tens << 4) | Unit;
         Tmp[1] &= ~TIMEMODE_MASK;
-    }
-    else
-    {
-        if(pData[1] > 12)
+    } else {
+        if (pData[1] > 12)
             pData[1] -= 12;
 
         Unit = (pData[1] & 0x1F) % 10;
@@ -310,14 +296,11 @@ void ds3231_SetAlarm2(uint8_t *pData, uint8_t DateorDay, uint8_t Data)
         Tmp[1] |= TIMEMODE_MASK;
     }
 
-    if(DateorDay == WEEK_CYCLE)
-    {
+    if (DateorDay == WEEK_CYCLE) {
         Unit = (pData[2] & 0x0F) % 10;
         Tmp[2] = Unit;
         Tmp[2] |= DY_DT_MASK;
-    }
-    else if(DateorDay == MONTH_CYCLE)
-    {
+    } else if (DateorDay == MONTH_CYCLE) {
         Unit = (pData[2] & 0x0F) % 10;
         Tens = (pData[2] & 0x0F) / 10;
         Tmp[2] = (Tens << 4) | Unit;
@@ -357,8 +340,7 @@ void ds3231_RateSelect(uint8_t Data)
 
     ds3231_PortReceive(CONTROL, &TmpReg);
 
-    switch(Data)
-    {
+    switch (Data) {
         case SQUARE_WAVE_1HZ:
             TmpReg &= ~(0x00 << 3);
             TmpReg |= (0x00 << 3);
@@ -451,7 +433,7 @@ uint8_t ds3231_OscillatorStopFlag(void)
 
     ds3231_PortReceive(CONTROL_STATUS, &TmpReg);
 
-    if(TmpReg & 0x80)
+    if (TmpReg & 0x80)
         return 1;
     else
         return 0;
@@ -475,7 +457,7 @@ uint8_t ds3231_WaitBusy(void)
 
     ds3231_PortReceive(CONTROL_STATUS, &TmpReg);
 
-    if(TmpReg & 0x02)
+    if (TmpReg & 0x02)
         return 1;
     else
         return 0;
@@ -489,7 +471,7 @@ uint8_t ds3231_Alarm2Flag(void)
 
     ds3231_PortReceive(CONTROL_STATUS, &TmpReg);
 
-    if(TmpReg & 0x02)
+    if (TmpReg & 0x02)
         return 1;
     else
         return 0;
@@ -514,7 +496,7 @@ uint8_t ds3231_Alarm1Flag(void)
 
     ds3231_PortReceive(CONTROL_STATUS, &TmpReg);
 
-    if(TmpReg & 0x01)
+    if (TmpReg & 0x01)
         return 1;
     else
         return 0;
@@ -558,10 +540,10 @@ int t_ds3231_SetClock(int argc, char **argv)
 
     ds3231_ReadTimeWithString(Time);
 
-    if(strcmp("200308202020", Time) != 0)
+    if (strcmp("200308202020", Time) != 0)
         return false;
 
-    if(g_TimeRegion == DS3231_AM)
+    if (g_TimeRegion == DS3231_AM)
         snprintf(&Time[12], 4, " DS3231_AM");
     else
         snprintf(&Time[12], 4, " PM");
@@ -577,14 +559,13 @@ int t_ds3231_GetClock(int argc, char **argv)
     uint8_t i = 0;
     uint16_t times = 1;
 
-    if(argc > 1)
+    if (argc > 1)
         times = strtoul(argv[1], &argv[1], 10);
 
-    for(i = 0; i < times; i++)
-    {
+    for (i = 0; i < times; i++) {
         ds3231_ReadTimeWithString(Time);
 
-        if(g_TimeRegion == DS3231_AM)
+        if (g_TimeRegion == DS3231_AM)
             snprintf(&Time[12], 4, " DS3231_AM");
         else
             snprintf(&Time[12], 4, " PM");
@@ -606,19 +587,19 @@ int t_ds3231_SetAlarm1(int argc, char **argv)
     uint8_t Time[7] = {0, 0, 0, 0, 0, 0, 0};
     uint32_t Delta = 0;
 
-    if(argc > 1)
+    if (argc > 1)
         dy_dt = strtoul(argv[1], &argv[1], 10);
 
-    if(argc > 2)
+    if (argc > 2)
         a1m4 = strtoul(argv[2], &argv[2], 10);
 
-    if(argc > 3)
+    if (argc > 3)
         a1m3 = strtoul(argv[3], &argv[3], 10);
 
-    if(argc > 4)
+    if (argc > 4)
         a1m2 = strtoul(argv[4], &argv[4], 10);
 
-    if(argc > 5)
+    if (argc > 5)
         a1m1 = strtoul(argv[5], &argv[5], 10);
 
     Alarm_Rate = (a1m4 << 3) | (a1m3 << 2) | (a1m2 << 1) | a1m1;
@@ -626,8 +607,7 @@ int t_ds3231_SetAlarm1(int argc, char **argv)
     ds3231_EnableInt();
     ds3231_EnableAlarm1Int();
 
-    switch(Alarm_Rate)
-    {
+    switch (Alarm_Rate) {
         case 0x0F:
             ds3231_SetAlarm1(Data, 0,
                 ALARM_MASK_1 | ALARM_MASK_2 | ALARM_MASK_3 | ALARM_MASK_4);
@@ -636,7 +616,7 @@ int t_ds3231_SetAlarm1(int argc, char **argv)
             Delta = BasicTimer_GetSSTick() - Delta;
             ds3231_ClearAlarm1Flag();
 
-            if(Delta == 1)
+            if (Delta == 1)
                 ret = true;
             else
                 ret = false;
@@ -650,7 +630,7 @@ int t_ds3231_SetAlarm1(int argc, char **argv)
             ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
             ds3231_ClearAlarm1Flag();
 
-            if(Time[6] == 0)
+            if (Time[6] == 0)
                 ret = true;
             else
                 ret = false;
@@ -665,7 +645,7 @@ int t_ds3231_SetAlarm1(int argc, char **argv)
             ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
             ds3231_ClearAlarm1Flag();
 
-            if(Time[5] == 0 && Time[6] == 0)
+            if (Time[5] == 0 && Time[6] == 0)
                 ret = true;
             else
                 ret = false;
@@ -681,7 +661,7 @@ int t_ds3231_SetAlarm1(int argc, char **argv)
             ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
             ds3231_ClearAlarm1Flag();
 
-            if(Time[4] == 0 && Time[5] == 0 && Time[6] == 0)
+            if (Time[4] == 0 && Time[5] == 0 && Time[6] == 0)
                 ret = true;
             else
                 ret = false;
@@ -689,8 +669,7 @@ int t_ds3231_SetAlarm1(int argc, char **argv)
             break;
 
         case 0x00:
-            if(dy_dt)
-            {
+            if (dy_dt) {
                 Data[0] = 0;
                 Data[1] = 0;
                 Data[2] = 0;
@@ -700,13 +679,11 @@ int t_ds3231_SetAlarm1(int argc, char **argv)
                 ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
                 ds3231_ClearAlarm1Flag();
 
-                if(Time[3] == 0 && Time[4] == 0 && Time[5] == 0 && Time[6] == 0)
+                if (Time[3] == 0 && Time[4] == 0 && Time[5] == 0 && Time[6] == 0)
                     ret = true;
                 else
                     ret = false;
-            }
-            else
-            {
+            } else {
                 Data[0] = 0;
                 Data[1] = 0;
                 Data[2] = 0;
@@ -716,7 +693,7 @@ int t_ds3231_SetAlarm1(int argc, char **argv)
                 ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
                 ds3231_ClearAlarm1Flag();
 
-                if(Time[3] == 0 && Time[4] == 0 && Time[5] == 0 && Time[6] == 0)
+                if (Time[3] == 0 && Time[4] == 0 && Time[5] == 0 && Time[6] == 0)
                     ret = true;
                 else
                     ret = false;
@@ -736,19 +713,19 @@ int t_ds3231_SetAlarm2(int argc, char **argv)
     uint8_t Time[7] = {0, 0, 0, 0, 0, 0, 0};
     uint32_t Delta = 0;
 
-    if(argc > 1)
+    if (argc > 1)
         dy_dt = strtoul(argv[1], &argv[1], 10);
 
-    if(argc > 2)
+    if (argc > 2)
         a1m4 = strtoul(argv[2], &argv[2], 10);
 
-    if(argc > 3)
+    if (argc > 3)
         a1m3 = strtoul(argv[3], &argv[3], 10);
 
-    if(argc > 4)
+    if (argc > 4)
         a1m2 = strtoul(argv[4], &argv[4], 10);
 
-    if(argc > 5)
+    if (argc > 5)
         a1m1 = strtoul(argv[5], &argv[5], 10);
 
     Alarm_Rate = (a1m4 << 3) | (a1m3 << 2) | (a1m2 << 1) | a1m1;
@@ -756,8 +733,7 @@ int t_ds3231_SetAlarm2(int argc, char **argv)
     ds3231_EnableInt();
     ds3231_EnableAlarm2Int();
 
-    switch(Alarm_Rate)
-    {
+    switch (Alarm_Rate) {
         case 0x0F:
             ds3231_SetAlarm1(Data, 0,
                 ALARM_MASK_1 | ALARM_MASK_2 | ALARM_MASK_3 | ALARM_MASK_4);
@@ -766,7 +742,7 @@ int t_ds3231_SetAlarm2(int argc, char **argv)
             Delta = BasicTimer_GetSSTick() - Delta;
             ds3231_ClearAlarm1Flag();
 
-            if(Delta == 1)
+            if (Delta == 1)
                 ret = true;
             else
                 ret = false;
@@ -780,7 +756,7 @@ int t_ds3231_SetAlarm2(int argc, char **argv)
             ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
             ds3231_ClearAlarm1Flag();
 
-            if(Time[6] == 0)
+            if (Time[6] == 0)
                 ret = true;
             else
                 ret = false;
@@ -795,7 +771,7 @@ int t_ds3231_SetAlarm2(int argc, char **argv)
             ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
             ds3231_ClearAlarm1Flag();
 
-            if(Time[5] == 0 && Time[6] == 0)
+            if (Time[5] == 0 && Time[6] == 0)
                 ret = true;
             else
                 ret = false;
@@ -811,7 +787,7 @@ int t_ds3231_SetAlarm2(int argc, char **argv)
             ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
             ds3231_ClearAlarm1Flag();
 
-            if(Time[4] == 0 && Time[5] == 0 && Time[6] == 0)
+            if (Time[4] == 0 && Time[5] == 0 && Time[6] == 0)
                 ret = true;
             else
                 ret = false;
@@ -819,8 +795,7 @@ int t_ds3231_SetAlarm2(int argc, char **argv)
             break;
 
         case 0x00:
-            if(dy_dt)
-            {
+            if (dy_dt) {
                 Data[0] = 0;
                 Data[1] = 0;
                 Data[2] = 0;
@@ -830,13 +805,11 @@ int t_ds3231_SetAlarm2(int argc, char **argv)
                 ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
                 ds3231_ClearAlarm1Flag();
 
-                if(Time[3] == 0 && Time[4] == 0 && Time[5] == 0 && Time[6] == 0)
+                if (Time[3] == 0 && Time[4] == 0 && Time[5] == 0 && Time[6] == 0)
                     ret = true;
                 else
                     ret = false;
-            }
-            else
-            {
+            } else {
                 Data[0] = 0;
                 Data[1] = 0;
                 Data[2] = 0;
@@ -846,7 +819,7 @@ int t_ds3231_SetAlarm2(int argc, char **argv)
                 ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
                 ds3231_ClearAlarm1Flag();
 
-                if(Time[3] == 0 && Time[4] == 0 && Time[5] == 0 && Time[6] == 0)
+                if (Time[3] == 0 && Time[4] == 0 && Time[5] == 0 && Time[6] == 0)
                     ret = true;
                 else
                     ret = false;
@@ -863,16 +836,15 @@ int t_ds3231_SquareWave(int argc, char **argv)
     uint8_t Data = 0;
     uint8_t rs1 = 0, rs2 = 0;
 
-    if(argc > 1)
+    if (argc > 1)
         rs2 = strtoul(argv[1], &argv[1], 10);
 
-    if(argc > 2)
+    if (argc > 2)
         rs1 = strtoul(argv[2], &argv[2], 10);
 
     Data = (rs2 << 1) | rs1;
 
-    switch(Data)
-    {
+    switch (Data) {
         case SQUARE_WAVE_1HZ:
             ds3231_RateSelect(SQUARE_WAVE_1HZ);
             break;

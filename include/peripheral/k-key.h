@@ -12,8 +12,7 @@ extern "C" {
 
 typedef void (*BtnCallback)(void *);
 
-typedef enum
-{
+typedef enum {
     PRESS_DOWN = 0,
     PRESS_UP,
     PRESS_REPEAT,
@@ -25,8 +24,7 @@ typedef enum
     NONE_PRESS
 } PressEvent;
 
-typedef struct Button_TypeDef
-{
+typedef struct Button_TypeDef {
     uint16_t Ticks;
     uint8_t  Repeat      : 4;
     uint8_t  Event       : 4;

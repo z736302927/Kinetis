@@ -10,8 +10,7 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include "core/core_common.h"
 
-typedef struct TimTask_TypeDef
-{
+typedef struct TimTask_TypeDef {
     uint32_t Timeout;
     uint32_t Repeat;
     void (*Timeout_cb)(void);

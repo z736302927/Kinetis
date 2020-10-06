@@ -25,7 +25,7 @@ static int crc_t10dif_rehash(struct notifier_block *self, unsigned long val, voi
     struct crypto_alg *alg = data;
     struct crypto_shash *new, *old;
 
-    if(val != CRYPTO_MSG_ALG_LOADED ||
+    if (val != CRYPTO_MSG_ALG_LOADED ||
         static_key_false(&crct10dif_fallback) ||
         strncmp(alg->cra_name, CRC_T10DIF_STRING, strlen(CRC_T10DIF_STRING)))
         return 0;
@@ -34,16 +34,14 @@ static int crc_t10dif_rehash(struct notifier_block *self, unsigned long val, voi
     old = rcu_dereference_protected(crct10dif_tfm,
             lockdep_is_held(&crc_t10dif_mutex));
 
-    if(!old)
-    {
+    if (!old) {
         mutex_unlock(&crc_t10dif_mutex);
         return 0;
     }
 
     new = crypto_alloc_shash("crct10dif", 0, 0);
 
-    if(IS_ERR(new))
-    {
+    if (IS_ERR(new)) {
         mutex_unlock(&crc_t10dif_mutex);
         return 0;
     }
@@ -56,21 +54,19 @@ static int crc_t10dif_rehash(struct notifier_block *self, unsigned long val, voi
     return 0;
 }
 
-static struct notifier_block crc_t10dif_nb =
-{
+static struct notifier_block crc_t10dif_nb = {
     .notifier_call = crc_t10dif_rehash,
 };
 
 __u16 crc_t10dif_update(__u16 crc, const unsigned char *buffer, size_t len)
 {
-    struct
-    {
+    struct {
         struct shash_desc shash;
         char ctx[2];
     } desc;
     int err;
 
-    if(static_key_false(&crct10dif_fallback))
+    if (static_key_false(&crct10dif_fallback))
         return crc_t10dif_generic(crc, buffer, len);
 
     rcu_read_lock();
@@ -97,8 +93,7 @@ static int __init crc_t10dif_mod_init(void)
     crypto_register_notifier(&crc_t10dif_nb);
     crct10dif_tfm = crypto_alloc_shash("crct10dif", 0, 0);
 
-    if(IS_ERR(crct10dif_tfm))
-    {
+    if (IS_ERR(crct10dif_tfm)) {
         static_key_slow_inc(&crct10dif_fallback);
         crct10dif_tfm = NULL;
     }
@@ -117,7 +112,7 @@ module_exit(crc_t10dif_mod_fini);
 
 static int crc_t10dif_transform_show(char *buffer, const struct kernel_param *kp)
 {
-    if(static_key_false(&crct10dif_fallback))
+    if (static_key_false(&crct10dif_fallback))
         return sprintf(buffer, "fallback\n");
 
     return sprintf(buffer, "%s\n",

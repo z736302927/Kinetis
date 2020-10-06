@@ -10,8 +10,7 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include "core/core_common.h"
 
-typedef struct RTCTask_DateTime_TypeDef
-{
+typedef struct RTCTask_DateTime_TypeDef {
     uint8_t Year;
     uint8_t Month;
     uint8_t Date;
@@ -20,15 +19,13 @@ typedef struct RTCTask_DateTime_TypeDef
     uint8_t Seconds;
 } RTCTask_DateTime_TypeDef;
 
-typedef struct RTCTask_DeltaT_TypeDef
-{
+typedef struct RTCTask_DeltaT_TypeDef {
     uint8_t Hours;
     uint8_t Minutes;
     uint8_t Seconds;
 } RTCTask_DeltaT_TypeDef;
 
-typedef struct RTCTask_TypeDef
-{
+typedef struct RTCTask_TypeDef {
     RTCTask_DateTime_TypeDef ExpiredTime;
     RTCTask_DeltaT_TypeDef DeltaTime;
     void (*Timeout_cb)(void);

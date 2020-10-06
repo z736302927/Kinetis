@@ -13,8 +13,7 @@ extern "C" {
 
 /*The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run.*/
 
-typedef enum
-{
+typedef enum {
     AT_NONE,
     AT_TEST,
     AT_READ,
@@ -22,8 +21,7 @@ typedef enum
     AT_EXCUTE
 } AT_CommandProperty;
 
-typedef struct _GeneralCommand_TypeDef
-{
+typedef struct _GeneralCommand_TypeDef {
     char *AT_Command;
     char *pArgument;
     char *pExpectRes;

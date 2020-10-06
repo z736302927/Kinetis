@@ -23,12 +23,10 @@ int CRC16_Check(char *input, int inputlen)
 
     inputCrc = (input[inputlen - 2] << 8) | input[inputlen - 1];
 
-    if(crcRet != inputCrc)
-    {
+    if (crcRet != inputCrc) {
         kinetis_debug_trace(KERN_DEBUG, "CRC16 check failed !");
         retValue = false;
-    }
-    else
+    } else
         retValue = true;
 
     return retValue;

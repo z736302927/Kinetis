@@ -61,8 +61,7 @@ typedef WORD			WCHAR;	/* UTF-16 character type */
 /* Definitions of volume management */
 
 #if FF_MULTI_PARTITION		/* Multiple partition configuration */
-typedef struct
-{
+typedef struct {
     BYTE pd;	/* Physical drive number */
     BYTE pt;	/* Partition: 0:Auto detect, 1-4:Forced partition) */
 } PARTITION;
@@ -130,8 +129,7 @@ typedef DWORD LBA_t;
 
 /* Filesystem object structure (FATFS) */
 
-typedef struct
-{
+typedef struct {
     BYTE	fs_type;		/* Filesystem type (0:not mounted) */
     BYTE	pdrv;			/* Associated physical drive */
     BYTE	n_fats;			/* Number of FATs (1 or 2) */
@@ -181,8 +179,7 @@ typedef struct
 
 /* Object ID and allocation information (FFOBJID) */
 
-typedef struct
-{
+typedef struct {
     FATFS	*fs;				/* Pointer to the hosting volume of this object */
     WORD	id;				/* Hosting volume mount ID */
     BYTE	attr;			/* Object attribute */
@@ -205,8 +202,7 @@ typedef struct
 
 /* File object structure (FIL) */
 
-typedef struct
-{
+typedef struct {
     FFOBJID	obj;			/* Object identifier (must be the 1st member to detect invalid object pointer) */
     BYTE	flag;			/* File status flags */
     BYTE	err;			/* Abort flag (error code) */
@@ -229,8 +225,7 @@ typedef struct
 
 /* Directory object structure (DIR) */
 
-typedef struct
-{
+typedef struct {
     FFOBJID	obj;			/* Object identifier */
     DWORD	dptr;			/* Current read/write offset */
     DWORD	clust;			/* Current cluster */
@@ -249,8 +244,7 @@ typedef struct
 
 /* File information structure (FILINFO) */
 
-typedef struct
-{
+typedef struct {
     FSIZE_t	fsize;			/* File size */
     WORD	fdate;			/* Modified date */
     WORD	ftime;			/* Modified time */
@@ -267,8 +261,7 @@ typedef struct
 
 /* Format parameter structure (MKFS_PARM) */
 
-typedef struct
-{
+typedef struct {
     BYTE fmt;			/* Format option (FM_FAT, FM_FAT32, FM_EXFAT and FM_SFD) */
     BYTE n_fat;			/* Number of FATs */
     UINT align;			/* Data area alignment (sector) */
@@ -280,8 +273,7 @@ typedef struct
 
 /* File function return code (FRESULT) */
 
-typedef enum
-{
+typedef enum {
     FR_OK = 0,				/* (0) Succeeded */
     FR_DISK_ERR,			/* (1) A hard error occurred in the low level disk I/O layer */
     FR_INT_ERR,				/* (2) Assertion failed */

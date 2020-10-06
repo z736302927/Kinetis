@@ -14,24 +14,21 @@ BC95 series of modules mainly interact with users based on UART.
 All of the following operations about BC95 revolve around UART.
 */
 
-typedef enum
-{
+typedef enum {
     CMD_TEST,
     CMD_READ,
     CMD_SET,
     CMD_EXCUTE
 } NB_CmdProperty;
 
-typedef enum
-{
+typedef enum {
     ACTION_OK_EXIT_ERROR_NEXT,     //Successful execution will exit, if the error will continue to execute the next instruction.
     ACTION_OK_NEXT_ERROR_TRY       //After successful execution, the next instruction is executed, and an error is attempted.
     //If the maximum number of attempts is not successful, then exit.
 } NB_CmdAction;
 
 //AT instruction structure type
-typedef struct
-{
+typedef struct {
     const char     *pCMD;          // AT Command
     NB_CmdProperty  property;      // Command current attribute (TEST,READ,SET,EXCUTE)
     char           *pArgument;     // Command parameter
@@ -45,8 +42,7 @@ typedef struct
 
 typedef NB_CmdInfo *CmdHandle;
 
-typedef enum
-{
+typedef enum {
     PROCESS_NONE,
     PROCESS_INIT = MSG_INIT,
     PROCESS_MODULE_INFO = MSG_MODULE_INFO,
@@ -61,8 +57,7 @@ typedef enum
     PROCESS_COAP_RE = MSG_COAP_RECE
 } NB_Process;
 
-typedef enum
-{
+typedef enum {
     TYPES_CIMI = MSG_IMSI,
     TYPES_CGSN = MSG_IMEI,
     TYPES_CGMI = MSG_MID,
@@ -75,8 +70,7 @@ typedef enum
     TYPES_UDP_RECE = MSG_UDP_RECE
 } NB_RptMsgType;
 
-typedef struct
-{
+typedef struct {
     NB_Process state;
     int sub_state;
 } NB_ModuleState;
@@ -87,8 +81,7 @@ typedef void (*NB_SerilPort_Open)(NB_RxCallback, uint32_t);
 typedef void (*NB_SerilPort_Send)(uint8_t *, uint16_t);
 typedef void (*NB_SerilPort_Close)(void);
 
-typedef struct
-{
+typedef struct {
     NB_SerilPort_Open  Open;
     NB_SerilPort_Send  Send;
     NB_SerilPort_Close Close;
@@ -101,16 +94,14 @@ typedef void (*NB_Timer_Init)(NB_TimeoutCallback);
 typedef void (*NB_Timer_Start)(uint32_t);
 typedef void (*NB_Timer_Stop)(void);
 
-typedef struct
-{
+typedef struct {
     NB_Timer_Init   Init;
     NB_Timer_Start  Start;
     NB_Timer_Stop   Stop;
 } NB_TimerTypeDef;
 
 
-typedef struct
-{
+typedef struct {
     const uint32_t          Baudrate;
     NB_SerilPortTypeDef   *Uart;
     NB_TimerTypeDef       *Timer;

@@ -62,7 +62,7 @@ int ff_req_grant(  /* TRUE:Got a grant to access the volume, FALSE:Could not get
 {
     int ret = 0;
 
-    if(osSemaphoreWait(sobj, _FS_TIMEOUT) == osOK)
+    if (osSemaphoreWait(sobj, _FS_TIMEOUT) == osOK)
         ret = 1;
 
     return ret;

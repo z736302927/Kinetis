@@ -22,8 +22,7 @@
 
 #define TLC5971_NUM                     40
 
-typedef struct _TLC5971_TypeDef
-{
+typedef struct _TLC5971_TypeDef {
     uint16_t GSR0;
     uint16_t GSG0;
     uint16_t GSB0;
@@ -68,16 +67,14 @@ uint16_t tlc5971_PortReceive(void)
 void tlc5971_PortMultiTransmmit(uint16_t *pData, uint32_t Length)
 {
 //  HAL_SPI_Transmit(&hspi5, pData, Length, 1000);
-    while(HAL_SPI_GetState(&hspi5) != HAL_SPI_STATE_READY)
-    {
+    while (HAL_SPI_GetState(&hspi5) != HAL_SPI_STATE_READY) {
     }
 }
 
 void tlc5971_PortMultiReceive(uint16_t *pData, uint32_t Length)
 {
 //  HAL_SPI_Receive(&hspi5, pData, Length, 1000);
-    while(HAL_SPI_GetState(&hspi5) != HAL_SPI_STATE_READY)
-    {
+    while (HAL_SPI_GetState(&hspi5) != HAL_SPI_STATE_READY) {
     }
 }
 
@@ -128,8 +125,7 @@ TLC5971_TypeDef g_tcl5971[TLC5971_NUM];
 
 void tlc5971_Init(void)
 {
-    for(uint8_t i = 0; i < TLC5971_NUM; i++)
-    {
+    for (uint8_t i = 0; i < TLC5971_NUM; i++) {
         /* Constant-current output enable bit in FC data (0 = output control enabled, 1 = blank). */
         g_tcl5971[i].BLANK = 0;
         /* Auto display repeat mode enable bit in FC data (0 = disabled, 1 = enabled). */
@@ -147,8 +143,7 @@ void tlc5971_Init(void)
 
 void tlc5971_InitForTiming1(void)
 {
-    for(uint8_t i = 0; i < TLC5971_NUM; i++)
-    {
+    for (uint8_t i = 0; i < TLC5971_NUM; i++) {
         /* Constant-current output enable bit in FC data (0 = output control enabled, 1 = blank). */
         g_tcl5971[i].BLANK = 0;
         /* Auto display repeat mode enable bit in FC data (0 = disabled, 1 = enabled). */
@@ -166,8 +161,7 @@ void tlc5971_InitForTiming1(void)
 
 void tlc5971_InitForTiming2(void)
 {
-    for(uint8_t i = 0; i < TLC5971_NUM; i++)
-    {
+    for (uint8_t i = 0; i < TLC5971_NUM; i++) {
         /* Constant-current output enable bit in FC data (0 = output control enabled, 1 = blank). */
         g_tcl5971[i].BLANK = 0;
         /* Auto display repeat mode enable bit in FC data (0 = disabled, 1 = enabled). */
@@ -185,8 +179,7 @@ void tlc5971_InitForTiming2(void)
 
 void tlc5971_InitForTiming3(void)
 {
-    for(uint8_t i = 0; i < TLC5971_NUM; i++)
-    {
+    for (uint8_t i = 0; i < TLC5971_NUM; i++) {
         /* Constant-current output enable bit in FC data (0 = output control enabled, 1 = blank). */
         g_tcl5971[i].BLANK = 0;
         /* Auto display repeat mode enable bit in FC data (0 = disabled, 1 = enabled). */
@@ -264,8 +257,7 @@ void ds3231_Test(void)
     BufferLength = TmpRngdata & 0xFF;
     ds3231_printf("BufferLength = %d.", BufferLength);
 
-    if(Tx_Buffer == NULL || Rx_Buffer == NULL)
-    {
+    if (Tx_Buffer == NULL || Rx_Buffer == NULL) {
         ds3231_printf("Failed to allocate memory !");
         return;
     }
@@ -277,8 +269,7 @@ void ds3231_Test(void)
     TestAddr = TmpRngdata & 0xFF;
     ds3231_printf("TestAddr = 0x%02X.", TestAddr);
 
-    for(uint16_t i = 0; i < BufferLength; i += 4)
-    {
+    for (uint16_t i = 0; i < BufferLength; i += 4) {
         Random_Get8bit(&hrng, &TmpRngdata);
         Tx_Buffer[i + 3] = (TmpRngdata & 0xFF000000) >> 24;;
         Tx_Buffer[i + 2] = (TmpRngdata & 0x00FF0000) >> 16;
@@ -289,10 +280,8 @@ void ds3231_Test(void)
     ds3231_WriteData(TestAddr, Tx_Buffer, BufferLength);
     ds3231_ReadData(TestAddr, Rx_Buffer, BufferLength);
 
-    for(uint16_t i = 0; i < BufferLength; i++)
-    {
-        if(Tx_Buffer[i] != Rx_Buffer[i])
-        {
+    for (uint16_t i = 0; i < BufferLength; i++) {
+        if (Tx_Buffer[i] != Rx_Buffer[i]) {
             ds3231_printf("Tx_Buffer[%d] = 0x%02X, Rx_Buffer[%d] = 0x%02X",
                 i, Tx_Buffer[i],
                 i, Rx_Buffer[i]);

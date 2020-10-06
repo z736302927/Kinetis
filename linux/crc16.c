@@ -6,8 +6,7 @@
 #include <linux/crc16.h>
 
 /** CRC table for the CRC-16. The poly is 0x8005 (x^16 + x^15 + x^2 + 1) */
-uint16_t const crc16_table[256] =
-{
+uint16_t const crc16_table[256] = {
     0x0000, 0xC0C1, 0xC181, 0x0140, 0xC301, 0x03C0, 0x0280, 0xC241,
     0xC601, 0x06C0, 0x0780, 0xC741, 0x0500, 0xC5C1, 0xC481, 0x0440,
     0xCC01, 0x0CC0, 0x0D80, 0xCD41, 0x0F00, 0xCFC1, 0xCE81, 0x0E40,
@@ -52,7 +51,7 @@ uint16_t const crc16_table[256] =
  */
 uint16_t crc16(uint16_t crc, uint8_t const *buffer, uint32_t len)
 {
-    while(len--)
+    while (len--)
         crc = crc16_byte(crc, *buffer++);
 
     return crc;

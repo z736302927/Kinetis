@@ -13,16 +13,14 @@ extern "C" {
 
 typedef void (*SwitchCallback)(void *);
 
-typedef enum
-{
+typedef enum {
     SWITCH_DOWN = 0,
     SWITCH_UP,
     SWITCHEVENT_NBR,
     NONE_SWITCH
 } SwitchEvent;
 
-typedef struct Switch_TypeDef
-{
+typedef struct Switch_TypeDef {
     uint8_t  Event       : 4;
     uint8_t  State       : 3;
     uint8_t  DebounceCnt : 3;

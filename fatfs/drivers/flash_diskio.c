@@ -71,8 +71,7 @@ DRESULT FLASHDISK_write(BYTE, const BYTE *, DWORD, UINT);
 DRESULT FLASHDISK_ioctl(BYTE, BYTE, void *);
 #endif /* _USE_IOCTL == 1 */
 
-const Diskio_drvTypeDef FLASHDISK_Driver =
-{
+const Diskio_drvTypeDef FLASHDISK_Driver = {
     FLASHDISK_initialize,
     FLASHDISK_status,
     FLASHDISK_read,
@@ -98,8 +97,7 @@ DSTATUS FLASHDISK_initialize(BYTE lun)
     /* Configure the FLASH device */
     Stat = STA_NOINIT;
 
-    switch(lun)
-    {
+    switch (lun) {
         case 0:
             w25qxxx_Init(W25Q128);
             Stat = disk_status(0);
@@ -127,16 +125,15 @@ DSTATUS FLASHDISK_status(BYTE lun)
 {
     Stat = STA_NOINIT;
 
-    switch(lun)
-    {
+    switch (lun) {
         case 0:
-            if(w25qxxx_ReleaseDeviceID(W25Q128) != 0)
+            if (w25qxxx_ReleaseDeviceID(W25Q128) != 0)
                 Stat &= ~STA_NOINIT;
 
             break;
 
         case 1:
-            if(w25qxxx_ReleaseDeviceID(W25Q256) != 0)
+            if (w25qxxx_ReleaseDeviceID(W25Q256) != 0)
                 Stat &= ~STA_NOINIT;
 
             break;
@@ -159,8 +156,7 @@ DSTATUS FLASHDISK_status(BYTE lun)
   */
 DRESULT FLASHDISK_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
 {
-    switch(lun)
-    {
+    switch (lun) {
         case 0:
             w25qxxx_ReadData(W25Q128, sector << STORAGE_SEC_SIZ_POWER, buff, count << STORAGE_SEC_SIZ_POWER);
             break;
@@ -187,8 +183,7 @@ DRESULT FLASHDISK_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
 #if _USE_WRITE == 1
 DRESULT FLASHDISK_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
 {
-    switch(lun)
-    {
+    switch (lun) {
         case 0:
             w25qxxx_WriteData(W25Q128, sector << STORAGE_SEC_SIZ_POWER, (BYTE *)buff, count << STORAGE_SEC_SIZ_POWER);
             break;
@@ -217,14 +212,12 @@ DRESULT FLASHDISK_ioctl(BYTE lun, BYTE cmd, void *buff)
 {
     DRESULT res = RES_ERROR;
 
-    if(Stat & STA_NOINIT)
+    if (Stat & STA_NOINIT)
         return RES_NOTRDY;
 
-    switch(lun)
-    {
+    switch (lun) {
         case 0:
-            switch(cmd)
-            {
+            switch (cmd) {
                 /* Make sure that no pending write process */
                 case CTRL_SYNC :
                     res = RES_OK;
@@ -256,8 +249,7 @@ DRESULT FLASHDISK_ioctl(BYTE lun, BYTE cmd, void *buff)
             break;
 
         case 1:
-            switch(cmd)
-            {
+            switch (cmd) {
                 /* Make sure that no pending write process */
                 case CTRL_SYNC :
                     res = RES_OK;

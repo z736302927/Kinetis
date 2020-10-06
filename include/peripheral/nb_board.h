@@ -10,8 +10,7 @@ extern "C"
 
 //Error const number
 
-typedef enum
-{
+typedef enum {
     MSG_NONE,
     MSG_INIT,
     MSG_IMSI,
@@ -62,8 +61,7 @@ typedef int (*NB_CoAPReceMsg)(NB_Handle);//CoAP protocol information receiving
 
 typedef int (*NB_MainThread)(NB_Handle);
 
-typedef struct
-{
+typedef struct {
     NB_Open                 Open;
     NB_Reboot               Reboot;
     NB_AutoInitModule       nbModuleInit;
@@ -94,8 +92,7 @@ typedef int (*NB_ReceiveCallback)(NB_MessageTypeDef, int, char *);
 
 typedef int (*NB_Log)(char *, int);
 
-typedef struct NB_ConfigTypeDef
-{
+typedef struct NB_ConfigTypeDef {
     NB_ModuleTypeDef   *Module;
     void               *Object;         //NB NB uart object pointer
     NB_ReceiveCallback AppReceiveCallback;

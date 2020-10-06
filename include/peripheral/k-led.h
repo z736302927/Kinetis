@@ -10,16 +10,14 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include "core/core_common.h"
 
-typedef enum
-{
+typedef enum {
     LED1 = 0,
     LED2,
     LED3,
     LED4
 } LEDn_Type;
 
-typedef struct LED_TypeDef
-{
+typedef struct LED_TypeDef {
     uint8_t UniqueID;
     char *Color;
     struct LED_TypeDef *Next;

@@ -55,30 +55,26 @@ Purpose     : Implementation of Proportional fonts
 //f_close(&USERFile);
 //BUTTON_SetBMP(hItem, BUTTON_BI_UNPRESSED, Bmp_Buffer);
 /*********************************************************/
-GUI_CONST_STORAGE GUI_CHARINFO GUI_FontCN12_CharInfo[2] =
-{
+GUI_CONST_STORAGE GUI_CHARINFO GUI_FontCN12_CharInfo[2] = {
     { 6, 6, 1, (void *)"0"},
     { 12, 12, 2, (void *)"0"},
 };
 
-GUI_CONST_STORAGE GUI_FONT_PROP GUI_FontCN12_PropCN =
-{
+GUI_CONST_STORAGE GUI_FONT_PROP GUI_FontCN12_PropCN = {
     0x4081,
     0xFFFF,
     &GUI_FontCN12_CharInfo[1],
     (void *)0,
 };
 
-GUI_CONST_STORAGE GUI_FONT_PROP GUI_FontCN12_PropASC =
-{
+GUI_CONST_STORAGE GUI_FONT_PROP GUI_FontCN12_PropASC = {
     0x0000,
     0x007F,
     &GUI_FontCN12_CharInfo[0],
     (void GUI_CONST_STORAGE *) &GUI_FontCN12_PropCN,
 };
 
-GUI_CONST_STORAGE  GUI_FONT GUI_FontCN12 =
-{
+GUI_CONST_STORAGE  GUI_FONT GUI_FontCN12 = {
     GUI_FONTTYPE_PROP_USER,
     12,
     12,
@@ -87,8 +83,7 @@ GUI_CONST_STORAGE  GUI_FONT GUI_FontCN12 =
     (void GUI_CONST_STORAGE *) &GUI_FontCN12_PropASC
 };
 
-GUI_CONST_STORAGE  GUI_FONT GUI_FontCN12x2 =
-{
+GUI_CONST_STORAGE  GUI_FONT GUI_FontCN12x2 = {
     GUI_FONTTYPE_PROP_USER,
     12,
     12,
@@ -99,30 +94,26 @@ GUI_CONST_STORAGE  GUI_FONT GUI_FontCN12x2 =
 
 /*********************************************************/
 
-GUI_CONST_STORAGE GUI_CHARINFO GUI_FontCN16_CharInfo[2] =
-{
+GUI_CONST_STORAGE GUI_CHARINFO GUI_FontCN16_CharInfo[2] = {
     { 8, 8, 1, (void *)"0"},
     { 16, 16, 2, (void *)"0"},
 };
 
-GUI_CONST_STORAGE GUI_FONT_PROP GUI_FontCN16_PropCN =
-{
+GUI_CONST_STORAGE GUI_FONT_PROP GUI_FontCN16_PropCN = {
     0x4081,
     0xFFFF,
     &GUI_FontCN16_CharInfo[1],
     (void *)0,
 };
 
-GUI_CONST_STORAGE GUI_FONT_PROP GUI_FontCN16_PropASC =
-{
+GUI_CONST_STORAGE GUI_FONT_PROP GUI_FontCN16_PropASC = {
     0x0000,
     0x007F,
     &GUI_FontCN16_CharInfo[0],
     (void GUI_CONST_STORAGE *) &GUI_FontCN16_PropCN,
 };
 
-GUI_CONST_STORAGE  GUI_FONT GUI_FontCN16 =
-{
+GUI_CONST_STORAGE  GUI_FONT GUI_FontCN16 = {
     GUI_FONTTYPE_PROP_USER,
     16,
     16,
@@ -131,8 +122,7 @@ GUI_CONST_STORAGE  GUI_FONT GUI_FontCN16 =
     (void GUI_CONST_STORAGE *) &GUI_FontCN16_PropASC
 };
 
-GUI_CONST_STORAGE  GUI_FONT GUI_FontCN16x2 =
-{
+GUI_CONST_STORAGE  GUI_FONT GUI_FontCN16x2 = {
     GUI_FONTTYPE_PROP_USER,
     16,
     16,
@@ -143,30 +133,26 @@ GUI_CONST_STORAGE  GUI_FONT GUI_FontCN16x2 =
 
 /*********************************************************/
 
-GUI_CONST_STORAGE GUI_CHARINFO GUI_FontCN24_CharInfo[2] =
-{
+GUI_CONST_STORAGE GUI_CHARINFO GUI_FontCN24_CharInfo[2] = {
     { 12, 12, 2, (void *)"0"},
     { 24, 24, 3, (void *)"0"},
 };
 
-GUI_CONST_STORAGE GUI_FONT_PROP GUI_FontCN24_PropCN =
-{
+GUI_CONST_STORAGE GUI_FONT_PROP GUI_FontCN24_PropCN = {
     0x4081,
     0xFFFF,
     &GUI_FontCN24_CharInfo[1],
     (void *)0,
 };
 
-GUI_CONST_STORAGE GUI_FONT_PROP GUI_FontCN24_PropASC =
-{
+GUI_CONST_STORAGE GUI_FONT_PROP GUI_FontCN24_PropASC = {
     0x0000,
     0x007F,
     &GUI_FontCN24_CharInfo[0],
     (void GUI_CONST_STORAGE *) &GUI_FontCN24_PropCN,
 };
 
-GUI_CONST_STORAGE  GUI_FONT GUI_FontCN24 =
-{
+GUI_CONST_STORAGE  GUI_FONT GUI_FontCN24 = {
     GUI_FONTTYPE_PROP_USER,
     24,
     24,
@@ -175,8 +161,7 @@ GUI_CONST_STORAGE  GUI_FONT GUI_FontCN24 =
     (void GUI_CONST_STORAGE *) &GUI_FontCN24_PropASC
 };
 
-GUI_CONST_STORAGE  GUI_FONT GUI_FontCN24x2 =
-{
+GUI_CONST_STORAGE  GUI_FONT GUI_FontCN24x2 = {
     GUI_FONTTYPE_PROP_USER,
     24,
     24,
@@ -187,30 +172,26 @@ GUI_CONST_STORAGE  GUI_FONT GUI_FontCN24x2 =
 
 /*********************************************************/
 
-GUI_CONST_STORAGE GUI_CHARINFO GUI_FontCN32_CharInfo[2] =
-{
+GUI_CONST_STORAGE GUI_CHARINFO GUI_FontCN32_CharInfo[2] = {
     { 16, 16, 2, (void *)"0"},
     { 32, 32, 4, (void *)"0"},
 };
 
-GUI_CONST_STORAGE GUI_FONT_PROP GUI_FontCN32_PropCN =
-{
+GUI_CONST_STORAGE GUI_FONT_PROP GUI_FontCN32_PropCN = {
     0x4081,
     0xFFFF,
     &GUI_FontCN32_CharInfo[1],
     (void *)0,
 };
 
-GUI_CONST_STORAGE GUI_FONT_PROP GUI_FontCN32_PropASC =
-{
+GUI_CONST_STORAGE GUI_FONT_PROP GUI_FontCN32_PropASC = {
     0x0000,
     0x007F,
     &GUI_FontCN32_CharInfo[0],
     (void GUI_CONST_STORAGE *) &GUI_FontCN32_PropCN,
 };
 
-GUI_CONST_STORAGE  GUI_FONT GUI_FontCN32 =
-{
+GUI_CONST_STORAGE  GUI_FONT GUI_FontCN32 = {
     GUI_FONTTYPE_PROP_USER,
     32,
     32,
@@ -219,8 +200,7 @@ GUI_CONST_STORAGE  GUI_FONT GUI_FontCN32 =
     (void GUI_CONST_STORAGE *) &GUI_FontCN32_PropASC
 };
 
-GUI_CONST_STORAGE  GUI_FONT GUI_FontCN32x2 =
-{
+GUI_CONST_STORAGE  GUI_FONT GUI_FontCN32x2 = {
     GUI_FONTTYPE_PROP_USER,
     32,
     32,
@@ -245,44 +225,39 @@ static void GUI_GetDataFromMemory(const GUI_FONT_PROP GUI_UNI_PTR *pProp, U16 c)
 
     BytesPerFont = GUI_pContext->pAFont->YSize * pProp->paCharInfo->BytesPerLine;
 
-    if(BytesPerFont > BYTES_PER_FONT)
+    if (BytesPerFont > BYTES_PER_FONT)
         BytesPerFont = BYTES_PER_FONT;
 
-    if(memcmp(&EMWINFONT, &GUI_FontCN12, sizeof(GUI_FONT)) == 0)
+    if (memcmp(&EMWINFONT, &GUI_FontCN12, sizeof(GUI_FONT)) == 0)
         size = 12;
-    else if(memcmp(&EMWINFONT, &GUI_FontCN16, sizeof(GUI_FONT)) == 0)
+    else if (memcmp(&EMWINFONT, &GUI_FontCN16, sizeof(GUI_FONT)) == 0)
         size = 16;
-    else if(memcmp(&EMWINFONT, &GUI_FontCN24, sizeof(GUI_FONT)) == 0)
+    else if (memcmp(&EMWINFONT, &GUI_FontCN24, sizeof(GUI_FONT)) == 0)
         size = 24;
-    else if(memcmp(&EMWINFONT, &GUI_FontCN32, sizeof(GUI_FONT)) == 0)
+    else if (memcmp(&EMWINFONT, &GUI_FontCN32, sizeof(GUI_FONT)) == 0)
         size = 32;
 
     cn_size = (size / 8 + ((size % 8) ? 1 : 0)) * size;
     memset(GUI_FontDataBuf, 0, cn_size);
 
-    if(c < 0x80)
-    {
-        switch(size)
-        {
+    if (c < 0x80) {
+        switch (size) {
             case 12:
-                for(t = 0; t < 12; t++)
-                {
+                for (t = 0; t < 12; t++) {
                     GUI_FontDataBuf[t] = 0;    //emwin_asc2_1206[c-0x20][t];
                 }
 
                 break;
 
             case 16:
-                for(t = 0; t < 16; t++)
-                {
+                for (t = 0; t < 16; t++) {
                     GUI_FontDataBuf[t] = 0;    //emwin_asc2_1608[c-0x20][t];
                 }
 
                 break;
 
             case 24:
-                for(t = 0; t < 48; t++)
-                {
+                for (t = 0; t < 48; t++) {
                     GUI_FontDataBuf[t] = 0;    //emwin_asc2_2412[c-0x20][t];
                 }
 
@@ -296,21 +271,18 @@ static void GUI_GetDataFromMemory(const GUI_FONT_PROP GUI_UNI_PTR *pProp, U16 c)
                 break;
         }
 
-        if(c == '\r' || c == '\n')
+        if (c == '\r' || c == '\n')
             memset(GUI_FontDataBuf, 0, cn_size);
-    }
-    else
-    {
+    } else {
         cn_low = c / 256;
         cn_high = c % 256;
 
-        if(cn_high < 0x81 || cn_low < 0x40 || cn_low == 0xFF || cn_high == 0xFF)
-        {
+        if (cn_high < 0x81 || cn_low < 0x40 || cn_low == 0xFF || cn_high == 0xFF) {
             memset(GUI_FontDataBuf, 0, cn_size);
             return;
         }
 
-        if(cn_low < 0x7F)
+        if (cn_low < 0x7F)
             cn_low -= 0x40;
         else
             cn_low -= 0x41;
@@ -318,8 +290,7 @@ static void GUI_GetDataFromMemory(const GUI_FONT_PROP GUI_UNI_PTR *pProp, U16 c)
         cn_high -= 0x81;
         cn_offset = ((U32)190 * cn_high + cn_low) * cn_size;
 
-        switch(size)
-        {
+        switch (size) {
             case 12:
                 f_open(&USERFile, (const TCHAR *)"0:/Fonts/GBK12.FON", FA_READ);
                 f_lseek(&USERFile, cn_offset);
@@ -370,14 +341,12 @@ void GUIPROP_X_DispChar(U16 c)
     GUI_DRAWMODE DrawMode = GUI_pContext->TextMode;
     const GUI_FONT_PROP GUI_UNI_PTR *pProp = GUI_pContext->pAFont->p.pProp;
 
-    for(; pProp; pProp = pProp->pNext)
-    {
-        if((c >= pProp->First) && (c <= pProp->Last))
+    for (; pProp; pProp = pProp->pNext) {
+        if ((c >= pProp->First) && (c <= pProp->Last))
             break;
     }
 
-    if(pProp)
-    {
+    if (pProp) {
         GUI_DRAWMODE OldDrawMode;
         const GUI_CHARINFO GUI_UNI_PTR *pCharInfo = pProp->paCharInfo;
         GUI_GetDataFromMemory(pProp, c);
@@ -393,14 +362,12 @@ void GUIPROP_X_DispChar(U16 c)
         );
 
         /* Fill empty pixel lines */
-        if(GUI_pContext->pAFont->YDist > GUI_pContext->pAFont->YSize)
-        {
+        if (GUI_pContext->pAFont->YDist > GUI_pContext->pAFont->YSize) {
             int YMag = GUI_pContext->pAFont->YMag;
             int YDist = GUI_pContext->pAFont->YDist * YMag;
             int YSize = GUI_pContext->pAFont->YSize * YMag;
 
-            if(DrawMode != LCD_DRAWMODE_TRANS)
-            {
+            if (DrawMode != LCD_DRAWMODE_TRANS) {
                 LCD_COLOR OldColor = GUI_GetColor();
                 GUI_SetColor(GUI_GetBkColor());
                 LCD_FillRect(GUI_pContext->DispPosX, GUI_pContext->DispPosY + YSize,
@@ -423,9 +390,8 @@ int GUIPROP_X_GetCharDistX(U16 c)
 {
     const GUI_FONT_PROP GUI_UNI_PTR *pProp = GUI_pContext->pAFont->p.pProp;
 
-    for(; pProp; pProp = pProp->pNext)
-    {
-        if((c >= pProp->First) && (c <= pProp->Last))
+    for (; pProp; pProp = pProp->pNext) {
+        if ((c >= pProp->First) && (c <= pProp->Last))
             break;
     }
 
@@ -441,7 +407,7 @@ int GUIPROP_X_GetCharDistX(U16 c)
 */
 static U16 _GetCharCode(const char GUI_UNI_PTR *s)
 {
-    if((*s) >= 0x81)
+    if ((*s) >= 0x81)
         return *(const U16 GUI_UNI_PTR *)s;
 
     return *(const U8 GUI_UNI_PTR *)s;
@@ -458,7 +424,7 @@ static int _GetCharSize(const char GUI_UNI_PTR *s)
 {
     GUI_USE_PARA(s);
 
-    if((*s) >= 0x81)
+    if ((*s) >= 0x81)
         return 2;
 
     return 1;
@@ -475,7 +441,7 @@ static int _CalcSizeOfChar(U16 Char)
 {
     GUI_USE_PARA(Char);
 
-    if(Char > 0x4081)
+    if (Char > 0x4081)
         return 2;
 
     return 1;
@@ -490,8 +456,7 @@ static int _CalcSizeOfChar(U16 Char)
 */
 static int _Encode(char *s, U16 Char)
 {
-    if(Char > 0x4081)
-    {
+    if (Char > 0x4081) {
         *((U16 *)s) = (U16)(Char);
         return 2;
     }
@@ -506,16 +471,14 @@ static int _Encode(char *s, U16 Char)
 *
 *       _API_Table
 */
-const GUI_UC_ENC_APILIST GUI_UC_None =
-{
+const GUI_UC_ENC_APILIST GUI_UC_None = {
     _GetCharCode,     /*  return character code as U16 */
     _GetCharSize,     /*  return size of character: 1 */
     _CalcSizeOfChar,  /*  return size of character: 1 */
     _Encode           /*  Encode character */
 };
 
-const GUI_UC_ENC_APILIST GUI__API_TableNone =
-{
+const GUI_UC_ENC_APILIST GUI__API_TableNone = {
     _GetCharCode,     /*  return character code as U16 */
     _GetCharSize,     /*  return size of character: 1 */
     _CalcSizeOfChar,  /*  return size of character: 1 */

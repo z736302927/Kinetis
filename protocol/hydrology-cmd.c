@@ -25,15 +25,14 @@ void Hydrology_ChangeMode(uint8_t M)
 
 static int Hydrology_SendRealtimeData(void)
 {
-    HydrologyElementInfo Element_table[] =
-    {
+    HydrologyElementInfo Element_table[] = {
         HYDROLOGY_E_PJ,
         HYDROLOGY_E_PT,
         HYDROLOGY_E_Z,
         HYDROLOGY_E_VT
     };
 
-    if(HydrologyD_ProcessSend(Element_table,
+    if (HydrologyD_ProcessSend(Element_table,
             sizeof(Element_table) / sizeof(HydrologyElementInfo),
             HYDROLOGY_M4, Realtime) == false)
         return false;
@@ -44,8 +43,7 @@ static int Hydrology_SendRealtimeData(void)
 static int Hydrology_SendPeriodData(void)
 {
     HydrologyDownBody *downbody = (HydrologyDownBody *)g_Hydrology.downpacket->body;
-    HydrologyElementInfo Element_table[] =
-    {
+    HydrologyElementInfo Element_table[] = {
         HYDROLOGY_E_DRxnn,
         NULL
     };
@@ -53,7 +51,7 @@ static int Hydrology_SendPeriodData(void)
     Element_table[1].ID = downbody->element[1]->guide[0];
     Hydrology_ReadSpecifiedElementInfo(&Element_table[1], Period, Element_table[1].ID);
 
-    if(HydrologyD_ProcessSend(Element_table,
+    if (HydrologyD_ProcessSend(Element_table,
             sizeof(Element_table) / sizeof(HydrologyElementInfo),
             HYDROLOGY_M4, Period) == false)
         return false;
@@ -69,20 +67,17 @@ static int Hydrology_SendSpecifiedElement(void)
     uint8_t i;
     int ret;
 
-    if(downbody->count != 0)
-    {
+    if (downbody->count != 0) {
         Element_table =
             (HydrologyElementInfo *)kmalloc(sizeof(HydrologyElementInfo) * downbody->count, __GFP_ZERO);
 
-        if(Element_table == NULL)
-        {
+        if (Element_table == NULL) {
             kinetis_debug_trace(KERN_DEBUG, "Element_table malloc failed");
             return false;
         }
     }
 
-    for(i = 0; i < downbody->count; i++)
-    {
+    for (i = 0; i < downbody->count; i++) {
         Hydrology_ReadSpecifiedElementInfo(&Element_table[i], (HydrologyBodyType)header->funcode,
             downbody->element[i]->guide[0]);
     }
@@ -102,20 +97,17 @@ static int Hydrology_BasicInfoConfig(void)
     HydrologyElementInfo *Element_table;
     uint8_t i;
 
-    if(downbody->count != 0)
-    {
+    if (downbody->count != 0) {
         Element_table =
             (HydrologyElementInfo *)kmalloc(sizeof(HydrologyElementInfo) * downbody->count, __GFP_ZERO);
 
-        if(Element_table == NULL)
-        {
+        if (Element_table == NULL) {
             kinetis_debug_trace(KERN_DEBUG, "Element_table malloc failed");
             return false;
         }
     }
 
-    for(i = 0; i < downbody->count; i++)
-    {
+    for (i = 0; i < downbody->count; i++) {
         Hydrology_ReadSpecifiedElementInfo(&Element_table[i], (HydrologyBodyType)header->funcode,
             downbody->element[i]->guide[0]);
 
@@ -136,20 +128,17 @@ static int Hydrology_BasicInfoRead(HydrologyBodyType Funcode)
     uint8_t i;
     int ret;
 
-    if(downbody->count != 0)
-    {
+    if (downbody->count != 0) {
         Element_table =
             (HydrologyElementInfo *)kmalloc(sizeof(HydrologyElementInfo) * downbody->count, __GFP_ZERO);
 
-        if(Element_table == NULL)
-        {
+        if (Element_table == NULL) {
             kinetis_debug_trace(KERN_DEBUG, "Element_table malloc failed");
             return false;
         }
     }
 
-    for(i = 0; i < downbody->count; i++)
-    {
+    for (i = 0; i < downbody->count; i++) {
         Hydrology_ReadSpecifiedElementInfo(&Element_table[i], (HydrologyBodyType)header->funcode,
             downbody->element[i]->guide[0]);
     }
@@ -169,20 +158,17 @@ static int Hydrology_SetParameter(void)
     HydrologyElementInfo *Element_table;
     uint8_t i;
 
-    if(downbody->count != 0)
-    {
+    if (downbody->count != 0) {
         Element_table =
             (HydrologyElementInfo *)kmalloc(sizeof(HydrologyElementInfo) * downbody->count, __GFP_ZERO);
 
-        if(Element_table == NULL)
-        {
+        if (Element_table == NULL) {
             kinetis_debug_trace(KERN_DEBUG, "Element_table malloc failed");
             return false;
         }
     }
 
-    for(i = 0; i < downbody->count; i++)
-    {
+    for (i = 0; i < downbody->count; i++) {
         Hydrology_ReadSpecifiedElementInfo(&Element_table[i], (HydrologyBodyType)header->funcode,
             downbody->element[i]->guide[0]);
 
@@ -203,20 +189,17 @@ static int Hydrology_ReadParameter(HydrologyBodyType Funcode)
     uint8_t i;
     int ret;
 
-    if(downbody->count != 0)
-    {
+    if (downbody->count != 0) {
         Element_table =
             (HydrologyElementInfo *)kmalloc(sizeof(HydrologyElementInfo) * downbody->count, __GFP_ZERO);
 
-        if(Element_table == NULL)
-        {
+        if (Element_table == NULL) {
             kinetis_debug_trace(KERN_DEBUG, "Element_table malloc failed");
             return false;
         }
     }
 
-    for(i = 0; i < downbody->count; i++)
-    {
+    for (i = 0; i < downbody->count; i++) {
         Hydrology_ReadSpecifiedElementInfo(&Element_table[i], (HydrologyBodyType)header->funcode,
             downbody->element[i]->guide[0]);
     }
@@ -231,8 +214,7 @@ static int Hydrology_ReadParameter(HydrologyBodyType Funcode)
 
 static int Hydrology_SendWaterPumpMotorData(void)
 {
-    HydrologyElementInfo Element_table[] =
-    {
+    HydrologyElementInfo Element_table[] = {
         HYDROLOGY_E_VTA,
         HYDROLOGY_E_VTB,
         HYDROLOGY_E_VTC,
@@ -241,7 +223,7 @@ static int Hydrology_SendWaterPumpMotorData(void)
         HYDROLOGY_E_VIC
     };
 
-    if(HydrologyD_ProcessSend(Element_table,
+    if (HydrologyD_ProcessSend(Element_table,
             sizeof(Element_table) / sizeof(HydrologyElementInfo),
             HYDROLOGY_M4, WaterPumpMotor) == false)
         return false;
@@ -251,12 +233,11 @@ static int Hydrology_SendWaterPumpMotorData(void)
 
 static int Hydrology_SendStatusData(void)
 {
-    HydrologyElementInfo Element_table[] =
-    {
+    HydrologyElementInfo Element_table[] = {
         HYDROLOGY_E_ZT,
     };
 
-    if(HydrologyD_ProcessSend(Element_table,
+    if (HydrologyD_ProcessSend(Element_table,
             sizeof(Element_table) / sizeof(HydrologyElementInfo),
             HYDROLOGY_M4, Status) == false)
         return false;
@@ -283,17 +264,15 @@ int HydrologyD_Reset(void)
     uint16_t Data[200];
     uint16_t i, j;
 
-    for(i = 0; i < 10; i++)
-    {
-        for(j = 0; j < 200; j++)
+    for (i = 0; i < 10; i++) {
+        for (j = 0; j < 200; j++)
             Data[j] = j + i * 200;
 
         Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_PICTURE, i * 200, (uint8_t *)Data, 200);
     }
 
-    for(i = 0; i < 2; i++)
-    {
-        for(j = 0; j < 200; j++)
+    for (i = 0; i < 2; i++) {
+        for (j = 0; j < 200; j++)
             Data[j] = j + i * 200;
 
         Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_RGZS, i * 200, (uint8_t *)Data, 200);
@@ -499,8 +478,7 @@ int HydrologyD_Reset(void)
     Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_SW_VERSION, temp,
         strlen("*WHU-2020-V3.0"));
 
-    static HydrologyElementInfo Element_table[] =
-    {
+    static HydrologyElementInfo Element_table[] = {
         HYDROLOGY_E_TT,
         HYDROLOGY_E_ST,
         HYDROLOGY_E_RGZS,
@@ -902,12 +880,11 @@ static int Hydrology_RecordERC(int index)
 
 static int Hydrology_SendPassword(void)
 {
-    HydrologyElementInfo Element_table[] =
-    {
+    HydrologyElementInfo Element_table[] = {
         HYDROLOGY_B_PASSWORD,
     };
 
-    if(HydrologyD_ProcessSend(Element_table,
+    if (HydrologyD_ProcessSend(Element_table,
             sizeof(Element_table) / sizeof(HydrologyElementInfo),
             HYDROLOGY_M4, ChangePassword) == false)
         return false;
@@ -917,12 +894,11 @@ static int Hydrology_SendPassword(void)
 
 static int Hydrology_SendICCard(void)
 {
-    HydrologyElementInfo Element_table[] =
-    {
+    HydrologyElementInfo Element_table[] = {
         HYDROLOGY_E_ZT,
     };
 
-    if(HydrologyD_ProcessSend(Element_table,
+    if (HydrologyD_ProcessSend(Element_table,
             sizeof(Element_table) / sizeof(HydrologyElementInfo),
             HYDROLOGY_M4, SetICCard) == false)
         return false;
@@ -932,12 +908,11 @@ static int Hydrology_SendICCard(void)
 
 static int Hydrology_SendPump(void)
 {
-    HydrologyElementInfo Element_table[] =
-    {
+    HydrologyElementInfo Element_table[] = {
         HYDROLOGY_PD_PUMP,
     };
 
-    if(HydrologyD_ProcessSend(Element_table,
+    if (HydrologyD_ProcessSend(Element_table,
             sizeof(Element_table) / sizeof(HydrologyElementInfo),
             HYDROLOGY_M4, Pump) == false)
         return false;
@@ -947,12 +922,11 @@ static int Hydrology_SendPump(void)
 
 static int Hydrology_SendValve(void)
 {
-    HydrologyElementInfo Element_table[] =
-    {
+    HydrologyElementInfo Element_table[] = {
         HYDROLOGY_PD_VALVE,
     };
 
-    if(HydrologyD_ProcessSend(Element_table,
+    if (HydrologyD_ProcessSend(Element_table,
             sizeof(Element_table) / sizeof(HydrologyElementInfo),
             HYDROLOGY_M4, Valve) == false)
         return false;
@@ -962,12 +936,11 @@ static int Hydrology_SendValve(void)
 
 static int Hydrology_SendGate(void)
 {
-    HydrologyElementInfo Element_table[] =
-    {
+    HydrologyElementInfo Element_table[] = {
         HYDROLOGY_PD_GATE,
     };
 
-    if(HydrologyD_ProcessSend(Element_table,
+    if (HydrologyD_ProcessSend(Element_table,
             sizeof(Element_table) / sizeof(HydrologyElementInfo),
             HYDROLOGY_M4, Gate) == false)
         return false;
@@ -977,12 +950,11 @@ static int Hydrology_SendGate(void)
 
 static int Hydrology_SendWaterSetting(void)
 {
-    HydrologyElementInfo Element_table[] =
-    {
+    HydrologyElementInfo Element_table[] = {
         HYDROLOGY_PD_WATERSETTING,
     };
 
-    if(HydrologyD_ProcessSend(Element_table,
+    if (HydrologyD_ProcessSend(Element_table,
             sizeof(Element_table) / sizeof(HydrologyElementInfo),
             HYDROLOGY_M4, WaterSetting) == false)
         return false;
@@ -992,12 +964,11 @@ static int Hydrology_SendWaterSetting(void)
 
 static int Hydrology_SendRecordERC(void)
 {
-    HydrologyElementInfo Element_table[] =
-    {
+    HydrologyElementInfo Element_table[] = {
         HYDROLOGY_PD_RECORD,
     };
 
-    if(HydrologyD_ProcessSend(Element_table,
+    if (HydrologyD_ProcessSend(Element_table,
             sizeof(Element_table) / sizeof(HydrologyElementInfo),
             HYDROLOGY_M4, Record) == false)
         return false;
@@ -1009,8 +980,7 @@ int Hydrology_ExecuteCommand(HydrologyBodyType Funcode)
 {
     int ret = false;
 
-    switch(Funcode)
-    {
+    switch (Funcode) {
         case Test:
         case EvenPeriodInformation:
         case TimerReport:
@@ -1091,8 +1061,7 @@ int Hydrology_ResponseDownstream(HydrologyBodyType Funcode)
 {
     int ret = false;
 
-    switch(Funcode)
-    {
+    switch (Funcode) {
         case LinkMaintenance:
         case Test:
         case EvenPeriodInformation:
@@ -1193,8 +1162,7 @@ int Hydrology_ResponseUpstream(HydrologyBodyType Funcode, uint8_t End)
 {
     int ret = false;
 
-    switch(Funcode)
-    {
+    switch (Funcode) {
         case LinkMaintenance:
         case Realtime:
         case Period:

@@ -113,10 +113,8 @@ int Button_Start(struct Button_TypeDef *handle)
 {
     struct Button_TypeDef *target = head_handle;
 
-    while(target)
-    {
-        if(target == handle)
-        {
+    while (target) {
+        if (target == handle) {
             return -1;  //already exist.
         }
 
@@ -138,11 +136,10 @@ void Button_Stop(struct Button_TypeDef *handle)
 {
     struct Button_TypeDef **curr;
 
-    for(curr = &head_handle; *curr;)
-    {
+    for (curr = &head_handle; *curr;) {
         struct Button_TypeDef *entry = *curr;
 
-        if(entry == handle)
+        if (entry == handle)
             *curr = entry->Next;
         else
             curr = &entry->Next;
@@ -159,54 +156,44 @@ static void Button_Handler(struct Button_TypeDef *handle)
     uint8_t read_gpio_level = handle->HALButtonLevel();
 
     //Ticks counter working..
-    if((handle->State) > 0)
+    if ((handle->State) > 0)
         handle->Ticks++;
 
     /*------------button debounce handle---------------*/
-    if(read_gpio_level != handle->ButtonLevel)
-    {
+    if (read_gpio_level != handle->ButtonLevel) {
         //not equal to prev one
         //continue read 3 times same new level change
-        if(++(handle->DebounceCnt) >= DEBOUNCE_TICKS)
-        {
+        if (++(handle->DebounceCnt) >= DEBOUNCE_TICKS) {
             handle->ButtonLevel = read_gpio_level;
             handle->DebounceCnt = 0;
         }
-    }
-    else
-    {
+    } else {
         // leved not change ,counter reset.
         handle->DebounceCnt = 0;
     }
 
     /*-----------------State machine-------------------*/
-    switch(handle->State)
-    {
+    switch (handle->State) {
         case 0:
-            if(handle->ButtonLevel == handle->ActiveLevel)
-            {
+            if (handle->ButtonLevel == handle->ActiveLevel) {
                 handle->Event = (uint8_t)PRESS_DOWN;
                 EVENT_CB(PRESS_DOWN);
                 handle->Ticks  = 0;
                 handle->Repeat = 1;
                 handle->State  = 1;
-            }
-            else
+            } else
                 handle->Event = (uint8_t)NONE_PRESS;
 
             break;
 
         case 1:
-            if(handle->ButtonLevel != handle->ActiveLevel)
-            {
+            if (handle->ButtonLevel != handle->ActiveLevel) {
                 handle->Event = (uint8_t)PRESS_UP;
                 EVENT_CB(PRESS_UP);
                 handle->Ticks = 0;
                 handle->State = 2;
 
-            }
-            else if(handle->Ticks > LONG_TICKS)
-            {
+            } else if (handle->Ticks > LONG_TICKS) {
                 handle->Event = (uint8_t)LONG_RRESS_START;
                 EVENT_CB(LONG_RRESS_START);
                 handle->State = 5;
@@ -215,8 +202,7 @@ static void Button_Handler(struct Button_TypeDef *handle)
             break;
 
         case 2:
-            if(handle->ButtonLevel == handle->ActiveLevel)
-            {
+            if (handle->ButtonLevel == handle->ActiveLevel) {
                 handle->Event = (uint8_t)PRESS_DOWN;
                 EVENT_CB(PRESS_DOWN);
                 handle->Repeat++;
@@ -226,16 +212,11 @@ static void Button_Handler(struct Button_TypeDef *handle)
                 handle->Ticks = 0;
                 handle->State = 3;
 
-            }
-            else if(handle->Ticks > SHORT_TICKS)
-            {
-                if(handle->Repeat == 1)
-                {
+            } else if (handle->Ticks > SHORT_TICKS) {
+                if (handle->Repeat == 1) {
                     handle->Event = (uint8_t)SINGLE_CLICK;
                     EVENT_CB(SINGLE_CLICK);
-                }
-                else if(handle->Repeat == 2)
-                {
+                } else if (handle->Repeat == 2) {
                     handle->Event = (uint8_t)DOUBLE_CLICK;
                     EVENT_CB(DOUBLE_CLICK);
                 }
@@ -246,30 +227,24 @@ static void Button_Handler(struct Button_TypeDef *handle)
             break;
 
         case 3:
-            if(handle->ButtonLevel != handle->ActiveLevel)
-            {
+            if (handle->ButtonLevel != handle->ActiveLevel) {
                 handle->Event = (uint8_t)PRESS_UP;
                 EVENT_CB(PRESS_UP);
 
-                if(handle->Ticks < SHORT_TICKS)
-                {
+                if (handle->Ticks < SHORT_TICKS) {
                     handle->Ticks = 0;
                     handle->State = 2;
-                }
-                else
+                } else
                     handle->State = 0;
             }
 
             break;
 
         case 5:
-            if(handle->ButtonLevel == handle->ActiveLevel)
-            {
+            if (handle->ButtonLevel == handle->ActiveLevel) {
                 handle->Event = (uint8_t)LONG_PRESS_HOLD;
                 EVENT_CB(LONG_PRESS_HOLD);
-            }
-            else
-            {
+            } else {
                 handle->Event = (uint8_t)PRESS_UP;
                 EVENT_CB(PRESS_UP);
 
@@ -289,7 +264,7 @@ void Button_Ticks(void)
 {
     struct Button_TypeDef *target;
 
-    for(target = head_handle; target != NULL; target = target->Next)
+    for (target = head_handle; target != NULL; target = target->Next)
         Button_Handler(target);
 }
 
@@ -309,8 +284,7 @@ static void Button_Callback(void *btn)
 
     btn_event_val = Get_Button_Event((struct Button_TypeDef *)btn);
 
-    switch(btn_event_val)
-    {
+    switch (btn_event_val) {
         case PRESS_DOWN:
             HydrologyProcessSend(Test);
             kinetis_debug_trace(KERN_DEBUG, "Button press down");

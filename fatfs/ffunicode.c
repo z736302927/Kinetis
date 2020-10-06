@@ -15253,14 +15253,12 @@ WCHAR ff_uni2oem(  /* Returns OEM code character, zero on error */
     const WCHAR *p = CVTBL(uc, FF_CODE_PAGE);
 
 
-    if(uni < 0x80) 	/* ASCII? */
+    if (uni < 0x80) 	/* ASCII? */
         c = (WCHAR)uni;
 
-    else  			/* Non-ASCII */
-    {
-        if(uni < 0x10000 && cp == FF_CODE_PAGE)  	/* Is it in BMP and valid code page? */
-        {
-            for(c = 0; c < 0x80 && uni != p[c]; c++) ;
+    else {			/* Non-ASCII */
+        if (uni < 0x10000 && cp == FF_CODE_PAGE) {	/* Is it in BMP and valid code page? */
+            for (c = 0; c < 0x80 && uni != p[c]; c++) ;
 
             c = (c + 0x80) & 0xFF;
         }
@@ -15278,14 +15276,12 @@ WCHAR ff_oem2uni(  /* Returns Unicode character in UTF-16, zero on error */
     const WCHAR *p = CVTBL(uc, FF_CODE_PAGE);
 
 
-    if(oem < 0x80) 	/* ASCII? */
+    if (oem < 0x80) 	/* ASCII? */
         c = oem;
 
-    else  			/* Extended char */
-    {
-        if(cp == FF_CODE_PAGE)  	/* Is it a valid code page? */
-        {
-            if(oem < 0x100)
+    else {			/* Extended char */
+        if (cp == FF_CODE_PAGE) {	/* Is it a valid code page? */
+            if (oem < 0x100)
                 c = p[oem - 0x80];
         }
     }
@@ -15313,33 +15309,30 @@ WCHAR ff_uni2oem(  /* Returns OEM code character, zero on error */
     UINT i = 0, n, li, hi;
 
 
-    if(uni < 0x80) 	/* ASCII? */
+    if (uni < 0x80) 	/* ASCII? */
         c = (WCHAR)uni;
 
-    else  			/* Non-ASCII */
-    {
-        if(uni < 0x10000 && cp == FF_CODE_PAGE)  	/* Is it in BMP and valid code page? */
-        {
+    else {			/* Non-ASCII */
+        if (uni < 0x10000 && cp == FF_CODE_PAGE) {	/* Is it in BMP and valid code page? */
             uc = (WCHAR)uni;
             p = CVTBL(uni2oem, FF_CODE_PAGE);
             hi = sizeof CVTBL(uni2oem, FF_CODE_PAGE) / 4 - 1;
             li = 0;
 
-            for(n = 16; n; n--)
-            {
+            for (n = 16; n; n--) {
                 i = li + (hi - li) / 2;
 
-                if(uc == p[i * 2])
+                if (uc == p[i * 2])
                     break;
 
-                if(uc > p[i * 2])
+                if (uc > p[i * 2])
                     li = i;
 
                 else
                     hi = i;
             }
 
-            if(n != 0)
+            if (n != 0)
                 c = p[i * 2 + 1];
         }
     }
@@ -15358,32 +15351,29 @@ WCHAR ff_oem2uni(  /* Returns Unicode character in UTF-16, zero on error */
     UINT i = 0, n, li, hi;
 
 
-    if(oem < 0x80) 	/* ASCII? */
+    if (oem < 0x80) 	/* ASCII? */
         c = oem;
 
-    else  			/* Extended char */
-    {
-        if(cp == FF_CODE_PAGE)  	/* Is it valid code page? */
-        {
+    else {			/* Extended char */
+        if (cp == FF_CODE_PAGE) {	/* Is it valid code page? */
             p = CVTBL(oem2uni, FF_CODE_PAGE);
             hi = sizeof CVTBL(oem2uni, FF_CODE_PAGE) / 4 - 1;
             li = 0;
 
-            for(n = 16; n; n--)
-            {
+            for (n = 16; n; n--) {
                 i = li + (hi - li) / 2;
 
-                if(oem == p[i * 2])
+                if (oem == p[i * 2])
                     break;
 
-                if(oem > p[i * 2])
+                if (oem > p[i * 2])
                     li = i;
 
                 else
                     hi = i;
             }
 
-            if(n != 0)
+            if (n != 0)
                 c = p[i * 2 + 1];
         }
     }
@@ -15414,33 +15404,26 @@ WCHAR ff_uni2oem(  /* Returns OEM code character, zero on error */
     UINT i, n, li, hi;
 
 
-    if(uni < 0x80) 	/* ASCII? */
+    if (uni < 0x80) 	/* ASCII? */
         c = (WCHAR)uni;
 
-    else  			/* Non-ASCII */
-    {
-        if(uni < 0x10000)    /* Is it in BMP? */
-        {
+    else {			/* Non-ASCII */
+        if (uni < 0x10000) { /* Is it in BMP? */
             uc = (WCHAR)uni;
             p = 0;
 
-            if(cp < 900)  	/* SBCS */
-            {
-                for(i = 0; cp_code[i] != 0 && cp_code[i] != cp; i++) ;		/* Get conversion table */
+            if (cp < 900) {	/* SBCS */
+                for (i = 0; cp_code[i] != 0 && cp_code[i] != cp; i++) ;		/* Get conversion table */
 
                 p = cp_table[i];
 
-                if(p)  	/* Is it valid code page ? */
-                {
-                    for(c = 0; c < 0x80 && uc != p[c]; c++) ;	/* Find OEM code in the table */
+                if (p) {	/* Is it valid code page ? */
+                    for (c = 0; c < 0x80 && uc != p[c]; c++) ;	/* Find OEM code in the table */
 
                     c = (c + 0x80) & 0xFF;
                 }
-            }
-            else  	/* DBCS */
-            {
-                switch(cp)  	/* Get conversion table */
-                {
+            } else {	/* DBCS */
+                switch (cp) {	/* Get conversion table */
                     case 932 :
                         p = uni2oem932;
                         hi = sizeof uni2oem932 / 4 - 1;
@@ -15462,25 +15445,23 @@ WCHAR ff_uni2oem(  /* Returns OEM code character, zero on error */
                         break;
                 }
 
-                if(p)  	/* Is it valid code page? */
-                {
+                if (p) {	/* Is it valid code page? */
                     li = 0;
 
-                    for(n = 16; n; n--)  	/* Find OEM code */
-                    {
+                    for (n = 16; n; n--) {	/* Find OEM code */
                         i = li + (hi - li) / 2;
 
-                        if(uc == p[i * 2])
+                        if (uc == p[i * 2])
                             break;
 
-                        if(uc > p[i * 2])
+                        if (uc > p[i * 2])
                             li = i;
 
                         else
                             hi = i;
                     }
 
-                    if(n != 0)
+                    if (n != 0)
                         c = p[i * 2 + 1];
                 }
             }
@@ -15501,29 +15482,23 @@ WCHAR ff_oem2uni(  /* Returns Unicode character in UTF-16, zero on error */
     UINT i, n, li, hi;
 
 
-    if(oem < 0x80) 	/* ASCII? */
+    if (oem < 0x80) 	/* ASCII? */
         c = oem;
 
-    else  			/* Extended char */
-    {
+    else {			/* Extended char */
         p = 0;
 
-        if(cp < 900)  	/* SBCS */
-        {
-            for(i = 0; cp_code[i] != 0 && cp_code[i] != cp; i++) ;		/* Get table */
+        if (cp < 900) {	/* SBCS */
+            for (i = 0; cp_code[i] != 0 && cp_code[i] != cp; i++) ;		/* Get table */
 
             p = cp_table[i];
 
-            if(p)  	/* Is it a valid CP ? */
-            {
-                if(oem < 0x100)
+            if (p) {	/* Is it a valid CP ? */
+                if (oem < 0x100)
                     c = p[oem - 0x80];
             }
-        }
-        else  	/* DBCS */
-        {
-            switch(cp)
-            {
+        } else {	/* DBCS */
+            switch (cp) {
                 case 932 :
                     p = oem2uni932;
                     hi = sizeof oem2uni932 / 4 - 1;
@@ -15545,25 +15520,23 @@ WCHAR ff_oem2uni(  /* Returns Unicode character in UTF-16, zero on error */
                     break;
             }
 
-            if(p)
-            {
+            if (p) {
                 li = 0;
 
-                for(n = 16; n; n--)
-                {
+                for (n = 16; n; n--) {
                     i = li + (hi - li) / 2;
 
-                    if(oem == p[i * 2])
+                    if (oem == p[i * 2])
                         break;
 
-                    if(oem > p[i * 2])
+                    if (oem > p[i * 2])
                         li = i;
 
                     else
                         hi = i;
                 }
 
-                if(n != 0)
+                if (n != 0)
                     c = p[i * 2 + 1];
             }
         }
@@ -15680,26 +15653,22 @@ DWORD ff_wtoupper(  /* Returns up-converted code point */
     };
 
 
-    if(uni < 0x10000)  	/* Is it in BMP? */
-    {
+    if (uni < 0x10000) {	/* Is it in BMP? */
         uc = (WORD)uni;
         p = uc < 0x1000 ? cvt1 : cvt2;
 
-        for(;;)
-        {
+        for (;;) {
             bc = *p++;								/* Get the block base */
 
-            if(bc == 0 || uc < bc)
+            if (bc == 0 || uc < bc)
                 break;			/* Not matched? */
 
             nc = *p++;
             cmd = nc >> 8;
             nc &= 0xFF;	/* Get processing command and block size */
 
-            if(uc < bc + nc)  	/* In the block? */
-            {
-                switch(cmd)
-                {
+            if (uc < bc + nc) {	/* In the block? */
+                switch (cmd) {
                     case 0:
                         uc = p[uc - bc];
                         break;		/* Table conversion */
@@ -15740,7 +15709,7 @@ DWORD ff_wtoupper(  /* Returns up-converted code point */
                 break;
             }
 
-            if(cmd == 0)
+            if (cmd == 0)
                 p += nc;	/* Skip table if needed */
         }
 

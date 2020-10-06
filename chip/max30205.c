@@ -227,8 +227,7 @@ void max30205_Test(void)
     BufferLength = TmpRngdata & 0xFF;
     max30205_printf("BufferLength = %d.", BufferLength);
 
-    if(Tx_Buffer == NULL || Rx_Buffer == NULL)
-    {
+    if (Tx_Buffer == NULL || Rx_Buffer == NULL) {
         max30205_printf("Failed to allocate memory !");
         return;
     }
@@ -240,8 +239,7 @@ void max30205_Test(void)
     TestAddr = TmpRngdata & 0xFF;
     max30205_printf("TestAddr = 0x%02X.", TestAddr);
 
-    for(uint16_t i = 0; i < BufferLength; i += 4)
-    {
+    for (uint16_t i = 0; i < BufferLength; i += 4) {
         Random_Get8bit(&hrng, &TmpRngdata);
         Tx_Buffer[i + 3] = (TmpRngdata & 0xFF000000) >> 24;;
         Tx_Buffer[i + 2] = (TmpRngdata & 0x00FF0000) >> 16;
@@ -252,10 +250,8 @@ void max30205_Test(void)
     max30205_WriteData(TestAddr, Tx_Buffer, BufferLength);
     max30205_ReadData(TestAddr, Rx_Buffer, BufferLength);
 
-    for(uint16_t i = 0; i < BufferLength; i++)
-    {
-        if(Tx_Buffer[i] != Rx_Buffer[i])
-        {
+    for (uint16_t i = 0; i < BufferLength; i++) {
+        if (Tx_Buffer[i] != Rx_Buffer[i]) {
             max30205_printf("Tx_Buffer[%d] = 0x%02X, Rx_Buffer[%d] = 0x%02X",
                 i, Tx_Buffer[i],
                 i, Rx_Buffer[i]);

@@ -37,10 +37,9 @@ int Hydrology_ReadFileSize(char *filename, uint32_t *Size)
 
     res = f_open(&HydrologyFile, buffer, FA_OPEN_EXISTING | FA_READ);
 
-    if(res == FR_OK)
+    if (res == FR_OK)
         *Size = HydrologyFile.obj.objsize;
-    else
-    {
+    else {
         Printf_FatFs_Err(res);
         kinetis_debug_trace(KERN_DEBUG, "Read the size of %s failed.", filename);
         return false;
@@ -61,16 +60,13 @@ int Hydrology_ReadStoreInfo(char *filename, long addr, uint8_t *data, int len)
 
     res = f_open(&HydrologyFile, buffer, FA_OPEN_EXISTING | FA_READ);
 
-    if(res == FR_OK)
-    {
+    if (res == FR_OK) {
         f_lseek(&HydrologyFile, addr);
         res = f_read(&HydrologyFile, data, len, (void *)&bytesread);
 
-        if(res != FR_OK)
+        if (res != FR_OK)
             return false;
-    }
-    else
-    {
+    } else {
         Printf_FatFs_Err(res);
         kinetis_debug_trace(KERN_DEBUG, "Read %s failed.", filename);
         return false;
@@ -92,64 +88,58 @@ int Hydrology_WriteStoreInfo(char *filename, long addr, uint8_t *data, int len)
 
     res = f_open(&HydrologyFile, buffer, FA_OPEN_EXISTING | FA_WRITE);
 
-    if(res == FR_OK)
-    {
+    if (res == FR_OK) {
         f_lseek(&HydrologyFile, addr);
         res = f_write(&HydrologyFile, data, len, (void *)&byteswritten);
 
-        if(res != FR_OK)
+        if (res != FR_OK)
             return false;
 
         res = f_close(&HydrologyFile);
 
-        if(res != FR_OK)
+        if (res != FR_OK)
             return false;
-    }
-    else if(res == FR_NO_FILE || res == FR_NO_PATH)
-    {
+    } else if (res == FR_NO_FILE || res == FR_NO_PATH) {
         memset(buffer, 0, sizeof(buffer));
         snprintf(buffer, strlen(HYDROLOGY_FILE_PATH), "%s", HYDROLOGY_FILE_PATH);
         /* Try opening a directory. */
         res = f_opendir(&HydrologyDir, buffer);
 
-        if(res != FR_OK)
-        {
+        if (res != FR_OK) {
             /* Failure to open directory, create directory. */
             res = f_mkdir(buffer);
         }
 
-        if(res != FR_OK)
+        if (res != FR_OK)
             return false;
 
         memset(buffer, 0, sizeof(buffer));
         snprintf(buffer, sizeof(buffer), "%s%s", HYDROLOGY_FILE_PATH, filename);
         res = f_open(&HydrologyFile, buffer, FA_CREATE_NEW | FA_WRITE);
 
-        if(res != FR_OK)
+        if (res != FR_OK)
             return false;
 
         res = f_lseek(&HydrologyFile, addr);
 
-        if(res != FR_OK)
+        if (res != FR_OK)
             return false;
 
         res = f_write(&HydrologyFile, data, len, (void *)&byteswritten);
 
-        if(res != FR_OK)
+        if (res != FR_OK)
             return false;
 
         res = f_close(&HydrologyFile);
 
-        if(res != FR_OK)
+        if (res != FR_OK)
             return false;
 
         res = f_closedir(&HydrologyDir);
 
-        if(res != FR_OK)
+        if (res != FR_OK)
             return false;
-    }
-    else
-    {
+    } else {
         Printf_FatFs_Err(res);
         kinetis_debug_trace(KERN_DEBUG, "Write %s failed.", filename);
         return false;
@@ -203,8 +193,7 @@ void Hydrology_DisconnectLink(void)
 
 int Hydrology_OpenPort(void)
 {
-    switch(g_Hydrology.source)
-    {
+    switch (g_Hydrology.source) {
         case MsgFormServer:
             break;
 
@@ -217,8 +206,7 @@ int Hydrology_OpenPort(void)
 
 int Hydrology_ClosePort(void)
 {
-    switch(g_Hydrology.source)
-    {
+    switch (g_Hydrology.source) {
         case MsgFormServer:
             break;
 
@@ -238,8 +226,7 @@ int Hydrology_PortTransmmitData(uint8_t *pData, uint16_t Len)
 
     Hydrology_OpenPort();
 
-    switch(g_Hydrology.source)
-    {
+    switch (g_Hydrology.source) {
         case MsgFormServer:
 //            NB_IOT_SendData(Data, Len);
             g_Hydrology.source = MsgFormServer;
@@ -263,8 +250,7 @@ int Hydrology_PortReceiveData(uint8_t **ppData, uint16_t *pLen, uint32_t Timeout
     uint32_t Delta = 0;
     int ret;
 
-    switch(g_Hydrology.source)
-    {
+    switch (g_Hydrology.source) {
         case MsgFormServer:
             g_Hydrology.source = MsgFormServer;
             break;
@@ -280,25 +266,20 @@ int Hydrology_PortReceiveData(uint8_t **ppData, uint16_t *pLen, uint32_t Timeout
 
             Refer = BasicTimer_GetSSTick();
 
-            for(;;)
-            {
-                if(SerialPort_Receive(&Hydrology_Port) == true)
-                {
+            for (;;) {
+                if (SerialPort_Receive(&Hydrology_Port) == true) {
                     kinetis_dump_buffer(Hydrology_Port.RxBuffer, Hydrology_Port.RxBuffer_Size);
                     *ppData = (uint8_t *)Hydrology_Port.RxBuffer;
                     *pLen = Hydrology_Port.RxBuffer_Size;
                     SerialPort_Close(&Hydrology_Port);
                     ret = true;
                     break;
-                }
-                else
-                {
+                } else {
                     Delta = BasicTimer_GetSSTick() >= Refer ?
                         BasicTimer_GetSSTick() - Refer :
                         BasicTimer_GetSSTick() + (DELAY_TIMER_UNIT - Refer);
 
-                    if(Delta > Timeout)
-                    {
+                    if (Delta > Timeout) {
                         kinetis_debug_trace(KERN_DEBUG, "[warning]Receive data timeout.");
                         SerialPort_Close(&Hydrology_Port);
                         ret = false;
@@ -322,7 +303,7 @@ uint32_t Hydrology_GetFlashSize(void)
     /* Gets device information and empty cluster size. */
     res = f_getfree("0:", &fre_clust, &pfs);
 
-    if(res != FR_OK)
+    if (res != FR_OK)
         return res;
 
     /* The total number of sectors and the number of empty sectors are calculated. */
@@ -352,8 +333,7 @@ int Hydrology_ResourceInit(void)
     min_size += HYDROLOGY_D_PIC_REVSPACE;
     min_size += HYDROLOGY_D_RGZS_REVSPACE;
 
-    if(min_size >= flash_size)
-    {
+    if (min_size >= flash_size) {
         kinetis_debug_trace(KERN_ERR, "ERR Current flash size is %.2f KB", (float)flash_size / 1024);
         kinetis_debug_trace(KERN_ERR, "ERR Flash size minimum requirement %.2f KB", (float)min_size / 1024);
         return false;
@@ -362,8 +342,7 @@ int Hydrology_ResourceInit(void)
     ret = Hydrology_ReadStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_INIT_MARK,
             &Data, 1);
 
-    if(ret == false)
-    {
+    if (ret == false) {
         kinetis_debug_trace(KERN_DEBUG, "It is first time to use device");
         kinetis_debug_trace(KERN_DEBUG, "Writing to flash");
         HydrologyD_Reset();
@@ -403,7 +382,7 @@ void Hydrology_ReadObservationTime(HydrologyElementInfo *Element, uint8_t *obser
 {
     uint32_t addr = 0;
 
-    if(Element->D % 2 == 0)
+    if (Element->D % 2 == 0)
         addr = Element->D / 2 + Element->Addr;
     else
         addr = (Element->D + 1) / 2 + Element->Addr;
@@ -416,7 +395,7 @@ void Hydrology_SetObservationTime(HydrologyElementInfo *Element)
     long addr = 0;
     uint8_t observationtime[6] = {0, 0, 0, 0, 0, 0};
 
-    if(Element->D % 2 == 0)
+    if (Element->D % 2 == 0)
         addr = Element->D / 2 + Element->Addr;
     else
         addr = (Element->D + 1) / 2 + Element->Addr;
@@ -434,55 +413,48 @@ void Hydrology_GetBCDnums(double num, int *intergerpart, int *decimerpart,
     int j = 0;
     int k = 0;
 
-    for(i = 0; i < 20; i++)
+    for (i = 0; i < 20; i++)
         strfloat[i] = 'X';
 
     sprintf(strfloat, "%f", num);
 
-    for(i = 0; i < 20; i++)
-    {
-        if('X' != strfloat[i])
+    for (i = 0; i < 20; i++) {
+        if ('X' != strfloat[i])
             len++;
     }
 
-    for(i = 0; i < len; i++)
-    {
-        if('0' != strfloat[i])
+    for (i = 0; i < len; i++) {
+        if ('0' != strfloat[i])
             break;
     }
 
     len = len - i - 1;
 
-    for(i = 0; i < len; i++)
-    {
-        if('.' == strfloat[i])
-        {
+    for (i = 0; i < len; i++) {
+        if ('.' == strfloat[i]) {
             j = i;
             break;
         }
     }
 
-    if(i < len)
-    {
+    if (i < len) {
         *decimerpart = len - j - 1;
 
-        if(*decimerpart > d)
+        if (*decimerpart > d)
             *decimerpart = d;
 
         *intergerpart = j;
 
-        for(i = 0; i < j; i++)
+        for (i = 0; i < j; i++)
             pout_intergerValue[i] = strfloat[i];
 
         pout_intergerValue[j] = 0;
 
-        for(i = j + 1; (i < len) && (k < (*decimerpart)); i++)
+        for (i = j + 1; (i < len) && (k < (*decimerpart)); i++)
             pout_decimerValue[k++] = strfloat[i];
 
         pout_decimerValue[k] = 0;
-    }
-    else
-    {
+    } else {
         *decimerpart = 0;
         *intergerpart = len;
         sprintf(pout_intergerValue, "%d", (int)num);
@@ -491,7 +463,7 @@ void Hydrology_GetBCDnums(double num, int *intergerpart, int *decimerpart,
 
 int Hydrology_GetEvenNum(int num)
 {
-    if(num % 2 == 0)
+    if (num % 2 == 0)
         return num;
     else
         return num + 1;
@@ -547,7 +519,7 @@ int Hydrology_ConvertToHexElement(double input, int D, int d, uint8_t *out)
 
     uint8_t tmp[30];
 
-    for(m = 0; m < 30; m++)
+    for (m = 0; m < 30; m++)
         tmp[m] = '0';
 
     Hydrology_GetBCDnums(input, &integer, &decimer, d, strInterValue, strDeciValue);
@@ -555,13 +527,11 @@ int Hydrology_ConvertToHexElement(double input, int D, int d, uint8_t *out)
     total = integer + decimer;
 
     /* Input configuration parameters are guaranteed */
-    if(evenD >= total)
-    {
+    if (evenD >= total) {
         difftotal = evenD - total;
 
         /*This is definitely going to happen, Hydrology_GetBCDnums guarantees */
-        if(d >= decimer)
-        {
+        if (d >= decimer) {
             /* The number of digits in the decimal place that need to be filled in */
             diffDecimer = d - decimer;
             /* Integer bit needs to fill in the number of digits of 0,
@@ -580,7 +550,7 @@ int Hydrology_ConvertToHexElement(double input, int D, int d, uint8_t *out)
 
         tmp[evenD] = 0;
 
-        for(i = 0; i < evenD; i = i + 2)
+        for (i = 0; i < evenD; i = i + 2)
             out[j++] = (tmp[i] - '0') * 16 + (tmp[i + 1] - '0');
     }
     /* That will not happen now */
@@ -596,24 +566,19 @@ int Hydrology_MallocElement(uint8_t element, uint8_t D, uint8_t d,
     ele->guide[0] = element;
     Hydrology_GetGuideID(&(ele->guide[1]), D, d);
 
-    if(D % 2 == 0)
-    {
+    if (D % 2 == 0) {
         ele->value = (uint8_t *)kmalloc(D / 2, __GFP_ZERO);
 
-        if(ele->value == NULL)
-        {
+        if (ele->value == NULL) {
             kinetis_debug_trace(KERN_DEBUG, "element->value malloc failed");
             return false;
         }
 
         ele->num = D / 2;
-    }
-    else
-    {
+    } else {
         ele->value = (uint8_t *)kmalloc((D + 1) / 2, __GFP_ZERO);
 
-        if(ele->value == NULL)
-        {
+        if (ele->value == NULL) {
             kinetis_debug_trace(KERN_DEBUG, "element->value malloc failed");
             return false;
         }
@@ -857,7 +822,7 @@ void Hydrology_GetStreamID(uint8_t *streamid)
     id++;
     id = id % 65536;
 
-    if(id == 0)
+    if (id == 0)
         id = 1;
 
     streamid[0] = (id >> 8) & 0xff;
@@ -870,8 +835,7 @@ int Hydrology_ReadSpecifiedElementInfo(HydrologyElementInfo *Element,
     uint32_t Addr = 0;
     int ret;
 
-    switch(Funcode)
-    {
+    switch (Funcode) {
         case LinkMaintenance:
             break;
 
@@ -889,7 +853,7 @@ int Hydrology_ReadSpecifiedElementInfo(HydrologyElementInfo *Element,
         case WaterPumpMotor:
         case Status:
         case SetICCard:
-            if(Index > 0x75)
+            if (Index > 0x75)
                 Index -= 0xF0;
             else
                 Index += 0x0D;
@@ -922,13 +886,10 @@ int Hydrology_ReadSpecifiedElementInfo(HydrologyElementInfo *Element,
             break;
 
         case ChangePassword:
-            if(Index == 0x03)
-            {
+            if (Index == 0x03) {
                 Index += 131;
                 Addr = (Index - 1) * sizeof(HydrologyElementInfo);
-            }
-            else
-            {
+            } else {
                 Index += 131 + 15;
                 Index -= 0x20;
                 Addr = Index * sizeof(HydrologyElementInfo);
@@ -964,32 +925,28 @@ int t_Hydrology(int argc, char **argv)
     uint8_t Host = false;
     HydrologyMode Mode = HYDROLOGY_M1;
 
-    if(argc > 1)
-    {
-        if(!strcmp(argv[1], "Host"))
+    if (argc > 1) {
+        if (!strcmp(argv[1], "Host"))
             Host = true;
         else
             Host = false;
 
     }
 
-    if(argc > 2)
-    {
-        if(!strcmp(argv[2], "M1"))
+    if (argc > 2) {
+        if (!strcmp(argv[2], "M1"))
             Mode = HYDROLOGY_M1;
-        else if(!strcmp(argv[2], "M2"))
+        else if (!strcmp(argv[2], "M2"))
             Mode = HYDROLOGY_M2;
-        else if(!strcmp(argv[2], "M3"))
+        else if (!strcmp(argv[2], "M3"))
             Mode = HYDROLOGY_M3;
-        else if(!strcmp(argv[2], "M4"))
+        else if (!strcmp(argv[2], "M4"))
             Mode = HYDROLOGY_M4;
 
     }
 
-    if(Host == false)
-    {
-        switch(Mode)
-        {
+    if (Host == false) {
+        switch (Mode) {
             case HYDROLOGY_M1:
                 ret = t_HydrologyD_M1M2(HYDROLOGY_M1);
                 break;
@@ -1006,11 +963,8 @@ int t_Hydrology(int argc, char **argv)
                 ret = t_HydrologyD_M4();
                 break;
         }
-    }
-    else
-    {
-        switch(Mode)
-        {
+    } else {
+        switch (Mode) {
             case HYDROLOGY_M1:
                 ret = t_HydrologyH_M1M2M3(HYDROLOGY_M1);
                 break;
@@ -1029,7 +983,7 @@ int t_Hydrology(int argc, char **argv)
         }
     }
 
-    if(ret == true)
+    if (ret == true)
         return PASS;
     else
         return FAIL;

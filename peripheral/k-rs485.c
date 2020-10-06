@@ -40,23 +40,18 @@ void RS485_Port_Receive(uint8_t *pData, uint16_t *Len)
 
     begintime = BasicTimer_GetMSTick();
 
-    while(1)
-    {
+    while (1) {
         SerialPort_Receive(&SerialPort_3, pData, Len);
 
-        if(SerialPort_ReadRxState() == 1)
-        {
+        if (SerialPort_ReadRxState() == 1) {
             SerialPort_SetRxState(0);
             break;
-        }
-        else
-        {
+        } else {
             currenttime = BasicTimer_GetMSTick();
             timediff = currenttime >= begintime ? currenttime - begintime :
                 currenttime + UINT32_MAX - begintime;
 
-            if(timediff > 3000) /* 10s */
-            {
+            if (timediff > 3000) { /* 10s */
                 kinetis_debug_trace(KERN_DEBUG, "No data came !");
                 break;
             }
@@ -91,37 +86,28 @@ int RS485_Master_Receive(uint8_t *pData, uint16_t *Len)
 
     RS485_Port_Receive(Data, &Size);
 
-    if(Size == 0)
+    if (Size == 0)
         return false;
 
-    if(Data[2] != 0)
-    {
-        if(CRC16_Check((char *)Data, 5 + Data[2]) == true)
-        {
+    if (Data[2] != 0) {
+        if (CRC16_Check((char *)Data, 5 + Data[2]) == true) {
             pData = (uint8_t *)kmalloc(Data[2], __GFP_ZERO);
 
-            if(pData == NULL)
-            {
+            if (pData == NULL) {
                 kinetis_debug_trace(KERN_DEBUG, "Data to memory malloc failed");
                 RS485_error;
                 retValue = false;
-            }
-            else
-            {
+            } else {
                 memcpy(pData, &Data[3], Data[2]);
                 *Len = Data[2];
                 retValue = true;
             }
-        }
-        else
-        {
+        } else {
             RS485_printf("Data check error");
             RS485_error;
             retValue = false;
         }
-    }
-    else
-    {
+    } else {
         RS485_printf("The received data length is 0 and cannot be parsed");
         RS485_error;
         retValue = false;

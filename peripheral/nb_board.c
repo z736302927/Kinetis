@@ -7,10 +7,10 @@ extern const NB_ModuleTypeDef BC95_FxnTable;
 
 extern Bool NBModule_open(NB_Handle handle)
 {
-    if(handle == null)
+    if (handle == null)
         return FALSE;
 
-    if(handle->Module->Open == null)
+    if (handle->Module->Open == null)
         return FALSE;
 
     handle->Module = (void *)&BC95_FxnTable;
@@ -22,10 +22,10 @@ extern Bool NBModule_open(NB_Handle handle)
 
 extern Bool NBModule_Init(NB_Handle handle)
 {
-    if(handle == null)
+    if (handle == null)
         return FALSE;
 
-    if(handle->Module->nbModuleInit == null)
+    if (handle->Module->nbModuleInit == null)
         return FALSE;
 
     handle->Module->nbModuleInit(handle);
@@ -34,10 +34,10 @@ extern Bool NBModule_Init(NB_Handle handle)
 
 uint8_t NBModule_Info(NB_Handle handle)
 {
-    if(handle == null)
+    if (handle == null)
         return FALSE;
 
-    if(handle->Module->getModuleInfo == null)
+    if (handle->Module->getModuleInfo == null)
         return FALSE;
 
     handle->Module->getModuleInfo(handle);
@@ -48,10 +48,10 @@ uint8_t NBModule_Info(NB_Handle handle)
 //Check if NB module is registered in the network
 uint8_t NBModule_isRegister(NB_Handle handle)
 {
-    if(handle == null)
+    if (handle == null)
         return FALSE;
 
-    if(handle->Module->getModuleRegisterInfo == null)
+    if (handle->Module->getModuleRegisterInfo == null)
         return FALSE;
 
     return handle->Module->getModuleRegisterInfo(handle);
@@ -59,10 +59,10 @@ uint8_t NBModule_isRegister(NB_Handle handle)
 
 const char *NBModule_IMSI(NB_Handle handle)
 {
-    if(handle == null)
+    if (handle == null)
         return FALSE;
 
-    if(handle->Module->getUSIMinfo == null)
+    if (handle->Module->getUSIMinfo == null)
         return FALSE;
 
     return handle->Module->getUSIMinfo(handle);
@@ -74,10 +74,10 @@ const char *NBModule_IMSI(NB_Handle handle)
 // The original signal value is asynchronous to the callback function by message
 extern uint8_t NBModule_Sign(NB_Handle handle)
 {
-    if(handle == null)
+    if (handle == null)
         return FALSE;
 
-    if(handle->Module->getSign == null)
+    if (handle->Module->getSign == null)
         return FALSE;
 
     return handle->Module->getSign(handle);
@@ -85,10 +85,10 @@ extern uint8_t NBModule_Sign(NB_Handle handle)
 
 uint8_t NBModule_CreateUDP(NB_Handle handle)
 {
-    if(handle == null)
+    if (handle == null)
         return FALSE;
 
-    if(handle->Module->createUdp == null)
+    if (handle->Module->createUdp == null)
         return FALSE;
 
     return handle->Module->createUdp(handle);
@@ -96,10 +96,10 @@ uint8_t NBModule_CreateUDP(NB_Handle handle)
 
 uint8_t NBModule_CloseUDP(NB_Handle handle)
 {
-    if(handle == null)
+    if (handle == null)
         return FALSE;
 
-    if(handle->Module->closeUdp == null)
+    if (handle->Module->closeUdp == null)
         return FALSE;
 
     return handle->Module->closeUdp(handle);
@@ -107,10 +107,10 @@ uint8_t NBModule_CloseUDP(NB_Handle handle)
 
 uint8_t NBModule_SendData(NB_Handle handle, int len, char *msg)
 {
-    if(handle == null)
+    if (handle == null)
         return FALSE;
 
-    if(handle->Module->sendUdp == null)
+    if (handle->Module->sendUdp == null)
         return FALSE;
 
     return handle->Module->sendUdp(handle, len, msg);
@@ -118,10 +118,10 @@ uint8_t NBModule_SendData(NB_Handle handle, int len, char *msg)
 
 uint8_t NBModule_ReceiveData(NB_Handle handle)
 {
-    if(handle == null)
+    if (handle == null)
         return FALSE;
 
-    if(handle->Module->receUdp == null)
+    if (handle->Module->receUdp == null)
         return FALSE;
 
     return handle->Module->receUdp(handle);
@@ -132,10 +132,10 @@ uint8_t NBModule_ReceiveData(NB_Handle handle)
 //                   false-> read
 uint8_t NBModule_CoAPServer(NB_Handle handle, Bool isSet, char *coap)
 {
-    if(handle == null)
+    if (handle == null)
         return FALSE;
 
-    if(handle->Module->coapServer == null)
+    if (handle->Module->coapServer == null)
         return FALSE;
 
     return handle->Module->coapServer(handle, isSet, coap);
@@ -146,10 +146,10 @@ uint8_t NBModule_CoAPServer(NB_Handle handle, Bool isSet, char *coap)
 //                   !0 response
 uint8_t NBModule_CoAPSentIndication(NB_Handle handle, int code)
 {
-    if(handle == null)
+    if (handle == null)
         return FALSE;
 
-    if(handle->Module->coapSentIndication == null)
+    if (handle->Module->coapSentIndication == null)
         return FALSE;
 
     return handle->Module->coapSentIndication(handle, code);
@@ -159,10 +159,10 @@ uint8_t NBModule_CoAPSentIndication(NB_Handle handle, int code)
 //         code -> 0 means cache and 1 means receive directly.(currently only two modes are supported)
 uint8_t NBModule_CoAPReceIndication(NB_Handle handle, int code)
 {
-    if(handle == null)
+    if (handle == null)
         return FALSE;
 
-    if(handle->Module->coapSetReceMode == null)
+    if (handle->Module->coapSetReceMode == null)
         return FALSE;
 
     return handle->Module->coapSetReceMode(handle, code);
@@ -170,10 +170,10 @@ uint8_t NBModule_CoAPReceIndication(NB_Handle handle, int code)
 
 uint8_t NBModule_CoAPSendMsg(NB_Handle handle, int len, char *msg)
 {
-    if(handle == null)
+    if (handle == null)
         return FALSE;
 
-    if(handle->Module->coapSentMsg == null)
+    if (handle->Module->coapSentMsg == null)
         return FALSE;
 
     return handle->Module->coapSentMsg(handle, len, msg);
@@ -181,10 +181,10 @@ uint8_t NBModule_CoAPSendMsg(NB_Handle handle, int len, char *msg)
 
 uint8_t NBModule_CoAPReceMsg(NB_Handle handle)
 {
-    if(handle == null)
+    if (handle == null)
         return FALSE;
 
-    if(handle->Module->coapReceMsg == null)
+    if (handle->Module->coapReceMsg == null)
         return FALSE;
 
     return handle->Module->coapReceMsg(handle);
@@ -192,10 +192,10 @@ uint8_t NBModule_CoAPReceMsg(NB_Handle handle)
 
 uint8_t NBModule_Reboot(NB_Handle handle)
 {
-    if(handle == null)
+    if (handle == null)
         return FALSE;
 
-    if(handle->Module->Reboot == null)
+    if (handle->Module->Reboot == null)
         return FALSE;
 
     return handle->Module->Reboot(handle);
@@ -204,10 +204,10 @@ uint8_t NBModule_Reboot(NB_Handle handle)
 // A continuous call in a loop
 extern int NBModule_Main(NB_Handle handle)
 {
-    if(handle == null)
+    if (handle == null)
         return FALSE;
 
-    if(handle->Module->mainThread == null)
+    if (handle->Module->mainThread == null)
         return FALSE;
 
     return handle->Module->mainThread(handle);

@@ -10,16 +10,14 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include "core/core_common.h"
 
-typedef struct
-{
+typedef struct {
     uint16_t TouchDetected;
     uint16_t X;
     uint16_t Y;
     uint16_t Z;
 } TS_StateTypeDef;
 
-typedef struct
-{
+typedef struct {
     void (*Init)(uint16_t);
     uint16_t (*ReadID)(uint16_t);
     void (*Reset)(uint16_t);
@@ -32,8 +30,7 @@ typedef struct
     void (*DisableIT)(uint16_t);
 } TS_DrvTypeDef;
 
-typedef enum
-{
+typedef enum {
     TS_OK       = 0x00,
     TS_ERROR    = 0x01,
     TS_TIMEOUT  = 0x02

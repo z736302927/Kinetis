@@ -37,16 +37,14 @@
 #define NAK                             0x15
 #define ESC                             0x1B
 
-typedef enum tagHydrologyMode
-{
+typedef enum tagHydrologyMode {
     HYDROLOGY_M1,
     HYDROLOGY_M2,
     HYDROLOGY_M3,
     HYDROLOGY_M4,
 } HydrologyMode;
 
-typedef enum tagHydrologyRTUType
-{
+typedef enum tagHydrologyRTUType {
     Rainfall = 0x50,
     RiverCourse = 0x48,
     Reservoir = 0x4B,
@@ -60,8 +58,7 @@ typedef enum tagHydrologyRTUType
     Outfall = 0x4F,
 } HydrologyRTUType;
 
-typedef enum tagHydrologyBodyType
-{
+typedef enum tagHydrologyBodyType {
     LinkMaintenance = 0x2F,               //遥测站链路维持报
     Test,                                 //遥测站测试报
     EvenPeriodInformation,                //均匀时段水文信息报
@@ -94,32 +91,28 @@ typedef enum tagHydrologyBodyType
     Time,                                 //中心站查询遥测站时钟
 } HydrologyBodyType;
 
-typedef enum tagHydrologyMsgSrcType
-{
+typedef enum tagHydrologyMsgSrcType {
     MsgFormServer,
     MsgFormClient
 } HydrologyMsgSrcType;
 
 //#pragma pack(1)
 
-typedef struct tagHydrologyElementInfo
-{
+typedef struct tagHydrologyElementInfo {
     uint8_t ID;
     uint8_t D;
     uint8_t d;
     uint32_t Addr;
 } HydrologyElementInfo;
 
-typedef struct tagHydrologyElement
-{
+typedef struct tagHydrologyElement {
     uint8_t guide[2];
     uint8_t *value;
     uint32_t num;
 } HydrologyElement;
 
 //遥测站上行报文报头结构
-typedef struct tagHydrologyUpHeader
-{
+typedef struct tagHydrologyUpHeader {
     uint8_t framestart[2];
     uint8_t centeraddr;
     uint8_t remoteaddr[5];
@@ -132,8 +125,7 @@ typedef struct tagHydrologyUpHeader
 } HydrologyUpHeader;
 
 //遥测站下行报文报头结构
-typedef struct tagHydrologyDownHeader
-{
+typedef struct tagHydrologyDownHeader {
     uint8_t framestart[2];
     uint8_t remoteaddr[5];
     uint8_t centeraddr;
@@ -146,8 +138,7 @@ typedef struct tagHydrologyDownHeader
 } HydrologyDownHeader;
 
 //遥测站上行报文正文结构
-typedef struct tagHydrologyUpBody
-{
+typedef struct tagHydrologyUpBody {
     uint8_t streamid[2];
     uint8_t sendtime[6];
     uint8_t rtuaddrid[2];
@@ -161,8 +152,7 @@ typedef struct tagHydrologyUpBody
 } HydrologyUpBody;
 
 //遥测站下行报文正文结构
-typedef struct tagHydrologyDownBody
-{
+typedef struct tagHydrologyDownBody {
     uint8_t streamid[2];
     uint8_t sendtime[6];
     uint8_t rtuaddrid[2];
@@ -172,8 +162,7 @@ typedef struct tagHydrologyDownBody
     uint16_t len;
 } HydrologyDownBody;
 
-typedef struct tagHydrologyPacket
-{
+typedef struct tagHydrologyPacket {
     void *header;
     void *body;
     uint8_t end;
@@ -182,8 +171,7 @@ typedef struct tagHydrologyPacket
     uint16_t len;
 } HydrologyPacket;
 
-typedef struct tagHydrology
-{
+typedef struct tagHydrology {
     HydrologyPacket *uppacket;
     HydrologyPacket *downpacket;
     unsigned source: 1;

@@ -27,8 +27,7 @@ void General_GenerateCommand(GeneralCommand_TypeDef *Command)
     Command->SerialPort->RxBuffer_Size = 50;
     Command->SerialPort->RxScanInterval = 10;
 
-    switch(Command->Property)
-    {
+    switch (Command->Property) {
         case AT_NONE:
             break;
 
@@ -85,17 +84,15 @@ void General_ReceiveCommand(GeneralCommand_TypeDef *Command)
 
     Refer = BasicTimer_GetUSTick();
 
-    while(1)
-    {
-        if(SerialPort_Receive(Command->SerialPort) == true)
+    while (1) {
+        if (SerialPort_Receive(Command->SerialPort) == true)
             break;
 
         Delta = BasicTimer_GetUSTick() >= Refer ?
             BasicTimer_GetUSTick() - Refer :
             BasicTimer_GetUSTick() + (DELAY_TIMER_UNIT - Refer);
 
-        if(Delta > Command->WaitTime)
-        {
+        if (Delta > Command->WaitTime) {
             Command->TimeoutFlag = true;
             break;
         }
@@ -111,19 +108,16 @@ void General_DecomposeResult(GeneralCommand_TypeDef *Command)
     char **argv = Command->argv;
     uint16_t *argc = &Command->argc;
 
-    do
-    {
+    do {
         argv[*argc] = strsep((char **) & (Command->SerialPort->RxBuffer), Command->Delimiter);
         kinetis_debug_trace(KERN_DEBUG, "[%d] %s", *argc, argv[*argc]);
         (*argc)++;
-    }
-    while(Command->SerialPort->RxBuffer);
+    } while (Command->SerialPort->RxBuffer);
 }
 
 void General_ProcessCommand(GeneralCommand_TypeDef *Command)
 {
-    while(Command->ErrorRepetition)
-    {
+    while (Command->ErrorRepetition) {
         General_GenerateCommand(Command);
         General_TransmmitCommand(Command);
         General_ReceiveCommand(Command);
@@ -131,7 +125,7 @@ void General_ProcessCommand(GeneralCommand_TypeDef *Command)
 
         Command->ErrorRepetition--;
 
-        if(strcmp(Command->pExpectRes, Command->argv[0]) != 0)
+        if (strcmp(Command->pExpectRes, Command->argv[0]) != 0)
             Command->ErrorFlag = true;
         else
             break;

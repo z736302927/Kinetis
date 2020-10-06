@@ -63,10 +63,8 @@ int RTCTask_Start(struct RTCTask_TypeDef *Handle)
 {
     struct RTCTask_TypeDef *target = RTCTask_HeadHandler;
 
-    while(target)
-    {
-        if(target == Handle)
-        {
+    while (target) {
+        if (target == Handle) {
             return -1;    //already exist.
         }
 
@@ -87,16 +85,13 @@ void RTCTask_Stop(struct RTCTask_TypeDef *Handle)
 {
     struct RTCTask_TypeDef **curr;
 
-    for(curr = &RTCTask_HeadHandler; *curr;)
-    {
+    for (curr = &RTCTask_HeadHandler; *curr;) {
         struct RTCTask_TypeDef *entry = *curr;
 
-        if(entry == Handle)
-        {
+        if (entry == Handle) {
             *curr = entry->Next;
 //      kfree(entry);
-        }
-        else
+        } else
             curr = &entry->Next;
     }
 }
@@ -128,7 +123,7 @@ static uint8_t RTCTask_Expired(RTCTask_TypeDef *Target)
 
     tmp_res = strncmp((char *)tmp_timecmp1, (char *)tmp_timecmp2, sizeof(tmp_timecmp1));
 
-    if(tmp_res < 0)
+    if (tmp_res < 0)
         return 0;
     else
         return 1;
@@ -137,20 +132,16 @@ static uint8_t RTCTask_Expired(RTCTask_TypeDef *Target)
 
 static void RTCTask_Special_AddDay(RTCTask_DateTime_TypeDef *TmpCalendar)
 {
-    if(TmpCalendar->Month == 2)/* Is it February?,28,29 */
-    {
+    if (TmpCalendar->Month == 2) { /* Is it February?,28,29 */
         /* The system will certainly not be in use until 2100, so it only judges whether it is divisible by 4 */
-        if(TmpCalendar->Year % 4 == 0)//Leap year
-        {
-            if(TmpCalendar->Date < 30)  //No more than 29 days
+        if (TmpCalendar->Year % 4 == 0) { //Leap year
+            if (TmpCalendar->Date < 30) //No more than 29 days
                 return ;
 
             TmpCalendar->Date -= 29;    //Minus the overflow of 29
             ++TmpCalendar->Month;        //Month +1
-        }
-        else
-        {
-            if(TmpCalendar->Date < 29)  //No more than 28 days
+        } else {
+            if (TmpCalendar->Date < 29) //No more than 28 days
                 return ;
 
             TmpCalendar->Date -= 28;    //Minus the overflow of 28
@@ -159,9 +150,8 @@ static void RTCTask_Special_AddDay(RTCTask_DateTime_TypeDef *TmpCalendar)
     }
 
     // Is it a 30-day month
-    if(TmpCalendar->Month == 4 || TmpCalendar->Month == 6 || TmpCalendar->Month == 9 || TmpCalendar->Month == 11)
-    {
-        if(TmpCalendar->Date < 31)    //No more than 30 days
+    if (TmpCalendar->Month == 4 || TmpCalendar->Month == 6 || TmpCalendar->Month == 9 || TmpCalendar->Month == 11) {
+        if (TmpCalendar->Date < 31)   //No more than 30 days
             return;
 
         TmpCalendar->Date -= 30;      //Minus the overflow of 30
@@ -169,17 +159,16 @@ static void RTCTask_Special_AddDay(RTCTask_DateTime_TypeDef *TmpCalendar)
     }
 
     // Is it a 31-day month
-    if(TmpCalendar->Month == 1 || TmpCalendar->Month == 3 || TmpCalendar->Month == 5 || TmpCalendar->Month == 7 || \
-        TmpCalendar->Month == 8 || TmpCalendar->Month == 10 || TmpCalendar->Month == 12)
-    {
-        if(TmpCalendar->Date < 32)    //No more than 31 days
+    if (TmpCalendar->Month == 1 || TmpCalendar->Month == 3 || TmpCalendar->Month == 5 || TmpCalendar->Month == 7 || \
+        TmpCalendar->Month == 8 || TmpCalendar->Month == 10 || TmpCalendar->Month == 12) {
+        if (TmpCalendar->Date < 32)   //No more than 31 days
             return;
 
         TmpCalendar->Date -= 31;      //Minus the overflow of 30
         ++TmpCalendar->Month;          //Month +1
     }
 
-    if(TmpCalendar->Month < 13)      //No more than December
+    if (TmpCalendar->Month < 13)     //No more than December
         return ;
 
     TmpCalendar->Month -= 12;        //Minus 12 months of overflow
@@ -191,29 +180,26 @@ static void RTCTask_Special_AddDay(RTCTask_DateTime_TypeDef *TmpCalendar)
 
 static void RTCTask_Time_AddSecond(RTCTask_DateTime_TypeDef *TmpCalendar, uint8_t Seconds)
 {
-    if(Seconds > 60)
+    if (Seconds > 60)
         return ;
 
     TmpCalendar->Seconds += Seconds;//Plus the number of Seconds
 
-    if(TmpCalendar->Seconds < 60)
-    {
+    if (TmpCalendar->Seconds < 60) {
         return ; //Finished
     }
 
     TmpCalendar->Seconds -= 60;//Minute + 1
     ++TmpCalendar->Hours;
 
-    if(TmpCalendar->Minutes < 60)
-    {
+    if (TmpCalendar->Minutes < 60) {
         return ; //Finished
     }
 
     TmpCalendar->Minutes -= 60;//Hours + 1
     ++TmpCalendar->Hours;
 
-    if(TmpCalendar->Hours < 24)
-    {
+    if (TmpCalendar->Hours < 24) {
         return ;//Finished
     }
 
@@ -225,21 +211,19 @@ static void RTCTask_Time_AddSecond(RTCTask_DateTime_TypeDef *TmpCalendar, uint8_
 
 static void RTCTask_Time_AddMinute(RTCTask_DateTime_TypeDef *TmpCalendar, uint8_t Minutes)// Minutes cannot be greater than 60 minutes
 {
-    if(Minutes > 60)
+    if (Minutes > 60)
         return ;
 
     TmpCalendar->Minutes += Minutes;    //Plus the number of Minutes
 
-    if(TmpCalendar->Minutes < 60)
-    {
+    if (TmpCalendar->Minutes < 60) {
         return ;            //Finished
     }
 
     TmpCalendar->Minutes -= 60;        //Hours + 1
     ++TmpCalendar->Hours;
 
-    if(TmpCalendar->Hours < 24)
-    {
+    if (TmpCalendar->Hours < 24) {
         return ;            //Finished
     }
 
@@ -251,13 +235,12 @@ static void RTCTask_Time_AddMinute(RTCTask_DateTime_TypeDef *TmpCalendar, uint8_
 
 static void RTCTask_Time_AddHour(RTCTask_DateTime_TypeDef *TmpCalendar, uint8_t Hours)// An hour cannot be greater than 24
 {
-    if(Hours > 24)
+    if (Hours > 24)
         return;
 
     TmpCalendar->Hours += Hours;
 
-    if(TmpCalendar->Hours < 24)
-    {
+    if (TmpCalendar->Hours < 24) {
         return ;            //Finished
     }
 
@@ -304,22 +287,20 @@ static void RTCTask_UpdateTime(RTCTask_TypeDef *Target)
     Target->ExpiredTime.Minutes = _RTCTask_CurrentTime.Minutes;
     Target->ExpiredTime.Seconds = _RTCTask_CurrentTime.Seconds;
 
-    if(Target->DeltaTime.Hours != 0)
-    {
+    if (Target->DeltaTime.Hours != 0) {
         Target->ExpiredTime.Seconds = 0;
         Target->ExpiredTime.Minutes = 0;
         Target->ExpiredTime.Hours -= Target->ExpiredTime.Hours % Target->DeltaTime.Hours;
         RTCTask_Time_AddHour(&(Target->ExpiredTime), Target->DeltaTime.Hours);
     }
 
-    if(Target->DeltaTime.Minutes != 0)
-    {
+    if (Target->DeltaTime.Minutes != 0) {
         Target->ExpiredTime.Seconds = 0;
         Target->ExpiredTime.Minutes -= Target->ExpiredTime.Minutes % Target->DeltaTime.Minutes;
         RTCTask_Time_AddMinute(&(Target->ExpiredTime), Target->DeltaTime.Minutes);
     }
 
-    if(Target->DeltaTime.Seconds != 0)
+    if (Target->DeltaTime.Seconds != 0)
         RTCTask_Time_AddSecond(&(Target->ExpiredTime), Target->DeltaTime.Seconds);
 }
 
@@ -332,11 +313,9 @@ void RTCTask_Loop(void)
 {
     struct RTCTask_TypeDef *target;
 
-    for(target = RTCTask_HeadHandler; target; target = target->Next)
-    {
-        if(RTCTask_Expired(target))
-        {
-            if(target->DeltaTime.Hours == 0 && target->DeltaTime.Minutes == 0 && target->DeltaTime.Seconds == 0)
+    for (target = RTCTask_HeadHandler; target; target = target->Next) {
+        if (RTCTask_Expired(target)) {
+            if (target->DeltaTime.Hours == 0 && target->DeltaTime.Minutes == 0 && target->DeltaTime.Seconds == 0)
                 RTCTask_Stop(target);
             else
                 RTCTask_UpdateTime(target);
@@ -387,7 +366,7 @@ int t_RTCTask_Add(int argc, char **argv)
     Timestamp = BasicTimer_GetMSTick() - Timestamp;
     kinetis_debug_trace(KERN_DEBUG, "RTCTask elapse time = %lu ms.", Timestamp);
 
-    if(Timestamp > 1100)
+    if (Timestamp > 1100)
         return FAIL;
     else
         return PASS;

@@ -83,17 +83,16 @@ void IIC_Soft_delay(uint32_t ticks)
 #else
     uint8_t i = 10;
 
-    while(i--) {}
+    while (i--) {}
 
 #endif
 }
 
 void IIC_PortTransmmit(uint8_t IIC, uint8_t SlaveAddr, uint16_t RegAddr, uint8_t Regdata)
 {
-    if(IIC == IIC_1)
+    if (IIC == IIC_1)
         IIC_Soft_WriteSingleByteWithAddr(SlaveAddr, RegAddr, Regdata);
-    else if(IIC == IIC_2)
-    {
+    else if (IIC == IIC_2) {
 //        HAL_I2C_Mem_Write(&hi2c2, (uint16_t)(SlaveAddr << 1), RegAddr, I2C_MEMADD_SIZE_8BIT,
 //            &Regdata, 1, 10000);
     }
@@ -101,10 +100,9 @@ void IIC_PortTransmmit(uint8_t IIC, uint8_t SlaveAddr, uint16_t RegAddr, uint8_t
 
 void IIC_PortReceive(uint8_t IIC, uint8_t SlaveAddr, uint16_t RegAddr, uint8_t *Regdata)
 {
-    if(IIC == IIC_1)
+    if (IIC == IIC_1)
         IIC_Soft_ReadSingleByteWithAddr(SlaveAddr, RegAddr, Regdata);
-    else if(IIC == IIC_2)
-    {
+    else if (IIC == IIC_2) {
 //        HAL_I2C_Mem_Read(&hi2c2, (uint16_t)(AT24CXX_ADDR << 1), RegAddr, I2C_MEMADD_SIZE_8BIT,
 //            Regdata, 1, 10000);
     }
@@ -112,10 +110,9 @@ void IIC_PortReceive(uint8_t IIC, uint8_t SlaveAddr, uint16_t RegAddr, uint8_t *
 
 void IIC_PortMultiTransmmit(uint8_t IIC, uint8_t SlaveAddr, uint16_t RegAddr, uint8_t *pData, uint8_t Len)
 {
-    if(IIC == IIC_1)
+    if (IIC == IIC_1)
         IIC_Soft_ReadMultiByteWithAddr(SlaveAddr, RegAddr, pData, Len);
-    else if(IIC == IIC_2)
-    {
+    else if (IIC == IIC_2) {
 //        HAL_I2C_Mem_Write(&hi2c2, (uint16_t)(SlaveAddr << 1), RegAddr, I2C_MEMADD_SIZE_8BIT,
 //            pData, Len, 10000);
     }
@@ -123,10 +120,9 @@ void IIC_PortMultiTransmmit(uint8_t IIC, uint8_t SlaveAddr, uint16_t RegAddr, ui
 
 void IIC_PortMultiReceive(uint8_t IIC, uint8_t SlaveAddr, uint16_t RegAddr, uint8_t *pData, uint8_t Len)
 {
-    if(IIC == IIC_1)
+    if (IIC == IIC_1)
         IIC_Soft_ReadMultiByteWithAddr(SlaveAddr, RegAddr, pData, Len);
-    else if(IIC == IIC_2)
-    {
+    else if (IIC == IIC_2) {
 //        HAL_I2C_Mem_Read(&hi2c2, (uint16_t)(AT24CXX_ADDR << 1), RegAddr, I2C_MEMADD_SIZE_8BIT,
 //            pData, Len, 10000);
     }
@@ -152,13 +148,13 @@ int IIC_Soft_Start(void)
     SCL_H;
     IIC_Soft_delay(5);
 
-    if(!IIC_Soft_ReadSDA())
+    if (!IIC_Soft_ReadSDA())
         return false;
 
     SDA_L;
     IIC_Soft_delay(4);
 
-    if(IIC_Soft_ReadSDA())
+    if (IIC_Soft_ReadSDA())
         return false;
 
     SCL_L;
@@ -218,12 +214,10 @@ int IIC_Soft_WaitAck(void)
     SCL_H;
     IIC_Soft_delay(1);
 
-    while(IIC_Soft_ReadSDA())
-    {
+    while (IIC_Soft_ReadSDA()) {
         ErrTime++;
 
-        if(ErrTime > 50)
-        {
+        if (ErrTime > 50) {
             IIC_Soft_Stop();
             return true;
         }
@@ -241,12 +235,11 @@ void IIC_Soft_SendByte(uint8_t Data)
 
     SDA_OUT;
 
-    while(i--)
-    {
+    while (i--) {
         SCL_L;
         IIC_Soft_delay(2);
 
-        if(Data & 0x80)
+        if (Data & 0x80)
             SDA_H;
         else
             SDA_L;
@@ -269,21 +262,20 @@ uint8_t IIC_Soft_ReadByte(uint8_t Ack)
     IIC_Soft_delay(2);
     SDA_H;
 
-    while(i--)
-    {
+    while (i--) {
         RcvByte <<= 1;
         SCL_L;
         IIC_Soft_delay(2);
         SCL_H;
         IIC_Soft_delay(2);
 
-        if(IIC_Soft_ReadSDA())
+        if (IIC_Soft_ReadSDA())
             RcvByte |= 0x01;
     }
 
     SCL_L;
 
-    if(Ack)
+    if (Ack)
         IIC_Soft_Ack();
     else
         IIC_Soft_NoAck();
@@ -293,22 +285,19 @@ uint8_t IIC_Soft_ReadByte(uint8_t Ack)
 
 uint8_t IIC_Soft_WriteSingleByteWithAddr(uint8_t SlaveAddr, uint16_t RegAddr, uint8_t Regdata)
 {
-    if(IIC_Soft_Start() == false)
-    {
+    if (IIC_Soft_Start() == false) {
         kinetis_debug_trace(KERN_ERR, "Arbitration failed ! Device(addr = 0x%X) cannot obtain the bus.", SlaveAddr);
 //    return false;
     }
 
     IIC_Soft_SendByte((SlaveAddr << 1) | 0x00);
 
-    if(IIC_Soft_WaitAck())
-    {
+    if (IIC_Soft_WaitAck()) {
         IIC_Soft_Stop();
         return false;
     }
 
-    if(ADDRESS_MODE == ADDRESS_16)
-    {
+    if (ADDRESS_MODE == ADDRESS_16) {
         IIC_Soft_SendByte(RegAddr >> 8);
         IIC_Soft_WaitAck();
     }
@@ -324,22 +313,19 @@ uint8_t IIC_Soft_WriteSingleByteWithAddr(uint8_t SlaveAddr, uint16_t RegAddr, ui
 
 uint8_t IIC_Soft_ReadSingleByteWithAddr(uint8_t SlaveAddr, uint16_t RegAddr, uint8_t *Regdata)
 {
-    if(IIC_Soft_Start() == false)
-    {
+    if (IIC_Soft_Start() == false) {
         kinetis_debug_trace(KERN_ERR, "Arbitration failed ! Device(addr = 0x%X) cannot obtain the bus.", SlaveAddr);
 //    return false;
     }
 
     IIC_Soft_SendByte((SlaveAddr << 1) | 0x00);
 
-    if(IIC_Soft_WaitAck())
-    {
+    if (IIC_Soft_WaitAck()) {
         IIC_Soft_Stop();
         return false;
     }
 
-    if(ADDRESS_MODE == ADDRESS_16)
-    {
+    if (ADDRESS_MODE == ADDRESS_16) {
         IIC_Soft_SendByte(RegAddr >> 8);
         IIC_Soft_WaitAck();
     }
@@ -358,22 +344,19 @@ uint8_t IIC_Soft_ReadSingleByteWithAddr(uint8_t SlaveAddr, uint16_t RegAddr, uin
 
 uint8_t IIC_Soft_WriteMultiByteWithAddr(uint8_t SlaveAddr, uint16_t RegAddr, uint8_t *pData, uint8_t Len)
 {
-    if(IIC_Soft_Start() == false)
-    {
+    if (IIC_Soft_Start() == false) {
         kinetis_debug_trace(KERN_ERR, "Arbitration failed ! Device(addr = 0x%X) cannot obtain the bus.", SlaveAddr);
 //    return false;
     }
 
     IIC_Soft_SendByte((SlaveAddr << 1) | 0x00);
 
-    if(IIC_Soft_WaitAck())
-    {
+    if (IIC_Soft_WaitAck()) {
         IIC_Soft_Stop();
         return false;
     }
 
-    if(ADDRESS_MODE == ADDRESS_16)
-    {
+    if (ADDRESS_MODE == ADDRESS_16) {
         IIC_Soft_SendByte(RegAddr >> 8);
         IIC_Soft_WaitAck();
     }
@@ -381,8 +364,7 @@ uint8_t IIC_Soft_WriteMultiByteWithAddr(uint8_t SlaveAddr, uint16_t RegAddr, uin
     IIC_Soft_SendByte(RegAddr & 0xFF);
     IIC_Soft_WaitAck();
 
-    while(Len--)
-    {
+    while (Len--) {
         IIC_Soft_SendByte(*pData);
         IIC_Soft_WaitAck();
         pData++;
@@ -395,22 +377,19 @@ uint8_t IIC_Soft_WriteMultiByteWithAddr(uint8_t SlaveAddr, uint16_t RegAddr, uin
 
 uint8_t IIC_Soft_ReadMultiByteWithAddr(uint8_t SlaveAddr, uint16_t RegAddr, uint8_t *pData, uint8_t Len)
 {
-    if(IIC_Soft_Start() == false)
-    {
+    if (IIC_Soft_Start() == false) {
         kinetis_debug_trace(KERN_ERR, "Arbitration failed ! Device(addr = 0x%X) cannot obtain the bus.", SlaveAddr);
 //    return false;
     }
 
     IIC_Soft_SendByte((SlaveAddr << 1) | 0x00);
 
-    if(IIC_Soft_WaitAck())
-    {
+    if (IIC_Soft_WaitAck()) {
         IIC_Soft_Stop();
         return false;
     }
 
-    if(ADDRESS_MODE == ADDRESS_16)
-    {
+    if (ADDRESS_MODE == ADDRESS_16) {
         IIC_Soft_SendByte(RegAddr >> 8);
         IIC_Soft_WaitAck();
     }
@@ -422,9 +401,8 @@ uint8_t IIC_Soft_ReadMultiByteWithAddr(uint8_t SlaveAddr, uint16_t RegAddr, uint
     IIC_Soft_SendByte((SlaveAddr << 1) | 0x01);
     IIC_Soft_WaitAck();
 
-    while(Len)
-    {
-        if(Len == 1)
+    while (Len) {
+        if (Len == 1)
             *pData = IIC_Soft_ReadByte(0);
         else
             *pData = IIC_Soft_ReadByte(1);

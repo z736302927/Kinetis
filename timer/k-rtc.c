@@ -60,29 +60,30 @@ void RTC_CalendarConfig(uint8_t Year, uint8_t Month, uint8_t Date,
 
     /*##-1- Configure the Date ###############################################*/
     /* Set Date: Wednesday May 1th 2019 */
-    if(Format == KRTC_FORMAT_BIN)
+    if (Format == KRTC_FORMAT_BIN)
         HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BIN);
     else
         HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BCD);
-        
+
     sdate.Year = Year;
     sdate.Month = Month;
     sdate.Date = Date;
 
-    if(WeekDay != 0)
+    if (WeekDay != 0)
         sdate.WeekDay = WeekDay;
 
-    if(Format == KRTC_FORMAT_BIN)
+    if (Format == KRTC_FORMAT_BIN)
         HAL_RTC_SetDate(&hrtc, &sdate, RTC_FORMAT_BIN);
     else
         HAL_RTC_SetDate(&hrtc, &sdate, RTC_FORMAT_BCD);
 
     /*##-2- Configure the Time ###############################################*/
     /* Set Time: 00:00:00 */
-    if(Format == KRTC_FORMAT_BIN)
+    if (Format == KRTC_FORMAT_BIN)
         HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BIN);
     else
         HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BCD);
+
     stime.Hours = Hours;
     stime.Minutes = Minutes;
     stime.Seconds = Seconds;
@@ -90,7 +91,7 @@ void RTC_CalendarConfig(uint8_t Year, uint8_t Month, uint8_t Date,
     stime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE ;
     stime.StoreOperation = RTC_STOREOPERATION_RESET;
 
-    if(Format == KRTC_FORMAT_BIN)
+    if (Format == KRTC_FORMAT_BIN)
         HAL_RTC_SetTime(&hrtc, &stime, RTC_FORMAT_BIN);
     else
         HAL_RTC_SetTime(&hrtc, &stime, RTC_FORMAT_BCD);
@@ -106,7 +107,7 @@ void RTC_CalendarConfig(uint8_t Year, uint8_t Month, uint8_t Date,
         Hours, Minutes, Seconds);
     ds3231_SetTimeWithString(time);
 
-    if(WeekDay != 0)
+    if (WeekDay != 0)
         ds3231_SetWeek(WeekDay);
 
 #endif
@@ -126,22 +127,24 @@ void RTC_CalendarShow(uint8_t *Year, uint8_t *Month, uint8_t *Date,
     RTC_TimeTypeDef stime;
 
     /* Get the RTC current Date */
-    if(Format == KRTC_FORMAT_BIN)
+    if (Format == KRTC_FORMAT_BIN)
         HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BIN);
     else
         HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BCD);
+
     *Year = sdate.Year;
     *Month = sdate.Month;
     *Date = sdate.Date;
 
-    if(WeekDay != NULL)
+    if (WeekDay != NULL)
         *WeekDay = sdate.WeekDay;
 
     /* Get the RTC current Time */
-    if(Format == KRTC_FORMAT_BIN)
+    if (Format == KRTC_FORMAT_BIN)
         HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BIN);
     else
         HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BCD);
+
     *Hours = stime.Hours;
     *Minutes = stime.Minutes;
     *Seconds = stime.Seconds;
@@ -150,7 +153,7 @@ void RTC_CalendarShow(uint8_t *Year, uint8_t *Month, uint8_t *Date,
 #ifdef USING_DS3231
     uint8_t time[6], week;
 
-    if(Format == KRTC_FORMAT_BIN)
+    if (Format == KRTC_FORMAT_BIN)
         ds3231_ReadTime(time, DS3231_FORMAT_BIN);
     else
         ds3231_ReadTime(time, DS3231_FORMAT_BCD);
@@ -217,25 +220,25 @@ int t_RTC_SetClock(int argc, char **argv)
     Seconds = Random_Get8bit() % 60;
     WeekDay = Random_Get8bit() % 7;
 
-    if(argc > 1)
+    if (argc > 1)
         Year = strtoul(argv[1], &argv[1], 10);
 
-    if(argc > 2)
+    if (argc > 2)
         Month = strtoul(argv[2], &argv[2], 10);
 
-    if(argc > 3)
+    if (argc > 3)
         Date = strtoul(argv[3], &argv[3], 10);
 
-    if(argc > 4)
+    if (argc > 4)
         Hours = strtoul(argv[4], &argv[4], 10);
 
-    if(argc > 5)
+    if (argc > 5)
         Minutes = strtoul(argv[5], &argv[5], 10);
 
-    if(argc > 6)
+    if (argc > 6)
         Seconds = strtoul(argv[6], &argv[6], 10);
 
-    if(argc > 7)
+    if (argc > 7)
         WeekDay = strtoul(argv[7], &argv[7], 10);
 
     snprintf(Time, sizeof(Time), "20%02d/%02d/%02d/% 02d:%02d:%02d", Year, Month, Date,

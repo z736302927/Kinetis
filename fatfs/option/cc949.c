@@ -13,8 +13,7 @@
 
 
 static
-const WCHAR uni2oem[] =
-{
+const WCHAR uni2oem[] = {
     /*  Unicode - OEM,  Unicode - OEM,  Unicode - OEM,  Unicode - OEM */
     0x00A1, 0xA2AE, 0x00A4, 0xA2B4, 0x00A7, 0xA1D7, 0x00A8, 0xA1A7,
     0x00AA, 0xA8A3, 0x00AD, 0xA1A9, 0x00AE, 0xA2E7, 0x00B0, 0xA1C6,
@@ -4282,8 +4281,7 @@ const WCHAR uni2oem[] =
 };
 
 static
-const WCHAR oem2uni[] =
-{
+const WCHAR oem2uni[] = {
     /*	OEM - Unicode,  OEM - Unicode,  OEM - Unicode,  OEM - Unicode */
     0x8141, 0xAC02, 0x8142, 0xAC03, 0x8143, 0xAC05, 0x8144, 0xAC06,
     0x8145, 0xAC0B, 0x8146, 0xAC0C, 0x8147, 0xAC0D, 0x8148, 0xAC0E,
@@ -8562,32 +8560,27 @@ WCHAR ff_convert(  /* Converted code, 0 means conversion error */
     int i, n, li, hi;
 
 
-    if(chr < 0x80) 	/* ASCII */
+    if (chr < 0x80) 	/* ASCII */
         c = chr;
 
-    else
-    {
-        if(dir)  		/* OEMCP to unicode */
-        {
+    else {
+        if (dir) {		/* OEMCP to unicode */
             p = oem2uni;
             hi = sizeof oem2uni / 4 - 1;
-        }
-        else  		/* Unicode to OEMCP */
-        {
+        } else {		/* Unicode to OEMCP */
             p = uni2oem;
             hi = sizeof uni2oem / 4 - 1;
         }
 
         li = 0;
 
-        for(n = 16; n; n--)
-        {
+        for (n = 16; n; n--) {
             i = li + (hi - li) / 2;
 
-            if(chr == p[i * 2])
+            if (chr == p[i * 2])
                 break;
 
-            if(chr > p[i * 2])
+            if (chr > p[i * 2])
                 li = i;
             else
                 hi = i;
@@ -8611,7 +8604,7 @@ WCHAR ff_wtoupper(  /* Upper converted character */
     int i;
 
 
-    for(i = 0; tbl_lower[i] && chr != tbl_lower[i]; i++) ;
+    for (i = 0; tbl_lower[i] && chr != tbl_lower[i]; i++) ;
 
     return tbl_lower[i] ? tbl_upper[i] : chr;
 }

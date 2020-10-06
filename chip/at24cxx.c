@@ -73,16 +73,13 @@ void at24cxx_MultiPageWrite(uint32_t Addr, uint8_t *pData, uint16_t Length)
     NumOfSingle = Length % PAGE_SIZE;
 
     /* SubAddr=0, then Addr is just aligned by page */
-    if(SubAddr == 0)
-    {
+    if (SubAddr == 0) {
         /* Length < PAGE_SIZE */
-        if(NumOfPage == 0)
+        if (NumOfPage == 0)
             at24cxx_PageWrite(Addr, pData, Length);
-        else /* Length > PAGE_SIZE */
-        {
+        else { /* Length > PAGE_SIZE */
             /* Let me write down all the integer pages */
-            while(NumOfPage--)
-            {
+            while (NumOfPage--) {
                 at24cxx_PageWrite(Addr, pData, PAGE_SIZE);
                 Addr +=  PAGE_SIZE;
                 pData += PAGE_SIZE;
@@ -93,14 +90,11 @@ void at24cxx_MultiPageWrite(uint32_t Addr, uint8_t *pData, uint16_t Length)
         }
     }
     /* If the address is not aligned with PAGE_SIZE */
-    else
-    {
+    else {
         /* Length < PAGE_SIZE */
-        if(NumOfPage == 0)
-        {
+        if (NumOfPage == 0) {
             /* The remaining count positions on the current page are smaller than NumOfSingle */
-            if(NumOfSingle > Count)
-            {
+            if (NumOfSingle > Count) {
                 Temp = NumOfSingle - Count;
 
                 /* Fill in the front page first */
@@ -110,12 +104,9 @@ void at24cxx_MultiPageWrite(uint32_t Addr, uint8_t *pData, uint16_t Length)
 
                 /* Let me write the rest of the data */
                 at24cxx_PageWrite(Addr, pData, Temp);
-            }
-            else /* The remaining count position of the current page can write NumOfSingle data */
+            } else /* The remaining count position of the current page can write NumOfSingle data */
                 at24cxx_PageWrite(Addr, pData, Length);
-        }
-        else /* Length > PAGE_SIZE */
-        {
+        } else { /* Length > PAGE_SIZE */
             /* The address is not aligned and the extra count is treated separately, not added to the operation */
             Length -= Count;
             NumOfPage =  Length / PAGE_SIZE;
@@ -126,15 +117,14 @@ void at24cxx_MultiPageWrite(uint32_t Addr, uint8_t *pData, uint16_t Length)
             pData += Count;
 
             /* Write all the integer pages */
-            while(NumOfPage--)
-            {
+            while (NumOfPage--) {
                 at24cxx_PageWrite(Addr, pData, PAGE_SIZE);
                 Addr +=  PAGE_SIZE;
                 pData += PAGE_SIZE;
             }
 
             /* If you have more than one page of data, write it down */
-            if(NumOfSingle != 0)
+            if (NumOfSingle != 0)
                 at24cxx_PageWrite(Addr, pData, NumOfSingle);
         }
     }
@@ -146,8 +136,7 @@ void at24cxx_WriteData(uint8_t Addr, uint8_t *pData, uint32_t Length)
 
     RemainSpace = AT24CXX_MAX_ADDR - Addr;
 
-    if(RemainSpace < Length)
-    {
+    if (RemainSpace < Length) {
         kinetis_debug_trace(KERN_DEBUG, "There is not enough space left to write the specified length.");
         return ;
     }
@@ -160,8 +149,7 @@ void at24cxx_CurrentAddrRead(uint8_t *pData)
     IIC_Soft_Start();
     IIC_Soft_SendByte((AT24CXX_ADDR << 1) | 0x01);
 
-    if(IIC_Soft_WaitAck())
-    {
+    if (IIC_Soft_WaitAck()) {
         IIC_Soft_Stop();
         return ;
     }
@@ -176,8 +164,7 @@ void at24cxx_RandomRead(uint8_t Addr, uint8_t *pData, uint32_t Length)
 
     RemainSpace = AT24CXX_MAX_ADDR - Addr;
 
-    if(RemainSpace < Length)
-    {
+    if (RemainSpace < Length) {
         kinetis_debug_trace(KERN_DEBUG, "There is not enough space left to read the specified length.");
         return ;
     }
@@ -195,15 +182,13 @@ void at24cxx_SequentialRead(uint8_t *pData, uint32_t Length)
     IIC_Soft_Start();
     IIC_Soft_SendByte((AT24CXX_ADDR << 1) | 0x01);
 
-    if(IIC_Soft_WaitAck())
-    {
+    if (IIC_Soft_WaitAck()) {
         IIC_Soft_Stop();
         return ;
     }
 
-    while(Length)
-    {
-        if(Length == 1)
+    while (Length) {
+        if (Length == 1)
             *pData = IIC_Soft_ReadByte(0);
         else
             *pData = IIC_Soft_ReadByte(1);
@@ -231,19 +216,18 @@ int t_at24cxx_ReadWirte(int argc, char **argv)
     uint16_t times = 128;
     uint16_t i = 0, j = 0;
 
-    if(argc > 1)
+    if (argc > 1)
         times = strtoul(argv[1], &argv[1], 10);
 
-    for(j = 0; j < times; j++)
-    {
+    for (j = 0; j < times; j++) {
         BufferLength = Random_Get8bit();
 
-        if(BufferLength <= 0)
+        if (BufferLength <= 0)
             BufferLength = 10;
 
         TestAddr = Random_Get8bit();
 
-        if(BufferLength >= (AT24CXX_MAX_ADDR - TestAddr + 1))
+        if (BufferLength >= (AT24CXX_MAX_ADDR - TestAddr + 1))
             BufferLength = AT24CXX_MAX_ADDR - TestAddr + 1;
 
         memset(Tx_Buffer, 0, BufferLength);
@@ -251,16 +235,14 @@ int t_at24cxx_ReadWirte(int argc, char **argv)
         kinetis_debug_trace(KERN_DEBUG, "BufferLength = %d.", BufferLength);
         kinetis_debug_trace(KERN_DEBUG, "TestAddr = 0x%02X.", TestAddr);
 
-        for(i = 0; i < BufferLength; i++)
+        for (i = 0; i < BufferLength; i++)
             Tx_Buffer[i] = Random_Get8bit();
 
         at24cxx_WriteData(TestAddr, Tx_Buffer, BufferLength);
         at24cxx_ReadData(TestAddr, Rx_Buffer, BufferLength);
 
-        for(i = 0; i < BufferLength; i++)
-        {
-            if(Tx_Buffer[i] != Rx_Buffer[i])
-            {
+        for (i = 0; i < BufferLength; i++) {
+            if (Tx_Buffer[i] != Rx_Buffer[i]) {
                 kinetis_debug_trace(KERN_DEBUG, "Tx_Buffer[%d] = 0x%02X, Rx_Buffer[%d] = 0x%02X",
                     i, Tx_Buffer[i], i, Rx_Buffer[i]);
                 kinetis_debug_trace(KERN_DEBUG, "Data writes and reads do not match, TEST FAILED !");
@@ -291,7 +273,7 @@ int t_at24cxx_RandomRead(int argc, char **argv)
     uint16_t times = 128;
     uint16_t i = 0;
 
-    if(argc > 1)
+    if (argc > 1)
         times = strtoul(argv[1], &argv[1], 10);
 
     TestAddr = Random_Get8bit();
@@ -299,7 +281,7 @@ int t_at24cxx_RandomRead(int argc, char **argv)
     at24cxx_RandomRead(TestAddr, &Rx_Buffer[TestAddr], TestLen);
     kinetis_debug_trace(KERN_DEBUG, "at24cxx Random Read");
 
-    for(i = 0; i < TestLen; i++)
+    for (i = 0; i < TestLen; i++)
         kinetis_debug_trace(KERN_DEBUG, "Data[%d] = %d", i, Rx_Buffer[TestAddr + i]);
 
     return PASS;
@@ -323,7 +305,7 @@ int t_at24cxx_ReadWirteSpeed(int argc, char **argv)
     kinetis_debug_trace(KERN_DEBUG, "Starting at24cxx raw write test");
     Timestamp = BasicTimer_GetUSTick();
 
-    for(i = 0; i < AT24CXX_VOLUME; i++)
+    for (i = 0; i < AT24CXX_VOLUME; i++)
         Tx_Buffer[i] = Random_Get8bit();
 
     at24cxx_WriteData(0, Tx_Buffer, AT24CXX_VOLUME);

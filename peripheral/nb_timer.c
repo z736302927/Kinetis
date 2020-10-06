@@ -44,22 +44,18 @@ void NB_IOT_PollTim(void)
 {
     uint32_t tick;
 
-    if(NB_IOT_TimeOpenFlag == 1)
-    {
+    if (NB_IOT_TimeOpenFlag == 1) {
         tick = NB_IOT_GetTick();
         uint32_t delta = tick >= NB_IOT_TickStart ? tick - NB_IOT_TickStart : tick + UINT32_MAX - NB_IOT_TickStart;
 
-        if(NB_IOT_TickDelta > delta)
-        {
+        if (NB_IOT_TickDelta > delta) {
             NB_IOT_TickDelta -= delta;
             NB_IOT_TickStart = tick;
-        }
-        else
-        {
+        } else {
             NB_IOT_TickDelta = 0;
             NB_IOT_TimeOpenFlag = 0;
 
-            if(NB_IOT_TimeoutCallback)
+            if (NB_IOT_TimeoutCallback)
                 NB_IOT_TimeoutCallback();
         }
 

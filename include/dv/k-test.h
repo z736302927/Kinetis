@@ -10,8 +10,7 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include "core/core_common.h"
 
-typedef enum
-{
+typedef enum {
     PASS = 0U,
     FAIL,
     NOT_EXSIST

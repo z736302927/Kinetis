@@ -32,13 +32,11 @@ void hc_05_TestCommand(void)
 
     General_ProcessCommand(&Command);
 
-    if(Command.ErrorFlag == true && Command.ErrorRepetition == 0)
-    {
+    if (Command.ErrorFlag == true && Command.ErrorRepetition == 0) {
 
     }
 
-    if(Command.TimeoutFlag == true)
-    {
+    if (Command.TimeoutFlag == true) {
 
     }
 }

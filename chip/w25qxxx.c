@@ -21,10 +21,9 @@
 
 static inline void w25qxxx_PortTransmmit(uint8_t w25qxxx, uint8_t Data)
 {
-    if(w25qxxx == W25Q128)
+    if (w25qxxx == W25Q128)
         HAL_SPI_Transmit(&hspi1, &Data, 1, 1000);
-    else if(w25qxxx == W25Q256)
-    {
+    else if (w25qxxx == W25Q256) {
 //    HAL_SPI_Transmit(&hspi5, &Data, 1, 1000);
     }
 }
@@ -33,10 +32,9 @@ static inline uint8_t w25qxxx_PortReceive(uint8_t w25qxxx)
 {
     uint8_t Data = 0;
 
-    if(w25qxxx == W25Q128)
+    if (w25qxxx == W25Q128)
         HAL_SPI_Receive(&hspi1, &Data, 1, 1000);
-    else if(w25qxxx == W25Q256)
-    {
+    else if (w25qxxx == W25Q256) {
 //    HAL_SPI_Receive(&hspi5, &Data, 1, 1000);
     }
 
@@ -45,48 +43,43 @@ static inline uint8_t w25qxxx_PortReceive(uint8_t w25qxxx)
 
 static inline void w25qxxx_PortMultiTransmmit(uint8_t w25qxxx, uint8_t *pData, uint32_t Length)
 {
-    if(w25qxxx == W25Q128)
+    if (w25qxxx == W25Q128)
         HAL_SPI_Transmit(&hspi1, pData, Length, 1000);
-    else if(w25qxxx == W25Q256)
-    {
+    else if (w25qxxx == W25Q256) {
 //    HAL_SPI_Transmit(&hspi5, pData, Length, 1000);
     }
 }
 
 static inline void w25qxxx_PortMultiReceive(uint8_t w25qxxx, uint8_t *pData, uint32_t Length)
 {
-    if(w25qxxx == W25Q128)
+    if (w25qxxx == W25Q128)
         HAL_SPI_Receive(&hspi1, pData, Length, 1000);
-    else if(w25qxxx == W25Q256)
-    {
+    else if (w25qxxx == W25Q256) {
 //    HAL_SPI_Receive(&hspi5, pData, Length, 1000);
     }
 }
 
 static inline void w25qxxx_CS_Low(uint8_t w25qxxx)
 {
-    if(w25qxxx == W25Q128)
+    if (w25qxxx == W25Q128)
         HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
-    else if(w25qxxx == W25Q256)
+    else if (w25qxxx == W25Q256)
         HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_RESET);
 }
 
 static inline void w25qxxx_CS_High(uint8_t w25qxxx)
 {
-    if(w25qxxx == W25Q128)
+    if (w25qxxx == W25Q128)
         HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
-    else if(w25qxxx == W25Q256)
+    else if (w25qxxx == W25Q256)
         HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_SET);
 }
 
 void w25qxxx_HardReset(uint8_t w25qxxx)
 {
-    if(w25qxxx == W25Q128)
-    {
+    if (w25qxxx == W25Q128) {
 
-    }
-    else if(w25qxxx == W25Q256)
-    {
+    } else if (w25qxxx == W25Q256) {
 
     }
 }
@@ -157,8 +150,7 @@ uint32_t w25qxxx_GetTick(void)
 #define ENABLE_RESET                    0x66
 #define RESET_DEVICE                    0x99
 
-typedef struct _StatusRegisters_TypeDef
-{
+typedef struct _StatusRegisters_TypeDef {
     unsigned BUSY: 1;
     unsigned WEL: 1;
     unsigned BP0: 1;
@@ -209,19 +201,16 @@ uint8_t w25qxxx_WaitForCmdEnd(uint8_t w25qxxx)
 
     begintime = BasicTimer_GetMSTick();
 
-    while(1)
-    {
+    while (1) {
 
-        if(w25qxxx_Read_BUSY(w25qxxx) == 0)
+        if (w25qxxx_Read_BUSY(w25qxxx) == 0)
             return true;
-        else
-        {
+        else {
             currenttime = BasicTimer_GetMSTick();
             timediff = currenttime >= begintime ? currenttime - begintime :
                 currenttime + UINT32_MAX - begintime;
 
-            if(timediff > 30000) /* 30s */
-            {
+            if (timediff > 30000) { /* 30s */
                 kinetis_debug_trace(KERN_DEBUG, "Command execution timeout !");
                 return false;
             }
@@ -464,7 +453,7 @@ void w25qxxx_Write_SRP0(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER1);
 
-    if(Data == 1)
+    if (Data == 1)
         Reg |= 0x80;
     else
         Reg &= ~0x80;
@@ -479,7 +468,7 @@ void w25qxxx_Write_SEC(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER1);
 
-    if(Data == 1)
+    if (Data == 1)
         Reg |= 0x40;
     else
         Reg &= ~0x40;
@@ -494,7 +483,7 @@ void w25qxxx_Write_TB(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER1);
 
-    if(Data == 1)
+    if (Data == 1)
         Reg |= 0x20;
     else
         Reg &= ~0x20;
@@ -527,7 +516,7 @@ void w25qxxx_Write_CMP(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER2);
 
-    if(Data == 1)
+    if (Data == 1)
         Reg |= 0x40;
     else
         Reg &= ~0x40;
@@ -560,7 +549,7 @@ void w25qxxx_Write_QE(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER2);
 
-    if(Data == 1)
+    if (Data == 1)
         Reg |= 0x02;
     else
         Reg &= ~0x02;
@@ -575,7 +564,7 @@ void w25qxxx_Write_SRP1(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER2);
 
-    if(Data == 1)
+    if (Data == 1)
         Reg |= 0x01;
     else
         Reg &= ~0x01;
@@ -590,7 +579,7 @@ void w25qxxx_Write_HOLD_RST(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER3);
 
-    if(Data == 1)
+    if (Data == 1)
         Reg |= 0x80;
     else
         Reg &= ~0x80;
@@ -605,7 +594,7 @@ void w25qxxx_Write_DRV1(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER3);
 
-    if(Data == 1)
+    if (Data == 1)
         Reg |= 0x40;
     else
         Reg &= ~0x40;
@@ -620,7 +609,7 @@ void w25qxxx_Write_DRV0(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER3);
 
-    if(Data == 1)
+    if (Data == 1)
         Reg |= 0x20;
     else
         Reg &= ~0x20;
@@ -635,7 +624,7 @@ void w25qxxx_Write_WPS(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER3);
 
-    if(Data == 1)
+    if (Data == 1)
         Reg |= 0x04;
     else
         Reg &= ~0x04;
@@ -650,7 +639,7 @@ void w25qxxx_Write_ADP(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER3);
 
-    if(Data == 1)
+    if (Data == 1)
         Reg |= 0x02;
     else
         Reg &= ~0x02;
@@ -680,8 +669,7 @@ uint8_t w25qxxx_ReadStatusRegister(uint8_t w25qxxx, uint8_t Number)
 
     w25qxxx_CS_Low(w25qxxx);
 
-    switch(Number)
-    {
+    switch (Number) {
         case READ_STATUS_REGISTER1:
             w25qxxx_PortTransmmit(w25qxxx, READ_STATUS_REGISTER1);
             Data = w25qxxx_PortReceive(w25qxxx);
@@ -712,8 +700,7 @@ void w25qxxx_WriteStatusRegister(uint8_t w25qxxx, uint8_t Number, uint8_t Data)
 
     w25qxxx_CS_Low(w25qxxx);
 
-    switch(Number)
-    {
+    switch (Number) {
         case WRITE_STATUS_REGISTER1:
             w25qxxx_PortTransmmit(w25qxxx, WRITE_STATUS_REGISTER1);
             w25qxxx_PortTransmmit(w25qxxx, Data);
@@ -771,7 +758,7 @@ void w25qxxx_ReadData(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, uint32_t L
 {
     uint8_t SubAddr[4];
 
-    if(w25qxxx == W25Q256)
+    if (w25qxxx == W25Q256)
         SubAddr[0] = (Addr & 0xFF000000) >> 24;
 
     SubAddr[1] = (Addr & 0x00FF0000) >> 16;
@@ -781,7 +768,7 @@ void w25qxxx_ReadData(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, uint32_t L
     w25qxxx_CS_Low(w25qxxx);
     w25qxxx_PortTransmmit(w25qxxx, READ_DATA);
 
-    if(w25qxxx == W25Q256)
+    if (w25qxxx == W25Q256)
         w25qxxx_PortTransmmit(w25qxxx, SubAddr[0]);
 
     w25qxxx_PortMultiTransmmit(w25qxxx, &SubAddr[1], 3);
@@ -811,7 +798,7 @@ void w25qxxx_FastRead(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, uint32_t L
 {
     uint8_t SubAddr[4];
 
-    if(w25qxxx == W25Q256)
+    if (w25qxxx == W25Q256)
         SubAddr[0] = (Addr & 0xFF000000) >> 24;
 
     SubAddr[1] = (Addr & 0x00FF0000) >> 16;
@@ -821,7 +808,7 @@ void w25qxxx_FastRead(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, uint32_t L
     w25qxxx_CS_Low(w25qxxx);
     w25qxxx_PortTransmmit(w25qxxx, FAST_READ);
 
-    if(w25qxxx == W25Q256)
+    if (w25qxxx == W25Q256)
         w25qxxx_PortTransmmit(w25qxxx, SubAddr[0]);
 
     w25qxxx_PortMultiTransmmit(w25qxxx, &SubAddr[1], 3);
@@ -853,10 +840,10 @@ void w25qxxx_PageProgram(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, uint16_
 {
     uint8_t SubAddr[4];
 
-    if(Length == 0)
+    if (Length == 0)
         return ;
 
-    if(w25qxxx == W25Q256)
+    if (w25qxxx == W25Q256)
         SubAddr[0] = (Addr & 0xFF000000) >> 24;
 
     SubAddr[1] = (Addr & 0x00FF0000) >> 16;
@@ -867,7 +854,7 @@ void w25qxxx_PageProgram(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, uint16_
     w25qxxx_CS_Low(w25qxxx);
     w25qxxx_PortTransmmit(w25qxxx, PAGE_PROGRAM);
 
-    if(w25qxxx == W25Q256)
+    if (w25qxxx == W25Q256)
         w25qxxx_PortTransmmit(w25qxxx, SubAddr[0]);
 
     w25qxxx_PortMultiTransmmit(w25qxxx, &SubAddr[1], 3);
@@ -892,16 +879,13 @@ void w25qxxx_MultiPageProgram(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, ui
     NumOfSingle = Length % PAGE_SIZE;
 
     /* SubAddr=0, then Addr is just aligned by page */
-    if(SubAddr == 0)
-    {
+    if (SubAddr == 0) {
         /* Length < PAGE_SIZE */
-        if(NumOfPage == 0)
+        if (NumOfPage == 0)
             w25qxxx_PageProgram(w25qxxx, Addr, pData, Length);
-        else /* Length > PAGE_SIZE */
-        {
+        else { /* Length > PAGE_SIZE */
             /* Let me write down all the integer pages */
-            while(NumOfPage--)
-            {
+            while (NumOfPage--) {
                 w25qxxx_PageProgram(w25qxxx, Addr, pData, PAGE_SIZE);
                 Addr +=  PAGE_SIZE;
                 pData += PAGE_SIZE;
@@ -912,14 +896,11 @@ void w25qxxx_MultiPageProgram(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, ui
         }
     }
     /* If the address is not aligned with PAGE_SIZE */
-    else
-    {
+    else {
         /* Length < PAGE_SIZE */
-        if(NumOfPage == 0)
-        {
+        if (NumOfPage == 0) {
             /* The remaining count positions on the current page are smaller than NumOfSingle */
-            if(NumOfSingle > Count)
-            {
+            if (NumOfSingle > Count) {
                 Temp = NumOfSingle - Count;
 
                 /* Fill in the front page first */
@@ -929,12 +910,9 @@ void w25qxxx_MultiPageProgram(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, ui
 
                 /* Let me write the rest of the data */
                 w25qxxx_PageProgram(w25qxxx, Addr, pData, Temp);
-            }
-            else /* The remaining count position of the current page can write NumOfSingle data */
+            } else /* The remaining count position of the current page can write NumOfSingle data */
                 w25qxxx_PageProgram(w25qxxx, Addr, pData, Length);
-        }
-        else /* Length > PAGE_SIZE */
-        {
+        } else { /* Length > PAGE_SIZE */
             /* The address is not aligned and the extra count is treated separately, not added to the operation */
             Length -= Count;
             NumOfPage =  Length / PAGE_SIZE;
@@ -945,15 +923,14 @@ void w25qxxx_MultiPageProgram(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, ui
             pData += Count;
 
             /* Write all the integer pages */
-            while(NumOfPage--)
-            {
+            while (NumOfPage--) {
                 w25qxxx_PageProgram(w25qxxx, Addr, pData, PAGE_SIZE);
                 Addr +=  PAGE_SIZE;
                 pData += PAGE_SIZE;
             }
 
             /* If you have more than one page of data, write it down */
-            if(NumOfSingle != 0)
+            if (NumOfSingle != 0)
                 w25qxxx_PageProgram(w25qxxx, Addr, pData, NumOfSingle);
         }
     }
@@ -972,10 +949,8 @@ void w25qxxx_ProcessPartialSector(uint8_t w25qxxx, uint32_t BeginAddr, uint8_t *
 
     w25qxxx_ReadData(w25qxxx, BeginAddr, &g_w25qxxx_SingleSector[SectorOffset], Length);
 
-    for(i = SectorOffset; i < SectorOffset + Length; i++)
-    {
-        if(g_w25qxxx_SingleSector[i] != 0xFF)
-        {
+    for (i = SectorOffset; i < SectorOffset + Length; i++) {
+        if (g_w25qxxx_SingleSector[i] != 0xFF) {
             w25qxxx_ReadData(w25qxxx, SectorAddr, &g_w25qxxx_SingleSector[0], SectorOffset);
             w25qxxx_ReadData(w25qxxx, BeginAddr + Length, &g_w25qxxx_SingleSector[SectorOffset + Length], SECTOR_SIZE - SectorOffset - Length);
             memcpy(&g_w25qxxx_SingleSector[SectorOffset], pData, Length);
@@ -1004,16 +979,13 @@ void w25qxxx_MultiSectorProgram(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, 
     NumOfSingle = Length % SECTOR_SIZE;
 
     /* SectorOffset=0, then Addr is just aligned by page */
-    if(SectorOffset == 0)
-    {
+    if (SectorOffset == 0) {
         /* Length < SECTOR_SIZE */
-        if(NumOfSector == 0)
+        if (NumOfSector == 0)
             w25qxxx_ProcessPartialSector(w25qxxx, Addr, pData, Length);
-        else /* Length > SECTOR_SIZE */
-        {
+        else { /* Length > SECTOR_SIZE */
             /* Let me write down all the integer pages */
-            while(NumOfSector--)
-            {
+            while (NumOfSector--) {
                 w25qxxx_SectorErase(w25qxxx, Addr);
                 w25qxxx_MultiPageProgram(w25qxxx, Addr, pData, SECTOR_SIZE);
                 Addr +=  SECTOR_SIZE;
@@ -1025,14 +997,11 @@ void w25qxxx_MultiSectorProgram(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, 
         }
     }
     /* If the address is not aligned with SECTOR_SIZE */
-    else
-    {
+    else {
         /* Length < SECTOR_SIZE */
-        if(NumOfSector == 0)
-        {
+        if (NumOfSector == 0) {
             /* The remaining count positions on the current page are smaller than NumOfSingle */
-            if(NumOfSingle > Count)
-            {
+            if (NumOfSingle > Count) {
                 Temp = NumOfSingle - Count;
 
                 /* Fill in the front page first */
@@ -1042,12 +1011,9 @@ void w25qxxx_MultiSectorProgram(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, 
 
                 /* Let me write the rest of the data */
                 w25qxxx_ProcessPartialSector(w25qxxx, Addr, pData, Temp);
-            }
-            else /* The remaining count position of the current page can write NumOfSingle data */
+            } else /* The remaining count position of the current page can write NumOfSingle data */
                 w25qxxx_ProcessPartialSector(w25qxxx, Addr, pData, Length);
-        }
-        else /* Length > SECTOR_SIZE */
-        {
+        } else { /* Length > SECTOR_SIZE */
             /* The address is not aligned and the extra count is treated separately, not added to the operation */
             Length -= Count;
             NumOfSector =  Length / SECTOR_SIZE;
@@ -1058,8 +1024,7 @@ void w25qxxx_MultiSectorProgram(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, 
             pData += Count;
 
             /* Write all the integer pages */
-            while(NumOfSector--)
-            {
+            while (NumOfSector--) {
                 w25qxxx_SectorErase(w25qxxx, Addr);
                 w25qxxx_MultiPageProgram(w25qxxx, Addr, pData, SECTOR_SIZE);
                 Addr +=  SECTOR_SIZE;
@@ -1067,7 +1032,7 @@ void w25qxxx_MultiSectorProgram(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, 
             }
 
             /* If you have more than one page of data, write it down */
-            if(NumOfSingle != 0)
+            if (NumOfSingle != 0)
                 w25qxxx_ProcessPartialSector(w25qxxx, Addr, pData, NumOfSingle);
         }
     }
@@ -1077,13 +1042,12 @@ void w25qxxx_WriteData(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, uint16_t 
 {
     uint32_t RemainSpace = 0;
 
-    if(w25qxxx == W25Q128)
+    if (w25qxxx == W25Q128)
         RemainSpace = g_w25q128_Max_Addr - Addr;
-    else if(w25qxxx == W25Q256)
+    else if (w25qxxx == W25Q256)
         RemainSpace = g_w25q256_Max_Addr - Addr;
 
-    if(RemainSpace < Length)
-    {
+    if (RemainSpace < Length) {
         kinetis_debug_trace(KERN_DEBUG, "There is not enough space left to write the specified length.");
         return ;
     }
@@ -1095,7 +1059,7 @@ void w25qxxx_SectorErase(uint8_t w25qxxx, uint32_t Addr)
 {
     uint8_t SubAddr[4];
 
-    if(w25qxxx == W25Q256)
+    if (w25qxxx == W25Q256)
         SubAddr[0] = (Addr & 0xFF000000) >> 24;
 
     SubAddr[1] = (Addr & 0x00FF0000) >> 16;
@@ -1106,7 +1070,7 @@ void w25qxxx_SectorErase(uint8_t w25qxxx, uint32_t Addr)
     w25qxxx_CS_Low(w25qxxx);
     w25qxxx_PortTransmmit(w25qxxx, SECTOR_ERASE);
 
-    if(w25qxxx == W25Q256)
+    if (w25qxxx == W25Q256)
         w25qxxx_PortTransmmit(w25qxxx, SubAddr[0]);
 
     w25qxxx_PortMultiTransmmit(w25qxxx, &SubAddr[1], 3);
@@ -1119,7 +1083,7 @@ void w25qxxx_BlockEraseWith32KB(uint8_t w25qxxx, uint32_t Addr)
 {
     uint8_t SubAddr[4];
 
-    if(w25qxxx == W25Q256)
+    if (w25qxxx == W25Q256)
         SubAddr[0] = (Addr & 0xFF000000) >> 24;
 
     SubAddr[1] = (Addr & 0x00FF0000) >> 16;
@@ -1130,7 +1094,7 @@ void w25qxxx_BlockEraseWith32KB(uint8_t w25qxxx, uint32_t Addr)
     w25qxxx_CS_Low(w25qxxx);
     w25qxxx_PortTransmmit(w25qxxx, BLOCK_ERASE_32KB);
 
-    if(w25qxxx == W25Q256)
+    if (w25qxxx == W25Q256)
         w25qxxx_PortTransmmit(w25qxxx, SubAddr[0]);
 
     w25qxxx_PortMultiTransmmit(w25qxxx, &SubAddr[1], 3);
@@ -1143,7 +1107,7 @@ void w25qxxx_BlockEraseWith64KB(uint8_t w25qxxx, uint32_t Addr)
 {
     uint8_t SubAddr[4];
 
-    if(w25qxxx == W25Q256)
+    if (w25qxxx == W25Q256)
         SubAddr[0] = (Addr & 0xFF000000) >> 24;
 
     SubAddr[1] = (Addr & 0x00FF0000) >> 16;
@@ -1154,7 +1118,7 @@ void w25qxxx_BlockEraseWith64KB(uint8_t w25qxxx, uint32_t Addr)
     w25qxxx_CS_Low(w25qxxx);
     w25qxxx_PortTransmmit(w25qxxx, BLOCK_ERASE_64KB);
 
-    if(w25qxxx == W25Q256)
+    if (w25qxxx == W25Q256)
         w25qxxx_PortTransmmit(w25qxxx, SubAddr[0]);
 
     w25qxxx_PortMultiTransmmit(w25qxxx, &SubAddr[1], 3);
@@ -1173,7 +1137,7 @@ void w25qxxx_ChipErase(uint8_t w25qxxx)
 
 void w25qxxx_EraseProgram_Suspend(uint8_t w25qxxx)
 {
-    if(w25qxxx_Read_BUSY(w25qxxx) == 0 && w25qxxx_Read_SUS(w25qxxx) == 1)
+    if (w25qxxx_Read_BUSY(w25qxxx) == 0 && w25qxxx_Read_SUS(w25qxxx) == 1)
         return ;
 
     w25qxxx_TransCmd(w25qxxx, ERASE_PROGRAM_SUSPEND);
@@ -1182,7 +1146,7 @@ void w25qxxx_EraseProgram_Suspend(uint8_t w25qxxx)
 
 void w25qxxx_EraseProgram_Resume(uint8_t w25qxxx)
 {
-    if(w25qxxx_Read_BUSY(w25qxxx) == 1 && w25qxxx_Read_SUS(w25qxxx) == 0)
+    if (w25qxxx_Read_BUSY(w25qxxx) == 1 && w25qxxx_Read_SUS(w25qxxx) == 0)
         return ;
 
     w25qxxx_TransCmd(w25qxxx, ERASE_PROGRAM_RESUME);
@@ -1232,9 +1196,8 @@ void w25qxxx_ReadUniqueIDNumber(uint8_t w25qxxx, uint8_t *UniqueID)
     w25qxxx_CS_Low(w25qxxx);
     w25qxxx_PortTransmmit(w25qxxx, READ_UNIQUE_ID_NUMBER);
 
-    if(w25qxxx == W25Q256)
-    {
-        if(w25qxxx_Read_ADS(w25qxxx) == 1)
+    if (w25qxxx == W25Q256) {
+        if (w25qxxx_Read_ADS(w25qxxx) == 1)
             w25qxxx_PortTransmmit(w25qxxx, DUMMY_BYTE);
     }
 
@@ -1279,7 +1242,7 @@ void w25qxxx_EraseSecurityRegisters(uint8_t w25qxxx, uint8_t Addr)
     w25qxxx_CS_Low(w25qxxx);
     w25qxxx_PortTransmmit(w25qxxx, ERASE_SECURITY_REGISTERS);
 
-    if(w25qxxx == W25Q256)
+    if (w25qxxx == W25Q256)
         w25qxxx_PortTransmmit(w25qxxx, 0x00);
 
     w25qxxx_PortTransmmit(w25qxxx, 0x00);
@@ -1337,7 +1300,7 @@ void w25qxxx_IndividualBlock_SectorLock(uint8_t w25qxxx, uint32_t Addr)
 {
     uint8_t SubAddr[4];
 
-    if(w25qxxx == W25Q256)
+    if (w25qxxx == W25Q256)
         SubAddr[0] = (Addr & 0xFF000000) >> 24;
 
     SubAddr[1] = (Addr & 0x00FF0000) >> 16;
@@ -1348,7 +1311,7 @@ void w25qxxx_IndividualBlock_SectorLock(uint8_t w25qxxx, uint32_t Addr)
     w25qxxx_CS_Low(w25qxxx);
     w25qxxx_PortTransmmit(w25qxxx, INDIVIDUAL_BLOCK_SECTOR_LOCK);
 
-    if(w25qxxx == W25Q256)
+    if (w25qxxx == W25Q256)
         w25qxxx_PortTransmmit(w25qxxx, SubAddr[0]);
 
     w25qxxx_PortMultiTransmmit(w25qxxx, &SubAddr[1], 3);
@@ -1359,7 +1322,7 @@ void w25qxxx_IndividualBlock_SectorUnlock(uint8_t w25qxxx, uint32_t Addr)
 {
     uint8_t SubAddr[4];
 
-    if(w25qxxx == W25Q256)
+    if (w25qxxx == W25Q256)
         SubAddr[0] = (Addr & 0xFF000000) >> 24;
 
     SubAddr[1] = (Addr & 0x00FF0000) >> 16;
@@ -1370,7 +1333,7 @@ void w25qxxx_IndividualBlock_SectorUnlock(uint8_t w25qxxx, uint32_t Addr)
     w25qxxx_CS_Low(w25qxxx);
     w25qxxx_PortTransmmit(w25qxxx, INDIVIDUAL_BLOCK_SECTOR_UNLOCK);
 
-    if(w25qxxx == W25Q256)
+    if (w25qxxx == W25Q256)
         w25qxxx_PortTransmmit(w25qxxx, SubAddr[0]);
 
     w25qxxx_PortMultiTransmmit(w25qxxx, &SubAddr[1], 3);
@@ -1382,7 +1345,7 @@ uint8_t w25qxxx_ReadBlock_SectorLock(uint8_t w25qxxx, uint32_t Addr)
     uint8_t Data = 0;
     uint8_t SubAddr[4];
 
-    if(w25qxxx == W25Q256)
+    if (w25qxxx == W25Q256)
         SubAddr[0] = (Addr & 0xFF000000) >> 24;
 
     SubAddr[1] = (Addr & 0x00FF0000) >> 16;
@@ -1393,7 +1356,7 @@ uint8_t w25qxxx_ReadBlock_SectorLock(uint8_t w25qxxx, uint32_t Addr)
     w25qxxx_CS_Low(w25qxxx);
     w25qxxx_PortTransmmit(w25qxxx, READ_BLOCK_SECTOR_LOCK);
 
-    if(w25qxxx == W25Q256)
+    if (w25qxxx == W25Q256)
         w25qxxx_PortTransmmit(w25qxxx, SubAddr[0]);
 
     w25qxxx_PortMultiTransmmit(w25qxxx, &SubAddr[1], 3);
@@ -1422,7 +1385,7 @@ void w25qxxx_EnableReset(uint8_t w25qxxx)
 
 uint8_t w25qxxx_SoftReset(uint8_t w25qxxx)
 {
-    if(w25qxxx_Read_BUSY(w25qxxx) == 1 || w25qxxx_Read_SUS(w25qxxx) == 1)
+    if (w25qxxx_Read_BUSY(w25qxxx) == 1 || w25qxxx_Read_SUS(w25qxxx) == 1)
         return false;
 
     w25qxxx_EnableReset(w25qxxx);
@@ -1438,13 +1401,12 @@ void w25qxxx_Init(uint8_t w25qxxx)
     w25qxxx_SoftReset(w25qxxx);
     w25qxxx_ReleaseDeviceID(w25qxxx);
 
-    switch(w25qxxx)
-    {
+    switch (w25qxxx) {
         case W25Q128:
             break;
 
         case W25Q256:
-            if(w25qxxx_Read_ADS(w25qxxx) == 0)
+            if (w25qxxx_Read_ADS(w25qxxx) == 0)
                 w25q256_Enter4ByteAddressMode(w25qxxx);
 
             break;
@@ -1490,8 +1452,7 @@ void w25qxxx_Test(uint8_t w25qxxx)
 //  Tx_Buffer = (uint8_t*)malloc(BufferLength);
 //  Rx_Buffer = (uint8_t*)malloc(BufferLength);
 
-    if(Tx_Buffer == NULL || Rx_Buffer == NULL)
-    {
+    if (Tx_Buffer == NULL || Rx_Buffer == NULL) {
         kinetis_debug_trace(KERN_DEBUG, "Failed to allocate memory !");
         return;
     }
@@ -1501,8 +1462,7 @@ void w25qxxx_Test(uint8_t w25qxxx)
 
     Random_Get8bit(&hrng, &TmpRngdata);
 
-    switch(g_w25qxxx)
-    {
+    switch (g_w25qxxx) {
         case W25Q128:
             TestAddr = TmpRngdata & 0xFFFFFF;
             break;
@@ -1518,8 +1478,7 @@ void w25qxxx_Test(uint8_t w25qxxx)
 
     kinetis_debug_trace(KERN_DEBUG, "TestAddr = 0x%08X.", TestAddr);
 
-    for(uint16_t i = 0; i < BufferLength; i += 4)
-    {
+    for (uint16_t i = 0; i < BufferLength; i += 4) {
         Random_Get8bit(&hrng, &TmpRngdata);
         Tx_Buffer[i + 3] = (TmpRngdata & 0xFF000000) >> 24;;
         Tx_Buffer[i + 2] = (TmpRngdata & 0x00FF0000) >> 16;
@@ -1536,13 +1495,11 @@ void w25qxxx_Test(uint8_t w25qxxx)
     w25qxxx_WriteData(w25qxxx, TestAddr, Tx_Buffer, BufferLength);
     w25qxxx_ReadData(w25qxxx, TestAddr, Rx_Buffer, BufferLength);
 
-    for(uint16_t i = 0; i < BufferLength; i++)
-    {
+    for (uint16_t i = 0; i < BufferLength; i++) {
 //    kinetis_debug_trace(KERN_DEBUG, "Tx_Buffer[%d] = 0x%02X, Rx_Buffer[%d] = 0x%02X",
 //                   i, Tx_Buffer[i],
 //                   i, Rx_Buffer[i]);
-        if(Tx_Buffer[i] != Rx_Buffer[i])
-        {
+        if (Tx_Buffer[i] != Rx_Buffer[i]) {
             kinetis_debug_trace(KERN_DEBUG, "Tx_Buffer[%d] = 0x%02X, Rx_Buffer[%d] = 0x%02X",
                 i, Tx_Buffer[i],
                 i, Rx_Buffer[i]);
@@ -1569,19 +1526,18 @@ int t_at24cxx_ReadWirte(int argc, char **argv)
     uint16_t times = 128;
     uint16_t i = 0, j = 0;
 
-    if(argc > 1)
+    if (argc > 1)
         times = strtoul(argv[1], &argv[1], 10);
 
-    for(j = 0; j < times; j++)
-    {
+    for (j = 0; j < times; j++) {
         BufferLength = Random_Get8bit();
 
-        if(BufferLength <= 0)
+        if (BufferLength <= 0)
             BufferLength = 10;
 
         TestAddr = Random_Get8bit();
 
-        if(BufferLength >= (AT24CXX_MAX_ADDR - TestAddr + 1))
+        if (BufferLength >= (AT24CXX_MAX_ADDR - TestAddr + 1))
             BufferLength = AT24CXX_MAX_ADDR - TestAddr + 1;
 
         memset(Tx_Buffer, 0, BufferLength);
@@ -1589,16 +1545,14 @@ int t_at24cxx_ReadWirte(int argc, char **argv)
         kinetis_debug_trace(KERN_DEBUG, "BufferLength = %d.", BufferLength);
         kinetis_debug_trace(KERN_DEBUG, "TestAddr = 0x%02X.", TestAddr);
 
-        for(i = 0; i < BufferLength; i++)
+        for (i = 0; i < BufferLength; i++)
             Tx_Buffer[i] = Random_Get8bit();
 
         at24cxx_WriteData(TestAddr, Tx_Buffer, BufferLength);
         at24cxx_ReadData(TestAddr, Rx_Buffer, BufferLength);
 
-        for(i = 0; i < BufferLength; i++)
-        {
-            if(Tx_Buffer[i] != Rx_Buffer[i])
-            {
+        for (i = 0; i < BufferLength; i++) {
+            if (Tx_Buffer[i] != Rx_Buffer[i]) {
                 kinetis_debug_trace(KERN_DEBUG, "Tx_Buffer[%d] = 0x%02X, Rx_Buffer[%d] = 0x%02X",
                     i, Tx_Buffer[i], i, Rx_Buffer[i]);
                 kinetis_debug_trace(KERN_DEBUG, "Data writes and reads do not match, TEST FAILED !");

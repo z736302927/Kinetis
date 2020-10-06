@@ -123,8 +123,7 @@ void icm20602_PortMultiReceive(uint8_t Addr, uint8_t *pData, uint32_t Length)
 void icm20602_ReadGyroLPOffsetRegisters(uint8_t Axis, uint8_t *pData)
 {
 
-    switch(Axis)
-    {
+    switch (Axis) {
         case X_AXIS:
             icm20602_PortReceive(XG_OFFS_TC_H, pData);
             break;
@@ -150,8 +149,7 @@ void icm20602_WriteGyroLPOffsetRegisters(uint8_t Axis, uint16_t Data)
 
     Data &= 0x3F;
 
-    switch(Axis)
-    {
+    switch (Axis) {
         case X_AXIS:
             icm20602_PortReceive(XG_OFFS_TC_H, &TmpReg);
             TmpReg &= ~(0x3F << 2);
@@ -183,8 +181,7 @@ void icm20602_ReadGyroTCOffsetRegisters(uint8_t Axis, uint16_t *pData)
     uint8_t SubData1 = 0;
     uint8_t SubData2 = 0;
 
-    switch(Axis)
-    {
+    switch (Axis) {
         case X_AXIS:
             icm20602_PortReceive(XG_OFFS_TC_H, &SubData1);
             icm20602_PortReceive(XG_OFFS_TC_L, &SubData2);
@@ -214,8 +211,7 @@ void icm20602_WriteGyroTCOffsetRegisters(uint8_t Axis, uint16_t Data)
 
     Data &= 0x3FF;
 
-    switch(Axis)
-    {
+    switch (Axis) {
         case X_AXIS:
             icm20602_PortReceive(XG_OFFS_TC_H, &SubData1);
             icm20602_PortReceive(XG_OFFS_TC_L, &SubData2);
@@ -253,8 +249,7 @@ void icm20602_WriteGyroTCOffsetRegisters(uint8_t Axis, uint16_t Data)
 
 void icm20602_ReadAccelSelfTestRegisters(uint8_t Axis, uint8_t *pData)
 {
-    switch(Axis)
-    {
+    switch (Axis) {
         case X_AXIS:
             icm20602_PortReceive(SELF_TEST_X_ACCEL, pData);
             break;
@@ -274,8 +269,7 @@ void icm20602_ReadAccelSelfTestRegisters(uint8_t Axis, uint8_t *pData)
 
 void icm20602_WriteAccelSelfTestRegisters(uint8_t Axis, uint8_t Data)
 {
-    switch(Axis)
-    {
+    switch (Axis) {
         case X_AXIS:
             icm20602_PortTransmmit(SELF_TEST_X_ACCEL, Data);
             break;
@@ -298,8 +292,7 @@ void icm20602_ReadGyroOffsetRegisters(uint8_t Axis, uint16_t *pData)
     uint8_t SubData1 = 0;
     uint8_t SubData2 = 0;
 
-    switch(Axis)
-    {
+    switch (Axis) {
         case X_AXIS:
             icm20602_PortReceive(XG_OFFS_USRH, &SubData1);
             icm20602_PortReceive(XG_OFFS_USRL, &SubData2);
@@ -330,8 +323,7 @@ void icm20602_WriteGyroOffsetRegisters(uint8_t Axis, uint16_t Data)
     SubData1 = Data >> 8;
     SubData2 = Data & 0xFF;
 
-    switch(Axis)
-    {
+    switch (Axis) {
         case X_AXIS:
             icm20602_PortTransmmit(XG_OFFS_USRH, SubData1);
             icm20602_PortTransmmit(XG_OFFS_USRL, SubData2);
@@ -403,8 +395,7 @@ void icm20602_GyroSelfTest(uint8_t Axis, uint8_t Data)
     icm20602_PortReceive(GYRO_CONFIG, &TmpReg);
     Data &= 0x01;
 
-    switch(Axis)
-    {
+    switch (Axis) {
         case X_AXIS:
             TmpReg &= ~(0x01 << 7);
             TmpReg |= (Data << 7);
@@ -460,8 +451,7 @@ void icm20602_AccelSelfTest(uint8_t Axis, uint8_t Data)
     icm20602_PortReceive(ACCEL_CONFIG, &TmpReg);
     Data &= 0x01;
 
-    switch(Axis)
-    {
+    switch (Axis) {
         case X_AXIS:
             TmpReg &= ~(0x01 << 7);
             TmpReg |= (Data << 7);
@@ -564,8 +554,7 @@ void icm20602_AveragingFilterForLPGyro(uint8_t Data)
 
 void icm20602_WakeonMotionThreshold(uint8_t Axis, uint8_t Data)
 {
-    switch(Axis)
-    {
+    switch (Axis) {
         case X_AXIS:
             icm20602_PortTransmmit(ACCEL_WOM_X_THR, Data);
             break;
@@ -615,7 +604,7 @@ uint8_t icm20602_StatusOfFsyncInt(void)
 
     icm20602_PortReceive(FSYNC_INT, &TmpReg);
 
-    if(TmpReg & 0x80)
+    if (TmpReg & 0x80)
         return 1;
     else
         return 0;
@@ -705,7 +694,7 @@ uint8_t icm20602_StatusOfWatermarkInt(void)
 
     icm20602_PortReceive(FIFO_WM_INT_STATUS, &TmpReg);
 
-    if(TmpReg & 0x40)
+    if (TmpReg & 0x40)
         return 1;
     else
         return 0;
@@ -717,7 +706,7 @@ uint8_t icm20602_IntStatusForWakeOnMotion(void)
 
     icm20602_PortReceive(INT_STATUS, &TmpReg);
 
-    if(TmpReg & 0x40)
+    if (TmpReg & 0x40)
         return 1;
     else
         return 0;
@@ -729,7 +718,7 @@ uint8_t icm20602_IntStatusForFIFOOverflow(void)
 
     icm20602_PortReceive(INT_STATUS, &TmpReg);
 
-    if(TmpReg & 0x10)
+    if (TmpReg & 0x10)
         return 1;
     else
         return 0;
@@ -741,7 +730,7 @@ uint8_t icm20602_IntStatusForFsync(void)
 
     icm20602_PortReceive(INT_STATUS, &TmpReg);
 
-    if(TmpReg & 0x08)
+    if (TmpReg & 0x08)
         return 1;
     else
         return 0;
@@ -809,8 +798,7 @@ void icm20602_GetAccelAndGyro(uint16_t *pData)
 
 void icm20602_ReadGyroSelfTestRegisters(uint8_t Axis, uint8_t *pData)
 {
-    switch(Axis)
-    {
+    switch (Axis) {
         case X_AXIS:
             icm20602_PortReceive(SELF_TEST_X_GYRO, pData);
             break;
@@ -830,8 +818,7 @@ void icm20602_ReadGyroSelfTestRegisters(uint8_t Axis, uint8_t *pData)
 
 void icm20602_WriteGyroSelfTestRegisters(uint8_t Axis, uint8_t Data)
 {
-    switch(Axis)
-    {
+    switch (Axis) {
         case X_AXIS:
             icm20602_PortTransmmit(SELF_TEST_X_GYRO, Data);
             break;
@@ -1072,8 +1059,7 @@ void icm20602_AccelDisabled(uint8_t Axis, uint8_t Data)
     icm20602_PortReceive(PWR_MGMT_2, &TmpReg);
     Data &= 0x01;
 
-    switch(Axis)
-    {
+    switch (Axis) {
         case X_AXIS:
             TmpReg &= ~(0x01 << 5);
             TmpReg |= (Data << 5);
@@ -1103,8 +1089,7 @@ void icm20602_GyroDisabled(uint8_t Axis, uint8_t Data)
     icm20602_PortReceive(PWR_MGMT_2, &TmpReg);
     Data &= 0x01;
 
-    switch(Axis)
-    {
+    switch (Axis) {
         case X_AXIS:
             TmpReg &= ~(0x01 << 2);
             TmpReg |= (Data << 2);
@@ -1168,8 +1153,7 @@ void mpu9250_ReadAccelOffsetRegisters(uint8_t Axis, uint16_t *pData)
     uint8_t SubData1 = 0;
     uint8_t SubData2 = 0;
 
-    switch(Axis)
-    {
+    switch (Axis) {
         case X_AXIS:
             icm20602_PortReceive(XA_OFFSET_H, &SubData1);
             icm20602_PortReceive(XA_OFFSET_L, &SubData2);
@@ -1200,8 +1184,7 @@ void mpu9250_WriteAccelOffsetRegisters(uint8_t Axis, uint16_t Data)
     SubData1 = Data >> 7;
     SubData2 = (Data & 0xFE) >> 1;
 
-    switch(Axis)
-    {
+    switch (Axis) {
         case X_AXIS:
             icm20602_PortTransmmit(XA_OFFSET_H, SubData1);
             icm20602_PortTransmmit(XA_OFFSET_L, SubData2);
@@ -1236,8 +1219,7 @@ void icm20602_Test(void)
     BufferLength = TmpRngdata & 0xFF;
     icm20602_printf("BufferLength = %d.", BufferLength);
 
-    if(Tx_Buffer == NULL || Rx_Buffer == NULL)
-    {
+    if (Tx_Buffer == NULL || Rx_Buffer == NULL) {
         icm20602_printf("Failed to allocate memory !");
         return;
     }
@@ -1249,8 +1231,7 @@ void icm20602_Test(void)
     TestAddr = TmpRngdata & 0xFF;
     icm20602_printf("TestAddr = 0x%02X.", TestAddr);
 
-    for(uint16_t i = 0; i < BufferLength; i += 4)
-    {
+    for (uint16_t i = 0; i < BufferLength; i += 4) {
         Random_Get8bit(&hrng, &TmpRngdata);
         Tx_Buffer[i + 3] = (TmpRngdata & 0xFF000000) >> 24;;
         Tx_Buffer[i + 2] = (TmpRngdata & 0x00FF0000) >> 16;
@@ -1261,10 +1242,8 @@ void icm20602_Test(void)
     icm20602_WriteData(TestAddr, Tx_Buffer, BufferLength);
     icm20602_ReadData(TestAddr, Rx_Buffer, BufferLength);
 
-    for(uint16_t i = 0; i < BufferLength; i++)
-    {
-        if(Tx_Buffer[i] != Rx_Buffer[i])
-        {
+    for (uint16_t i = 0; i < BufferLength; i++) {
+        if (Tx_Buffer[i] != Rx_Buffer[i]) {
             icm20602_printf("Tx_Buffer[%d] = 0x%02X, Rx_Buffer[%d] = 0x%02X",
                 i, Tx_Buffer[i],
                 i, Rx_Buffer[i]);

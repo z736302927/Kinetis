@@ -32,24 +32,21 @@ SerialPort_TypeDef NB_IOT_UART1;
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-    if(huart->Instance == UART4)
+    if (huart->Instance == UART4)
         NB_IOT_UART1.Tx_SendDone = 1;
 
-    if(huart->Instance == USART1)
-    {
+    if (huart->Instance == USART1) {
 
     }
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-    if(huart->Instance == USART1)
-    {
+    if (huart->Instance == USART1) {
 //    HAL_UART_Receive_IT(&huart1, (uint8_t*)NB_IOT_UART1.RxBuffer, NB_IOT_UART1.RxBuffer_Size);
     }
 
-    if(huart->Instance == UART4)
-    {
+    if (huart->Instance == UART4) {
 //    HAL_UART_Receive_IT(&huart4, (uint8_t*)NB_IOT_UART1.RxBuffer, NB_IOT_UART1.RxBuffer_Size);
     }
 }
@@ -80,8 +77,7 @@ void NB_IOT_UART_Open(NB_RxCallback cb, uint32_t baud)
     NB_IOT_UART1.RxBuffer_Size = NB_IOT_UART_RXBUFFER_SIZE;
     NB_IOT_UART1.RxBuffer = (uint16_t *)kmalloc(NB_IOT_UART1.RxBuffer_Size * sizeof(NB_IOT_UART_RXBUFFER_TYPE), __GFP_ZERO);
 
-    if(NB_IOT_UART1.RxBuffer == NULL)
-    {
+    if (NB_IOT_UART1.RxBuffer == NULL) {
         NB_IOT_UART_printf("NB_IOT_UART malloc failed !");
         return;
     }
@@ -113,24 +109,21 @@ void NB_IOT_UART_Receive(void)
 //  {
     NB_IOT_UART_RxBuffer_FindTail();
 
-    if(NB_IOT_UART1.Rx_pHead != NB_IOT_UART1.Rx_pTail)
-    {
-        if(rxdata_tmptail != NB_IOT_UART1.Rx_pTail)
+    if (NB_IOT_UART1.Rx_pHead != NB_IOT_UART1.Rx_pTail) {
+        if (rxdata_tmptail != NB_IOT_UART1.Rx_pTail)
             NB_IOT_UART1.RxBeginTime = NB_IOT_UART_GetTick();
-        else
-        {
+        else {
             NB_IOT_UART1.RxCurrentTime = NB_IOT_UART_GetTick();
             NB_IOT_UART1.RxTimeDiff = NB_IOT_UART1.RxCurrentTime >= NB_IOT_UART1.RxBeginTime ?
                 NB_IOT_UART1.RxCurrentTime - NB_IOT_UART1.RxBeginTime :
                 NB_IOT_UART1.RxCurrentTime + UINT32_MAX - NB_IOT_UART1.RxBeginTime;
 
-            if(NB_IOT_UART1.RxTimeDiff > NB_IOT_UART1.RxScanInterval)
+            if (NB_IOT_UART1.RxTimeDiff > NB_IOT_UART1.RxScanInterval)
                 wait_rx_done = 1;
         }
     }
 
-    if(wait_rx_done == 1)
-    {
+    if (wait_rx_done == 1) {
         NB_IOT_UART1.Tx_SendDone = 0;
         NB_IOT_UART_Extract_ValidData();
     }
@@ -142,16 +135,15 @@ void NB_IOT_UART_RxBuffer_FindTail(void)
 {
     uint16_t buffer_cnt = 0;
 
-    while((NB_IOT_UART1.RxBuffer[NB_IOT_UART1.Rx_pTail] >> 8) != 0xFF)
-    {
+    while ((NB_IOT_UART1.RxBuffer[NB_IOT_UART1.Rx_pTail] >> 8) != 0xFF) {
         buffer_cnt++;
 
-        if(NB_IOT_UART1.Rx_pTail == NB_IOT_UART_RXBUFFER_SIZE - 1)
+        if (NB_IOT_UART1.Rx_pTail == NB_IOT_UART_RXBUFFER_SIZE - 1)
             NB_IOT_UART1.Rx_pTail = 0;
         else
             NB_IOT_UART1.Rx_pTail++;
 
-        if(buffer_cnt == NB_IOT_UART_RXBUFFER_SIZE - 1)
+        if (buffer_cnt == NB_IOT_UART_RXBUFFER_SIZE - 1)
             break;
     }
 }
@@ -164,33 +156,28 @@ void NB_IOT_UART_Extract_ValidData(void)
 
     memset(rxdata_tmp, 0, sizeof(rxdata_tmp));
 
-    if(NB_IOT_UART1.Rx_pTail > NB_IOT_UART1.Rx_pHead)
-    {
+    if (NB_IOT_UART1.Rx_pTail > NB_IOT_UART1.Rx_pHead) {
         rxdata_size = NB_IOT_UART1.Rx_pTail - NB_IOT_UART1.Rx_pHead;
 
-        for(i = NB_IOT_UART1.Rx_pHead, j = 0; i < NB_IOT_UART1.Rx_pTail; i++, j++)
+        for (i = NB_IOT_UART1.Rx_pHead, j = 0; i < NB_IOT_UART1.Rx_pTail; i++, j++)
             rxdata_tmp[j] = NB_IOT_UART1.RxBuffer[i];
 
         memset(&NB_IOT_UART1.RxBuffer[NB_IOT_UART1.Rx_pHead], 0xFF, rxdata_size * sizeof(NB_IOT_UART_RXBUFFER_TYPE));
-    }
-    else if(NB_IOT_UART1.Rx_pTail < NB_IOT_UART1.Rx_pHead)
-    {
+    } else if (NB_IOT_UART1.Rx_pTail < NB_IOT_UART1.Rx_pHead) {
         rxdata_size = NB_IOT_UART_RXBUFFER_SIZE - NB_IOT_UART1.Rx_pHead + NB_IOT_UART1.Rx_pTail;
 
-        for(i = NB_IOT_UART1.Rx_pHead, j = 0; i < NB_IOT_UART_RXBUFFER_SIZE; i++, j++)
+        for (i = NB_IOT_UART1.Rx_pHead, j = 0; i < NB_IOT_UART_RXBUFFER_SIZE; i++, j++)
             rxdata_tmp[j] = NB_IOT_UART1.RxBuffer[i];
 
-        for(i = 0; i < NB_IOT_UART1.Rx_pTail; i++, j++)
+        for (i = 0; i < NB_IOT_UART1.Rx_pTail; i++, j++)
             rxdata_tmp[j] = NB_IOT_UART1.RxBuffer[i];
 
         memset(&NB_IOT_UART1.RxBuffer[NB_IOT_UART1.Rx_pHead], 0xFF, (NB_IOT_UART_RXBUFFER_SIZE - NB_IOT_UART1.Rx_pHead) * sizeof(NB_IOT_UART_RXBUFFER_TYPE));
         memset(&NB_IOT_UART1.RxBuffer[0], 0xFF, NB_IOT_UART1.Rx_pTail * sizeof(NB_IOT_UART_RXBUFFER_TYPE));
-    }
-    else
+    } else
         rxdata_size = 0;
 
-    if(rxdata_size != 0)
-    {
+    if (rxdata_size != 0) {
         NB_IOT_UART_RxBuffer_Process(rxdata_tmp, rxdata_size);
 
         NB_IOT_UART1.Rx_pHead = NB_IOT_UART1.Rx_pTail;

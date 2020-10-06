@@ -56,8 +56,7 @@ void HydrologyTask_Test_Callback(void)
     float floatvalue;
     uint8_t i;
     HydrologyElement Elment;
-    HydrologyElementInfo Element_table[] =
-    {
+    HydrologyElementInfo Element_table[] = {
         HYDROLOGY_E_DT,
         NULL
     };
@@ -65,8 +64,7 @@ void HydrologyTask_Test_Callback(void)
 
     floatvalue = 12;
 
-    for(i = 0; i < 1; i++)
-    {
+    for (i = 0; i < 1; i++) {
         Hydrology_MallocElement(Element_table[i].ID,
             Element_table[i].D, Element_table[i].d,
             &Elment);
@@ -130,8 +128,7 @@ void HydrologyTask_Init(void)
 
     Hydrology_ReadStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_AI, &interval, 1);
 
-    if(interval != 0)
-    {
+    if (interval != 0) {
         RTCTask_Init(&HydrologyTask_AddReport, HydrologyTask_AddReport_Callback, 0, interval, 0);
         RTCTask_Start(&HydrologyTask_AddReport);
     }

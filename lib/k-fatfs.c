@@ -33,31 +33,26 @@ void FatFs_Init(void)
     retSD = FATFS_LinkDriver(&FLASHDISK_Driver, DISKPath);
 
     /* additional user code for init */
-    if(retSD == 0)
-    {
+    if (retSD == 0) {
         FRESULT res;
 
         res = f_mount(&DISKFatFs, (TCHAR const *)DISKPath, 0);
 
-        if(res == FR_NO_FILESYSTEM)
-        {
+        if (res == FR_NO_FILESYSTEM) {
             res = f_mkfs((const TCHAR *)DISKPath, 0, workBuffer, sizeof(workBuffer));
 
-            if(res != FR_OK)
-            {
+            if (res != FR_OK) {
                 kinetis_debug_trace(KERN_ERR, " ");
                 Printf_FatFs_Err(res);
 
-                while(1)
+                while (1)
                     ;
             }
         }
-    }
-    else
-    {
+    } else {
         kinetis_debug_trace(KERN_ERR, " ");
 
-        while(1)
+        while (1)
             ;
     }
 }
@@ -65,8 +60,7 @@ void FatFs_Init(void)
 
 void Printf_FatFs_Err(FRESULT fresult)
 {
-    switch(fresult)
-    {
+    switch (fresult) {
         case FR_OK:                   //(0)
             kinetis_debug_trace(KERN_DEBUG, "Operation successful.");
             break;
@@ -172,22 +166,20 @@ FRESULT Miscellaneous(void)
     kinetis_debug_trace(KERN_DEBUG, "File location and formatting write function test");
     res = f_open(&MyFile, "FatFs.txt", FA_OPEN_EXISTING | FA_WRITE | FA_READ);
 
-    if(res == FR_OK)
-    {
+    if (res == FR_OK) {
         /* File location */
         res = f_lseek(&MyFile, f_size(&MyFile) - 1);
 
-        if(res == FR_OK)
-        {
+        if (res == FR_OK) {
             /* Format write, parameter format similar to printf function. */
             byteswritten = f_printf(&MyFile, "add a new line to the original file.");
 
-            if(byteswritten == EOF)
+            if (byteswritten == EOF)
                 kinetis_debug_trace(KERN_ERR, " ");
 
             byteswritten = f_printf(&MyFile, "Total equipment space:%6lu MB.\r\nAvailable space: %6lu MB.", tot_sect * 4 / 1024, fre_sect * 4 / 1024);
 
-            if(byteswritten == EOF)
+            if (byteswritten == EOF)
                 kinetis_debug_trace(KERN_ERR, " ");
 
             /* The file is positioned at the start of the file. */
@@ -195,7 +187,7 @@ FRESULT Miscellaneous(void)
             /* Read all contents of the file into the cache. */
             res = f_read(&MyFile, rtext, f_size(&MyFile), &bytesread);
 
-            if(res == FR_OK)
+            if (res == FR_OK)
                 kinetis_debug_trace(KERN_DEBUG, "The file content£º%s", rtext);
         }
 
@@ -205,27 +197,21 @@ FRESULT Miscellaneous(void)
         /* Try opening a directory. */
         res = f_opendir(&MyDir, "TestDir");
 
-        if(res != FR_OK)
-        {
+        if (res != FR_OK) {
             /* Failure to open directory, create directory. */
             res = f_mkdir("TestDir");
-        }
-        else
-        {
+        } else {
             /* If the directory already exists, close it. */
             res = f_closedir(&MyDir);
             /* Delete the file */
             f_unlink("TestDir/testdir.txt");
         }
 
-        if(res == FR_OK)
-        {
+        if (res == FR_OK) {
             /* Rename and move files. */
             res = f_rename("FatFs.txt", "TestDir/testdir.txt");
         }
-    }
-    else
-    {
+    } else {
         kinetis_debug_trace(KERN_DEBUG, "Failed to open file£º%d", res);
         kinetis_debug_trace(KERN_DEBUG, "You may need to run the FatFs migration and read and write test project again.");
     }
@@ -249,28 +235,25 @@ static FRESULT FatFs_Scan_Files(char *path)
     //Open directory
     res = f_opendir(&MyDir, path);
 
-    if(res == FR_OK)
-    {
+    if (res == FR_OK) {
         i = strlen(path);
 
-        for(;;)
-        {
+        for (;;) {
             //Reading the contents of the directory automatically reads the next file.
             res = f_readdir(&MyDir, &fno);
 
             //Is empty means all items read, jump out.
-            if(res != FR_OK || fno.fname[0] == 0)
+            if (res != FR_OK || fno.fname[0] == 0)
                 break;
 
             fn = fno.fname;
 
             //Dot to indicate current directory, skip.
-            if(*fn == '.')
+            if (*fn == '.')
                 continue;
 
             //Directory, recursive read
-            if(fno.fattrib & AM_DIR)
-            {
+            if (fno.fattrib & AM_DIR) {
                 //Synthesize the full directory name.
                 sprintf(&path[i], "/%s", fn);
                 //The recursive traversal.
@@ -278,11 +261,9 @@ static FRESULT FatFs_Scan_Files(char *path)
                 path[i] = 0;
 
                 //Turn failure on and out of the loop.
-                if(res != FR_OK)
+                if (res != FR_OK)
                     break;
-            }
-            else
-            {
+            } else {
                 kinetis_debug_trace(KERN_DEBUG, "%s/%s", path, fn);                //Output file name
                 /* Here you can extract the file path for a particular format. */
             }
@@ -306,12 +287,11 @@ FRESULT FatFs_Open_Append(
     /* Opens an existing file. If not exist, creates a new file. */
     fr = f_open(fp, path, FA_WRITE | FA_OPEN_ALWAYS);
 
-    if(fr == FR_OK)
-    {
+    if (fr == FR_OK) {
         /* Seek to end of the file to append data */
         fr = f_lseek(fp, f_size(fp));
 
-        if(fr != FR_OK)
+        if (fr != FR_OK)
             f_close(fp);
     }
 
@@ -337,50 +317,44 @@ FRESULT FatFs_Delete_Node(
 
     fr = f_opendir(&dir, path); /* Open the sub-directory to make it empty */
 
-    if(fr != FR_OK)
+    if (fr != FR_OK)
         return fr;
 
-    for(i = 0; path[i]; i++) ;  /* Get current path length */
+    for (i = 0; path[i]; i++) ; /* Get current path length */
 
     path[i++] = _T('/');
 
-    for(;;)
-    {
+    for (;;) {
         fr = f_readdir(&dir, fno);  /* Get a directory item */
 
-        if(fr != FR_OK || !fno->fname[0])
-        {
+        if (fr != FR_OK || !fno->fname[0]) {
             break;  /* End of directory? */
         }
 
         j = 0;
 
-        do      /* Make a path name */
-        {
-            if(i + j >= sz_buff)    /* Buffer over flow? */
-            {
+        do {    /* Make a path name */
+            if (i + j >= sz_buff) { /* Buffer over flow? */
                 fr = 100;
                 break;    /* Fails with 100 when buffer overflow */
             }
 
             path[i + j] = fno->fname[j];
-        }
-        while(fno->fname[j++]);
+        } while (fno->fname[j++]);
 
-        if(fno->fattrib & AM_DIR)       /* Item is a sub-directory */
+        if (fno->fattrib & AM_DIR)      /* Item is a sub-directory */
             fr = FatFs_Delete_Node(path, sz_buff, fno);
         else                            /* Item is a file */
             fr = f_unlink(path);
 
-        if(fr != FR_OK)
+        if (fr != FR_OK)
             break;
     }
 
     path[--i] = 0;  /* Restore the path name */
     f_closedir(&dir);
 
-    if(fr == FR_OK)
-    {
+    if (fr == FR_OK) {
         fr = f_unlink(path);  /* Delete the empty sub-directory */
     }
 
@@ -401,20 +375,17 @@ static DWORD FatFs_Diskio_Pseudo(        /* Pseudo random number generator */
     UINT n;
 
 
-    if(pns)
-    {
+    if (pns) {
         lfsr = pns;
 
-        for(n = 0; n < 32; n++)
+        for (n = 0; n < 32; n++)
             FatFs_Diskio_Pseudo(0);
     }
 
-    if(lfsr & 1)
-    {
+    if (lfsr & 1) {
         lfsr >>= 1;
         lfsr ^= 0x80200003;
-    }
-    else
+    } else
         lfsr >>= 1;
 
     return lfsr;
@@ -437,25 +408,21 @@ int FatFs_Diskio(
 
     kinetis_debug_trace(KERN_DEBUG, "test_diskio(%u, %u, 0x%08X, 0x%08X)", pdrv, ncyc, (UINT)buff, sz_buff);
 
-    if(sz_buff < FF_MAX_SS + 8)
-    {
+    if (sz_buff < FF_MAX_SS + 8) {
         kinetis_debug_trace(KERN_DEBUG, "Insufficient work area to run the program.");
         return 1;
     }
 
-    for(cc = 1; cc <= ncyc; cc++)
-    {
+    for (cc = 1; cc <= ncyc; cc++) {
         kinetis_debug_trace(KERN_DEBUG, "**** Test cycle %u of %u start ****", cc, ncyc);
 
         kinetis_debug_trace(KERN_DEBUG, " disk_initalize(%u)", pdrv);
         ds = disk_initialize(pdrv);
 
-        if(ds & STA_NOINIT)
-        {
+        if (ds & STA_NOINIT) {
             kinetis_debug_trace(KERN_DEBUG, " - failed.");
             return 2;
-        }
-        else
+        } else
             kinetis_debug_trace(KERN_DEBUG, " - ok.");
 
         kinetis_debug_trace(KERN_DEBUG, "**** Get drive size ****");
@@ -463,16 +430,14 @@ int FatFs_Diskio(
         sz_drv = 0;
         dr = disk_ioctl(pdrv, GET_SECTOR_COUNT, &sz_drv);
 
-        if(dr == RES_OK)
+        if (dr == RES_OK)
             kinetis_debug_trace(KERN_DEBUG, " - ok.");
-        else
-        {
+        else {
             kinetis_debug_trace(KERN_DEBUG, " - failed.");
             return 3;
         }
 
-        if(sz_drv < 128)
-        {
+        if (sz_drv < 128) {
             kinetis_debug_trace(KERN_DEBUG, "Failed: Insufficient drive size to test.");
             return 4;
         }
@@ -485,10 +450,9 @@ int FatFs_Diskio(
         sz_sect = 0;
         dr = disk_ioctl(pdrv, GET_SECTOR_SIZE, &sz_sect);
 
-        if(dr == RES_OK)
+        if (dr == RES_OK)
             kinetis_debug_trace(KERN_DEBUG, " - ok.");
-        else
-        {
+        else {
             kinetis_debug_trace(KERN_DEBUG, " - failed.");
             return 5;
         }
@@ -503,12 +467,12 @@ int FatFs_Diskio(
         sz_eblk = 0;
         dr = disk_ioctl(pdrv, GET_BLOCK_SIZE, &sz_eblk);
 
-        if(dr == RES_OK)
+        if (dr == RES_OK)
             kinetis_debug_trace(KERN_DEBUG, " - ok.");
         else
             kinetis_debug_trace(KERN_DEBUG, " - failed.");
 
-        if(dr == RES_OK || sz_eblk >= 2)
+        if (dr == RES_OK || sz_eblk >= 2)
             kinetis_debug_trace(KERN_DEBUG, " Size of the erase block is %lu sectors.", sz_eblk);
         else
             kinetis_debug_trace(KERN_DEBUG, " Size of the erase block is unknown.");
@@ -517,16 +481,15 @@ int FatFs_Diskio(
         kinetis_debug_trace(KERN_DEBUG, "**** Single sector write test ****");
         lba = 0;
 
-        for(n = 0, FatFs_Diskio_Pseudo(pns); n < sz_sect; n++)
+        for (n = 0, FatFs_Diskio_Pseudo(pns); n < sz_sect; n++)
             pbuff[n] = (BYTE)FatFs_Diskio_Pseudo(0);
 
         kinetis_debug_trace(KERN_DEBUG, " disk_write(%u, 0x%X, %lu, 1)", pdrv, (UINT)pbuff, lba);
         dr = disk_write(pdrv, pbuff, lba, 1);
 
-        if(dr == RES_OK)
+        if (dr == RES_OK)
             kinetis_debug_trace(KERN_DEBUG, " - ok.");
-        else
-        {
+        else {
             kinetis_debug_trace(KERN_DEBUG, " - failed.");
             return 6;
         }
@@ -534,10 +497,9 @@ int FatFs_Diskio(
         kinetis_debug_trace(KERN_DEBUG, " disk_ioctl(%u, CTRL_SYNC, NULL)", pdrv);
         dr = disk_ioctl(pdrv, CTRL_SYNC, 0);
 
-        if(dr == RES_OK)
+        if (dr == RES_OK)
             kinetis_debug_trace(KERN_DEBUG, " - ok.");
-        else
-        {
+        else {
             kinetis_debug_trace(KERN_DEBUG, " - failed.");
             return 7;
         }
@@ -546,20 +508,18 @@ int FatFs_Diskio(
         kinetis_debug_trace(KERN_DEBUG, " disk_read(%u, 0x%X, %lu, 1)", pdrv, (UINT)pbuff, lba);
         dr = disk_read(pdrv, pbuff, lba, 1);
 
-        if(dr == RES_OK)
+        if (dr == RES_OK)
             kinetis_debug_trace(KERN_DEBUG, " - ok.");
-        else
-        {
+        else {
             kinetis_debug_trace(KERN_DEBUG, " - failed.");
             return 8;
         }
 
-        for(n = 0, FatFs_Diskio_Pseudo(pns); n < sz_sect && pbuff[n] == (BYTE)FatFs_Diskio_Pseudo(0); n++) ;
+        for (n = 0, FatFs_Diskio_Pseudo(pns); n < sz_sect && pbuff[n] == (BYTE)FatFs_Diskio_Pseudo(0); n++) ;
 
-        if(n == sz_sect)
+        if (n == sz_sect)
             kinetis_debug_trace(KERN_DEBUG, " Read data matched.");
-        else
-        {
+        else {
             kinetis_debug_trace(KERN_DEBUG, " Read data differs from the data written.");
             return 10;
         }
@@ -570,21 +530,19 @@ int FatFs_Diskio(
         lba = 5;
         ns = sz_buff / sz_sect;
 
-        if(ns > 4)
+        if (ns > 4)
             ns = 4;
 
-        if(ns > 1)
-        {
-            for(n = 0, FatFs_Diskio_Pseudo(pns); n < (UINT)(sz_sect * ns); n++)
+        if (ns > 1) {
+            for (n = 0, FatFs_Diskio_Pseudo(pns); n < (UINT)(sz_sect * ns); n++)
                 pbuff[n] = (BYTE)FatFs_Diskio_Pseudo(0);
 
             kinetis_debug_trace(KERN_DEBUG, " disk_write(%u, 0x%X, %lu, %u)", pdrv, (UINT)pbuff, lba, ns);
             dr = disk_write(pdrv, pbuff, lba, ns);
 
-            if(dr == RES_OK)
+            if (dr == RES_OK)
                 kinetis_debug_trace(KERN_DEBUG, " - ok.");
-            else
-            {
+            else {
                 kinetis_debug_trace(KERN_DEBUG, " - failed.");
                 return 11;
             }
@@ -592,10 +550,9 @@ int FatFs_Diskio(
             kinetis_debug_trace(KERN_DEBUG, " disk_ioctl(%u, CTRL_SYNC, NULL)", pdrv);
             dr = disk_ioctl(pdrv, CTRL_SYNC, 0);
 
-            if(dr == RES_OK)
+            if (dr == RES_OK)
                 kinetis_debug_trace(KERN_DEBUG, " - ok.");
-            else
-            {
+            else {
                 kinetis_debug_trace(KERN_DEBUG, " - failed.");
                 return 12;
             }
@@ -604,25 +561,22 @@ int FatFs_Diskio(
             kinetis_debug_trace(KERN_DEBUG, " disk_read(%u, 0x%X, %lu, %u)", pdrv, (UINT)pbuff, lba, ns);
             dr = disk_read(pdrv, pbuff, lba, ns);
 
-            if(dr == RES_OK)
+            if (dr == RES_OK)
                 kinetis_debug_trace(KERN_DEBUG, " - ok.");
-            else
-            {
+            else {
                 kinetis_debug_trace(KERN_DEBUG, " - failed.");
                 return 13;
             }
 
-            for(n = 0, FatFs_Diskio_Pseudo(pns); n < (UINT)(sz_sect * ns) && pbuff[n] == (BYTE)FatFs_Diskio_Pseudo(0); n++) ;
+            for (n = 0, FatFs_Diskio_Pseudo(pns); n < (UINT)(sz_sect * ns) && pbuff[n] == (BYTE)FatFs_Diskio_Pseudo(0); n++) ;
 
-            if(n == (UINT)(sz_sect * ns))
+            if (n == (UINT)(sz_sect * ns))
                 kinetis_debug_trace(KERN_DEBUG, " Read data matched.");
-            else
-            {
+            else {
                 kinetis_debug_trace(KERN_DEBUG, " Read data differs from the data written.");
                 return 14;
             }
-        }
-        else
+        } else
             kinetis_debug_trace(KERN_DEBUG, " Test skipped.");
 
         pns++;
@@ -630,16 +584,15 @@ int FatFs_Diskio(
         kinetis_debug_trace(KERN_DEBUG, "**** Single sector write test (unaligned buffer address) ****");
         lba = 5;
 
-        for(n = 0, FatFs_Diskio_Pseudo(pns); n < sz_sect; n++)
+        for (n = 0, FatFs_Diskio_Pseudo(pns); n < sz_sect; n++)
             pbuff[n + 3] = (BYTE)FatFs_Diskio_Pseudo(0);
 
         kinetis_debug_trace(KERN_DEBUG, " disk_write(%u, 0x%X, %lu, 1)", pdrv, (UINT)(pbuff + 3), lba);
         dr = disk_write(pdrv, pbuff + 3, lba, 1);
 
-        if(dr == RES_OK)
+        if (dr == RES_OK)
             kinetis_debug_trace(KERN_DEBUG, " - ok.");
-        else
-        {
+        else {
             kinetis_debug_trace(KERN_DEBUG, " - failed.");
             return 15;
         }
@@ -647,10 +600,9 @@ int FatFs_Diskio(
         kinetis_debug_trace(KERN_DEBUG, " disk_ioctl(%u, CTRL_SYNC, NULL)", pdrv);
         dr = disk_ioctl(pdrv, CTRL_SYNC, 0);
 
-        if(dr == RES_OK)
+        if (dr == RES_OK)
             kinetis_debug_trace(KERN_DEBUG, " - ok.");
-        else
-        {
+        else {
             kinetis_debug_trace(KERN_DEBUG, " - failed.");
             return 16;
         }
@@ -659,20 +611,18 @@ int FatFs_Diskio(
         kinetis_debug_trace(KERN_DEBUG, " disk_read(%u, 0x%X, %lu, 1)", pdrv, (UINT)(pbuff + 5), lba);
         dr = disk_read(pdrv, pbuff + 5, lba, 1);
 
-        if(dr == RES_OK)
+        if (dr == RES_OK)
             kinetis_debug_trace(KERN_DEBUG, " - ok.");
-        else
-        {
+        else {
             kinetis_debug_trace(KERN_DEBUG, " - failed.");
             return 17;
         }
 
-        for(n = 0, FatFs_Diskio_Pseudo(pns); n < sz_sect && pbuff[n + 5] == (BYTE)FatFs_Diskio_Pseudo(0); n++) ;
+        for (n = 0, FatFs_Diskio_Pseudo(pns); n < sz_sect && pbuff[n + 5] == (BYTE)FatFs_Diskio_Pseudo(0); n++) ;
 
-        if(n == sz_sect)
+        if (n == sz_sect)
             kinetis_debug_trace(KERN_DEBUG, " Read data matched.");
-        else
-        {
+        else {
             kinetis_debug_trace(KERN_DEBUG, " Read data differs from the data written.");
             return 18;
         }
@@ -681,21 +631,19 @@ int FatFs_Diskio(
 
         kinetis_debug_trace(KERN_DEBUG, "**** 4GB barrier test ****");
 
-        if(sz_drv >= 128 + 0x80000000 / (sz_sect / 2))
-        {
+        if (sz_drv >= 128 + 0x80000000 / (sz_sect / 2)) {
             lba = 6;
             lba2 = lba + 0x80000000 / (sz_sect / 2);
 
-            for(n = 0, FatFs_Diskio_Pseudo(pns); n < (UINT)(sz_sect * 2); n++)
+            for (n = 0, FatFs_Diskio_Pseudo(pns); n < (UINT)(sz_sect * 2); n++)
                 pbuff[n] = (BYTE)FatFs_Diskio_Pseudo(0);
 
             kinetis_debug_trace(KERN_DEBUG, " disk_write(%u, 0x%X, %lu, 1)", pdrv, (UINT)pbuff, lba);
             dr = disk_write(pdrv, pbuff, lba, 1);
 
-            if(dr == RES_OK)
+            if (dr == RES_OK)
                 kinetis_debug_trace(KERN_DEBUG, " - ok.");
-            else
-            {
+            else {
                 kinetis_debug_trace(KERN_DEBUG, " - failed.");
                 return 19;
             }
@@ -703,10 +651,9 @@ int FatFs_Diskio(
             kinetis_debug_trace(KERN_DEBUG, " disk_write(%u, 0x%X, %lu, 1)", pdrv, (UINT)(pbuff + sz_sect), lba2);
             dr = disk_write(pdrv, pbuff + sz_sect, lba2, 1);
 
-            if(dr == RES_OK)
+            if (dr == RES_OK)
                 kinetis_debug_trace(KERN_DEBUG, " - ok.");
-            else
-            {
+            else {
                 kinetis_debug_trace(KERN_DEBUG, " - failed.");
                 return 20;
             }
@@ -714,10 +661,9 @@ int FatFs_Diskio(
             kinetis_debug_trace(KERN_DEBUG, " disk_ioctl(%u, CTRL_SYNC, NULL)", pdrv);
             dr = disk_ioctl(pdrv, CTRL_SYNC, 0);
 
-            if(dr == RES_OK)
+            if (dr == RES_OK)
                 kinetis_debug_trace(KERN_DEBUG, " - ok.");
-            else
-            {
+            else {
                 kinetis_debug_trace(KERN_DEBUG, " - failed.");
                 return 21;
             }
@@ -726,10 +672,9 @@ int FatFs_Diskio(
             kinetis_debug_trace(KERN_DEBUG, " disk_read(%u, 0x%X, %lu, 1)", pdrv, (UINT)pbuff, lba);
             dr = disk_read(pdrv, pbuff, lba, 1);
 
-            if(dr == RES_OK)
+            if (dr == RES_OK)
                 kinetis_debug_trace(KERN_DEBUG, " - ok.");
-            else
-            {
+            else {
                 kinetis_debug_trace(KERN_DEBUG, " - failed.");
                 return 22;
             }
@@ -737,25 +682,22 @@ int FatFs_Diskio(
             kinetis_debug_trace(KERN_DEBUG, " disk_read(%u, 0x%X, %lu, 1)", pdrv, (UINT)(pbuff + sz_sect), lba2);
             dr = disk_read(pdrv, pbuff + sz_sect, lba2, 1);
 
-            if(dr == RES_OK)
+            if (dr == RES_OK)
                 kinetis_debug_trace(KERN_DEBUG, " - ok.");
-            else
-            {
+            else {
                 kinetis_debug_trace(KERN_DEBUG, " - failed.");
                 return 23;
             }
 
-            for(n = 0, FatFs_Diskio_Pseudo(pns); pbuff[n] == (BYTE)FatFs_Diskio_Pseudo(0) && n < (UINT)(sz_sect * 2); n++) ;
+            for (n = 0, FatFs_Diskio_Pseudo(pns); pbuff[n] == (BYTE)FatFs_Diskio_Pseudo(0) && n < (UINT)(sz_sect * 2); n++) ;
 
-            if(n == (UINT)(sz_sect * 2))
+            if (n == (UINT)(sz_sect * 2))
                 kinetis_debug_trace(KERN_DEBUG, " Read data matched.");
-            else
-            {
+            else {
                 kinetis_debug_trace(KERN_DEBUG, " Read data differs from the data written.");
                 return 24;
             }
-        }
-        else
+        } else
             kinetis_debug_trace(KERN_DEBUG, " Test skipped.");
 
         pns++;
@@ -782,7 +724,7 @@ FRESULT FatFs_Contiguous_File(
     *cont = 0;
     fr = f_lseek(fp, 0);            /* Validates and prepares the file */
 
-    if(fr != FR_OK)
+    if (fr != FR_OK)
         return fr;
 
 #if FF_MAX_SS == FF_MIN_SS
@@ -792,20 +734,17 @@ FRESULT FatFs_Contiguous_File(
 #endif
     fsz = fp->obj.objsize;
 
-    if(fsz > 0)
-    {
+    if (fsz > 0) {
         clst = fp->obj.sclust - 1;  /* A cluster leading the first cluster for first test */
 
-        while(fsz)
-        {
+        while (fsz) {
             step = (fsz >= clsz) ? clsz : (DWORD)fsz;
             fr = f_lseek(fp, f_tell(fp) + step);    /* Advances file pointer a cluster */
 
-            if(fr != FR_OK)
+            if (fr != FR_OK)
                 return fr;
 
-            if(clst + 1 != fp->clust)
-            {
+            if (clst + 1 != fp->clust) {
                 break;  /* Is not the cluster next to previous one? */
             }
 
@@ -813,8 +752,7 @@ FRESULT FatFs_Contiguous_File(
             fsz -= step;          /* Get current cluster for next test */
         }
 
-        if(fsz == 0)
-        {
+        if (fsz == 0) {
             *cont = 1;  /* All done without fail? */
         }
     }
@@ -838,8 +776,7 @@ int FatFs_Raw_Speed(
 
 #if FF_MIN_SS != FF_MAX_SS
 
-    if(disk_ioctl(pdrv, GET_SECTOR_SIZE, &ss) != RES_OK)
-    {
+    if (disk_ioctl(pdrv, GET_SECTOR_SIZE, &ss) != RES_OK) {
         kinetis_debug_trace(KERN_DEBUG, "disk_ioctl() failed.");
         return false;
     }
@@ -851,17 +788,14 @@ int FatFs_Raw_Speed(
     kinetis_debug_trace(KERN_DEBUG, "Starting raw write test at sector %lu in %u bytes of data chunks...", lba, sz_buff);
     tmr = BasicTimer_GetUSTick();
 
-    for(ofs = 0; ofs < len / ss; ofs += sz_buff / ss)
-    {
-        if(disk_write(pdrv, buff, lba + ofs, sz_buff / ss) != RES_OK)
-        {
+    for (ofs = 0; ofs < len / ss; ofs += sz_buff / ss) {
+        if (disk_write(pdrv, buff, lba + ofs, sz_buff / ss) != RES_OK) {
             kinetis_debug_trace(KERN_DEBUG, "disk_write() failed.");
             return false;
         }
     }
 
-    if(disk_ioctl(pdrv, CTRL_SYNC, 0) != RES_OK)
-    {
+    if (disk_ioctl(pdrv, CTRL_SYNC, 0) != RES_OK) {
         kinetis_debug_trace(KERN_DEBUG, "disk_ioctl() failed.");
         return false;
     }
@@ -872,10 +806,8 @@ int FatFs_Raw_Speed(
     kinetis_debug_trace(KERN_DEBUG, "Starting raw read test at sector %lu in %u bytes of data chunks...", lba, sz_buff);
     tmr = BasicTimer_GetUSTick();
 
-    for(ofs = 0; ofs < len / ss; ofs += sz_buff / ss)
-    {
-        if(disk_read(pdrv, buff, lba + ofs, sz_buff / ss) != RES_OK)
-        {
+    for (ofs = 0; ofs < len / ss; ofs += sz_buff / ss) {
+        if (disk_read(pdrv, buff, lba + ofs, sz_buff / ss) != RES_OK) {
             kinetis_debug_trace(KERN_DEBUG, "disk_read() failed.");
             return false;
         }
@@ -900,21 +832,16 @@ int t_FatFs_ReadWrite(int argc, char **argv)
     uint8_t rtext[100];                                  /* File read buffer */
 
     /*##-1- Link the  disk I/O driver #######################################*/
-    if(FATFS_LinkDriver(&SD_Driver, DISKPath) == 0)
-    {
+    if (FATFS_LinkDriver(&SD_Driver, DISKPath) == 0) {
         /*##-2- Register the file system object to the FatFs module ##############*/
         res = f_mount(&DISKFatFs, (TCHAR const *)DISKPath, 0);
 
-        if(res != FR_OK)
-        {
+        if (res != FR_OK) {
             /* FatFs Initialization Error */
             Printf_FatFs_Err(res);
-        }
-        else
-        {
+        } else {
             /*##-3- Create a FAT file system (format) on the logical drive #########*/
-            if(res == FR_NO_FILESYSTEM)
-            {
+            if (res == FR_NO_FILESYSTEM) {
                 opt.fmt =  FM_FAT32;
                 opt.n_fat = 1;
                 opt.align = 4;
@@ -924,67 +851,49 @@ int t_FatFs_ReadWrite(int argc, char **argv)
                 res = f_mkfs((const TCHAR *)DISKPath, &opt, buffer, sizeof(buffer));
             }
 
-            if(res != FR_OK)
-            {
+            if (res != FR_OK) {
                 /* FatFs Format Error */
                 Printf_FatFs_Err(res);
-            }
-            else
-            {
+            } else {
                 /*##-4- Create and Open a new text file object with write access #####*/
                 res = f_open(&MyFile, "STM32.TXT", FA_CREATE_ALWAYS | FA_WRITE);
 
-                if(res != FR_OK)
-                {
+                if (res != FR_OK) {
                     /* 'STM32.TXT' file Open for write Error */
                     Printf_FatFs_Err(res);
-                }
-                else
-                {
+                } else {
                     /*##-5- Write data to the text file ################################*/
                     res = f_write(&MyFile, wtext, sizeof(wtext), (void *)&byteswritten);
 
-                    if((byteswritten == 0) || (res != FR_OK))
-                    {
+                    if ((byteswritten == 0) || (res != FR_OK)) {
                         /* 'STM32.TXT' file Write or EOF Error */
                         Printf_FatFs_Err(res);
-                    }
-                    else
-                    {
+                    } else {
                         /*##-6- Close the open text file #################################*/
                         f_close(&MyFile);
 
                         /*##-7- Open the text file object with read access ###############*/
                         res = f_open(&MyFile, "STM32.TXT", FA_READ);
 
-                        if(res != FR_OK)
-                        {
+                        if (res != FR_OK) {
                             /* 'STM32.TXT' file Open for read Error */
                             Printf_FatFs_Err(res);
-                        }
-                        else
-                        {
+                        } else {
                             /*##-8- Read data from the text file ###########################*/
                             res = f_read(&MyFile, rtext, sizeof(rtext), (void *)&bytesread);
 
-                            if((bytesread == 0) || (res != FR_OK))
-                            {
+                            if ((bytesread == 0) || (res != FR_OK)) {
                                 /* 'STM32.TXT' file Read or EOF Error */
                                 Printf_FatFs_Err(res);
-                            }
-                            else
-                            {
+                            } else {
                                 /*##-9- Close the open text file #############################*/
                                 f_close(&MyFile);
 
                                 /*##-10- Compare read data with the expected data ############*/
-                                if((bytesread != byteswritten))
-                                {
+                                if ((bytesread != byteswritten)) {
                                     /* Read data is different from the expected data */
                                     Printf_FatFs_Err(res);
-                                }
-                                else
-                                {
+                                } else {
                                     /* Success of the demo: no error occurrence */
                                     kinetis_debug_trace(KERN_DEBUG, "FatFs TEST PASS");
                                 }
@@ -1009,7 +918,7 @@ int t_FatFs_Miscellaneous(int argc, char **argv)
     /* FatFs multifunctional test. */
     res = Miscellaneous();
 
-    if(res == FR_OK)
+    if (res == FR_OK)
         return PASS;
     else
         return FAIL;
@@ -1023,8 +932,7 @@ int t_FatFs_File_Check(int argc, char **argv)
     /* Get file information */
     res = f_stat("TestDir/testdir.txt", &finfo);
 
-    if(res == FR_OK)
-    {
+    if (res == FR_OK) {
         kinetis_debug_trace(KERN_DEBUG, "¡°testdir.txt¡±File information£º");
         kinetis_debug_trace(KERN_DEBUG, "The file size: %lud(B)", finfo.fsize);
         kinetis_debug_trace(KERN_DEBUG, "The time stamp: %u/%02u/%02u, %02u:%02u",
@@ -1049,7 +957,7 @@ int t_FatFs_Scan_Files(int argc, char **argv)
     strcpy(DISKPath, "1:");
     FatFs_Scan_Files(DISKPath);
 
-    if(res == FR_OK)
+    if (res == FR_OK)
         return PASS;
     else
         return FAIL;
@@ -1066,7 +974,7 @@ int t_FatFs_Append(int argc, char **argv)
     f_mount(&fs, "", 0);
     fr = FatFs_Open_Append(&fil, "logfile.txt");
 
-    if(fr != FR_OK)
+    if (fr != FR_OK)
         return FAIL;
 
     RTC_CalendarShow(&Year, &Month, &Date, &Hours, &Minutes, &Seconds, NULL);
@@ -1096,13 +1004,10 @@ int t_FatFs_Delete_Node(int argc, char **argv)  /* How to use */
     fr = FatFs_Delete_Node(buff, sizeof buff / sizeof buff[0], &fno);
 
     /* Check the result */
-    if(fr)
-    {
+    if (fr) {
         kinetis_debug_trace(KERN_DEBUG, _T("Failed to delete the directory. (%u)"), fr);
         return FAIL;
-    }
-    else
-    {
+    } else {
         kinetis_debug_trace(KERN_DEBUG, _T("The directory and the contents have successfully been deleted."));
         return PASS;
     }
@@ -1132,15 +1037,14 @@ int t_FatFs_Expend(int argc, char **argv)
     f_mount(&fs, "", 0);
     fr = f_open(&fil, "fastrec.log", FA_READ | FA_WRITE | FA_OPEN_ALWAYS);
 
-    if(fr)
+    if (fr)
         return FAIL;
 
     /* Check if the file is 256MB in size and occupies a contiguous area.
     /  If not, a contiguous area will be re-allocated to the file. */
     org = f_expand(&fil, 0x10000000, 1);
 
-    if(!org)
-    {
+    if (!org) {
         kinetis_debug_trace(KERN_DEBUG, "Function failed due to any error or insufficient contiguous area.");
         f_close(&fil);
         return FAIL;
@@ -1161,13 +1065,10 @@ int t_FatFs_Diskio(int argc, char **argv)
     /* Check function/compatibility of the physical drive #0 */
     rc = FatFs_Diskio(0, 3, buff, sizeof buff);
 
-    if(rc)
-    {
+    if (rc) {
         kinetis_debug_trace(KERN_DEBUG, "Sorry the function/compatibility test failed. (rc=%d)\nFatFs will not work with this disk driver.", rc);
         return FAIL;
-    }
-    else
-    {
+    } else {
         kinetis_debug_trace(KERN_DEBUG, "Congratulations! The disk driver works well.");
         return PASS;
     }
@@ -1181,13 +1082,10 @@ int t_FatFs_Contiguous_File(int argc, char **argv)
     /* Check function/compatibility of the physical drive #0 */
     rc = FatFs_Diskio(0, 3, buff, sizeof buff);
 
-    if(rc)
-    {
+    if (rc) {
         kinetis_debug_trace(KERN_DEBUG, "Sorry the function/compatibility test failed. (rc=%d)\nFatFs will not work with this disk driver.", rc);
         return FAIL;
-    }
-    else
-    {
+    } else {
         kinetis_debug_trace(KERN_DEBUG, "Congratulations! The disk driver works well.");
         return PASS;
     }
@@ -1201,13 +1099,10 @@ int t_FatFs_Raw_Speed(int argc, char **argv)
     /* Check function/compatibility of the physical drive #0 */
     rc = FatFs_Diskio(0, 3, buff, sizeof buff);
 
-    if(rc)
-    {
+    if (rc) {
         kinetis_debug_trace(KERN_DEBUG, "Sorry the function/compatibility test failed. (rc=%d)\nFatFs will not work with this disk driver.", rc);
         return FAIL;
-    }
-    else
-    {
+    } else {
         kinetis_debug_trace(KERN_DEBUG, "Congratulations! The disk driver works well.");
         return PASS;
     }

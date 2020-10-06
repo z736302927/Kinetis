@@ -256,8 +256,7 @@ const char  *AT_NTSETID      = "AT+NTSETID";
 //******************************************************************************
 // 定义NB_FxnTable 变量将BC95操作函数结合在一起
 //
-const NB_ModuleTypeDef BC95_FxnTable =
-{
+const NB_ModuleTypeDef BC95_FxnTable = {
     .Open                  = bc95_open,
     .Reboot                = bc95_reboot,
     .nbModuleInit          = bc95_init,
@@ -288,21 +287,18 @@ const NB_ModuleTypeDef BC95_FxnTable =
 #define NB_UART_SEND_BUF_MAX_LEN    512
 
 //Receive buffer
-struct ReceBuf
-{
+struct ReceBuf {
     char    Buf[NB_UART_RECE_BUF_MAX_LEN];
     uint16_t  len;            //有效数据长度
 } gNBReceBuf;
 
 //Send buffer
-struct SendBuf
-{
+struct SendBuf {
     char   Buf[NB_UART_SEND_BUF_MAX_LEN];
     uint16_t len;
 } gNBSendBuf;
 
-typedef struct
-{
+typedef struct {
     uint8_t nb_socket_id;     //指示相应的socket id
     uint16_t nb_data_len;     //提示数据长度
 } udp_rece_t;
@@ -310,8 +306,7 @@ typedef struct
 // Name : nb95_status_t
 //
 // brief : 定义存储BC95的状态信息
-typedef struct
-{
+typedef struct {
     uint8_t      nb95_connection_status;
     uint8_t      nb95_register_status;
     uint8_t      nb95_IMSI[16];
@@ -343,8 +338,7 @@ static  NB_ModuleState        g_nb_state = {PROCESS_NONE, 0};
 //==============================================================================
 //NB模块操作子状态定义
 //state = PROCESS_INIT
-typedef enum
-{
+typedef enum {
     SUB_NONE,
     SUB_SYNC,
     SUB_CMEE,
@@ -422,7 +416,7 @@ static void nbset_event(int event_id)
 // return : none
 static void nbstop_timer(HWAttrs_Handle hw_handle)
 {
-    if(g_at_cmd.max_timeout)
+    if (g_at_cmd.max_timeout)
         hw_handle->Timer->Stop();
 }
 //******************************************************************************
@@ -435,7 +429,7 @@ static void NB_SendCmd(HWAttrs_Handle hw_handle, CmdHandle cmdHandle)
 {
     int strLen = 0;
 
-    if(hw_handle == NULL || cmdHandle == NULL)
+    if (hw_handle == NULL || cmdHandle == NULL)
         return;
 
     strLen = cmd_generate(cmdHandle);
@@ -443,7 +437,7 @@ static void NB_SendCmd(HWAttrs_Handle hw_handle, CmdHandle cmdHandle)
     hw_handle->Uart->Send((uint8_t *)gNBSendBuf.Buf, strLen);
 
     //开启定时器
-    if(cmdHandle->max_timeout)
+    if (cmdHandle->max_timeout)
         hw_handle->Timer->Start(g_at_cmd.max_timeout);
 }
 //******************************************************************************
@@ -462,7 +456,7 @@ static void reset_rece_buf(void)
 // return : none
 static void cmd_param_init(CmdHandle cmdHandle, const char *AT, char *argument, NB_CmdProperty property)
 {
-    if(cmdHandle == null)
+    if (cmdHandle == null)
         return;
 
     cmdHandle->cmd_try = CMD_TRY_TIMES;
@@ -485,62 +479,52 @@ static void cmd_param_init(CmdHandle cmdHandle, const char *AT, char *argument, 
 static Bool cmd_next()
 {
 
-    if(g_nb_state.state == PROCESS_INIT)
-    {
+    if (g_nb_state.state == PROCESS_INIT) {
         g_nb_state.sub_state++;
 
-        if(nb95_init_process[g_nb_state.sub_state]  == SUB_END)
+        if (nb95_init_process[g_nb_state.sub_state]  == SUB_END)
             return FALSE;
 
-        switch(nb95_init_process[g_nb_state.sub_state])
-        {
-            case SUB_CMEE:
-            {
+        switch (nb95_init_process[g_nb_state.sub_state]) {
+            case SUB_CMEE: {
                 cmd_param_init(&g_at_cmd, AT_CMEE, "1", CMD_SET);
             }
             break;
 
-            case SUB_CFUN:
-            {
+            case SUB_CFUN: {
                 cmd_param_init(&g_at_cmd, AT_CFUN, "1", CMD_SET);
                 g_at_cmd.max_timeout = 10000;          //10S
             }
             break;
 
-            case SUB_CIMI:
-            {
+            case SUB_CIMI: {
                 cmd_param_init(&g_at_cmd, AT_CIMI, NULL, CMD_EXCUTE);
             }
             break;
 
-            case SUB_CGSN:
-            {
+            case SUB_CGSN: {
                 cmd_param_init(&g_at_cmd, AT_CGSN, "1", CMD_SET);
             }
             break;
 
-            case SUB_CEREG:
-            {
+            case SUB_CEREG: {
                 cmd_param_init(&g_at_cmd, AT_CEREG, "1", CMD_SET);
             }
             break;
 
-            case SUB_CSCON:
-            {
+            case SUB_CSCON: {
                 cmd_param_init(&g_at_cmd, AT_CSCON, "1", CMD_SET);
             }
             break;
 
-            case SUB_CGATT:
-            {
+            case SUB_CGATT: {
                 cmd_param_init(&g_at_cmd, AT_CGATT, "1", CMD_SET);
                 g_at_cmd.max_timeout = 3000;  //相邻指令之间限制3s
                 g_at_cmd.lmt_period = TRUE;
             }
             break;
 
-            case SUB_CGATT_QUERY:
-            {
+            case SUB_CGATT_QUERY: {
                 cmd_param_init(&g_at_cmd, AT_CGATT, NULL, CMD_READ);
                 g_at_cmd.max_timeout = 3000;  //相邻指令之间限制3s
                 g_at_cmd.lmt_period = TRUE;
@@ -550,108 +534,81 @@ static Bool cmd_next()
             }
             break;
 
-            case SUB_NSMI:
-            {
+            case SUB_NSMI: {
                 //设置coap 消息发送完通知
                 cmd_param_init(&g_at_cmd, AT_NSMI, "1", CMD_SET);
             }
             break;
 
-            case SUB_NNMI:
-            {
+            case SUB_NNMI: {
                 //设置coap接收消息，给予指示
                 cmd_param_init(&g_at_cmd, AT_NNMI, "2", CMD_SET);
             }
             break;
         }
 
-    }
-    else if(g_nb_state.state == PROCESS_MODULE_INFO)
-    {
+    } else if (g_nb_state.state == PROCESS_MODULE_INFO) {
         g_nb_state.sub_state++;
 
-        if(nb95_info_process[g_nb_state.sub_state] == SUB_END)
+        if (nb95_info_process[g_nb_state.sub_state] == SUB_END)
             return FALSE;
 
-        switch(nb95_info_process[g_nb_state.sub_state])
-        {
-            case SUB_CGMM:
-            {
+        switch (nb95_info_process[g_nb_state.sub_state]) {
+            case SUB_CGMM: {
                 cmd_param_init(&g_at_cmd, AT_CGMM, null, CMD_EXCUTE);
             }
             break;
 
-            case SUB_CGMR:
-            {
+            case SUB_CGMR: {
                 cmd_param_init(&g_at_cmd, AT_CGMR, null, CMD_EXCUTE);
             }
             break;
 
-            case SUB_NBAND:
-            {
+            case SUB_NBAND: {
                 cmd_param_init(&g_at_cmd, AT_NBAND, null, CMD_READ);
             }
             break;
         }
-    }
-    else if(g_nb_state.state == PROCESS_SIGN)
-    {
+    } else if (g_nb_state.state == PROCESS_SIGN) {
         g_nb_state.sub_state++;
         return FALSE;
-    }
-    else if(g_nb_state.state == PROCESS_UDP_CR)
-    {
+    } else if (g_nb_state.state == PROCESS_UDP_CR) {
         g_nb_state.sub_state++;
 
-        if(nb95_udpcr_process[g_nb_state.sub_state]  == SUB_END)
+        if (nb95_udpcr_process[g_nb_state.sub_state]  == SUB_END)
             return FALSE;
 
-        switch(nb95_udpcr_process[g_nb_state.sub_state])
-        {
-            case SUB_UDP_CL:
-            {
+        switch (nb95_udpcr_process[g_nb_state.sub_state]) {
+            case SUB_UDP_CL: {
                 cmd_param_init(&g_at_cmd, AT_NSOCL, "0", CMD_SET);
             }
             break;
 
-            case SUB_UDP_CR:
-            {
+            case SUB_UDP_CR: {
                 cmd_param_init(&g_at_cmd, AT_NSOCR, LOCAL_UDP_SET, CMD_SET);
             }
             break;
         }
-    }
-    else if(g_nb_state.state == PROCESS_UDP_CL)
-    {
+    } else if (g_nb_state.state == PROCESS_UDP_CL) {
         g_nb_state.sub_state++;
 //    if(nb95_udpcl_process[g_nb_state.sub_state]  == SUB_END)
 //    {
 //      return FALSE;
 //    }
         return FALSE;
-    }
-    else if(g_nb_state.state == PROCESS_UDP_ST)
-    {
+    } else if (g_nb_state.state == PROCESS_UDP_ST) {
         g_nb_state.sub_state++;
         return FALSE;
-    }
-    else if(g_nb_state.state == PROCESS_UDP_RE)
-    {
+    } else if (g_nb_state.state == PROCESS_UDP_RE) {
         g_nb_state.sub_state++;
         return FALSE;
-    }
-    else if(g_nb_state.state == PROCESS_COAP)
-    {
+    } else if (g_nb_state.state == PROCESS_COAP) {
         g_nb_state.sub_state++;
         return FALSE;
-    }
-    else if(g_nb_state.state == PROCESS_COAP_ST)
-    {
+    } else if (g_nb_state.state == PROCESS_COAP_ST) {
         g_nb_state.sub_state++;
         return FALSE;
-    }
-    else if(g_nb_state.state == PROCESS_COAP_RE)
-    {
+    } else if (g_nb_state.state == PROCESS_COAP_RE) {
         g_nb_state.sub_state++;
         return FALSE;
     }
@@ -668,32 +625,25 @@ static int cmd_generate(CmdHandle cmdHandle)
 {
     int cmdLen = 0;
 
-    if(cmdHandle == null)
+    if (cmdHandle == null)
         return cmdLen;
 
     memset(gNBSendBuf.Buf, 0, NB_UART_SEND_BUF_MAX_LEN);
     gNBSendBuf.len = 0;
 
-    if(cmdHandle->property == CMD_TEST)
-    {
+    if (cmdHandle->property == CMD_TEST) {
         cmdLen = snprintf(gNBSendBuf.Buf, NB_UART_SEND_BUF_MAX_LEN,
                 "%s=?\r\n",
                 cmdHandle->pCMD);
-    }
-    else if(cmdHandle->property == CMD_READ)
-    {
+    } else if (cmdHandle->property == CMD_READ) {
         cmdLen = snprintf(gNBSendBuf.Buf, NB_UART_SEND_BUF_MAX_LEN,
                 "%s?\r\n",
                 cmdHandle->pCMD);
-    }
-    else if(cmdHandle->property == CMD_EXCUTE)
-    {
+    } else if (cmdHandle->property == CMD_EXCUTE) {
         cmdLen = snprintf(gNBSendBuf.Buf, NB_UART_SEND_BUF_MAX_LEN,
                 "%s\r\n",
                 cmdHandle->pCMD);
-    }
-    else if(cmdHandle->property == CMD_SET)
-    {
+    } else if (cmdHandle->property == CMD_SET) {
         cmdLen = snprintf(gNBSendBuf.Buf, NB_UART_SEND_BUF_MAX_LEN,
                 "%s=%s\r\n",
                 cmdHandle->pCMD, cmdHandle->pArgument);
@@ -711,30 +661,21 @@ static int8_t cmd_isPass(char *buf)
 {
     int8_t result = -1;
 
-    if(g_at_cmd.pExpectRes == null)
-    {
-        if(strstr(buf, "OK"))
-        {
+    if (g_at_cmd.pExpectRes == null) {
+        if (strstr(buf, "OK")) {
             result = TRUE; ;
-        }
-        else if(strstr(buf, "ERROR"))
-        {
+        } else if (strstr(buf, "ERROR")) {
             //+CMEE ERROR=[][]
             result = FALSE;
         }
-    }
-    else
-    {
-        if(strstr(buf, "OK"))
-        {
-            if(strstr(buf, g_at_cmd.pExpectRes))
+    } else {
+        if (strstr(buf, "OK")) {
+            if (strstr(buf, g_at_cmd.pExpectRes))
                 result = TRUE;
             else
                 result = FALSE;
 
-        }
-        else if(strstr(buf, "ERROR"))
-        {
+        } else if (strstr(buf, "ERROR")) {
             //+CMEE ERROR
             result = FALSE;
         }
@@ -753,16 +694,14 @@ uint8_t addr_adjust(char *buf, char *pStart, uint16_t *plen)
     char *pEnd = NULL;
     uint8_t msg_len = 0;
 
-    if((pStart - buf) >= 2)
+    if ((pStart - buf) >= 2)
         pStart -= 2;
 
-    if(pEnd = strstr(pStart, "\r\n"))
-    {
-        if(pEnd == pStart)
+    if (pEnd = strstr(pStart, "\r\n")) {
+        if (pEnd == pStart)
             pEnd = strstr(pStart + 2, "\r\n");
 
-        if(!pEnd)
-        {
+        if (!pEnd) {
             *plen = (uint8_t)(pStart - buf);
 
             return !!(*plen);
@@ -771,15 +710,13 @@ uint8_t addr_adjust(char *buf, char *pStart, uint16_t *plen)
         pEnd += 2;
         msg_len = (uint8_t)(pEnd - pStart);
 
-        if(*plen >= msg_len)
-        {
+        if (*plen >= msg_len) {
             *plen -= msg_len;
 
-            if(*plen == 0)
+            if (*plen == 0)
                 isAsync = TRUE;
-            else
-            {
-                if(pStart == buf)
+            else {
+                if (pStart == buf)
                     buf += msg_len;
             }
         }
@@ -798,12 +735,10 @@ uint8_t bc95_AsyncNotification(char *buf, uint16_t *len)
     uint8_t isAsync = FALSE;
     char *position_addr_start = NULL;
 
-    if(position_addr_start = strstr(buf, "+CEREG"))
-    {
+    if (position_addr_start = strstr(buf, "+CEREG")) {
         char *pColon = strchr(position_addr_start, ':');
 
-        if(pColon)
-        {
+        if (pColon) {
             //g_bc95_status.nb95_connection_status = NB_Strtoul(pColon,10);
             pColon++;
             g_bc95_status.nb95_register_status = (*pColon - 0x30);
@@ -813,13 +748,10 @@ uint8_t bc95_AsyncNotification(char *buf, uint16_t *len)
 
         nbset_event(NB_REG_STA_EVENT);
         //isAsync =TRUE;
-    }
-    else if(position_addr_start = strstr(buf, "+CSCON"))
-    {
+    } else if (position_addr_start = strstr(buf, "+CSCON")) {
         char *pColon = strchr(position_addr_start, ':');
 
-        if(pColon)
-        {
+        if (pColon) {
             pColon++;
             //g_bc95_status.nb95_register_status = NB_Strtoul(pColon,10);
             g_bc95_status.nb95_connection_status = (*pColon - 0x30);
@@ -829,21 +761,18 @@ uint8_t bc95_AsyncNotification(char *buf, uint16_t *len)
         //isAsync =TRUE;
     }
 
-    if(position_addr_start = strstr(buf, "+NSONMI"))
-    {
+    if (position_addr_start = strstr(buf, "+NSONMI")) {
         //收到服务器端发来的UDP数据
         char *pColon = strchr(position_addr_start, ':');
 
-        if(pColon)
-        {
+        if (pColon) {
             pColon++;
             g_bc95_status.nb95_udp_len.nb_socket_id = NB_Strtoul(pColon, 10);
         }
 
         char *pComma = strchr(pColon, ',');
 
-        if(pComma)
-        {
+        if (pComma) {
             pComma++;
             g_bc95_status.nb95_udp_len.nb_data_len = NB_Strtoul(pComma, 10);
         }
@@ -851,9 +780,7 @@ uint8_t bc95_AsyncNotification(char *buf, uint16_t *len)
         isAsync = addr_adjust(buf, position_addr_start, len);
         //isAsync =TRUE;
         nbset_event(NB_UDPRECE_EVENT);
-    }
-    else if(position_addr_start = strstr(buf, "+NNMI"))
-    {
+    } else if (position_addr_start = strstr(buf, "+NNMI")) {
         isAsync = addr_adjust(buf, position_addr_start, len);
         //isAsync =TRUE;
         nbset_event(NB_COAP_RE_EVENT);
@@ -869,18 +796,16 @@ uint8_t bc95_AsyncNotification(char *buf, uint16_t *len)
 // return : none
 static void bc95_receCb(char *buf, uint16_t len)
 {
-    if(len == 0)
+    if (len == 0)
         return;
 
     //printf("<1len=%d>",len);
-    if(!bc95_AsyncNotification(buf, &len))
-    {
+    if (!bc95_AsyncNotification(buf, &len)) {
         //printf("<2len=%d>",len);
-        if(len == 0)
+        if (len == 0)
             return;
 
-        if((gNBReceBuf.len + len) < NB_UART_RECE_BUF_MAX_LEN)
-        {
+        if ((gNBReceBuf.len + len) < NB_UART_RECE_BUF_MAX_LEN) {
             memcpy(gNBReceBuf.Buf + gNBReceBuf.len, buf, len);
             gNBReceBuf.len += len;
         }
@@ -944,7 +869,7 @@ int bc95_setbaud(NB_Handle handle, int baud)
 {
     HWAttrs_Handle hw_handle = (HWAttrs_Handle)handle->Object;
 
-    if(g_nb_state.state != PROCESS_NONE)
+    if (g_nb_state.state != PROCESS_NONE)
         return FAIL;
 
     char  buf[NB_UART_SEND_BUF_MAX_LEN - 40];
@@ -976,7 +901,7 @@ int bc95_init(NB_Handle handle)
 
     HWAttrs_Handle hw_handle = (HWAttrs_Handle)handle->Object;
 
-    if(g_nb_state.state != PROCESS_NONE)
+    if (g_nb_state.state != PROCESS_NONE)
         return FAIL;
 
     cmd_param_init(&g_at_cmd, AT_SYNC, null, CMD_EXCUTE);
@@ -1003,7 +928,7 @@ int bc95_moduleInfo(NB_Handle handle)
 {
     HWAttrs_Handle hw_handle = (HWAttrs_Handle)handle->Object;
 
-    if(g_nb_state.state != PROCESS_NONE)
+    if (g_nb_state.state != PROCESS_NONE)
         return FAIL;
 
     cmd_param_init(&g_at_cmd, AT_CGMI, null, CMD_EXCUTE);
@@ -1054,7 +979,7 @@ int bc95_getSignal(NB_Handle handle)
 {
     HWAttrs_Handle hw_handle = (HWAttrs_Handle)handle->Object;
 
-    if(g_nb_state.state != PROCESS_NONE)
+    if (g_nb_state.state != PROCESS_NONE)
         return FAIL;
 
     cmd_param_init(&g_at_cmd, AT_CSQ, null, CMD_EXCUTE);
@@ -1078,7 +1003,7 @@ int bc95_createUDP(NB_Handle handle)
 {
     HWAttrs_Handle hw_handle = (HWAttrs_Handle)handle->Object;
 
-    if(g_nb_state.state != PROCESS_NONE)
+    if (g_nb_state.state != PROCESS_NONE)
         return FAIL;
 
     cmd_param_init(&g_at_cmd, AT_NSOCR, LOCAL_UDP_SET, CMD_SET);
@@ -1104,10 +1029,10 @@ int bc95_closeUDP(NB_Handle handle)
 {
     HWAttrs_Handle hw_handle = (HWAttrs_Handle)handle->Object;
 
-    if(g_nb_state.state != PROCESS_NONE)
+    if (g_nb_state.state != PROCESS_NONE)
         return FAIL;
 
-    if(g_bc95_status.nb95_udp_id[0] < '0' || g_bc95_status.nb95_udp_id[0] > '6')
+    if (g_bc95_status.nb95_udp_id[0] < '0' || g_bc95_status.nb95_udp_id[0] > '6')
         return FAIL;
 
     cmd_param_init(&g_at_cmd, AT_NSOCL, g_bc95_status.nb95_udp_id, CMD_SET);
@@ -1136,11 +1061,11 @@ int bc95_sendUDP(NB_Handle handle, int len, char *msg)
 {
     HWAttrs_Handle hw_handle = (HWAttrs_Handle)handle->Object;
 
-    if(g_nb_state.state != PROCESS_NONE)
+    if (g_nb_state.state != PROCESS_NONE)
         return FAIL;
 
     //判断SOCKET ID 是否正确
-    if(g_bc95_status.nb95_udp_id[0] < '0' || g_bc95_status.nb95_udp_id[0] > '6')
+    if (g_bc95_status.nb95_udp_id[0] < '0' || g_bc95_status.nb95_udp_id[0] > '6')
         return FAIL;
 
     uint16_t max_len = (NB_UART_SEND_BUF_MAX_LEN - 40) >> 1;
@@ -1149,7 +1074,7 @@ int bc95_sendUDP(NB_Handle handle, int len, char *msg)
     char  buf[NB_UART_SEND_BUF_MAX_LEN - 40];
     memset(buf, 0, NB_UART_SEND_BUF_MAX_LEN - 40);
 
-    if(len > max_len)
+    if (len > max_len)
         str_len  = max_len;
     else
         str_len = len;
@@ -1160,7 +1085,7 @@ int bc95_sendUDP(NB_Handle handle, int len, char *msg)
             REMOTE_SERVER_PORT,
             str_len);
 
-    for(uint16_t i = 0 ; i < str_len ; i++)
+    for (uint16_t i = 0 ; i < str_len ; i++)
         sprintf(&buf[msg_len + (i << 1)], "%02X", (uint8_t)msg[i]);
 
     cmd_param_init(&g_at_cmd, AT_NSOST, buf, CMD_SET);
@@ -1183,14 +1108,14 @@ int bc95_receUDP(NB_Handle handle)
 {
     HWAttrs_Handle hw_handle = (HWAttrs_Handle)handle->Object;
 
-    if(g_nb_state.state != PROCESS_NONE)
+    if (g_nb_state.state != PROCESS_NONE)
         return FAIL;
 
     uint16_t max_len = (NB_UART_SEND_BUF_MAX_LEN - 40) >> 1;
     uint16_t read_len = max_len;
 
 
-    if(g_bc95_status.nb95_udp_len.nb_data_len < max_len)
+    if (g_bc95_status.nb95_udp_len.nb_data_len < max_len)
         read_len = g_bc95_status.nb95_udp_len.nb_data_len;
 
     char buf[10] ;
@@ -1221,19 +1146,17 @@ extern int bc95_coapServer(NB_Handle handle, Bool isSet, char *coap)
     HWAttrs_Handle hw_handle = (HWAttrs_Handle)handle->Object;
     char *buf = null;
 
-    if(g_nb_state.state != PROCESS_NONE)
+    if (g_nb_state.state != PROCESS_NONE)
         return FAIL;
 
-    if(isSet)
-    {
-        if(coap == NULL)
+    if (isSet) {
+        if (coap == NULL)
             buf = REMOTE_COAP_INFO;
         else
             buf = coap;
 
         cmd_param_init(&g_at_cmd, AT_NCDP, buf, CMD_SET);
-    }
-    else
+    } else
         cmd_param_init(&g_at_cmd, AT_NCDP, "?", CMD_READ);
 
     //更改NBiot操作进程，进入 UDP READ状态
@@ -1278,7 +1201,7 @@ int bc95_coapSendMsg(NB_Handle handle, int len, char *msg)
 {
     HWAttrs_Handle hw_handle = (HWAttrs_Handle)handle->Object;
 
-    if(g_nb_state.state != PROCESS_NONE)
+    if (g_nb_state.state != PROCESS_NONE)
         return FAIL;
 
     //判断SOCKET ID 是否正确
@@ -1289,14 +1212,14 @@ int bc95_coapSendMsg(NB_Handle handle, int len, char *msg)
     char  buf[NB_UART_SEND_BUF_MAX_LEN - 40];
     memset(buf, 0, NB_UART_SEND_BUF_MAX_LEN - 40);
 
-    if(len > max_len)
+    if (len > max_len)
         str_len  = max_len;
     else
         str_len = len;
 
     uint16_t msg_len = snprintf(buf, NB_UART_SEND_BUF_MAX_LEN - 40, "%d,", str_len);
 
-    for(uint16_t i = 0 ; i < str_len ; i++)
+    for (uint16_t i = 0 ; i < str_len ; i++)
         sprintf(&buf[msg_len + (i << 1)], "%02X", (uint8_t)msg[i]);
 
     cmd_param_init(&g_at_cmd, AT_NMGS, buf, CMD_SET);
@@ -1319,7 +1242,7 @@ extern int bc95_coapReadMsg(NB_Handle handle)
 {
     HWAttrs_Handle hw_handle = (HWAttrs_Handle)handle->Object;
 
-    if(g_nb_state.state != PROCESS_NONE)
+    if (g_nb_state.state != PROCESS_NONE)
         return FAIL;
 
     cmd_param_init(&g_at_cmd, AT_NMGR, NULL, CMD_EXCUTE);
@@ -1371,39 +1294,29 @@ Bool bc95_result_handle(NB_Handle handle, Bool isOk)
     Bool isNext = FALSE;
     HWAttrs_Handle hw_handle = (HWAttrs_Handle)handle->Object;
 
-    if(isOk)
-    {
-        if(g_at_cmd.cmd_action == ACTION_OK_NEXT_ERROR_TRY)
+    if (isOk) {
+        if (g_at_cmd.cmd_action == ACTION_OK_NEXT_ERROR_TRY)
             isNext = TRUE;
-        else
-        {
+        else {
             //复位状态标志
             state_reset();
         }
-    }
-    else
-    {
-        if(g_at_cmd.cmd_action == ACTION_OK_NEXT_ERROR_TRY)
-        {
+    } else {
+        if (g_at_cmd.cmd_action == ACTION_OK_NEXT_ERROR_TRY) {
             g_at_cmd.haveTried++;
 
-            if(g_at_cmd.haveTried < g_at_cmd.cmd_try)
-            {
+            if (g_at_cmd.haveTried < g_at_cmd.cmd_try) {
                 hw_handle->Uart->Send((uint8_t *)gNBSendBuf.Buf, gNBSendBuf.len);
 
-                if(g_at_cmd.max_timeout)
+                if (g_at_cmd.max_timeout)
                     hw_handle->Timer->Start(g_at_cmd.max_timeout);
-            }
-            else
-            {
+            } else {
                 //通知上层应用，此动作执行失败
                 nbsend_msg_app(handle, NULL, FALSE);
                 //复位状态标志
                 state_reset();
             }
-        }
-        else
-        {
+        } else {
             //ACTION_OK_EXIT_ERROR_NEXT
             isNext = TRUE;
         }
@@ -1421,8 +1334,7 @@ int bc95_main(NB_Handle handle)
     HWAttrs_Handle hw_handle = (HWAttrs_Handle)handle->Object;
     Bool isNext = FALSE;
 
-    if(g_event_regTable & NB_SP_RECE_EVENT)
-    {
+    if (g_event_regTable & NB_SP_RECE_EVENT) {
         char *tmp_buf = gNBReceBuf.Buf;
         char *param[15];
         uint8_t index = 0;
@@ -1430,47 +1342,39 @@ int bc95_main(NB_Handle handle)
 
         isPass = cmd_isPass(gNBReceBuf.Buf);
 
-        if((isPass >= FALSE) && (isPass <= TRUE))
-        {
+        if ((isPass >= FALSE) && (isPass <= TRUE)) {
             //指令执行完成，停止定时器
-            if(g_at_cmd.lmt_period == FALSE || isPass == TRUE)
+            if (g_at_cmd.lmt_period == FALSE || isPass == TRUE)
                 nbstop_timer(hw_handle);
 
             //提取AT指令返回的参数，此时gNBReceBuf已经遭到破坏
-            while((param[index] = strtok(tmp_buf, "\r\n")) != null)
-            {
+            while ((param[index] = strtok(tmp_buf, "\r\n")) != null) {
                 index++;
                 tmp_buf = null;
 
-                if(index >= 15)
+                if (index >= 15)
                     break;
             }
 
-            if(index == 0)
-            {
+            if (index == 0) {
                 //未收到正确的数据帧
                 return FALSE;
             }
 
         }
 
-        if(isPass == TRUE)
-        {
+        if (isPass == TRUE) {
             //ok
             nbsend_msg_app(handle, param, TRUE);
             isNext = bc95_result_handle(handle, TRUE);
             reset_rece_buf();
-        }
-        else if(isPass == FALSE)
-        {
+        } else if (isPass == FALSE) {
             //error
-            if(g_at_cmd.lmt_period == FALSE)
+            if (g_at_cmd.lmt_period == FALSE)
                 isNext = bc95_result_handle(handle, FALSE);
 
             reset_rece_buf();
-        }
-        else
-        {
+        } else {
             //此指令还未执行完
             //do nothing
         }
@@ -1478,8 +1382,7 @@ int bc95_main(NB_Handle handle)
         g_event_regTable ^= NB_SP_RECE_EVENT;
     }
 
-    if(g_event_regTable & NB_TIMEOUT_EVENT)
-    {
+    if (g_event_regTable & NB_TIMEOUT_EVENT) {
         reset_rece_buf();
         isNext = bc95_result_handle(handle, FALSE);
 
@@ -1487,32 +1390,27 @@ int bc95_main(NB_Handle handle)
     }
 
     //发送UDP接收指令，将接收数据
-    if(g_event_regTable & NB_UDPRECE_EVENT)
-    {
-        if(bc95_receUDP(handle) == SUCCESS)
+    if (g_event_regTable & NB_UDPRECE_EVENT) {
+        if (bc95_receUDP(handle) == SUCCESS)
             g_event_regTable ^= NB_UDPRECE_EVENT;
     }
 
     //发送COAP接收指令，将接收数据
-    if(g_event_regTable & NB_COAP_RE_EVENT)
-    {
-        if(bc95_coapReadMsg(handle) == SUCCESS)
+    if (g_event_regTable & NB_COAP_RE_EVENT) {
+        if (bc95_coapReadMsg(handle) == SUCCESS)
             g_event_regTable ^= NB_COAP_RE_EVENT;
     }
 
-    if(g_event_regTable & NB_REG_STA_EVENT)
-    {
+    if (g_event_regTable & NB_REG_STA_EVENT) {
         //向app层回调网络注册成功
         handle->AppReceiveCallback((NB_MessageTypeDef)PROCESS_NET_REG, 1, (char *)&g_bc95_status.nb95_register_status);
         g_event_regTable ^= NB_REG_STA_EVENT;
     }
 
-    if(isNext)
-    {
-        if(cmd_next())
+    if (isNext) {
+        if (cmd_next())
             NB_SendCmd(hw_handle, &g_at_cmd);
-        else
-        {
+        else {
             nbsend_msg_app(handle, NULL, TRUE);
 
             //复位状态标志
@@ -1530,20 +1428,17 @@ int bc95_main(NB_Handle handle)
 // return : none
 void nbsend_msg_app(NB_Handle handle, char **buf, Bool isOk)
 {
-    if(handle == NULL)
+    if (handle == NULL)
         return;
 
     //出错，则上报此流程执行失败
-    if(isOk == FALSE)
-    {
+    if (isOk == FALSE) {
         handle->AppReceiveCallback((NB_MessageTypeDef)g_nb_state.state, 1, "F");
         return;
     }
 
-    if(g_nb_state.state == PROCESS_INIT)
-    {
-        switch(nb95_init_process[g_nb_state.sub_state])
-        {
+    if (g_nb_state.state == PROCESS_INIT) {
+        switch (nb95_init_process[g_nb_state.sub_state]) {
             case SUB_SYNC:
                 break;
 
@@ -1553,20 +1448,17 @@ void nbsend_msg_app(NB_Handle handle, char **buf, Bool isOk)
             case SUB_CFUN:
                 break;
 
-            case SUB_CIMI:
-            {
+            case SUB_CIMI: {
                 memcpy(g_bc95_status.nb95_IMSI, buf[0], 15);
                 g_bc95_status.nb95_IMSI[15] = 0;
                 handle->AppReceiveCallback((NB_MessageTypeDef)TYPES_CIMI, strlen(buf[0]), buf[0]);
             }
             break;
 
-            case SUB_CGSN:
-            {
+            case SUB_CGSN: {
                 char *pColon = strchr(buf[0], ':');
 
-                if(pColon)
-                {
+                if (pColon) {
                     pColon++;
                     memcpy(g_bc95_status.nb95_IMEI, pColon, 15);
                     g_bc95_status.nb95_IMEI[15] = 0;
@@ -1591,62 +1483,46 @@ void nbsend_msg_app(NB_Handle handle, char **buf, Bool isOk)
                 handle->AppReceiveCallback((NB_MessageTypeDef)PROCESS_INIT, 1, "S");
                 break;
         }
-    }
-    else if(g_nb_state.state == PROCESS_MODULE_INFO)
-    {
-        switch(nb95_info_process[g_nb_state.sub_state])
-        {
-            case SUB_CGMI:
-            {
+    } else if (g_nb_state.state == PROCESS_MODULE_INFO) {
+        switch (nb95_info_process[g_nb_state.sub_state]) {
+            case SUB_CGMI: {
                 handle->AppReceiveCallback((NB_MessageTypeDef)TYPES_CGMI, strlen(buf[0]), buf[0]);
             }
             break;
 
-            case SUB_CGMM:
-            {
+            case SUB_CGMM: {
                 handle->AppReceiveCallback((NB_MessageTypeDef)TYPES_CGMM, strlen(buf[0]), buf[0]);
             }
             break;
 
-            case SUB_CGMR:
-            {
+            case SUB_CGMR: {
                 char *pComma = strchr(buf[0], ',');
 
-                if(pComma)
-                {
+                if (pComma) {
                     pComma++;
                     handle->AppReceiveCallback((NB_MessageTypeDef)TYPES_CGMR, strlen(pComma), pComma);
                 }
             }
             break;
 
-            case SUB_NBAND:
-            {
+            case SUB_NBAND: {
                 char *pColon = strchr(buf[0], ':');
                 char *pFreq = null;
 
-                if(pColon)
-                {
+                if (pColon) {
                     pColon++;
                     uint8_t hz_id = NB_Strtoul(pColon, 10);
 
-                    if(hz_id == BAND_850MHZ_ID)
-                    {
+                    if (hz_id == BAND_850MHZ_ID) {
                         //850MHZ
                         pFreq = BAND_850MHZ_STR;
-                    }
-                    else if(hz_id == BAND_900MHZ_ID)
-                    {
+                    } else if (hz_id == BAND_900MHZ_ID) {
                         //900MHZ
                         pFreq = BAND_900MHZ_STR;
-                    }
-                    else if(hz_id == BAND_800MHZ_ID)
-                    {
+                    } else if (hz_id == BAND_800MHZ_ID) {
                         //800MHZ
                         pFreq = BAND_800MHZ_STR;
-                    }
-                    else
-                    {
+                    } else {
                         //700MHZ
                         pFreq = BAND_700MHZ_STR;
                     }
@@ -1656,17 +1532,13 @@ void nbsend_msg_app(NB_Handle handle, char **buf, Bool isOk)
             }
             break;
 
-            case SUB_END:
-            {
+            case SUB_END: {
                 handle->AppReceiveCallback((NB_MessageTypeDef)PROCESS_MODULE_INFO, 1, "S");
             }
             break;
         }
-    }
-    else if(g_nb_state.state == PROCESS_SIGN)
-    {
-        if(g_nb_state.sub_state == 1)
-        {
+    } else if (g_nb_state.state == PROCESS_SIGN) {
+        if (g_nb_state.sub_state == 1) {
             char *pColon = strchr(buf[0], ':');
             pColon++;
             uint8_t lqi = NB_Strtoul(pColon, 10);
@@ -1676,82 +1548,62 @@ void nbsend_msg_app(NB_Handle handle, char **buf, Bool isOk)
             handle->AppReceiveCallback((NB_MessageTypeDef)PROCESS_SIGN, len, buf[0]);
         }
 
-    }
-    else if(g_nb_state.state == PROCESS_UDP_CR)
-    {
-        switch(nb95_udpcr_process[g_nb_state.sub_state])
-        {
-            case SUB_UDP_CR:
-            {
+    } else if (g_nb_state.state == PROCESS_UDP_CR) {
+        switch (nb95_udpcr_process[g_nb_state.sub_state]) {
+            case SUB_UDP_CR: {
                 memcpy(g_bc95_status.nb95_udp_id, buf[0], 2);
 
-                if(g_nb_state.sub_state == 1)
+                if (g_nb_state.sub_state == 1)
                     handle->AppReceiveCallback((NB_MessageTypeDef)PROCESS_UDP_CR, 1, "S");
             }
             break;
 
-            case SUB_UDP_CL:
-            {
+            case SUB_UDP_CL: {
 
             }
             break;
 
-            case SUB_END:
-            {
+            case SUB_END: {
                 handle->AppReceiveCallback((NB_MessageTypeDef)PROCESS_UDP_CR, 1, "S");
             }
             break;
         }
-    }
-    else if(g_nb_state.state == PROCESS_UDP_CL)
-    {
-        switch(nb95_udpcl_process[g_nb_state.sub_state])
-        {
-            case SUB_UDP_CL:
-            {
+    } else if (g_nb_state.state == PROCESS_UDP_CL) {
+        switch (nb95_udpcl_process[g_nb_state.sub_state]) {
+            case SUB_UDP_CL: {
                 g_bc95_status.nb95_udp_id[0] = 0;
                 g_bc95_status.nb95_udp_id[1] = 0;
             }
             break;
 
-            case SUB_END:
-            {
+            case SUB_END: {
                 handle->AppReceiveCallback((NB_MessageTypeDef)PROCESS_UDP_CL, 1, "S");
             }
             break;
         }
 
-    }
-    else if(g_nb_state.state == PROCESS_UDP_ST)
-    {
-        switch(nb95_udpst_process[g_nb_state.sub_state])
-        {
-            case SUB_UDP_ST:
-            {
+    } else if (g_nb_state.state == PROCESS_UDP_ST) {
+        switch (nb95_udpst_process[g_nb_state.sub_state]) {
+            case SUB_UDP_ST: {
                 handle->AppReceiveCallback((NB_MessageTypeDef)PROCESS_UDP_ST, 1, "S");
             }
             break;
         }
-    }
-    else if(g_nb_state.state == PROCESS_UDP_RE)
-    {
-        if(g_nb_state.sub_state == 1)
-        {
+    } else if (g_nb_state.state == PROCESS_UDP_RE) {
+        if (g_nb_state.sub_state == 1) {
             char *param[6];
             uint16_t index = 0;
             char *tmp_buf = buf[0];
 
-            while((param[index] = strtok(tmp_buf, ",")) != null)
-            {
+            while ((param[index] = strtok(tmp_buf, ",")) != null) {
                 index++;
                 tmp_buf = null;
 
-                if(index >= 6)
+                if (index >= 6)
                     break;
             }
 
-            if(index != 6)
-            {
+            if (index != 6) {
                 handle->AppReceiveCallback((NB_MessageTypeDef)PROCESS_UDP_RE, 1, "F");
                 return;
             }
@@ -1762,46 +1614,35 @@ void nbsend_msg_app(NB_Handle handle, char **buf, Bool isOk)
             handle->AppReceiveCallback((NB_MessageTypeDef)PROCESS_UDP_RE, index, tmp_buf);
         }
 
-    }
-    else if(g_nb_state.state == PROCESS_COAP)
-    {
-        if(g_nb_state.sub_state == 1)
-        {
+    } else if (g_nb_state.state == PROCESS_COAP) {
+        if (g_nb_state.sub_state == 1) {
             char *tmp_buf = NULL;
 
-            if(strstr(buf[0], "OK"))
+            if (strstr(buf[0], "OK"))
                 tmp_buf = "S";
-            else
-            {
+            else {
                 tmp_buf = strchr(buf[1], ':');
 
-                if(tmp_buf)
+                if (tmp_buf)
                     tmp_buf++;
             }
 
             handle->AppReceiveCallback((NB_MessageTypeDef)PROCESS_COAP, strlen(tmp_buf), tmp_buf);
         }
-    }
-    else if(g_nb_state.state == PROCESS_COAP_ST)
-    {
-        if(g_nb_state.sub_state == 1)
+    } else if (g_nb_state.state == PROCESS_COAP_ST) {
+        if (g_nb_state.sub_state == 1)
             handle->AppReceiveCallback((NB_MessageTypeDef)PROCESS_COAP_ST, 1, "S");
-    }
-    else if(g_nb_state.state == PROCESS_COAP_RE)
-    {
-        if(g_nb_state.sub_state == 1)
-        {
+    } else if (g_nb_state.state == PROCESS_COAP_RE) {
+        if (g_nb_state.sub_state == 1) {
             uint16_t index = 0;
             uint8_t i = 0;
 
             char *tmp_buf = NULL;
 
-            while(i < 3)
-            {
+            while (i < 3) {
                 tmp_buf = strchr(buf[i], ',');
 
-                if(tmp_buf != NULL)
-                {
+                if (tmp_buf != NULL) {
                     tmp_buf++;
                     index =  NB_HexStrToNum(tmp_buf);
                     handle->AppReceiveCallback((NB_MessageTypeDef)PROCESS_COAP_RE, index, tmp_buf);
@@ -1839,24 +1680,22 @@ uint16_t NB_HexStrToNum(char *str)
 
     uint16_t len = strlen(str);
 
-    if(len == 0)
+    if (len == 0)
         return 0;
 
-    for(i = 0 ; i < len ; i++)
-    {
-        if(str[i] >= '0' && str[i] <= '9')
+    for (i = 0 ; i < len ; i++) {
+        if (str[i] >= '0' && str[i] <= '9')
             tmp1 = str[i] - '0';
-        else if(str[i] >= 'A' && str[i] <= 'F')
+        else if (str[i] >= 'A' && str[i] <= 'F')
             tmp1 = str[i] - 'A' + 10;
-        else if(str[i] >= 'a' && str[i] <= 'f')
+        else if (str[i] >= 'a' && str[i] <= 'f')
             tmp1 = str[i] - 'a' + 10;
         else
             tmp1 = 0;
 
-        if((i % 2) == 0)
+        if ((i % 2) == 0)
             tmp = tmp1;
-        else
-        {
+        else {
             tmp <<= 4;
             tmp += tmp1;
             str[i >> 1] = tmp;

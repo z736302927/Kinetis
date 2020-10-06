@@ -9,8 +9,7 @@
 #include <linux/compiler.h>
 #include <linux/export.h>
 
-const unsigned char _ctype[] =
-{
+const unsigned char _ctype[] = {
     _C, _C, _C, _C, _C, _C, _C, _C,				/* 0-7 */
     _C, _C | _S, _C | _S, _C | _S, _C | _S, _C | _S, _C, _C,			/* 8-15 */
     _C, _C, _C, _C, _C, _C, _C, _C,				/* 16-23 */

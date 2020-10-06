@@ -120,14 +120,12 @@ int t_TimTask_Add(int argc, char **argv);
 int t_TimTask_Add(int argc, char **argv);
 #endif
 
-typedef struct _Test_Case_TypeDef
-{
+typedef struct _Test_Case_TypeDef {
     char *Command;
     int (*Function)(int argc, char **argv);
 } Test_Case_TypeDef;
 
-Test_Case_TypeDef Kinetis_Case_Table[] =
-{
+Test_Case_TypeDef Kinetis_Case_Table[] = {
 #ifdef DESIGN_VERIFICATION_AK8975
     {"ak8975.BasicInfo", t_ak8975_BasicInfo},
     {"ak8975.Magnetic", t_ak8975_Magnetic},
@@ -314,11 +312,9 @@ char *strpbrk(const char *cs, const char *ct)
 {
     const char *sc1, *sc2;
 
-    for(sc1 = cs; *sc1 != '\0'; ++sc1)
-    {
-        for(sc2 = ct; *sc2 != '\0'; ++sc2)
-        {
-            if(*sc1 == *sc2)
+    for (sc1 = cs; *sc1 != '\0'; ++sc1) {
+        for (sc2 = ct; *sc2 != '\0'; ++sc2) {
+            if (*sc1 == *sc2)
                 return (char *)sc1;
         }
     }
@@ -342,12 +338,12 @@ char *strsep(char **s, const char *ct)
     char *sbegin = *s;
     char *end;
 
-    if(sbegin == NULL)
+    if (sbegin == NULL)
         return NULL;
 
     end = strpbrk(sbegin, ct);
 
-    if(end)
+    if (end)
         *end++ = '\0';
 
     *s = end;
@@ -360,17 +356,14 @@ uint8_t ParseTest_AllCase(char *Command)
     uint32_t argc = 0;
     char *argv[128];
 
-    do
-    {
+    do {
         argv[argc] = strsep(&Command, " ");
         kinetis_debug_trace(KERN_DEBUG, "[%d] %s", argc, argv[argc]);
         argc++;
-    }
-    while(Command);
+    } while (Command);
 
-    for(i = 0; i < sizeof(Kinetis_Case_Table) / sizeof(Test_Case_TypeDef); i++)
-    {
-        if((!strcmp(Kinetis_Case_Table[i].Command, argv[0])) && (Kinetis_Case_Table[i].Function != NULL))
+    for (i = 0; i < sizeof(Kinetis_Case_Table) / sizeof(Test_Case_TypeDef); i++) {
+        if ((!strcmp(Kinetis_Case_Table[i].Command, argv[0])) && (Kinetis_Case_Table[i].Function != NULL))
             return Kinetis_Case_Table[i].Function(argc, argv);
     }
 
@@ -383,21 +376,18 @@ void k_TestCase_Schedule(void)
     uint8_t Result;
     Buffer = kmalloc(128, __GFP_ZERO);
 
-    while(1)
-    {
-        if(shell_GetUserInput(Buffer) == true)
-        {
-            if(Buffer[0] == '\r')
+    while (1) {
+        if (shell_GetUserInput(Buffer) == true) {
+            if (Buffer[0] == '\r')
                 printf("/ # ");
-            else if(Buffer[0] == 27)
+            else if (Buffer[0] == 27)
                 break;
-            else
-            {
+            else {
                 Result = ParseTest_AllCase(Buffer);
 
-                if(Result == PASS)
+                if (Result == PASS)
                     kinetis_debug_trace(KERN_DEBUG, "TEST PASS");
-                else if(Result == FAIL)
+                else if (Result == FAIL)
                     kinetis_debug_trace(KERN_DEBUG, "TEST FAIL");
                 else
                     kinetis_debug_trace(KERN_DEBUG, "TEST NOT EXSIST");

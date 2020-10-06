@@ -14,15 +14,14 @@
 
 #include "core/idebug.h"
 
-typedef struct SListNode
-{
+typedef struct SListNode {
     void *Data;
     struct SListNode *Next; /* 指向下一个结点 */
 } SListNode;
 
 void SListInit(SListNode **ppFirst)
 {
-    if(ppFirst != NULL)
+    if (ppFirst != NULL)
         kinetis_debug_trace(KERN_DEBUG, "ppFirst can not be null!");
 
     *ppFirst = NULL;
@@ -33,7 +32,7 @@ void SListPrint(SListNode *First)
 {
     SListNode *Current;
 
-    for(Current = First; Current != NULL; Current = Current->Next)
+    for (Current = First; Current != NULL; Current = Current->Next)
         kinetis_debug_trace(KERN_DEBUG, "@%p", Current->Data);
 }
 
@@ -49,13 +48,12 @@ static SListNode *CreateNode(void *Data)
 /*  尾部插入 */
 void SListPushBack(SListNode **ppFirst, void *Data)
 {
-    if(ppFirst != NULL)
+    if (ppFirst != NULL)
         kinetis_debug_trace(KERN_DEBUG, "ppFirst can not be null!");
 
     SListNode *Node = CreateNode(Data);
 
-    if(*ppFirst == NULL) /* 判断链表不为空 */
-    {
+    if (*ppFirst == NULL) { /* 判断链表不为空 */
         *ppFirst = Node;
         return;
     }
@@ -63,7 +61,7 @@ void SListPushBack(SListNode **ppFirst, void *Data)
     /* 找链表中的最后一个节点 */
     SListNode *Current = *ppFirst;
 
-    while(Current->Next != NULL)
+    while (Current->Next != NULL)
         Current = Current->Next;
 
     Current->Next = Node;/* 插入新申请的节点 */
@@ -71,7 +69,7 @@ void SListPushBack(SListNode **ppFirst, void *Data)
 
 void SListPushFront(SListNode **ppFirst, void *Data)
 {
-    if(ppFirst != NULL)
+    if (ppFirst != NULL)
         kinetis_debug_trace(KERN_DEBUG, "ppFirst can not be null!");
 
     SListNode *Node = CreateNode(Data);
@@ -82,14 +80,13 @@ void SListPushFront(SListNode **ppFirst, void *Data)
 /* 尾部删除 */
 void SListPopBack(SListNode **ppFirst)
 {
-    if(ppFirst != NULL)
+    if (ppFirst != NULL)
         kinetis_debug_trace(KERN_DEBUG, "ppFirst can not be null!");
 
-    if(*ppFirst != NULL)
+    if (*ppFirst != NULL)
         kinetis_debug_trace(KERN_DEBUG, "*ppFirst can not be null!");
 
-    if((*ppFirst)->Next == NULL)
-    {
+    if ((*ppFirst)->Next == NULL) {
         kfree(*ppFirst);
         *ppFirst = NULL;
         return;
@@ -97,7 +94,7 @@ void SListPopBack(SListNode **ppFirst)
 
     SListNode *Current = *ppFirst;
 
-    while(Current->Next->Next != NULL)
+    while (Current->Next->Next != NULL)
         Current = Current->Next;
 
     kfree(Current->Next);
@@ -107,10 +104,10 @@ void SListPopBack(SListNode **ppFirst)
 /* 头部删除 */
 void SListPopFront(SListNode **ppFirst)
 {
-    if(ppFirst != NULL)
+    if (ppFirst != NULL)
         kinetis_debug_trace(KERN_DEBUG, "ppFirst can not be null!");
 
-    if(*ppFirst != NULL)
+    if (*ppFirst != NULL)
         kinetis_debug_trace(KERN_DEBUG, "*ppFirst can not be null!");/* 链表不是空链表 */
 
     SListNode *first = *ppFirst;
@@ -120,11 +117,10 @@ void SListPopFront(SListNode **ppFirst)
 
 void SListInsert(SListNode **ppFirst, SListNode *pPos, void *Data)
 {
-    if(ppFirst != NULL)
+    if (ppFirst != NULL)
         kinetis_debug_trace(KERN_DEBUG, "ppFirst can not be null!");
 
-    if(*ppFirst == pPos)
-    {
+    if (*ppFirst == pPos) {
         SListPushFront(ppFirst, Data);
         return;
     }
@@ -133,7 +129,7 @@ void SListInsert(SListNode **ppFirst, SListNode *pPos, void *Data)
     SListNode *Current;
 
     /* 找到pos前的一个节点 */
-    for(Current = *ppFirst; Current->Next != pPos; Current = Current->Next) { }
+    for (Current = *ppFirst; Current->Next != pPos; Current = Current->Next) { }
 
     /* 改变的是字段内的值，而不是指针的值 */
     Current->Next = newNode;
@@ -143,15 +139,14 @@ void SListInsert(SListNode **ppFirst, SListNode *pPos, void *Data)
 /* 给定结点删除 */
 void SListErase(SListNode **ppFirst, SListNode *pPos)
 {
-    if(*ppFirst == pPos)
-    {
+    if (*ppFirst == pPos) {
         SListPopFront(ppFirst);
         return;
     }
 
     SListNode *Current = *ppFirst;
 
-    while(Current->Next != pPos)
+    while (Current->Next != pPos)
         Current = Current->Next;
 
     Current->Next = pPos->Next;
@@ -164,26 +159,21 @@ void SListRemove(SListNode **ppFirst, void *Data)
     SListNode *Current = *ppFirst;
     SListNode *Previous = NULL;
 
-    if(ppFirst != NULL)
+    if (ppFirst != NULL)
         kinetis_debug_trace(KERN_DEBUG, "ppFirst can not be null!");
 
-    if(*ppFirst == NULL)
+    if (*ppFirst == NULL)
         return;
 
-    while(Current)
-    {
-        if(Current->Data == Data)
-        {
+    while (Current) {
+        if (Current->Data == Data) {
             /* 删除 */
             /* 1.删除的是第一个节点 */
-            if(*ppFirst == Current)
-            {
+            if (*ppFirst == Current) {
                 *ppFirst = Current->Next;
                 kfree(Current);
                 Current = NULL;
-            }
-            else/* 删除中间节点 */
-            {
+            } else { /* 删除中间节点 */
                 Previous->Next = Current->Next;
                 kfree(Current);
                 Current = NULL;
@@ -203,28 +193,23 @@ void SListRemoveAll(SListNode **ppFirst, void *Data)
     SListNode *Current = NULL;
     SListNode *Previous = NULL;
 
-    if(ppFirst != NULL)
+    if (ppFirst != NULL)
         kinetis_debug_trace(KERN_DEBUG, "ppFirst can not be null!");
 
-    if(*ppFirst == NULL)
+    if (*ppFirst == NULL)
         return;
 
     Current = *ppFirst;
 
-    while(Current)
-    {
-        if(Current->Data == Data)
-        {
+    while (Current) {
+        if (Current->Data == Data) {
             /* 删除 */
             /* 1.删除的是第一个节点 */
-            if(*ppFirst == Current)
-            {
+            if (*ppFirst == Current) {
                 *ppFirst = Current->Next;
                 kfree(Current);
                 Current = *ppFirst;
-            }
-            else/* 删除中间节点 */
-            {
+            } else { /* 删除中间节点 */
                 Previous->Next = Current->Next;
                 kfree(Current);
                 Current = Previous;
@@ -242,13 +227,12 @@ void SListDestroy(SListNode **ppFirst)
     SListNode *Current = NULL;
     SListNode *Object = NULL;
 
-    if(ppFirst == NULL)
+    if (ppFirst == NULL)
         kinetis_debug_trace(KERN_DEBUG, "ppFirst can not be null!");
 
     Current = *ppFirst;
 
-    while(Current)
-    {
+    while (Current) {
         Object = Current;
         Current = Current->Next;
         kfree(Object);
@@ -261,9 +245,8 @@ void SListDestroy(SListNode **ppFirst)
 /* 按值查找，返回第一个找到的结点指针，如果没找到，返回 NULL */
 SListNode *SListFind(SListNode *pFirst, void *Data)
 {
-    for(SListNode *Current = pFirst; Current != NULL; Current = Current->Next)
-    {
-        if(Current->Data == Data)
+    for (SListNode *Current = pFirst; Current != NULL; Current = Current->Next) {
+        if (Current->Data == Data)
             return Current;
     }
 

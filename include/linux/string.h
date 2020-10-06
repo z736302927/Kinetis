@@ -121,7 +121,7 @@ extern void *memset64(uint64_t *, uint64_t, __kernel_size_t);
 static inline void *memset_l(unsigned long *p, unsigned long v,
     __kernel_size_t n)
 {
-    if(BITS_PER_LONG == 32)
+    if (BITS_PER_LONG == 32)
         return memset32((uint32_t *)p, v, n);
     else
         return memset64((uint64_t *)p, v, n);
@@ -129,7 +129,7 @@ static inline void *memset_l(unsigned long *p, unsigned long v,
 
 static inline void *memset_p(void **p, void *v, __kernel_size_t n)
 {
-    if(BITS_PER_LONG == 32)
+    if (BITS_PER_LONG == 32)
         return memset32((uint32_t *)p, (uintptr_t)v, n);
     else
         return memset64((uint64_t *)p, (uintptr_t)v, n);
@@ -275,10 +275,10 @@ __FORTIFY_INLINE char *strncpy(char *p, const char *q, __kernel_size_t size)
 {
     size_t p_size = __builtin_object_size(p, 0);
 
-    if(__builtin_constant_p(size) && p_size < size)
+    if (__builtin_constant_p(size) && p_size < size)
         __write_overflow();
 
-    if(p_size < size)
+    if (p_size < size)
         fortify_panic(__func__);
 
     return __builtin_strncpy(p, q, size);
@@ -288,10 +288,10 @@ __FORTIFY_INLINE char *strcat(char *p, const char *q)
 {
     size_t p_size = __builtin_object_size(p, 0);
 
-    if(p_size == (size_t) -1)
+    if (p_size == (size_t) -1)
         return __builtin_strcat(p, q);
 
-    if(strlcat(p, q, p_size) >= p_size)
+    if (strlcat(p, q, p_size) >= p_size)
         fortify_panic(__func__);
 
     return p;
@@ -303,13 +303,13 @@ __FORTIFY_INLINE __kernel_size_t strlen(const char *p)
     size_t p_size = __builtin_object_size(p, 0);
 
     /* Work around gcc excess stack consumption issue */
-    if(p_size == (size_t) -1 ||
+    if (p_size == (size_t) -1 ||
         (__builtin_constant_p(p[p_size - 1]) && p[p_size - 1] == '\0'))
         return __builtin_strlen(p);
 
     ret = strnlen(p, p_size);
 
-    if(p_size <= ret)
+    if (p_size <= ret)
         fortify_panic(__func__);
 
     return ret;
@@ -321,7 +321,7 @@ __FORTIFY_INLINE __kernel_size_t strnlen(const char *p, __kernel_size_t maxlen)
     size_t p_size = __builtin_object_size(p, 0);
     __kernel_size_t ret = __real_strnlen(p, maxlen < p_size ? maxlen : p_size);
 
-    if(p_size <= ret && maxlen != ret)
+    if (p_size <= ret && maxlen != ret)
         fortify_panic(__func__);
 
     return ret;
@@ -335,19 +335,18 @@ __FORTIFY_INLINE size_t strlcpy(char *p, const char *q, size_t size)
     size_t p_size = __builtin_object_size(p, 0);
     size_t q_size = __builtin_object_size(q, 0);
 
-    if(p_size == (size_t) -1 && q_size == (size_t) -1)
+    if (p_size == (size_t) -1 && q_size == (size_t) -1)
         return __real_strlcpy(p, q, size);
 
     ret = strlen(q);
 
-    if(size)
-    {
+    if (size) {
         size_t len = (ret >= size) ? size - 1 : ret;
 
-        if(__builtin_constant_p(len) && len >= p_size)
+        if (__builtin_constant_p(len) && len >= p_size)
             __write_overflow();
 
-        if(len >= p_size)
+        if (len >= p_size)
             fortify_panic(__func__);
 
         __builtin_memcpy(p, q, len);
@@ -364,13 +363,13 @@ __FORTIFY_INLINE char *strncat(char *p, const char *q, __kernel_size_t count)
     size_t p_size = __builtin_object_size(p, 0);
     size_t q_size = __builtin_object_size(q, 0);
 
-    if(p_size == (size_t) -1 && q_size == (size_t) -1)
+    if (p_size == (size_t) -1 && q_size == (size_t) -1)
         return __builtin_strncat(p, q, count);
 
     p_len = strlen(p);
     copy_len = strnlen(q, count);
 
-    if(p_size < p_len + copy_len + 1)
+    if (p_size < p_len + copy_len + 1)
         fortify_panic(__func__);
 
     __builtin_memcpy(p + p_len, q, copy_len);
@@ -382,10 +381,10 @@ __FORTIFY_INLINE void *memset(void *p, int c, __kernel_size_t size)
 {
     size_t p_size = __builtin_object_size(p, 0);
 
-    if(__builtin_constant_p(size) && p_size < size)
+    if (__builtin_constant_p(size) && p_size < size)
         __write_overflow();
 
-    if(p_size < size)
+    if (p_size < size)
         fortify_panic(__func__);
 
     return __builtin_memset(p, c, size);
@@ -396,16 +395,15 @@ __FORTIFY_INLINE void *memcpy(void *p, const void *q, __kernel_size_t size)
     size_t p_size = __builtin_object_size(p, 0);
     size_t q_size = __builtin_object_size(q, 0);
 
-    if(__builtin_constant_p(size))
-    {
-        if(p_size < size)
+    if (__builtin_constant_p(size)) {
+        if (p_size < size)
             __write_overflow();
 
-        if(q_size < size)
+        if (q_size < size)
             __read_overflow2();
     }
 
-    if(p_size < size || q_size < size)
+    if (p_size < size || q_size < size)
         fortify_panic(__func__);
 
     return __builtin_memcpy(p, q, size);
@@ -416,16 +414,15 @@ __FORTIFY_INLINE void *memmove(void *p, const void *q, __kernel_size_t size)
     size_t p_size = __builtin_object_size(p, 0);
     size_t q_size = __builtin_object_size(q, 0);
 
-    if(__builtin_constant_p(size))
-    {
-        if(p_size < size)
+    if (__builtin_constant_p(size)) {
+        if (p_size < size)
             __write_overflow();
 
-        if(q_size < size)
+        if (q_size < size)
             __read_overflow2();
     }
 
-    if(p_size < size || q_size < size)
+    if (p_size < size || q_size < size)
         fortify_panic(__func__);
 
     return __builtin_memmove(p, q, size);
@@ -436,10 +433,10 @@ __FORTIFY_INLINE void *memscan(void *p, int c, __kernel_size_t size)
 {
     size_t p_size = __builtin_object_size(p, 0);
 
-    if(__builtin_constant_p(size) && p_size < size)
+    if (__builtin_constant_p(size) && p_size < size)
         __read_overflow();
 
-    if(p_size < size)
+    if (p_size < size)
         fortify_panic(__func__);
 
     return __real_memscan(p, c, size);
@@ -450,16 +447,15 @@ __FORTIFY_INLINE int memcmp(const void *p, const void *q, __kernel_size_t size)
     size_t p_size = __builtin_object_size(p, 0);
     size_t q_size = __builtin_object_size(q, 0);
 
-    if(__builtin_constant_p(size))
-    {
-        if(p_size < size)
+    if (__builtin_constant_p(size)) {
+        if (p_size < size)
             __read_overflow();
 
-        if(q_size < size)
+        if (q_size < size)
             __read_overflow2();
     }
 
-    if(p_size < size || q_size < size)
+    if (p_size < size || q_size < size)
         fortify_panic(__func__);
 
     return __builtin_memcmp(p, q, size);
@@ -469,10 +465,10 @@ __FORTIFY_INLINE void *memchr(const void *p, int c, __kernel_size_t size)
 {
     size_t p_size = __builtin_object_size(p, 0);
 
-    if(__builtin_constant_p(size) && p_size < size)
+    if (__builtin_constant_p(size) && p_size < size)
         __read_overflow();
 
-    if(p_size < size)
+    if (p_size < size)
         fortify_panic(__func__);
 
     return __builtin_memchr(p, c, size);
@@ -483,10 +479,10 @@ __FORTIFY_INLINE void *memchr_inv(const void *p, int c, size_t size)
 {
     size_t p_size = __builtin_object_size(p, 0);
 
-    if(__builtin_constant_p(size) && p_size < size)
+    if (__builtin_constant_p(size) && p_size < size)
         __read_overflow();
 
-    if(p_size < size)
+    if (p_size < size)
         fortify_panic(__func__);
 
     return __real_memchr_inv(p, c, size);
@@ -497,10 +493,10 @@ __FORTIFY_INLINE void *kmemdup(const void *p, size_t size, gfp_t gfp)
 {
     size_t p_size = __builtin_object_size(p, 0);
 
-    if(__builtin_constant_p(size) && p_size < size)
+    if (__builtin_constant_p(size) && p_size < size)
         __read_overflow();
 
-    if(p_size < size)
+    if (p_size < size)
         fortify_panic(__func__);
 
     return __real_kmemdup(p, size, gfp);
@@ -512,7 +508,7 @@ __FORTIFY_INLINE char *strcpy(char *p, const char *q)
     size_t p_size = __builtin_object_size(p, 0);
     size_t q_size = __builtin_object_size(q, 0);
 
-    if(p_size == (size_t) -1 && q_size == (size_t) -1)
+    if (p_size == (size_t) -1 && q_size == (size_t) -1)
         return __builtin_strcpy(p, q);
 
     memcpy(p, q, strlen(q) + 1);
@@ -532,12 +528,10 @@ __FORTIFY_INLINE char *strcpy(char *p, const char *q)
 static inline void memcpy_and_pad(void *dest, size_t dest_len,
     const void *src, size_t count, int pad)
 {
-    if(dest_len > count)
-    {
+    if (dest_len > count) {
         memcpy(dest, src, count);
         memset(dest + count, pad,  dest_len - count);
-    }
-    else
+    } else
         memcpy(dest, src, dest_len);
 }
 

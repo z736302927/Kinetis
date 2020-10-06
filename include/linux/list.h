@@ -46,18 +46,15 @@
 //            printf( "pointer type mismatch in container_of()"));	\
 //	((type *)(__mptr - offsetof(type, member))); })
 
-struct list_head
-{
+struct list_head {
     struct list_head *next, *prev;
 };
 
-struct hlist_head
-{
+struct hlist_head {
     struct hlist_node *first;
 };
 
-struct hlist_node
-{
+struct hlist_node {
     struct hlist_node *next, * *pprev;
 };
 
@@ -110,7 +107,7 @@ static inline void __list_add(struct list_head *new,
     struct list_head *prev,
     struct list_head *next)
 {
-    if(!__list_add_valid(new, prev, next))
+    if (!__list_add_valid(new, prev, next))
         return;
 
     next->prev = new;
@@ -181,7 +178,7 @@ static inline void __list_del_clearprev(struct list_head *entry)
  */
 static inline void __list_del_entry(struct list_head *entry)
 {
-    if(!__list_del_entry_valid(entry))
+    if (!__list_del_entry_valid(entry))
         return;
 
     __list_del(entry->prev, entry->next);
@@ -230,7 +227,7 @@ static inline void list_swap(struct list_head *entry1,
     list_del(entry2);
     list_replace(entry1, entry2);
 
-    if(pos == entry1)
+    if (pos == entry1)
         pos = entry2;
 
     list_add(entry1, pos);
@@ -350,8 +347,7 @@ static inline void list_rotate_left(struct list_head *head)
 {
     struct list_head *first;
 
-    if(!list_empty(head))
-    {
+    if (!list_empty(head)) {
         first = head->next;
         list_move_tail(first, head);
     }
@@ -413,14 +409,14 @@ static inline void __list_cut_position(struct list_head *list,
 static inline void list_cut_position(struct list_head *list,
     struct list_head *head, struct list_head *entry)
 {
-    if(list_empty(head))
+    if (list_empty(head))
         return;
 
-    if(list_is_singular(head) &&
+    if (list_is_singular(head) &&
         (head->next != entry && head != entry))
         return;
 
-    if(entry == head)
+    if (entry == head)
         INIT_LIST_HEAD(list);
     else
         __list_cut_position(list, head, entry);
@@ -444,8 +440,7 @@ static inline void list_cut_before(struct list_head *list,
     struct list_head *head,
     struct list_head *entry)
 {
-    if(head->next == entry)
-    {
+    if (head->next == entry) {
         INIT_LIST_HEAD(list);
         return;
     }
@@ -480,7 +475,7 @@ static inline void __list_splice(const struct list_head *list,
 static inline void list_splice(const struct list_head *list,
     struct list_head *head)
 {
-    if(!list_empty(list))
+    if (!list_empty(list))
         __list_splice(list, head, head->next);
 }
 
@@ -492,7 +487,7 @@ static inline void list_splice(const struct list_head *list,
 static inline void list_splice_tail(struct list_head *list,
     struct list_head *head)
 {
-    if(!list_empty(list))
+    if (!list_empty(list))
         __list_splice(list, head->prev, head);
 }
 
@@ -506,8 +501,7 @@ static inline void list_splice_tail(struct list_head *list,
 static inline void list_splice_init(struct list_head *list,
     struct list_head *head)
 {
-    if(!list_empty(list))
-    {
+    if (!list_empty(list)) {
         __list_splice(list, head, head->next);
         INIT_LIST_HEAD(list);
     }
@@ -524,8 +518,7 @@ static inline void list_splice_init(struct list_head *list,
 static inline void list_splice_tail_init(struct list_head *list,
     struct list_head *head)
 {
-    if(!list_empty(list))
-    {
+    if (!list_empty(list)) {
         __list_splice(list, head->prev, head);
         INIT_LIST_HEAD(list);
     }
@@ -823,7 +816,7 @@ static inline void __hlist_del(struct hlist_node *n)
 
     WRITE_ONCE(*pprev, next);
 
-    if(next)
+    if (next)
         next->pprev = pprev;
 }
 
@@ -836,8 +829,7 @@ static inline void hlist_del(struct hlist_node *n)
 
 static inline void hlist_del_init(struct hlist_node *n)
 {
-    if(!hlist_unhashed(n))
-    {
+    if (!hlist_unhashed(n)) {
         __hlist_del(n);
         INIT_HLIST_NODE(n);
     }
@@ -848,7 +840,7 @@ static inline void hlist_add_head(struct hlist_node *n, struct hlist_head *h)
     struct hlist_node *first = h->first;
     n->next = first;
 
-    if(first)
+    if (first)
         first->pprev = &n->next;
 
     WRITE_ONCE(h->first, n);
@@ -872,7 +864,7 @@ static inline void hlist_add_behind(struct hlist_node *n,
     prev->next = n;
     n->pprev = &prev->next;
 
-    if(n->next)
+    if (n->next)
         n->next->pprev  = &n->next;
 }
 
@@ -906,7 +898,7 @@ static inline void hlist_move_list(struct hlist_head *old,
 {
     new->first = old->first;
 
-    if(new->first)
+    if (new->first)
         new->first->pprev = &new->first;
 
     old->first = NULL;

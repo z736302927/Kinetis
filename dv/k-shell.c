@@ -30,14 +30,13 @@ static inline uint8_t shell_PortReceive(void)
 {
     uint8_t Data = 0;
 
-    if(*shell_Pointer & 0xFF00)
+    if (*shell_Pointer & 0xFF00)
         Data = 0xFF;
-    else
-    {
+    else {
         Data = (uint8_t) * shell_Pointer;
         *shell_Pointer = 0xFFFF;
 
-        if(shell_Pointer == &shell_Buffer[127])
+        if (shell_Pointer == &shell_Buffer[127])
             shell_Pointer = shell_Buffer;
         else
             shell_Pointer++;
@@ -74,23 +73,18 @@ uint8_t shell_GetUserInput(char *pointer)
     char inputchar = '\0';
     uint16_t inputlen = 0;
 
-    while(inputchar != '\r')
-    {
+    while (inputchar != '\r') {
         inputchar = shell_PortReceive();
 
-        if(inputchar == 0xFF)
+        if (inputchar == 0xFF)
             continue;
-        else if(inputchar == '\b')
-        {
-            if(inputlen != 0)
-            {
+        else if (inputchar == '\b') {
+            if (inputlen != 0) {
                 pointer--;
                 inputlen--;
                 printf("\b \b");
             }
-        }
-        else
-        {
+        } else {
             *pointer = inputchar;
             pointer++;
             inputlen++;
@@ -100,7 +94,7 @@ uint8_t shell_GetUserInput(char *pointer)
 
     pointer--;
 
-    if(inputlen == 1)
+    if (inputlen == 1)
         *pointer = '\r';
     else
         *pointer = '\0';

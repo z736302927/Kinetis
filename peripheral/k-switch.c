@@ -130,40 +130,32 @@ static void Switch_Handler(struct Switch_TypeDef *handle)
     uint8_t read_gpio_level = handle->HALSwitchLevel();
 
     /*------------Switch debounce handle---------------*/
-    if(read_gpio_level != handle->SwitchLevel)
-    {
+    if (read_gpio_level != handle->SwitchLevel) {
         //not equal to prev one
         //continue read 3 times same new level change
-        if(++(handle->DebounceCnt) >= DEBOUNCE_TICKS)
-        {
+        if (++(handle->DebounceCnt) >= DEBOUNCE_TICKS) {
             handle->SwitchLevel = read_gpio_level;
             handle->DebounceCnt = 0;
         }
-    }
-    else
-    {
+    } else {
         // leved not change ,counter reset.
         handle->DebounceCnt = 0;
     }
 
     /*-----------------State machine-------------------*/
-    switch(handle->State)
-    {
+    switch (handle->State) {
         case 0:
-            if(handle->SwitchLevel == handle->ActiveLevel)
-            {
+            if (handle->SwitchLevel == handle->ActiveLevel) {
                 handle->Event = (uint8_t)SWITCH_DOWN;
                 EVENT_CB(SWITCH_DOWN);
                 handle->State  = 1;
-            }
-            else
+            } else
                 handle->Event = (uint8_t)NONE_SWITCH;
 
             break;
 
         case 1:
-            if(handle->SwitchLevel != handle->ActiveLevel)
-            {
+            if (handle->SwitchLevel != handle->ActiveLevel) {
                 handle->Event = (uint8_t)SWITCH_UP;
                 EVENT_CB(SWITCH_UP);
                 handle->State = 0;
@@ -182,8 +174,7 @@ void Switch_Ticks(void)
 {
     struct Switch_TypeDef *target;
 
-    list_for_each_entry(target, &head_handle, Entry)
-    {
+    list_for_each_entry(target, &head_handle, Entry) {
         Switch_Handler(target);
     }
 }
@@ -205,8 +196,7 @@ static void Switch_Callback(void *btn)
 
     btn_event_val = Get_Switch_Event((struct Switch_TypeDef *)btn);
 
-    switch(btn_event_val)
-    {
+    switch (btn_event_val) {
         case SWITCH_DOWN:
             Switch_printf("Switch press down");
             break;

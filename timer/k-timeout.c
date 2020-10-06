@@ -15,28 +15,24 @@
 
 uint8_t Timeout_WaitUSDone(int *SrcValue, int DstValue, uint32_t Timeout)
 {
-    do
-    {
-        if(*SrcValue == DstValue)
+    do {
+        if (*SrcValue == DstValue)
             return true;
         else
             Delay_us(1);
-    }
-    while(Timeout--);
+    } while (Timeout--);
 
     return false;
 }
 
 uint8_t Timeout_WaitMSDone(int *SrcValue, int DstValue, uint32_t Timeout)
 {
-    do
-    {
-        if(*SrcValue == DstValue)
+    do {
+        if (*SrcValue == DstValue)
             return true;
         else
             Delay_ms(1);
-    }
-    while(Timeout--);
+    } while (Timeout--);
 
     return false;
 }
