@@ -16,16 +16,6 @@
 
 #define MPU6050_ADDR                    0x00
 
-void mpu6050_Delayus(uint32_t ticks)
-{
-    Delay_us(ticks);
-}
-
-void mpu6050_Delayms(uint32_t ticks)
-{
-    Delay_ms(ticks);
-}
-
 void mpu6050_PortTransmmit(uint8_t Addr, uint8_t Data)
 {
     IIC_PortTransmmit(IIC_1, MPU6050_ADDR, Addr, Data);

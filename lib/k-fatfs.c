@@ -1,4 +1,4 @@
-#include "other/k-fatfs.h"
+#include "lib/k-fatfs.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
@@ -188,7 +188,7 @@ FRESULT Miscellaneous(void)
             res = f_read(&MyFile, rtext, f_size(&MyFile), &bytesread);
 
             if (res == FR_OK)
-                kinetis_debug_trace(KERN_DEBUG, "The file content£º%s", rtext);
+                kinetis_debug_trace(KERN_DEBUG, "The file content: %s", rtext);
         }
 
         f_close(&MyFile);
@@ -212,7 +212,7 @@ FRESULT Miscellaneous(void)
             res = f_rename("FatFs.txt", "TestDir/testdir.txt");
         }
     } else {
-        kinetis_debug_trace(KERN_DEBUG, "Failed to open file£º%d", res);
+        kinetis_debug_trace(KERN_DEBUG, "Failed to open file: %d", res);
         kinetis_debug_trace(KERN_DEBUG, "You may need to run the FatFs migration and read and write test project again.");
     }
 

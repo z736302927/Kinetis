@@ -928,9 +928,8 @@ int t_Hydrology(int argc, char **argv)
     if (argc > 1) {
         if (!strcmp(argv[1], "Host"))
             Host = true;
-        else
+        else if (!strcmp(argv[1], "Device"))
             Host = false;
-
     }
 
     if (argc > 2) {
@@ -942,7 +941,6 @@ int t_Hydrology(int argc, char **argv)
             Mode = HYDROLOGY_M3;
         else if (!strcmp(argv[2], "M4"))
             Mode = HYDROLOGY_M4;
-
     }
 
     if (Host == false) {

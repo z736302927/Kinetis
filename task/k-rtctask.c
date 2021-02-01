@@ -51,7 +51,7 @@ void RTCTask_Init(struct RTCTask_TypeDef *Handle, void(*Timeout_cb)(), uint8_t A
   */
 void RTCTask_Deinit(struct RTCTask_TypeDef *Handle)
 {
-    memset(Handle, sizeof(struct RTCTask_TypeDef), 0);
+    memset(Handle, 0, sizeof(struct RTCTask_TypeDef));
 }
 
 /**

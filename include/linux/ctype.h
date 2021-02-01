@@ -25,7 +25,7 @@ extern const unsigned char _ctype[];
 #define iscntrl(c)	((__ismask(c)&(_C)) != 0)
 static inline int isdigit(int c)
 {
-    return '0' <= c && c <= '9';
+	return '0' <= c && c <= '9';
 }
 #define isgraph(c)	((__ismask(c)&(_P|_U|_L|_D)) != 0)
 #define islower(c)	((__ismask(c)&(_L)) != 0)
@@ -41,18 +41,16 @@ static inline int isdigit(int c)
 
 static inline unsigned char __tolower(unsigned char c)
 {
-    if (isupper(c))
-        c -= 'A' - 'a';
-
-    return c;
+	if (isupper(c))
+		c -= 'A'-'a';
+	return c;
 }
 
 static inline unsigned char __toupper(unsigned char c)
 {
-    if (islower(c))
-        c -= 'a' - 'A';
-
-    return c;
+	if (islower(c))
+		c -= 'a'-'A';
+	return c;
 }
 
 #define tolower(c) __tolower(c)
@@ -64,13 +62,13 @@ static inline unsigned char __toupper(unsigned char c)
  */
 static inline char _tolower(const char c)
 {
-    return c | 0x20;
+	return c | 0x20;
 }
 
 /* Fast check for octal digit */
 static inline int isodigit(const char c)
 {
-    return c >= '0' && c <= '7';
+	return c >= '0' && c <= '7';
 }
 
 #endif

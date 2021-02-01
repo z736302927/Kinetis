@@ -109,6 +109,13 @@ void Delay_WaitCountEnd(void)
  */
 void Delay_us(uint32_t Delay)
 {
+    if (Delay > 1000000) {
+        kinetis_debug_trace(KERN_ERR,
+            "The %s() input parameter is greater than 1000000, "
+            "please use Delay_ms", __func__);
+        return;
+    }
+
 #ifdef DELAY_USING_HARDWARE
     DelayPrescaler = (DelayInputClock / DelayUnit / 1000000) - 1;
     DelayPeriod = DelayUnit * Delay - 1;
@@ -151,6 +158,13 @@ void Delay_us(uint32_t Delay)
  */
 void Delay_ms(uint32_t Delay)
 {
+    if (Delay > 1000000) {
+        kinetis_debug_trace(KERN_ERR,
+            "The %s() input parameter is greater than 1000000, "
+            "please use Delay_s", __func__);
+        return;
+    }
+
 #ifdef DELAY_USING_HARDWARE
     DelayPrescaler = (DelayInputClock / DelayUnit / 1000) - 1;
     DelayPeriod = DelayUnit * Delay - 1;
@@ -193,6 +207,13 @@ void Delay_ms(uint32_t Delay)
  */
 void Delay_s(uint32_t Delay)
 {
+    if (Delay > 1000) {
+        kinetis_debug_trace(KERN_ERR,
+            "The %s() input parameter is greater than 1000, "
+            "please correct", __func__);
+        return;
+    }
+
     Delay_ms(Delay * 1000);
 }
 

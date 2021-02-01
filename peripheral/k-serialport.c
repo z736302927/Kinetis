@@ -40,6 +40,8 @@ int SerialPort_GetRxState(void)
 
 void serialport_get_rxdata(uint16_t data)
 {
+    SerialPort_TypeDef *Instance;
+    
     Instance->TempBuffer[serialport_index] = data;
     serialport_index++;
 

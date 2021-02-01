@@ -30,7 +30,7 @@ static uint32_t _TimTask_ticks = 0;
   */
 void TimTask_Init(struct TimTask_TypeDef *Handle, void(*Timeout_cb)(), uint32_t Timeout, uint32_t Repeat)
 {
-    memset(Handle, sizeof(struct TimTask_TypeDef), 0);
+    memset(Handle, 0, sizeof(struct TimTask_TypeDef));
     Handle->Timeout_cb = Timeout_cb;
     Handle->Timeout = _TimTask_ticks + Timeout;
     Handle->Repeat = Repeat;
@@ -43,7 +43,7 @@ void TimTask_Init(struct TimTask_TypeDef *Handle, void(*Timeout_cb)(), uint32_t 
   */
 void TimTask_Deinit(struct TimTask_TypeDef *Handle)
 {
-    memset(Handle, sizeof(struct TimTask_TypeDef), 0);
+    memset(Handle, 0, sizeof(struct TimTask_TypeDef));
 }
 
 /**
