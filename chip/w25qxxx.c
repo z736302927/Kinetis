@@ -190,9 +190,8 @@ uint8_t w25qxxx_Read_BUSY(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER1);
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(0, &Data);
 }
 
 uint8_t w25qxxx_WaitForCmdEnd(uint8_t w25qxxx)
@@ -223,10 +222,8 @@ uint8_t w25qxxx_Read_WEL(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER1);
-    Data >>= 1;
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(1, &Data);
 }
 
 uint8_t w25qxxx_Read_BP0(uint8_t w25qxxx)
@@ -234,10 +231,8 @@ uint8_t w25qxxx_Read_BP0(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER1);
-    Data >>= 2;
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(2, &Data);
 }
 
 uint8_t w25qxxx_Read_BP1(uint8_t w25qxxx)
@@ -245,10 +240,8 @@ uint8_t w25qxxx_Read_BP1(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER1);
-    Data >>= 4;
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(4, &Data);
 }
 
 uint8_t w25qxxx_Read_BP2(uint8_t w25qxxx)
@@ -256,10 +249,8 @@ uint8_t w25qxxx_Read_BP2(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER1);
-    Data >>= 5;
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(5, &Data);
 }
 
 uint8_t w25qxxx_Read_SEC(uint8_t w25qxxx)
@@ -267,10 +258,8 @@ uint8_t w25qxxx_Read_SEC(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER1);
-    Data >>= 6;
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(6, &Data);
 }
 
 uint8_t w25qxxx_Read_BP3(uint8_t w25qxxx)
@@ -278,10 +267,8 @@ uint8_t w25qxxx_Read_BP3(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER1);
-    Data >>= 6;
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(6, &Data);
 }
 
 uint8_t w25qxxx_Read_TB(uint8_t w25qxxx)
@@ -289,10 +276,8 @@ uint8_t w25qxxx_Read_TB(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER1);
-    Data >>= 7;
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(7, &Data);
 }
 
 uint8_t w25qxxx_Read_SRP0(uint8_t w25qxxx)
@@ -300,10 +285,8 @@ uint8_t w25qxxx_Read_SRP0(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER1);
-    Data >>= 7;
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(7, &Data);
 }
 
 uint8_t w25qxxx_Read_SRP1(uint8_t w25qxxx)
@@ -311,9 +294,8 @@ uint8_t w25qxxx_Read_SRP1(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER2);
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(0, &Data);
 }
 
 uint8_t w25qxxx_Read_QE(uint8_t w25qxxx)
@@ -321,10 +303,8 @@ uint8_t w25qxxx_Read_QE(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER2);
-    Data >>= 1;
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(1, &Data);
 }
 
 uint8_t w25qxxx_Read_LB1(uint8_t w25qxxx)
@@ -332,10 +312,8 @@ uint8_t w25qxxx_Read_LB1(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER2);
-    Data >>= 3;
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(3, &Data);
 }
 
 uint8_t w25qxxx_Read_LB2(uint8_t w25qxxx)
@@ -343,10 +321,8 @@ uint8_t w25qxxx_Read_LB2(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER2);
-    Data >>= 4;
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(4, &Data);
 }
 
 uint8_t w25qxxx_Read_LB3(uint8_t w25qxxx)
@@ -354,10 +330,8 @@ uint8_t w25qxxx_Read_LB3(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER2);
-    Data >>= 5;
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(5, &Data);
 }
 
 uint8_t w25qxxx_Read_CMP(uint8_t w25qxxx)
@@ -365,10 +339,8 @@ uint8_t w25qxxx_Read_CMP(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER2);
-    Data >>= 6;
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(6, &Data);
 }
 
 uint8_t w25qxxx_Read_SUS(uint8_t w25qxxx)
@@ -376,10 +348,8 @@ uint8_t w25qxxx_Read_SUS(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER2);
-    Data >>= 7;
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(7, &Data);
 }
 
 uint8_t w25qxxx_Read_ADS(uint8_t w25qxxx)
@@ -387,9 +357,8 @@ uint8_t w25qxxx_Read_ADS(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER3);
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(0, &Data);
 }
 
 uint8_t w25qxxx_Read_ADP(uint8_t w25qxxx)
@@ -397,10 +366,8 @@ uint8_t w25qxxx_Read_ADP(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER3);
-    Data >>= 1;
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(1, &Data);
 }
 
 uint8_t w25qxxx_Read_WPS(uint8_t w25qxxx)
@@ -408,10 +375,8 @@ uint8_t w25qxxx_Read_WPS(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER3);
-    Data >>= 2;
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(2, &Data);
 }
 
 uint8_t w25qxxx_Read_DRV0(uint8_t w25qxxx)
@@ -419,10 +384,8 @@ uint8_t w25qxxx_Read_DRV0(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER3);
-    Data >>= 5;
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(5, &Data);
 }
 
 uint8_t w25qxxx_Read_DRV1(uint8_t w25qxxx)
@@ -430,10 +393,8 @@ uint8_t w25qxxx_Read_DRV1(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER3);
-    Data >>= 6;
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(6, &Data);
 }
 
 uint8_t w25qxxx_Read_HOLD_RST(uint8_t w25qxxx)
@@ -441,10 +402,8 @@ uint8_t w25qxxx_Read_HOLD_RST(uint8_t w25qxxx)
     uint8_t Data = 0;
 
     Data = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER3);
-    Data >>= 7;
-    Data &= 0x01;
-
-    return Data;
+    
+    return test_bit(7, &Data);
 }
 
 void w25qxxx_Write_SRP0(uint8_t w25qxxx, uint8_t Data)
@@ -453,10 +412,7 @@ void w25qxxx_Write_SRP0(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER1);
 
-    if (Data == 1)
-        Reg |= 0x80;
-    else
-        Reg &= ~0x80;
+    assign_bit(7, &Reg, Data);
 
     w25qxxx_TransCmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_WriteStatusRegister(w25qxxx, WRITE_STATUS_REGISTER1, Reg);
@@ -468,10 +424,7 @@ void w25qxxx_Write_SEC(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER1);
 
-    if (Data == 1)
-        Reg |= 0x40;
-    else
-        Reg &= ~0x40;
+    assign_bit(6, &Reg, Data);
 
     w25qxxx_TransCmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_WriteStatusRegister(w25qxxx, WRITE_STATUS_REGISTER1, Reg);
@@ -483,10 +436,7 @@ void w25qxxx_Write_TB(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER1);
 
-    if (Data == 1)
-        Reg |= 0x20;
-    else
-        Reg &= ~0x20;
+    assign_bit(5, &Reg, Data);
 
     w25qxxx_TransCmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_WriteStatusRegister(w25qxxx, WRITE_STATUS_REGISTER1, Reg);
@@ -516,10 +466,7 @@ void w25qxxx_Write_CMP(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER2);
 
-    if (Data == 1)
-        Reg |= 0x40;
-    else
-        Reg &= ~0x40;
+    assign_bit(6, &Reg, Data);
 
     w25qxxx_TransCmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_WriteStatusRegister(w25qxxx, WRITE_STATUS_REGISTER2, Reg);
@@ -549,10 +496,7 @@ void w25qxxx_Write_QE(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER2);
 
-    if (Data == 1)
-        Reg |= 0x02;
-    else
-        Reg &= ~0x02;
+    assign_bit(1, &Reg, Data);
 
     w25qxxx_TransCmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_WriteStatusRegister(w25qxxx, WRITE_STATUS_REGISTER2, Reg);
@@ -564,10 +508,7 @@ void w25qxxx_Write_SRP1(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER2);
 
-    if (Data == 1)
-        Reg |= 0x01;
-    else
-        Reg &= ~0x01;
+    assign_bit(0, &Reg, Data);
 
     w25qxxx_TransCmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_WriteStatusRegister(w25qxxx, WRITE_STATUS_REGISTER2, Reg);
@@ -579,10 +520,7 @@ void w25qxxx_Write_HOLD_RST(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER3);
 
-    if (Data == 1)
-        Reg |= 0x80;
-    else
-        Reg &= ~0x80;
+    assign_bit(7, &Reg, Data);
 
     w25qxxx_TransCmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_WriteStatusRegister(w25qxxx, WRITE_STATUS_REGISTER3, Reg);
@@ -594,10 +532,7 @@ void w25qxxx_Write_DRV1(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER3);
 
-    if (Data == 1)
-        Reg |= 0x40;
-    else
-        Reg &= ~0x40;
+    assign_bit(6, &Reg, Data);
 
     w25qxxx_TransCmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_WriteStatusRegister(w25qxxx, WRITE_STATUS_REGISTER3, Reg);
@@ -609,10 +544,7 @@ void w25qxxx_Write_DRV0(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER3);
 
-    if (Data == 1)
-        Reg |= 0x20;
-    else
-        Reg &= ~0x20;
+    assign_bit(5, &Reg, Data);
 
     w25qxxx_TransCmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_WriteStatusRegister(w25qxxx, WRITE_STATUS_REGISTER3, Reg);
@@ -624,10 +556,7 @@ void w25qxxx_Write_WPS(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER3);
 
-    if (Data == 1)
-        Reg |= 0x04;
-    else
-        Reg &= ~0x04;
+    assign_bit(2, &Reg, Data);
 
     w25qxxx_TransCmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_WriteStatusRegister(w25qxxx, WRITE_STATUS_REGISTER3, Reg);
@@ -639,10 +568,7 @@ void w25qxxx_Write_ADP(uint8_t w25qxxx, uint8_t Data)
 
     Reg = w25qxxx_ReadStatusRegister(w25qxxx, READ_STATUS_REGISTER3);
 
-    if (Data == 1)
-        Reg |= 0x02;
-    else
-        Reg &= ~0x02;
+    assign_bit(1, &Reg, Data);
 
     w25qxxx_TransCmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_WriteStatusRegister(w25qxxx, WRITE_STATUS_REGISTER3, Reg);
@@ -839,6 +765,8 @@ void w25q256_FastReadwith4ByteAddress(uint8_t w25qxxx, uint32_t Addr, uint8_t *p
 void w25qxxx_PageProgram(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, uint16_t Length)
 {
     uint8_t SubAddr[4];
+    u8 busy;
+    
 
     if (Length == 0)
         return ;
@@ -861,7 +789,8 @@ void w25qxxx_PageProgram(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, uint16_
     w25qxxx_PortMultiTransmmit(w25qxxx, pData, Length);
     w25qxxx_CS_High(w25qxxx);
 
-    w25qxxx_WaitForCmdEnd(w25qxxx);
+    readx_poll_timeout_atomic(w25qxxx_Read_BUSY, w25qxxx, busy,
+        busy == 0, 0, 30000000);
 }
 
 void w25qxxx_MultiPageProgram(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, uint16_t Length)
@@ -1058,6 +987,7 @@ void w25qxxx_WriteData(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, uint16_t 
 void w25qxxx_SectorErase(uint8_t w25qxxx, uint32_t Addr)
 {
     uint8_t SubAddr[4];
+    u8 busy;
 
     if (w25qxxx == W25Q256)
         SubAddr[0] = (Addr & 0xFF000000) >> 24;
@@ -1076,12 +1006,14 @@ void w25qxxx_SectorErase(uint8_t w25qxxx, uint32_t Addr)
     w25qxxx_PortMultiTransmmit(w25qxxx, &SubAddr[1], 3);
     w25qxxx_CS_High(w25qxxx);
 
-    w25qxxx_WaitForCmdEnd(w25qxxx);
+    readx_poll_timeout_atomic(w25qxxx_Read_BUSY, w25qxxx, busy,
+        busy == 0, 0, 30000000);
 }
 
 void w25qxxx_BlockEraseWith32KB(uint8_t w25qxxx, uint32_t Addr)
 {
     uint8_t SubAddr[4];
+    u8 busy;
 
     if (w25qxxx == W25Q256)
         SubAddr[0] = (Addr & 0xFF000000) >> 24;
@@ -1100,12 +1032,14 @@ void w25qxxx_BlockEraseWith32KB(uint8_t w25qxxx, uint32_t Addr)
     w25qxxx_PortMultiTransmmit(w25qxxx, &SubAddr[1], 3);
     w25qxxx_CS_High(w25qxxx);
 
-    w25qxxx_WaitForCmdEnd(w25qxxx);
+    readx_poll_timeout_atomic(w25qxxx_Read_BUSY, w25qxxx, busy,
+        busy == 0, 0, 30000000);
 }
 
 void w25qxxx_BlockEraseWith64KB(uint8_t w25qxxx, uint32_t Addr)
 {
     uint8_t SubAddr[4];
+    u8 busy;
 
     if (w25qxxx == W25Q256)
         SubAddr[0] = (Addr & 0xFF000000) >> 24;
@@ -1124,15 +1058,19 @@ void w25qxxx_BlockEraseWith64KB(uint8_t w25qxxx, uint32_t Addr)
     w25qxxx_PortMultiTransmmit(w25qxxx, &SubAddr[1], 3);
     w25qxxx_CS_High(w25qxxx);
 
-    w25qxxx_WaitForCmdEnd(w25qxxx);
+    readx_poll_timeout_atomic(w25qxxx_Read_BUSY, w25qxxx, busy,
+        busy == 0, 0, 30000000);
 }
 
 void w25qxxx_ChipErase(uint8_t w25qxxx)
 {
+    u8 busy;
+    
     w25qxxx_WriteEnable(w25qxxx);
     w25qxxx_TransCmd(w25qxxx, CHIP_ERASE);
 
-    w25qxxx_WaitForCmdEnd(w25qxxx);
+    readx_poll_timeout_atomic(w25qxxx_Read_BUSY, w25qxxx, busy,
+        busy == 0, 0, 30000000);
 }
 
 void w25qxxx_EraseProgram_Suspend(uint8_t w25qxxx)
@@ -1238,6 +1176,8 @@ void w25qxxx_ReadSFDPRegister(uint8_t w25qxxx, uint32_t Addr, uint8_t *pData, ui
 
 void w25qxxx_EraseSecurityRegisters(uint8_t w25qxxx, uint8_t Addr)
 {
+    u8 busy;
+    
     w25qxxx_WriteEnable(w25qxxx);
     w25qxxx_CS_Low(w25qxxx);
     w25qxxx_PortTransmmit(w25qxxx, ERASE_SECURITY_REGISTERS);
@@ -1250,7 +1190,8 @@ void w25qxxx_EraseSecurityRegisters(uint8_t w25qxxx, uint8_t Addr)
     w25qxxx_PortTransmmit(w25qxxx, 0x00);
     w25qxxx_CS_High(w25qxxx);
 
-    w25qxxx_WaitForCmdEnd(w25qxxx);
+    readx_poll_timeout_atomic(w25qxxx_Read_BUSY, w25qxxx, busy,
+        busy == 0, 0, 30000000);
 }
 
 //void w25qxxx_ProgramSecurityRegisters(uint8_t w25qxxx, uint32_t RegNum, uint32_t ByteAddr, uint8_t *pData, uint16_t Length)

@@ -297,9 +297,7 @@ void mpu6050_FIFOMode(uint8_t Data)
 
     mpu6050_PortReceive(CONFIG, &TmpReg);
 
-    Data &= 0x01;
-    TmpReg &= ~(0x01 << 6);
-    TmpReg |= (Data << 6);
+    assign_bit(6, &TmpReg, Data);
 
     mpu6050_PortTransmmit(CONFIG, TmpReg);
 }
@@ -310,9 +308,7 @@ void mpu6050_FsyncSet(uint8_t Data)
 
     mpu6050_PortReceive(CONFIG, &TmpReg);
 
-    Data &= 0x07;
-    TmpReg &= ~(0x07 << 3);
-    TmpReg |= (Data << 3);
+    set_mask_bits(&TmpReg, 0x07 << 3, Data);
 
     mpu6050_PortTransmmit(CONFIG, TmpReg);
 }
@@ -323,9 +319,7 @@ void mpu6050_ConfigDLPF(uint8_t Data)
 
     mpu6050_PortReceive(CONFIG, &TmpReg);
 
-    Data &= 0x07;
-    TmpReg &= ~(0x07 << 0);
-    TmpReg |= (Data << 0);
+    set_mask_bits(&TmpReg, 0x07, Data);
 
     mpu6050_PortTransmmit(CONFIG, TmpReg);
 }
