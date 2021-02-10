@@ -243,7 +243,7 @@ int t_RTC_SetClock(int argc, char **argv)
 
     snprintf(Time, sizeof(Time), "20%02d/%02d/%02d/% 02d:%02d:%02d", Year, Month, Date,
         Hours, Minutes, Seconds);
-    kinetis_debug_trace(KERN_DEBUG, "Set clock is %s", Time);
+    kinetis_print_trace(KERN_DEBUG, "Set clock is %s", Time);
     RTC_CalendarConfig(Year, Month, Date, Hours, Minutes, Seconds, WeekDay, KRTC_FORMAT_BIN);
 
     return PASS;
@@ -258,7 +258,7 @@ int t_RTC_GetClock(int argc, char **argv)
     RTC_CalendarShow(&Year, &Month, &Date, &Hours, &Minutes, &Seconds, &WeekDay, KRTC_FORMAT_BIN);
     snprintf(Time, sizeof(Time), "20%02d/%02d/%02d/% 02d:%02d:%02d", Year, Month, Date,
         Hours, Minutes, Seconds);
-    kinetis_debug_trace(KERN_DEBUG, "Get clock is %s", Time);
+    kinetis_print_trace(KERN_DEBUG, "Get clock is %s", Time);
 
     return PASS;
 }

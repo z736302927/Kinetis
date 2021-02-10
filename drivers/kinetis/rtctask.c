@@ -350,7 +350,7 @@ static u8 RTCTask_Flag = 0;
 void RTCTask1_Callback(void)
 {
     RTCTask_Flag = true;
-    kinetis_debug_trace(KERN_DEBUG, "RTCTask1 timeout!");
+    kinetis_print_trace(KERN_DEBUG, "RTCTask1 timeout!");
 }
 
 int t_RTCTask_Add(int argc, char **argv)
@@ -364,7 +364,7 @@ int t_RTCTask_Add(int argc, char **argv)
     Timeout_WaitMSDone(&RTCTask_Flag, true, 2000);
 
     Timestamp = basic_timer_get_ms_tick() - Timestamp;
-    kinetis_debug_trace(KERN_DEBUG, "RTCTask elapse time = %lu ms.", Timestamp);
+    kinetis_print_trace(KERN_DEBUG, "RTCTask elapse time = %lu ms.", Timestamp);
 
     if (Timestamp > 1100)
         return FAIL;

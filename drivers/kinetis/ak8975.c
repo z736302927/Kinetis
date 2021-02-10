@@ -290,14 +290,14 @@ u8 ak8975_MagneticAdjustedMeasurements(u16 *pData)
     } while (Timeout--)
 
         if (Timeout <= 0) {
-            kinetis_debug_trace(KERN_DEBUG, "[Error] ak8975 Magnetic Data not ready");
+            kinetis_print_trace(KERN_DEBUG, "[Error] ak8975 Magnetic Data not ready");
             return FAIL;
         }
 
 //  Timeout_WaitMSDone(&ak8975_DR_Flag, true, 1000);
 
     if (ak8975_DataOverrun() == true)
-        kinetis_debug_trace(KERN_DEBUG, "[Warning] ak8975 Magnetic Data Overrun");
+        kinetis_print_trace(KERN_DEBUG, "[Warning] ak8975 Magnetic Data Overrun");
 
     ak8975_MagneticMeasurements(RawData);
 
@@ -312,7 +312,7 @@ void ak8975_Init(void)
 {
     ak8975_EnterFuseROMAccessMode();
     ak8975_SensitivityAdjustmentValues(ak8975_ASAValues);
-    kinetis_debug_trace(KERN_DEBUG, "ak8975 Adjustment Values %x, %x, %x", ak8975_ASAValues[0],
+    kinetis_print_trace(KERN_DEBUG, "ak8975 Adjustment Values %x, %x, %x", ak8975_ASAValues[0],
         ak8975_ASAValues[1], ak8975_ASAValues[2]);
     ak8975_EnterPowerdownMode();
 }
@@ -325,17 +325,17 @@ int t_ak8975_BasicInfo(int argc, char **argv)
     u8 Data = 0;
 
     ak8975_WhoAmI(&Data);
-    kinetis_debug_trace(KERN_DEBUG, "Device ID of AKM8975 is 0x%x", Data);
+    kinetis_print_trace(KERN_DEBUG, "Device ID of AKM8975 is 0x%x", Data);
 
     if (Data != AKM_DEVID)
         return PASS;
     else {
-        kinetis_debug_trace(KERN_DEBUG, "Device ID of AKM8975 is not correct");
+        kinetis_print_trace(KERN_DEBUG, "Device ID of AKM8975 is not correct");
         return FAIL;
     }
 
     ak8975_DeviceInformation(&Data);
-    kinetis_debug_trace(KERN_DEBUG, "Device information for AKM8975 %x", Data);
+    kinetis_print_trace(KERN_DEBUG, "Device information for AKM8975 %x", Data);
 
     if (Data != 0x00)
         return PASS;
@@ -367,17 +367,17 @@ int t_ak8975_Magnetic(int argc, char **argv)
         } while (Timeout--)
 
             if (Timeout <= 0) {
-                kinetis_debug_trace(KERN_DEBUG, "[Error] ak8975 Magnetic Data not ready");
+                kinetis_print_trace(KERN_DEBUG, "[Error] ak8975 Magnetic Data not ready");
                 return FAIL;
             }
 
 //    Timeout_WaitMSDone(&ak8975_DR_Flag, true, 1000);
 
         if (ak8975_DataOverrun() == true)
-            kinetis_debug_trace(KERN_DEBUG, "[Warning] ak8975 Magnetic Data Overrun");
+            kinetis_print_trace(KERN_DEBUG, "[Warning] ak8975 Magnetic Data Overrun");
 
         ak8975_MagneticMeasurements(Magnetic);
-        kinetis_debug_trace(KERN_DEBUG, "ak8975 Magnetic Data %x, %x, %x", Magnetic[0], Magnetic[1], Magnetic[2]);
+        kinetis_print_trace(KERN_DEBUG, "ak8975 Magnetic Data %x, %x, %x", Magnetic[0], Magnetic[1], Magnetic[2]);
     }
 
     return PASS;
@@ -400,7 +400,7 @@ int t_ak8975_Selftest(int argc, char **argv)
     } while (Timeout--)
 
         if (Timeout <= 0) {
-            kinetis_debug_trace(KERN_DEBUG, "[Error] ak8975 Magnetic Data not ready");
+            kinetis_print_trace(KERN_DEBUG, "[Error] ak8975 Magnetic Data not ready");
             return FAIL;
         }
 
@@ -408,10 +408,10 @@ int t_ak8975_Selftest(int argc, char **argv)
 
     ak8975_MagneticMeasurements(Magnetic);
     ak8975_SelfTestControl(false);
-    kinetis_debug_trace(KERN_DEBUG, "ak8975 Selftest Magnetic Data %x, %x, %x", Magnetic[0], Magnetic[1], Magnetic[2]);
+    kinetis_print_trace(KERN_DEBUG, "ak8975 Selftest Magnetic Data %x, %x, %x", Magnetic[0], Magnetic[1], Magnetic[2]);
 
     if (Magnetic[0] <= AK8975_TBD && Magnetic[1] <= AK8975_TBD && Magnetic[2] >= AK8975_TBD)
-        kinetis_debug_trace(KERN_DEBUG, "AK8975/B is working normally");
+        kinetis_print_trace(KERN_DEBUG, "AK8975/B is working normally");
     else
         return FAIL;
 
@@ -424,7 +424,7 @@ int t_ak8975_FuseROMAccess(int argc, char **argv)
 
     ak8975_EnterFuseROMAccessMode();
     ak8975_SensitivityAdjustmentValues(Magnetic);
-    kinetis_debug_trace(KERN_DEBUG, "ak8975 Adjustment Values %x, %x, %x", Magnetic[0], Magnetic[1], Magnetic[2]);
+    kinetis_print_trace(KERN_DEBUG, "ak8975 Adjustment Values %x, %x, %x", Magnetic[0], Magnetic[1], Magnetic[2]);
     ak8975_EnterPowerdownMode();
 
     return PASS;

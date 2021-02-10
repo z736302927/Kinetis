@@ -136,14 +136,14 @@ int t_memory_Test(int argc, char **argv)
 
     for (i = 0; i < times; i++) {
         size = Random_Get8bit();
-        kinetis_debug_trace(KERN_DEBUG, "malloc size@%u", size);
+        kinetis_print_trace(KERN_DEBUG, "malloc size@%u", size);
         ret = kmalloc(size, GFP_KERNEL);
 
         if (ret == NULL)
             return FAIL;
 
         kfree(ret);
-        kinetis_debug_trace(KERN_DEBUG, "malloc addr@%p", ret);
+        kinetis_print_trace(KERN_DEBUG, "malloc addr@%p", ret);
     }
 
     return PASS;

@@ -129,7 +129,7 @@ static u8 TimTask_Flag = 0;
 void TimTask1_Callback(void)
 {
     TimTask_Flag = true;
-    kinetis_debug_trace(KERN_DEBUG, "TimTask1 timeout!");
+    kinetis_print_trace(KERN_DEBUG, "TimTask1 timeout!");
 }
 
 int t_TimTask_Add(int argc, char **argv)
@@ -143,7 +143,7 @@ int t_TimTask_Add(int argc, char **argv)
     Timeout_WaitMSDone(&TimTask_Flag, true, 2000);
 
     Timestamp = basic_timer_get_ms_tick() - Timestamp;
-    kinetis_debug_trace(KERN_DEBUG, "TimTask elapse time = %lu ms.", Timestamp);
+    kinetis_print_trace(KERN_DEBUG, "TimTask elapse time = %lu ms.", Timestamp);
 
     if (Timestamp > 1100)
         return FAIL;

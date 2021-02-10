@@ -38,7 +38,7 @@ PUTCHAR_PROTOTYPE {
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-void kinetis_debug_trace(int dbg_level, const char *format, ...)
+void kinetis_print_trace(int dbg_level, const char *format, ...)
 {
     char buffer[256];
     va_list args;

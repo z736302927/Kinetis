@@ -548,7 +548,7 @@ int t_ds3231_SetClock(int argc, char **argv)
     else
         snprintf(&Time[12], 4, " PM");
 
-    kinetis_debug_trace(KERN_DEBUG, "%s", Time);
+    kinetis_print_trace(KERN_DEBUG, "%s", Time);
 
     return true;
 }
@@ -570,7 +570,7 @@ int t_ds3231_GetClock(int argc, char **argv)
         else
             snprintf(&Time[12], 4, " PM");
 
-        kinetis_debug_trace(KERN_DEBUG, "%s", Time);
+        kinetis_print_trace(KERN_DEBUG, "%s", Time);
         ds3231_Delayms(1000);
     }
 
@@ -885,7 +885,7 @@ int t_ds3231_GetTemprature(int argc, char **argv)
     ds3231_ConvertTemperature();
     ds3231_GetTemperature(&Data);
 
-    kinetis_debug_trace(KERN_DEBUG, "Temperature is %f", Data);
+    kinetis_print_trace(KERN_DEBUG, "Temperature is %f", Data);
 
     return true;
 }

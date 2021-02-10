@@ -110,7 +110,7 @@ void General_DecomposeResult(GeneralCommand_TypeDef *Command)
 
     do {
         argv[*argc] = strsep((char **) & (Command->SerialPort->RxBuffer), Command->Delimiter);
-        kinetis_debug_trace(KERN_DEBUG, "[%d] %s", *argc, argv[*argc]);
+        kinetis_print_trace(KERN_DEBUG, "[%d] %s", *argc, argv[*argc]);
         (*argc)++;
     } while (Command->SerialPort->RxBuffer);
 }

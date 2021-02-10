@@ -1693,10 +1693,10 @@ void mpu6050_Test(void)
 
     Random_Get8bit(&hrng, &TmpRngdata);
     BufferLength = TmpRngdata & 0xFF;
-    kinetis_debug_trace(KERN_DEBUG, "BufferLength = %d.", BufferLength);
+    kinetis_print_trace(KERN_DEBUG, "BufferLength = %d.", BufferLength);
 
     if (tx_buffer == NULL || rx_buffer == NULL) {
-        kinetis_debug_trace(KERN_DEBUG, "Failed to allocate memory !");
+        kinetis_print_trace(KERN_DEBUG, "Failed to allocate memory !");
         return;
     }
 
@@ -1705,7 +1705,7 @@ void mpu6050_Test(void)
 
     Random_Get8bit(&hrng, &TmpRngdata);
     TestAddr = TmpRngdata & 0xFF;
-    kinetis_debug_trace(KERN_DEBUG, "TestAddr = 0x%02X.", TestAddr);
+    kinetis_print_trace(KERN_DEBUG, "TestAddr = 0x%02X.", TestAddr);
 
     for (u16 i = 0; i < BufferLength; i += 4) {
         Random_Get8bit(&hrng, &TmpRngdata);
@@ -1720,15 +1720,15 @@ void mpu6050_Test(void)
 
     for (u16 i = 0; i < BufferLength; i++) {
         if (tx_buffer[i] != rx_buffer[i]) {
-            kinetis_debug_trace(KERN_DEBUG, "tx_buffer[%d] = 0x%02X, rx_buffer[%d] = 0x%02X",
+            kinetis_print_trace(KERN_DEBUG, "tx_buffer[%d] = 0x%02X, rx_buffer[%d] = 0x%02X",
                 i, tx_buffer[i],
                 i, rx_buffer[i]);
-            kinetis_debug_trace(KERN_DEBUG, "Data writes and reads do not match, TEST FAILED !");
+            kinetis_print_trace(KERN_DEBUG, "Data writes and reads do not match, TEST FAILED !");
             return ;
         }
     }
 
-    kinetis_debug_trace(KERN_DEBUG, "mpu6050 Read and write TEST PASSED !");
+    kinetis_print_trace(KERN_DEBUG, "mpu6050 Read and write TEST PASSED !");
 }
 
 #endif

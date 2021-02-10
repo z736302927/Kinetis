@@ -32,7 +32,7 @@ extern "C" {
 #define KERN_DEFAULT	3
 #endif
 
-void kinetis_debug_trace(int dbg_level, const char *format, ...);
+void kinetis_print_trace(int dbg_level, const char *format, ...);
 void kinetis_dump_buffer(void *Buffer, int Size);
 
 #define ERR_PRINT_TIME  printf("[%05d.%06d] ", basic_timer_get_ss_tick(), basic_timer_get_us_tick())

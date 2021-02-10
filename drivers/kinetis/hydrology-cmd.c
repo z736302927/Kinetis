@@ -72,7 +72,7 @@ static int Hydrology_SendSpecifiedElement(void)
             (HydrologyElementInfo *)kmalloc(sizeof(HydrologyElementInfo) * downbody->count, __GFP_ZERO);
 
         if (Element_table == NULL) {
-            kinetis_debug_trace(KERN_DEBUG, "Element_table malloc failed");
+            kinetis_print_trace(KERN_DEBUG, "Element_table malloc failed");
             return false;
         }
     }
@@ -102,7 +102,7 @@ static int Hydrology_BasicInfoConfig(void)
             (HydrologyElementInfo *)kmalloc(sizeof(HydrologyElementInfo) * downbody->count, __GFP_ZERO);
 
         if (Element_table == NULL) {
-            kinetis_debug_trace(KERN_DEBUG, "Element_table malloc failed");
+            kinetis_print_trace(KERN_DEBUG, "Element_table malloc failed");
             return false;
         }
     }
@@ -133,7 +133,7 @@ static int Hydrology_BasicInfoRead(HydrologyBodyType Funcode)
             (HydrologyElementInfo *)kmalloc(sizeof(HydrologyElementInfo) * downbody->count, __GFP_ZERO);
 
         if (Element_table == NULL) {
-            kinetis_debug_trace(KERN_DEBUG, "Element_table malloc failed");
+            kinetis_print_trace(KERN_DEBUG, "Element_table malloc failed");
             return false;
         }
     }
@@ -163,7 +163,7 @@ static int Hydrology_SetParameter(void)
             (HydrologyElementInfo *)kmalloc(sizeof(HydrologyElementInfo) * downbody->count, __GFP_ZERO);
 
         if (Element_table == NULL) {
-            kinetis_debug_trace(KERN_DEBUG, "Element_table malloc failed");
+            kinetis_print_trace(KERN_DEBUG, "Element_table malloc failed");
             return false;
         }
     }
@@ -194,7 +194,7 @@ static int Hydrology_ReadParameter(HydrologyBodyType Funcode)
             (HydrologyElementInfo *)kmalloc(sizeof(HydrologyElementInfo) * downbody->count, __GFP_ZERO);
 
         if (Element_table == NULL) {
-            kinetis_debug_trace(KERN_DEBUG, "Element_table malloc failed");
+            kinetis_print_trace(KERN_DEBUG, "Element_table malloc failed");
             return false;
         }
     }

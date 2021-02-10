@@ -48,7 +48,7 @@ void delay_init(void)
     delay_priv_val.period = delay_priv_val.unit - 1;
 
     if (delay_priv_val.input_clock >= 600000000)
-        kinetis_debug_trace(KERN_DEBUG,
+        kinetis_print_trace(KERN_DEBUG,
             "Inputing clock is too large, please modify the delay unit.");
 
     delay_enable_timer();
@@ -117,7 +117,7 @@ static void delay_wait_cnt_end(void)
 void udelay(u32 delay)
 {
     if (delay > 1000000) {
-        kinetis_debug_trace(KERN_ERR,
+        kinetis_print_trace(KERN_ERR,
             "The %s() input parameter is greater than 1000000, "
             "please use mdelay()", __func__);
         return;
@@ -166,7 +166,7 @@ void udelay(u32 delay)
 void mdelay(u32 delay)
 {
     if (delay > 1000000) {
-        kinetis_debug_trace(KERN_ERR,
+        kinetis_print_trace(KERN_ERR,
             "The %s() input parameter is greater than 1000000, "
             "please use sdelay()", __func__);
         return;
@@ -215,7 +215,7 @@ void mdelay(u32 delay)
 void sdelay(u32 delay)
 {
     if (delay > 1000) {
-        kinetis_debug_trace(KERN_ERR,
+        kinetis_print_trace(KERN_ERR,
             "The %s() input parameter is greater than 1000, "
             "please correct", __func__);
         return;
@@ -236,17 +236,17 @@ int t_Delay(int argc, char **argv)
     time_stamp = basic_timer_get_us_tick();
     udelay(1000);
     time_stamp = basic_timer_get_us_tick() - time_stamp;
-    kinetis_debug_trace(KERN_DEBUG, "Delay 1000 us, The result = %lu us.", time_stamp);
+    kinetis_print_trace(KERN_DEBUG, "Delay 1000 us, The result = %lu us.", time_stamp);
 
     time_stamp = basic_timer_get_ms_tick();
     mdelay(1000);
     time_stamp = basic_timer_get_ms_tick() - time_stamp;
-    kinetis_debug_trace(KERN_DEBUG, "Delay 1000 ms, The result = %lu ms.", time_stamp);
+    kinetis_print_trace(KERN_DEBUG, "Delay 1000 ms, The result = %lu ms.", time_stamp);
 
     time_stamp = basic_timer_get_ss_tick();
     sdelay(3);
     time_stamp = basic_timer_get_ss_tick() - time_stamp;
-    kinetis_debug_trace(KERN_DEBUG, "Delay 3 s, The result = %lu s.", time_stamp);
+    kinetis_print_trace(KERN_DEBUG, "Delay 3 s, The result = %lu s.", time_stamp);
 
     return PASS;
 }

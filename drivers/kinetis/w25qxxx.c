@@ -1,5 +1,17 @@
 #include "kinetis/w25qxxx.h"
-#include "stdbool.h"
+#include "kinetis/rng.h"
+#include "kinetis/idebug.h"
+#include "kinetis/delay.h"
+#include "kinetis/basictimer.h"
+
+#include <linux/bitops.h>
+//#include <linux/iopoll.h>
+#include <linux/errno.h>
+
+#include "stdlib.h"
+#include "string.h"
+
+#include "spi.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -11,13 +23,6 @@
   * @step 5:
   */
 
-#include "stdlib.h"
-#include "string.h"
-#include "kinetis/rng.h"
-#include "spi.h"
-#include <linux/delay.h>
-#include "kinetis/idebug.h"
-#include "kinetis/basictimer.h"
 
 static inline void w25qxxx_port_transmmit(u8 w25qxxx, u8 tmp)
 {
@@ -60,11 +65,11 @@ static inline void w25qxxx_port_multi_transmmit(u8 w25qxxx,
 {
     switch (w25qxxx) {
         case W25Q128:
-            HAL_SPI_Receive(&hspi1, &tmp, 1, 1000);
+            HAL_SPI_Transmit(&hspi1, pdata, length, 1000);
             break;
 
         case W25Q256:
-            HAL_SPI_Receive(&hspi5, &tmp, 1, 1000);
+            HAL_SPI_Transmit(&hspi5, pdata, length, 1000);
             break;
 
         default:
@@ -217,7 +222,7 @@ u8 w25qxxx_read_busy(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    return test_bit(0, &tmp);
+    return test_bit(0, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_wel(u8 w25qxxx)
@@ -226,7 +231,7 @@ u8 w25qxxx_read_wel(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    return test_bit(1, &tmp);
+    return test_bit(1, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_bp0(u8 w25qxxx)
@@ -235,7 +240,7 @@ u8 w25qxxx_read_bp0(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    return test_bit(2, &tmp);
+    return test_bit(2, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_bp1(u8 w25qxxx)
@@ -244,7 +249,7 @@ u8 w25qxxx_read_bp1(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    return test_bit(4, &tmp);
+    return test_bit(4, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_bp2(u8 w25qxxx)
@@ -253,7 +258,7 @@ u8 w25qxxx_read_bp2(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    return test_bit(5, &tmp);
+    return test_bit(5, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_sec(u8 w25qxxx)
@@ -262,7 +267,7 @@ u8 w25qxxx_read_sec(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    return test_bit(6, &tmp);
+    return test_bit(6, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_bp3(u8 w25qxxx)
@@ -271,7 +276,7 @@ u8 w25qxxx_read_bp3(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    return test_bit(6, &tmp);
+    return test_bit(6, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_tb(u8 w25qxxx)
@@ -280,7 +285,7 @@ u8 w25qxxx_read_tb(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    return test_bit(7, &tmp);
+    return test_bit(7, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_srp0(u8 w25qxxx)
@@ -289,7 +294,7 @@ u8 w25qxxx_read_srp0(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    return test_bit(7, &tmp);
+    return test_bit(7, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_srp1(u8 w25qxxx)
@@ -298,7 +303,7 @@ u8 w25qxxx_read_srp1(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    return test_bit(0, &tmp);
+    return test_bit(0, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_qe(u8 w25qxxx)
@@ -307,7 +312,7 @@ u8 w25qxxx_read_qe(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    return test_bit(1, &tmp);
+    return test_bit(1, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_lb1(u8 w25qxxx)
@@ -316,7 +321,7 @@ u8 w25qxxx_read_lb1(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    return test_bit(3, &tmp);
+    return test_bit(3, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_lb2(u8 w25qxxx)
@@ -325,7 +330,7 @@ u8 w25qxxx_read_lb2(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    return test_bit(4, &tmp);
+    return test_bit(4, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_lb3(u8 w25qxxx)
@@ -334,7 +339,7 @@ u8 w25qxxx_read_lb3(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    return test_bit(5, &tmp);
+    return test_bit(5, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_cmp(u8 w25qxxx)
@@ -343,7 +348,7 @@ u8 w25qxxx_read_cmp(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    return test_bit(6, &tmp);
+    return test_bit(6, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_sus(u8 w25qxxx)
@@ -352,7 +357,7 @@ u8 w25qxxx_read_sus(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    return test_bit(7, &tmp);
+    return test_bit(7, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_ads(u8 w25qxxx)
@@ -361,7 +366,7 @@ u8 w25qxxx_read_ads(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    return test_bit(0, &tmp);
+    return test_bit(0, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_adp(u8 w25qxxx)
@@ -370,7 +375,7 @@ u8 w25qxxx_read_adp(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    return test_bit(1, &tmp);
+    return test_bit(1, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_wps(u8 w25qxxx)
@@ -379,7 +384,7 @@ u8 w25qxxx_read_wps(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    return test_bit(2, &tmp);
+    return test_bit(2, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_drv0(u8 w25qxxx)
@@ -388,7 +393,7 @@ u8 w25qxxx_read_drv0(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    return test_bit(5, &tmp);
+    return test_bit(5, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_drv1(u8 w25qxxx)
@@ -397,7 +402,7 @@ u8 w25qxxx_read_drv1(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    return test_bit(6, &tmp);
+    return test_bit(6, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_hold_rst(u8 w25qxxx)
@@ -406,7 +411,7 @@ u8 w25qxxx_read_hold_rst(u8 w25qxxx)
 
     tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    return test_bit(7, &tmp);
+    return test_bit(7, (unsigned long *)&tmp);
 }
 
 void w25qxxx_write_srp0(u8 w25qxxx, u8 tmp)
@@ -415,7 +420,7 @@ void w25qxxx_write_srp0(u8 w25qxxx, u8 tmp)
 
     reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    assign_bit(7, &reg, tmp);
+    __assign_bit(7, (unsigned long *)&reg, tmp);
 
     w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER1, reg);
@@ -427,7 +432,7 @@ void w25qxxx_write_sec(u8 w25qxxx, u8 tmp)
 
     reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    assign_bit(6, &reg, tmp);
+    __assign_bit(6, (unsigned long *)&reg, tmp);
 
     w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER1, reg);
@@ -439,24 +444,23 @@ void w25qxxx_write_tb(u8 w25qxxx, u8 tmp)
 
     reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    assign_bit(5, &reg, tmp);
+    __assign_bit(5, (unsigned long *)&reg, tmp);
 
     w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER1, reg);
 }
 
-//void w25qxxx_write_bp(u8 w25qxxx, u8 tmp)
-//{
-//  u8 reg = 0;
-//
-//  reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
+void w25qxxx_write_bp(u8 w25qxxx, u8 tmp)
+{
+  u8 reg = 0;
 
-//    assign_bit(7, &reg, tmp);
+  reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-//
-//  w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
-//  w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER1, reg);
-//}
+  __assign_bit(7, (unsigned long *)&reg, tmp);
+
+  w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+  w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER1, reg);
+}
 
 void w25qxxx_write_cmp(u8 w25qxxx, u8 tmp)
 {
@@ -464,29 +468,23 @@ void w25qxxx_write_cmp(u8 w25qxxx, u8 tmp)
 
     reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    assign_bit(6, &reg, tmp);
+    __assign_bit(6, (unsigned long *)&reg, tmp);
 
     w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
 }
 
-//void w25qxxx_Write_LB(u8 w25qxxx, u8 tmp)
-//{
-//  u8 reg = 0;
-//
-//  reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
-//  if(tmp == 1)
-//  {
-//    reg |= 0x80;
-//  }
-//  else
-//  {
-//    reg &= ~0x80;
-//  }
-//
-//  w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
-//  w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
-//}
+void w25qxxx_write_lb(u8 w25qxxx, u8 tmp)
+{
+  u8 reg = 0;
+
+  reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
+  
+  __assign_bit(7, (unsigned long *)&reg, tmp);
+
+  w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+  w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
+}
 
 void w25qxxx_write_qe(u8 w25qxxx, u8 tmp)
 {
@@ -494,7 +492,7 @@ void w25qxxx_write_qe(u8 w25qxxx, u8 tmp)
 
     reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    assign_bit(1, &reg, tmp);
+    __assign_bit(1, (unsigned long *)&reg, tmp);
 
     w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
@@ -506,7 +504,7 @@ void w25qxxx_write_srp1(u8 w25qxxx, u8 tmp)
 
     reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    assign_bit(0, &reg, tmp);
+    __assign_bit(0, (unsigned long *)&reg, tmp);
 
     w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
@@ -518,7 +516,7 @@ void w25qxxx_write_hold_rst(u8 w25qxxx, u8 tmp)
 
     reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    assign_bit(7, &reg, tmp);
+    __assign_bit(7, (unsigned long *)&reg, tmp);
 
     w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
@@ -530,7 +528,7 @@ void w25qxxx_write_drv1(u8 w25qxxx, u8 tmp)
 
     reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    assign_bit(6, &reg, tmp);
+    __assign_bit(6, (unsigned long *)&reg, tmp);
 
     w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
@@ -542,7 +540,7 @@ void w25qxxx_write_drv0(u8 w25qxxx, u8 tmp)
 
     reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    assign_bit(5, &reg, tmp);
+    __assign_bit(5, (unsigned long *)&reg, tmp);
 
     w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
@@ -554,7 +552,7 @@ void w25qxxx_write_wps(u8 w25qxxx, u8 tmp)
 
     reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    assign_bit(2, &reg, tmp);
+    __assign_bit(2, (unsigned long *)&reg, tmp);
 
     w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
@@ -566,7 +564,7 @@ void w25qxxx_write_adp(u8 w25qxxx, u8 tmp)
 
     reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    assign_bit(1, &reg, tmp);
+    __assign_bit(1, (unsigned long *)&reg, tmp);
 
     w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
     w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
@@ -760,14 +758,14 @@ void w25q256_fast_read_with_4byte_addr(u8 w25qxxx, u32 addr, u8 *pdata, u32 leng
     w25qxxx_cs_high(w25qxxx);
 }
 
-static void w25qxxx_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
+static int w25qxxx_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
 {
     u8 sub_addr[4];
     u8 busy;
     int ret;
 
     if (length == 0)
-        kinetis_debug_trace(KERN_ERR, "Programing page failed.");
+        kinetis_print_trace(KERN_ERR, "Programing page failed.");
 
     if (w25qxxx == W25Q256)
         sub_addr[0] = (addr & 0xFF000000) >> 24;
@@ -787,11 +785,11 @@ static void w25qxxx_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
     w25qxxx_port_multi_transmmit(w25qxxx, pdata, length);
     w25qxxx_cs_high(w25qxxx);
 
-    ret = readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-            busy == 0, 0, 30000000);
+//    ret = readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
+//            busy == 0, 0, 30000000);
 
     if (ret)
-        kinetis_debug_trace(KERN_ERR, "Programing page is timeout.");
+        kinetis_print_trace(KERN_ERR, "Programing page is timeout.");
 
     return 0;
 }
@@ -988,7 +986,7 @@ void w25qxxx_write_data(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
         remain = w25q256_max_addr - addr;
 
     if (remain < length) {
-        kinetis_debug_trace(KERN_DEBUG,
+        kinetis_print_trace(KERN_DEBUG,
             "There is not enough space left to write the specified length.");
         return ;
     }
@@ -1018,8 +1016,8 @@ void w25qxxx_sector_erase(u8 w25qxxx, u32 addr)
     w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
     w25qxxx_cs_high(w25qxxx);
 
-    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-        busy == 0, 0, 30000000);
+//    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
+//        busy == 0, 0, 30000000);
 }
 
 void w25qxxx_block_erase_with_32kb(u8 w25qxxx, u32 addr)
@@ -1044,8 +1042,8 @@ void w25qxxx_block_erase_with_32kb(u8 w25qxxx, u32 addr)
     w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
     w25qxxx_cs_high(w25qxxx);
 
-    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-        busy == 0, 0, 30000000);
+//    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
+//        busy == 0, 0, 30000000);
 }
 
 void w25qxxx_block_erase_with_64kb(u8 w25qxxx, u32 addr)
@@ -1070,8 +1068,8 @@ void w25qxxx_block_erase_with_64kb(u8 w25qxxx, u32 addr)
     w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
     w25qxxx_cs_high(w25qxxx);
 
-    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-        busy == 0, 0, 30000000);
+//    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
+//        busy == 0, 0, 30000000);
 }
 
 void sw25qxxx_chip_erase(u8 w25qxxx)
@@ -1081,8 +1079,8 @@ void sw25qxxx_chip_erase(u8 w25qxxx)
     w25qxxx_write_enable(w25qxxx);
     w25qxxx_transmmit_cmd(w25qxxx, CHIP_ERASE);
 
-    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-        busy == 0, 0, 30000000);
+//    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
+//        busy == 0, 0, 30000000);
 }
 
 void w25qxxx_erase_program_suspend(u8 w25qxxx)
@@ -1202,8 +1200,8 @@ void w25qxxx_erase_security_regs(u8 w25qxxx, u8 addr)
     w25qxxx_port_transmmit(w25qxxx, 0x00);
     w25qxxx_cs_high(w25qxxx);
 
-    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-        busy == 0, 0, 30000000);
+//    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
+//        busy == 0, 0, 30000000);
 }
 
 //void w25qxxx_program_security_regs(u8 w25qxxx, u32 regNum, u32 Byteaddr, u8 *pdata, u16 length)
@@ -1375,15 +1373,15 @@ void w25qxxx_read_info(u8 w25qxxx)
     u8 jedec_id[3];
     u8 unique_id[8];
 
-    kinetis_debug_trace(KERN_DEBUG, "w25qxxx is 0x%02X.", w25qxxx);
+    kinetis_print_trace(KERN_DEBUG, "w25qxxx is 0x%02X.", w25qxxx);
     w25qxxx_read_jedec_id(w25qxxx, jedec_id);
-    kinetis_debug_trace(KERN_DEBUG, "JEDEC ID is 0x%02X%02X%02X",
+    kinetis_print_trace(KERN_DEBUG, "JEDEC ID is 0x%02X%02X%02X",
         jedec_id[0], jedec_id[1], jedec_id[2]);
     w25qxxx_read_manufacturer_device_id(w25qxxx, &manufacturer_id, &device_id);
-    kinetis_debug_trace(KERN_DEBUG, "Manufacturer ID is 0x%02X, Device ID is 0x%02X.",
+    kinetis_print_trace(KERN_DEBUG, "Manufacturer ID is 0x%02X, Device ID is 0x%02X.",
         manufacturer_id, device_id);
     w25qxxx_read_unique_id(w25qxxx, unique_id);
-    kinetis_debug_trace(KERN_DEBUG, "Unique ID is %02X%02X%02X%02X%02X%02X%02X%02X",
+    kinetis_print_trace(KERN_DEBUG, "Unique ID is %02X%02X%02X%02X%02X%02X%02X%02X",
         unique_id[0], unique_id[1], unique_id[2], unique_id[3],
         unique_id[4], unique_id[5], unique_id[6], unique_id[7]);
 }
@@ -1402,7 +1400,7 @@ void t_w25qxxx_loopback(u8 w25qxxx)
 
     tmp_rng = Random_Get32bit();
     length = tmp_rng & 0x7FFF;
-    kinetis_debug_trace(KERN_DEBUG, "length = %d.", length);
+    kinetis_print_trace(KERN_DEBUG, "length = %d.", length);
 
     memset(tx_buffer, 0, length);
     memset(rx_buffer, 0, length);
@@ -1423,7 +1421,7 @@ void t_w25qxxx_loopback(u8 w25qxxx)
             break;
     }
 
-    kinetis_debug_trace(KERN_DEBUG, "test addr: 0x%08X.", test_addr);
+    kinetis_print_trace(KERN_DEBUG, "test addr: 0x%08x.", test_addr);
 
     for (i = 0; i < length; i += 4) {
         tmp_rng = Random_Get32bit();
@@ -1439,16 +1437,16 @@ void t_w25qxxx_loopback(u8 w25qxxx)
 
     for (i = 0; i < length; i++) {
         if (tx_buffer[i] != rx_buffer[i]) {
-            kinetis_debug_trace(KERN_DEBUG, "Tx[%d]: 0x%02X, Rx[%d]: 0x%02X",
+            kinetis_print_trace(KERN_DEBUG, "tx[%d]: 0x%02x, rx[%d]: 0x%02x",
                 i, tx_buffer[i],
                 i, rx_buffer[i]);
-            kinetis_debug_trace(KERN_DEBUG,
+            kinetis_print_trace(KERN_DEBUG,
                 "Data writes and reads do not match, TEST FAILED !");
             return ;
         }
     }
 
-    kinetis_debug_trace(KERN_DEBUG, "w25qxxx read and write TEST PASSED !");
+    kinetis_print_trace(KERN_DEBUG, "w25qxxx read and write TEST PASSED !");
 }
 
 #endif

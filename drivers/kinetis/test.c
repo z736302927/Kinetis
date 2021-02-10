@@ -358,7 +358,7 @@ u8 ParseTest_AllCase(char *Command)
 
     do {
         argv[argc] = strsep(&Command, " ");
-        kinetis_debug_trace(KERN_DEBUG, "[%d] %s", argc, argv[argc]);
+        kinetis_print_trace(KERN_DEBUG, "[%d] %s", argc, argv[argc]);
         argc++;
     } while (Command);
 
@@ -386,11 +386,11 @@ void k_TestCase_Schedule(void)
                 Result = ParseTest_AllCase(Buffer);
 
                 if (Result == PASS)
-                    kinetis_debug_trace(KERN_DEBUG, "TEST PASS");
+                    kinetis_print_trace(KERN_DEBUG, "TEST PASS");
                 else if (Result == FAIL)
-                    kinetis_debug_trace(KERN_DEBUG, "TEST FAIL");
+                    kinetis_print_trace(KERN_DEBUG, "TEST FAIL");
                 else
-                    kinetis_debug_trace(KERN_DEBUG, "TEST NOT EXSIST");
+                    kinetis_print_trace(KERN_DEBUG, "TEST NOT EXSIST");
 
                 printf("\r\n/ # ");
             }

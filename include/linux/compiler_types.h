@@ -211,6 +211,14 @@ struct ftrace_likely_data {
 
 #endif /* __ASSEMBLY__ */
 
+#ifndef __no_kasan_or_inline
+#define __no_kasan_or_inline __always_inline
+#endif
+
+#ifndef __no_sanitize_or_inline
+#define __no_sanitize_or_inline __always_inline
+#endif
+
 /*
  * The below symbols may be defined for one or more, but not ALL, of the above
  * compilers. We don't consider that to be an error, so set them to nothing.

@@ -59,7 +59,7 @@ u8 SerialPort_Alloc(SerialPort_TypeDef *Instance)
     Instance->TempBuffer = (u16 *)kmalloc(Instance->TempBuffer_Size, __GFP_ZERO);
 
     if (Instance->TempBuffer == NULL) {
-        kinetis_debug_trace(KERN_DEBUG, "SerialPort Rx malloc failed !");
+        kinetis_print_trace(KERN_DEBUG, "SerialPort Rx malloc failed !");
         return false;
     } else
         SerialPort_RxBuffer_Init(Instance);
@@ -305,9 +305,9 @@ int t_SerialPort_Shell(int argc, char **argv)
                 break;
             else {
                 if (ParseTest_AllCase(Instance.RxBuffer) == PASS)
-                    kinetis_debug_trace(KERN_DEBUG, "TEST PASS");
+                    kinetis_print_trace(KERN_DEBUG, "TEST PASS");
                 else
-                    kinetis_debug_trace(KERN_DEBUG, "TEST FAIL");
+                    kinetis_print_trace(KERN_DEBUG, "TEST FAIL");
 
                 printf("\r\n/ # ");
             }
