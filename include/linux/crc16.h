@@ -13,15 +13,15 @@
 #ifndef __CRC16_H
 #define __CRC16_H
 
-#include "stdint.h"
+#include <linux/types.h>
 
-extern uint16_t const crc16_table[256];
+extern u16 const crc16_table[256];
 
-extern uint16_t crc16(uint16_t crc, const uint8_t *buffer, uint32_t len);
+extern u16 crc16(u16 crc, const u8 *buffer, size_t len);
 
-static inline uint16_t crc16_byte(uint16_t crc, const uint8_t data)
+static inline u16 crc16_byte(u16 crc, const u8 data)
 {
-    return (crc >> 8) ^ crc16_table[(crc ^ data) & 0xff];
+	return (crc >> 8) ^ crc16_table[(crc ^ data) & 0xff];
 }
 
 #endif /* __CRC16_H */

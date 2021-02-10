@@ -34,7 +34,11 @@ typedef __kernel_gid32_t	gid_t;
 typedef __kernel_uid16_t        uid16_t;
 typedef __kernel_gid16_t        gid16_t;
 
+#if __BITS_PER_LONG != 64
+typedef unsigned int		uintptr_t;
+#else
 typedef unsigned long		uintptr_t;
+#endif
 
 #ifdef CONFIG_HAVE_UID16
 /* This is defined by include/asm-{arch}/posix_types.h */
@@ -63,11 +67,6 @@ typedef __kernel_ssize_t	ssize_t;
 #ifndef _PTRDIFF_T
 #define _PTRDIFF_T
 typedef __kernel_ptrdiff_t	ptrdiff_t;
-#endif
-
-#ifndef _TIME_T
-#define _TIME_T
-typedef __kernel_old_time_t	time_t;
 #endif
 
 #ifndef _CLOCK_T
@@ -171,6 +170,8 @@ typedef unsigned long irq_hw_number_t;
 typedef struct {
 	int counter;
 } atomic_t;
+
+#define ATOMIC_INIT(i) { (i) }
 
 #ifdef CONFIG_64BIT
 typedef struct {

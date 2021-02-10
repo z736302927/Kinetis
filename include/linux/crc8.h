@@ -34,7 +34,7 @@
 
 /* helper macro assuring right table size is used */
 #define DECLARE_CRC8_TABLE(_table) \
-    static u8 _table[CRC8_TABLE_SIZE]
+	static u8 _table[CRC8_TABLE_SIZE]
 
 /**
  * crc8_populate_lsb - fill crc table for given polynomial in regular bit order.
