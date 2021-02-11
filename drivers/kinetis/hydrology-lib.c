@@ -22,7 +22,7 @@
 #include "kinetis/rtc.h"
 #include "peripheral/serialport.h"
 #include <linux/delay.h>
-#include "kinetis/basictimer.h"
+#include "kinetis/basic-timer.h"
 #include "ff.h"
 #include "lib/fatfs.h"
 #include "kinetis/idebug.h"
@@ -264,7 +264,7 @@ int hydrology_PortReceiveData(u8 **ppData, u16 *pLen, u32 Timeout)
             hydrology_Port.Endchar_Size = 0;
             SerialPort_Open(&hydrology_Port);
 
-            Refer = basic_timer_get_ss_tick();
+            Refer = basic_timer_get_ss();
 
             for (;;) {
                 if (SerialPort_Receive(&hydrology_Port) == true) {
@@ -275,9 +275,9 @@ int hydrology_PortReceiveData(u8 **ppData, u16 *pLen, u32 Timeout)
                     ret = true;
                     break;
                 } else {
-                    Delta = basic_timer_get_ss_tick() >= Refer ?
-                        basic_timer_get_ss_tick() - Refer :
-                        basic_timer_get_ss_tick() + (DELAY_TIMER_UNIT - Refer);
+                    Delta = basic_timer_get_ss() >= Refer ?
+                        basic_timer_get_ss() - Refer :
+                        basic_timer_get_ss() + (DELAY_TIMER_UNIT - Refer);
 
                     if (Delta > Timeout) {
                         kinetis_print_trace(KERN_DEBUG, "[warning]Receive data timeout.");

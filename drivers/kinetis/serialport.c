@@ -18,14 +18,14 @@
 #include "stdlib.h"
 #include "stdbool.h"
 #include "kinetis/idebug.h"
-#include "kinetis/basictimer.h"
+#include "kinetis/basic-timer.h"
 
 int SerialPort_RxDataFlag = 0;
 u16 serialport_index;
 
 u32 SerialPort_GetTick(void)
 {
-    return basic_timer_get_ms_tick();
+    return basic_timer_get_ms();
 }
 
 void SerialPort_SetRxState(int state)

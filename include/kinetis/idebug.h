@@ -10,7 +10,7 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 
 #include "stdio.h"
-#include "kinetis/basictimer.h"
+#include "kinetis/basic-timer.h"
 
 #define RELEASE_VERSION       1
 
@@ -35,8 +35,8 @@ extern "C" {
 void kinetis_print_trace(int dbg_level, const char *format, ...);
 void kinetis_dump_buffer(void *Buffer, int Size);
 
-#define ERR_PRINT_TIME  printf("[%05d.%06d] ", basic_timer_get_ss_tick(), basic_timer_get_us_tick())
-#define DBG_PRINT_TIME  printf("[%05d.%06d] ", basic_timer_get_ss_tick(), basic_timer_get_us_tick())
+#define ERR_PRINT_TIME  printf("[%05d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt())
+#define DBG_PRINT_TIME  printf("[%05d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt())
 #define kinetis_info(...)     do{if(!(KERN_DEFAULT >= KERN_INFO))break;DBG_PRINT_TIME;printf(__VA_ARGS__); printf("\r\n");}while(0)
 #define kinetis_err(...)      do{if(!(KERN_DEFAULT >= KERN_ERR))break;DBG_PRINT_TIME;printf(__VA_ARGS__); printf("\r\n");}while(0)
 #define kinetis_dbg_track     do{if(!(KERN_DEFAULT >= KERN_DEBUG))break;DBG_PRINT_TIME;printf("%s,%d",  __FUNCTION__, __LINE__ ); printf("\r\n");}while(0)

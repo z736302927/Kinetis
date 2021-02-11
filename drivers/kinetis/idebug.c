@@ -47,7 +47,7 @@ void kinetis_print_trace(int dbg_level, const char *format, ...)
     if (dbg_level > KERN_DEFAULT)
         return;
 
-    printf("[%5d.%06d] ", basic_timer_get_ss_tick(), basic_timer_get_us_tick());
+    printf("[%5d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt());
 
     switch (dbg_level) {
         case KERN_EMERG:
@@ -78,12 +78,12 @@ void kinetis_print_trace(int dbg_level, const char *format, ...)
 void kinetis_dump_buffer(void *Buffer, int Size)
 {
     int i;
-    printf("[%5d.%06d] ", basic_timer_get_ss_tick(), basic_timer_get_us_tick());
+    printf("[%5d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt());
 
     for (i = 0; i < Size; i++) {
         if ((i % 32 == 0) && (i != 0)) {
             printf("\r\n");
-            printf("[%5d.%06d] ", basic_timer_get_ss_tick(), basic_timer_get_us_tick());
+            printf("[%5d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt());
         }
 
         printf("%02X ", ((u8 *)Buffer)[i]);

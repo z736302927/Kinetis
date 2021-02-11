@@ -357,13 +357,13 @@ int t_RTCTask_Add(int argc, char **argv)
 {
     u32 Timestamp = 0;
 
-    Timestamp = basic_timer_get_ms_tick();
+    Timestamp = basic_timer_get_ms();
 
     RTCTask_Init(&RTCTask1, RTCTask1_Callback, 0, 0, 1);
     RTCTask_Start(&RTCTask1);
     Timeout_WaitMSDone(&RTCTask_Flag, true, 2000);
 
-    Timestamp = basic_timer_get_ms_tick() - Timestamp;
+    Timestamp = basic_timer_get_ms() - Timestamp;
     kinetis_print_trace(KERN_DEBUG, "RTCTask elapse time = %lu ms.", Timestamp);
 
     if (Timestamp > 1100)

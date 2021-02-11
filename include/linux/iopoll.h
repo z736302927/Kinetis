@@ -6,12 +6,12 @@
 #ifndef _LINUX_IOPOLL_H
 #define _LINUX_IOPOLL_H
 
-#include <linux/kernel.h>
 #include <linux/types.h>
-#include <linux/ktime.h>
-#include <linux/delay.h>
 #include <linux/errno.h>
 #include <linux/io.h>
+
+#include "kinetis/basic-timer.h"
+#include "kinetis/delay.h"
 
 /**
  * read_poll_timeout - Periodically poll an address until a condition is
@@ -38,21 +38,20 @@
 ({ \
 	u64 __timeout_us = (timeout_us); \
 	unsigned long __sleep_us = (sleep_us); \
-	ktime_t __timeout = ktime_add_us(ktime_get(), __timeout_us); \
-	might_sleep_if((__sleep_us) != 0); \
+	u64 __timeout = basic_timer_get_us() + __timeout_us; \
 	if (sleep_before_read && __sleep_us) \
-		usleep_range((__sleep_us >> 2) + 1, __sleep_us); \
+		udelay(__sleep_us); \
 	for (;;) { \
 		(val) = op(args); \
 		if (cond) \
 			break; \
 		if (__timeout_us && \
-		    ktime_compare(ktime_get(), __timeout) > 0) { \
+		    basic_timer_get_us() > __timeout) { \
 			(val) = op(args); \
 			break; \
 		} \
 		if (__sleep_us) \
-			usleep_range((__sleep_us >> 2) + 1, __sleep_us); \
+			udelay(__sleep_us); \
 	} \
 	(cond) ? 0 : -ETIMEDOUT; \
 })
@@ -81,7 +80,7 @@
 ({ \
 	u64 __timeout_us = (timeout_us); \
 	unsigned long __delay_us = (delay_us); \
-	ktime_t __timeout = ktime_add_us(ktime_get(), __timeout_us); \
+	u64 __timeout = basic_timer_get_us() + __timeout_us; \
 	if (delay_before_read && __delay_us) \
 		udelay(__delay_us); \
 	for (;;) { \
@@ -89,7 +88,7 @@
 		if (cond) \
 			break; \
 		if (__timeout_us && \
-		    ktime_compare(ktime_get(), __timeout) > 0) { \
+		    basic_timer_get_us() > __timeout) { \
 			(val) = op(args); \
 			break; \
 		} \

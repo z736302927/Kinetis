@@ -136,13 +136,13 @@ int t_TimTask_Add(int argc, char **argv)
 {
     u32 Timestamp = 0;
 
-    Timestamp = basic_timer_get_ms_tick();
+    Timestamp = basic_timer_get_ms();
 
     TimTask_Init(&TimTask1, TimTask1_Callback, 1000, 1000); //1s loop
     TimTask_Start(&TimTask1);
     Timeout_WaitMSDone(&TimTask_Flag, true, 2000);
 
-    Timestamp = basic_timer_get_ms_tick() - Timestamp;
+    Timestamp = basic_timer_get_ms() - Timestamp;
     kinetis_print_trace(KERN_DEBUG, "TimTask elapse time = %lu ms.", Timestamp);
 
     if (Timestamp > 1100)

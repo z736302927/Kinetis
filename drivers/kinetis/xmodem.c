@@ -29,7 +29,7 @@ void xmodem_Delayms(u32 ticks)
 
 u32 xmodem_GetTick(void)
 {
-    return basic_timer_get_ms_tick();
+    return basic_timer_get_ms();
 }
 
 void xmodem_SendReceiveRequest(u8 Data)

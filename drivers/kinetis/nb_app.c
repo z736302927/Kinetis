@@ -256,7 +256,7 @@ int NB_IOT_ProcessRespond(void)
     u32 currenttime;
     u32 timediff;
 
-    begintime = basic_timer_get_ms_tick();
+    begintime = basic_timer_get_ms();
 
     while (1) {
         NB_IOT_UART_Receive();
@@ -273,7 +273,7 @@ int NB_IOT_ProcessRespond(void)
             } else
                 return FALSE;
         } else {
-            currenttime = basic_timer_get_ms_tick();
+            currenttime = basic_timer_get_ms();
             timediff = currenttime >= begintime ? currenttime - begintime :
                 currenttime + UINT32_MAX - begintime;
 
@@ -289,7 +289,7 @@ int NB_IOT_WaitArrivalofMsg(void)
     u32 currenttime;
     u32 timediff;
 
-    begintime = basic_timer_get_ms_tick();
+    begintime = basic_timer_get_ms();
 
     while (1) {
 //    HAL_IWDG_Refresh(&hiwdg);
@@ -307,7 +307,7 @@ int NB_IOT_WaitArrivalofMsg(void)
             } else
                 return FALSE;
         } else {
-            currenttime = basic_timer_get_ms_tick();
+            currenttime = basic_timer_get_ms();
             timediff = currenttime >= begintime ? currenttime - begintime :
                 currenttime + UINT32_MAX - begintime;
 

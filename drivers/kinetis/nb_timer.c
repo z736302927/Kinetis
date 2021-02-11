@@ -17,7 +17,7 @@ static u8 NB_IOT_TimeOpenFlag = 0;
 
 static u32 NB_IOT_GetTick(void)
 {
-    return basic_timer_get_ms_tick();
+    return basic_timer_get_ms();
 }
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */

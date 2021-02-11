@@ -4,7 +4,7 @@
 #include "kinetis/hydrology-identifier.h"
 #include "string.h"
 #include "kinetis/memory.h"
-#include "kinetis/basictimer.h"
+#include "kinetis/basic-timer.h"
 #include <linux/delay.h>
 #include <linux/crc16.h>
 

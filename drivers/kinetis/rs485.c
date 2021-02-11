@@ -38,7 +38,7 @@ void RS485_Port_Receive(u8 *pData, u16 *Len)
     u32 currenttime;
     u32 timediff;
 
-    begintime = basic_timer_get_ms_tick();
+    begintime = basic_timer_get_ms();
 
     while (1) {
         SerialPort_Receive(&SerialPort_3, pData, Len);
@@ -47,7 +47,7 @@ void RS485_Port_Receive(u8 *pData, u16 *Len)
             SerialPort_SetRxState(0);
             break;
         } else {
-            currenttime = basic_timer_get_ms_tick();
+            currenttime = basic_timer_get_ms();
             timediff = currenttime >= begintime ? currenttime - begintime :
                 currenttime + UINT32_MAX - begintime;
 

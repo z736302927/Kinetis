@@ -2,10 +2,10 @@
 #include "kinetis/rng.h"
 #include "kinetis/idebug.h"
 #include "kinetis/delay.h"
-#include "kinetis/basictimer.h"
+#include "kinetis/basic-timer.h"
 
 #include <linux/bitops.h>
-//#include <linux/iopoll.h>
+#include <linux/iopoll.h>
 #include <linux/errno.h>
 
 #include "stdlib.h"
@@ -133,7 +133,7 @@ void w25qxxx_HardReset(u8 w25qxxx)
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-#define PAGE_SIZE                       256
+#define _PAGE_SIZE                       256
 #define SECTOR_SIZE                     4096
 #define DUMMY_BYTE                      0xFF
 #define WRITE_ENABLE                    0x06
@@ -785,8 +785,8 @@ static int w25qxxx_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
     w25qxxx_port_multi_transmmit(w25qxxx, pdata, length);
     w25qxxx_cs_high(w25qxxx);
 
-//    ret = readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-//            busy == 0, 0, 30000000);
+    ret = readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
+            busy == 0, 0, 30000000);
 
     if (ret)
         kinetis_print_trace(KERN_ERR, "Programing page is timeout.");
@@ -798,37 +798,37 @@ static int w25qxxx_multi_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 lengt
 {
     u8 num_of_page = 0, num_of_single = 0, sub_addr = 0, cnt = 0, remain_of_single = 0;
 
-    /* Mod operation, if addr is an integer multiple of PAGE_SIZE, sub_addr value is 0 */
-    sub_addr = addr % PAGE_SIZE;
+    /* Mod operation, if addr is an integer multiple of _PAGE_SIZE, sub_addr value is 0 */
+    sub_addr = addr % _PAGE_SIZE;
 
     /* The difference count is just enough to line up to the page addr */
-    cnt = PAGE_SIZE - sub_addr;
+    cnt = _PAGE_SIZE - sub_addr;
     /* Figure out how many integer pages to write */
-    num_of_page =  length / PAGE_SIZE;
+    num_of_page =  length / _PAGE_SIZE;
     /* mod operation is used to calculate the num of bytes less than one page */
-    num_of_single = length % PAGE_SIZE;
+    num_of_single = length % _PAGE_SIZE;
 
     /* sub_addr=0, then addr is just aligned by page */
     if (sub_addr == 0) {
-        /* length < PAGE_SIZE */
+        /* length < _PAGE_SIZE */
         if (num_of_page == 0)
             w25qxxx_page_program(w25qxxx, addr, pdata, length);
-        else { /* length > PAGE_SIZE */
+        else { /* length > _PAGE_SIZE */
             /* Let me write down all the integer pages */
             while (num_of_page--) {
-                w25qxxx_page_program(w25qxxx, addr, pdata, PAGE_SIZE);
+                w25qxxx_page_program(w25qxxx, addr, pdata, _PAGE_SIZE);
 
-                addr +=  PAGE_SIZE;
-                pdata += PAGE_SIZE;
+                addr +=  _PAGE_SIZE;
+                pdata += _PAGE_SIZE;
             }
 
             /* If you have more than one page of data, write it down*/
             w25qxxx_page_program(w25qxxx, addr, pdata, num_of_single);
         }
     }
-    /* If the addr is not aligned with PAGE_SIZE */
+    /* If the addr is not aligned with _PAGE_SIZE */
     else {
-        /* length < PAGE_SIZE */
+        /* length < _PAGE_SIZE */
         if (num_of_page == 0) {
             /* The remaining count positions on the current page are smaller than num_of_single */
             if (num_of_single > cnt) {
@@ -844,11 +844,11 @@ static int w25qxxx_multi_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 lengt
                 w25qxxx_page_program(w25qxxx, addr, pdata, remain_of_single);
             } else  /* The remaining count position of the current page can write num_of_single data */
                 w25qxxx_page_program(w25qxxx, addr, pdata, length);
-        } else { /* length > PAGE_SIZE */
+        } else { /* length > _PAGE_SIZE */
             /* The addr is not aligned and the extra count is treated separately, not added to the operation */
             length -= cnt;
-            num_of_page =  length / PAGE_SIZE;
-            num_of_single = length % PAGE_SIZE;
+            num_of_page =  length / _PAGE_SIZE;
+            num_of_single = length % _PAGE_SIZE;
 
             w25qxxx_page_program(w25qxxx, addr, pdata, cnt);
 
@@ -857,10 +857,10 @@ static int w25qxxx_multi_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 lengt
 
             /* Write all the integer pages */
             while (num_of_page--) {
-                w25qxxx_page_program(w25qxxx, addr, pdata, PAGE_SIZE);
+                w25qxxx_page_program(w25qxxx, addr, pdata, _PAGE_SIZE);
 
-                addr +=  PAGE_SIZE;
-                pdata += PAGE_SIZE;
+                addr +=  _PAGE_SIZE;
+                pdata += _PAGE_SIZE;
             }
 
             /* If you have more than one page of data, write it down */
@@ -1016,8 +1016,8 @@ void w25qxxx_sector_erase(u8 w25qxxx, u32 addr)
     w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
     w25qxxx_cs_high(w25qxxx);
 
-//    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-//        busy == 0, 0, 30000000);
+    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
+        busy == 0, 0, 30000000);
 }
 
 void w25qxxx_block_erase_with_32kb(u8 w25qxxx, u32 addr)
@@ -1042,8 +1042,8 @@ void w25qxxx_block_erase_with_32kb(u8 w25qxxx, u32 addr)
     w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
     w25qxxx_cs_high(w25qxxx);
 
-//    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-//        busy == 0, 0, 30000000);
+    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
+        busy == 0, 0, 30000000);
 }
 
 void w25qxxx_block_erase_with_64kb(u8 w25qxxx, u32 addr)
@@ -1068,8 +1068,8 @@ void w25qxxx_block_erase_with_64kb(u8 w25qxxx, u32 addr)
     w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
     w25qxxx_cs_high(w25qxxx);
 
-//    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-//        busy == 0, 0, 30000000);
+    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
+        busy == 0, 0, 30000000);
 }
 
 void sw25qxxx_chip_erase(u8 w25qxxx)
@@ -1079,8 +1079,8 @@ void sw25qxxx_chip_erase(u8 w25qxxx)
     w25qxxx_write_enable(w25qxxx);
     w25qxxx_transmmit_cmd(w25qxxx, CHIP_ERASE);
 
-//    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-//        busy == 0, 0, 30000000);
+    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
+        busy == 0, 0, 30000000);
 }
 
 void w25qxxx_erase_program_suspend(u8 w25qxxx)
@@ -1200,8 +1200,8 @@ void w25qxxx_erase_security_regs(u8 w25qxxx, u8 addr)
     w25qxxx_port_transmmit(w25qxxx, 0x00);
     w25qxxx_cs_high(w25qxxx);
 
-//    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-//        busy == 0, 0, 30000000);
+    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
+        busy == 0, 0, 30000000);
 }
 
 //void w25qxxx_program_security_regs(u8 w25qxxx, u32 regNum, u32 Byteaddr, u8 *pdata, u16 length)

@@ -1,5 +1,5 @@
 #include "kinetis/delay.h"
-#include "kinetis/basictimer.h"
+#include "kinetis/basic-timer.h"
 #include "stdint.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
@@ -135,23 +135,23 @@ void udelay(u32 delay)
 
     if (delay > DELAY_TIMER_UNIT) {
         ticks = DELAY_TIMER_UNIT;
-        refer = basic_timer_get_us_tick();
+        refer = basic_timer_get_timer_cnt();
 
         while (delta < ticks) {
-            delta = basic_timer_get_us_tick() >= refer ?
-                basic_timer_get_us_tick() - refer :
-                basic_timer_get_us_tick() + (DELAY_TIMER_UNIT - refer);
+            delta = basic_timer_get_timer_cnt() >= refer ?
+                basic_timer_get_timer_cnt() - refer :
+                basic_timer_get_timer_cnt() + (DELAY_TIMER_UNIT - refer);
         }
 
         udelay(delay - DELAY_TIMER_UNIT);
     } else {
         ticks = delay;
-        refer = basic_timer_get_us_tick();
+        refer = basic_timer_get_timer_cnt();
 
         while (delta < ticks) {
-            delta = basic_timer_get_us_tick() >= refer ?
-                basic_timer_get_us_tick() - refer :
-                basic_timer_get_us_tick() + (DELAY_TIMER_UNIT - refer);
+            delta = basic_timer_get_timer_cnt() >= refer ?
+                basic_timer_get_timer_cnt() - refer :
+                basic_timer_get_timer_cnt() + (DELAY_TIMER_UNIT - refer);
         }
     }
 
@@ -184,23 +184,23 @@ void mdelay(u32 delay)
 
     if (delay > DELAY_TIMER_UNIT) {
         ticks = DELAY_TIMER_UNIT;
-        refer = basic_timer_get_ms_tick();
+        refer = basic_timer_get_ms();
 
         while (delta < ticks) {
-            delta = basic_timer_get_ms_tick() >= refer ?
-                basic_timer_get_ms_tick() - refer :
-                basic_timer_get_ms_tick() + (DELAY_TIMER_UNIT - refer);
+            delta = basic_timer_get_ms() >= refer ?
+                basic_timer_get_ms() - refer :
+                basic_timer_get_ms() + (DELAY_TIMER_UNIT - refer);
         }
 
         mdelay(delay - DELAY_TIMER_UNIT);
     } else {
         ticks = delay;
-        refer = basic_timer_get_ms_tick();
+        refer = basic_timer_get_ms();
 
         while (delta < ticks) {
-            delta = basic_timer_get_ms_tick() >= refer ?
-                basic_timer_get_ms_tick() - refer :
-                basic_timer_get_ms_tick() + (DELAY_TIMER_UNIT - refer);
+            delta = basic_timer_get_ms() >= refer ?
+                basic_timer_get_ms() - refer :
+                basic_timer_get_ms() + (DELAY_TIMER_UNIT - refer);
         }
     }
 
@@ -233,19 +233,19 @@ int t_Delay(int argc, char **argv)
 {
     u32 time_stamp = 0;
 
-    time_stamp = basic_timer_get_us_tick();
+    time_stamp = basic_timer_get_timer_cnt();
     udelay(1000);
-    time_stamp = basic_timer_get_us_tick() - time_stamp;
+    time_stamp = basic_timer_get_timer_cnt() - time_stamp;
     kinetis_print_trace(KERN_DEBUG, "Delay 1000 us, The result = %lu us.", time_stamp);
 
-    time_stamp = basic_timer_get_ms_tick();
+    time_stamp = basic_timer_get_ms();
     mdelay(1000);
-    time_stamp = basic_timer_get_ms_tick() - time_stamp;
+    time_stamp = basic_timer_get_ms() - time_stamp;
     kinetis_print_trace(KERN_DEBUG, "Delay 1000 ms, The result = %lu ms.", time_stamp);
 
-    time_stamp = basic_timer_get_ss_tick();
+    time_stamp = basic_timer_get_ss();
     sdelay(3);
-    time_stamp = basic_timer_get_ss_tick() - time_stamp;
+    time_stamp = basic_timer_get_ss() - time_stamp;
     kinetis_print_trace(KERN_DEBUG, "Delay 3 s, The result = %lu s.", time_stamp);
 
     return PASS;

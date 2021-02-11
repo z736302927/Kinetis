@@ -611,9 +611,9 @@ int t_ds3231_SetAlarm1(int argc, char **argv)
         case 0x0F:
             ds3231_SetAlarm1(Data, 0,
                 ALARM_MASK_1 | ALARM_MASK_2 | ALARM_MASK_3 | ALARM_MASK_4);
-            Delta = basic_timer_get_ss_tick();
+            Delta = basic_timer_get_ss();
             Timeout_WaitMSDone(&Alarm1Flag, true, 2000);
-            Delta = basic_timer_get_ss_tick() - Delta;
+            Delta = basic_timer_get_ss() - Delta;
             ds3231_ClearAlarm1Flag();
 
             if (Delta == 1)
@@ -737,9 +737,9 @@ int t_ds3231_SetAlarm2(int argc, char **argv)
         case 0x0F:
             ds3231_SetAlarm1(Data, 0,
                 ALARM_MASK_1 | ALARM_MASK_2 | ALARM_MASK_3 | ALARM_MASK_4);
-            Delta = basic_timer_get_ss_tick();
+            Delta = basic_timer_get_ss();
             Timeout_WaitMSDone(&Alarm1Flag, true, 2000);
-            Delta = basic_timer_get_ss_tick() - Delta;
+            Delta = basic_timer_get_ss() - Delta;
             ds3231_ClearAlarm1Flag();
 
             if (Delta == 1)

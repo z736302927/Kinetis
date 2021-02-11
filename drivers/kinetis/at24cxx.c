@@ -189,7 +189,7 @@ void at24cxx_sequential_read(u8 *pdata, u32 length)
 #include "stdlib.h"
 #include "string.h"
 #include "kinetis/rng.h"
-#include "kinetis/basictimer.h"
+#include "kinetis/basic-timer.h"
 
 static u8 tx_buffer[AT24CXX_VOLUME];
 static u8 rx_buffer[AT24CXX_VOLUME];
@@ -291,23 +291,23 @@ int t_at24cxx_loopback_speed(int argc, char **argv)
     u16 i = 0;
 
     kinetis_print_trace(KERN_DEBUG, "Starting at24cxx raw write test");
-    time_stamp = basic_timer_get_us_tick();
+    time_stamp = basic_timer_get_timer_cnt();
 
     for (i = 0; i < AT24CXX_VOLUME; i++)
         tx_buffer[i] = Random_Get8bit();
 
     at24cxx_write_data(0, tx_buffer, AT24CXX_VOLUME);
 
-    time_stamp = basic_timer_get_us_tick() - time_stamp;
+    time_stamp = basic_timer_get_timer_cnt() - time_stamp;
     kinetis_print_trace(KERN_DEBUG, "%u bytes written and it took %luus.",
         AT24CXX_VOLUME, time_stamp);
 
     kinetis_print_trace(KERN_DEBUG, "Starting at24cxx raw read test");
-    time_stamp = basic_timer_get_us_tick();
+    time_stamp = basic_timer_get_timer_cnt();
 
     at24cxx_read_data(0, rx_buffer, AT24CXX_VOLUME);
 
-    time_stamp = basic_timer_get_us_tick() - time_stamp;
+    time_stamp = basic_timer_get_timer_cnt() - time_stamp;
     kinetis_print_trace(KERN_DEBUG, "%u bytes read and it took %luus.",
         AT24CXX_VOLUME, time_stamp);
     kinetis_print_trace(KERN_DEBUG, "Test completed.");

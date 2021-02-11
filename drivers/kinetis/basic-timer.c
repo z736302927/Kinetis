@@ -1,4 +1,4 @@
-#include "kinetis/basictimer.h"
+#include "kinetis/basic-timer.h"
 
 #include "tim.h"
 
@@ -12,9 +12,9 @@
   * @step 5:
   */
 
-volatile u32 timer_tick_ss;
+static volatile u32 timer_tick_ss;
 #ifdef BASIC_16BIT_TIMER
-volatile u32 timer_tick_us;
+static volatile u32 timer_tick_us;
 #endif
 
 /**
@@ -33,7 +33,7 @@ volatile u32 timer_tick_us;
   * @param TickPriority  Tick interrupt priority.
   * @retval HAL status
   */
-void basic_timer_init_tick(void)
+void basic_timer_init(void)
 {
     timer_tick_ss = 0;
 #ifdef BASIC_16BIT_TIMER
@@ -41,23 +41,54 @@ void basic_timer_init_tick(void)
 #endif
 }
 
+void basic_timer_inc_ss(void)
+{
+#ifdef BASIC_16BIT_TIMER
+
+    if (timer_tick_us >= 1000000) {
+        timer_tick_us = 0;
+        timer_tick_ss++;
+    }
+
+#else
+    timer_tick_ss++;
+#endif
+}
+
+void basic_timer_inc_us(void)
+{
+#ifdef BASIC_16BIT_TIMER
+    timer_tick_us += 1000;
+#endif
+}
+
 /**
-  * @brief Provide a tick value in millisecond.
+  * @brief Provide a tick value in second.
   * @note This function is declared as static inline to be overwritten in case of other
   *       implementations in user file.
   * @retval tick value
   */
-u32 basic_timer_get_ss_tick(void)
+u32 basic_timer_get_ss(void)
 {
     return timer_tick_ss;
 }
 
-u64 basic_timer_get_ms_tick(void)
+u64 basic_timer_get_ms(void)
 {
-    return timer_tick_ss * 1000 + basic_timer_get_us_tick() / 1000;
+    return timer_tick_ss * 1000 + basic_timer_get_timer_cnt() / 1000;
 }
 
-u32 basic_timer_get_us_tick(void)
+u64 basic_timer_get_us(void)
+{
+    return timer_tick_ss * 1000000 + basic_timer_get_timer_cnt();
+}
+
+/**
+  * @brief Provide a timer value in microsecond.
+  * @note You need to set the timer resolution to 1us
+  * @retval tick value
+  */
+u32 basic_timer_get_timer_cnt(void)
 {
 #ifdef BASIC_16BIT_TIMER
     return timer_tick_us;
@@ -76,7 +107,7 @@ u32 basic_timer_get_us_tick(void)
   *       implementations in user file.
   * @retval None
   */
-void basic_timer_suspend_tick(void)
+void basic_timer_suspend(void)
 {
 
 }
@@ -91,7 +122,7 @@ void basic_timer_suspend_tick(void)
   *       implementations in user file.
   * @retval None
   */
-void basic_timer_resume_tick(void)
+void basic_timer_resume(void)
 {
 
 }
@@ -118,13 +149,13 @@ int t_basic_timer_get_tick(int argc, char **argv)
         times3 = strtoul(argv[3], &argv[3], 10);
 
     for (i = 0; i < times1; i++)
-        kinetis_print_trace(KERN_DEBUG, "Current absolute second = %lu", basic_timer_get_ss_tick());
+        kinetis_print_trace(KERN_DEBUG, "Current absolute second = %lu", basic_timer_get_ss());
 
     for (i = 0; i < times2; i++)
-        kinetis_print_trace(KERN_DEBUG, "Current absolute millisecond = %llu", basic_timer_get_ms_tick());
+        kinetis_print_trace(KERN_DEBUG, "Current absolute millisecond = %llu", basic_timer_get_ms());
 
     for (i = 0; i < times3; i++)
-        kinetis_print_trace(KERN_DEBUG, "Current absolute microsecond = %lu", basic_timer_get_us_tick());
+        kinetis_print_trace(KERN_DEBUG, "Current absolute microsecond = %lu", basic_timer_get_timer_cnt());
 
     return PASS;
 }

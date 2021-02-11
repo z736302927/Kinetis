@@ -60,7 +60,7 @@ void NB_IOT_UART_RxBuffer_Process(u8 *pdata, u16 len)
 
 u32 NB_IOT_UART_GetTick(void)
 {
-    return basic_timer_get_ms_tick();
+    return basic_timer_get_ms();
 }
 
 void NB_IOT_UART_RxBuffer_Init(void)

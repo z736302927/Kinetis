@@ -2,7 +2,7 @@
 #include "algorithm/slist.h"
 #include "peripheral/serialport.h"
 #include <linux/delay.h>
-#include "kinetis/basictimer.h"
+#include "kinetis/basic-timer.h"
 #include "string.h"
 #include "stdio.h"
 
@@ -82,15 +82,15 @@ void General_ReceiveCommand(GeneralCommand_TypeDef *Command)
     u32 Refer = 0;
     u32 Delta = 0;
 
-    Refer = basic_timer_get_us_tick();
+    Refer = basic_timer_get_timer_cnt();
 
     while (1) {
         if (SerialPort_Receive(Command->SerialPort) == true)
             break;
 
-        Delta = basic_timer_get_us_tick() >= Refer ?
-            basic_timer_get_us_tick() - Refer :
-            basic_timer_get_us_tick() + (DELAY_TIMER_UNIT - Refer);
+        Delta = basic_timer_get_timer_cnt() >= Refer ?
+            basic_timer_get_timer_cnt() - Refer :
+            basic_timer_get_timer_cnt() + (DELAY_TIMER_UNIT - Refer);
 
         if (Delta > Command->WaitTime) {
             Command->TimeoutFlag = true;

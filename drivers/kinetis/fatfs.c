@@ -5,7 +5,7 @@
 #include "ff.h"         /* Declarations of sector size */
 #include "diskio.h"     /* Declarations of disk functions */
 #include "kinetis/rtc.h"
-#include "kinetis/basictimer.h"
+#include "kinetis/basic-timer.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -786,7 +786,7 @@ int FatFs_Raw_Speed(
 #endif
 
     kinetis_print_trace(KERN_DEBUG, "Starting raw write test at sector %lu in %u bytes of data chunks...", lba, sz_buff);
-    tmr = basic_timer_get_us_tick();
+    tmr = basic_timer_get_timer_cnt();
 
     for (ofs = 0; ofs < len / ss; ofs += sz_buff / ss) {
         if (disk_write(pdrv, buff, lba + ofs, sz_buff / ss) != RES_OK) {
@@ -800,11 +800,11 @@ int FatFs_Raw_Speed(
         return false;
     }
 
-    tmr = basic_timer_get_us_tick() - tmr;
+    tmr = basic_timer_get_timer_cnt() - tmr;
     kinetis_print_trace(KERN_DEBUG, "%lu bytes written and it took %lu timer ticks.", len, tmr);
 
     kinetis_print_trace(KERN_DEBUG, "Starting raw read test at sector %lu in %u bytes of data chunks...", lba, sz_buff);
-    tmr = basic_timer_get_us_tick();
+    tmr = basic_timer_get_timer_cnt();
 
     for (ofs = 0; ofs < len / ss; ofs += sz_buff / ss) {
         if (disk_read(pdrv, buff, lba + ofs, sz_buff / ss) != RES_OK) {
@@ -813,7 +813,7 @@ int FatFs_Raw_Speed(
         }
     }
 
-    tmr = basic_timer_get_us_tick() - tmr;
+    tmr = basic_timer_get_timer_cnt() - tmr;
     kinetis_print_trace(KERN_DEBUG, "%lu bytes read and it took %lu timer ticks.", len, tmr);
     kinetis_print_trace(KERN_DEBUG, "Test completed.");
 
