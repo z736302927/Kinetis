@@ -1,4 +1,4 @@
-#include "peripheral/switch.h"
+#include "kinetis/switch.h"
 
 static LIST_HEAD(head_handle);
 
@@ -180,7 +180,7 @@ void Switch_Ticks(void)
 }
 
 #ifdef DESIGN_VERIFICATION_SWITCH
-#include "kinetis/test.h"
+#include "kinetis/test-kinetis.h"
 #include "task/timtask.h"
 
 static struct Switch_TypeDef Switch_Test_Inst;

@@ -1,4 +1,4 @@
-#include "peripheral/touchscreen.h"
+#include "kinetis/touchscreen.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

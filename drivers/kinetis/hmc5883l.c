@@ -193,7 +193,7 @@ void hmc5883l_Identification(u8 *pData)
 }
 
 #ifdef DESIGN_VERIFICATION_HMC5883L
-#include "kinetis/test.h"
+#include "kinetis/test-kinetis.h"
 
 int t_hmc5883l_BasicInfo(int argc, char **argv)
 {

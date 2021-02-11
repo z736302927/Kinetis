@@ -341,7 +341,7 @@ void RTCTask_GetCurrentTime(u8 TmpYear, u8 TmpMonth, u8 TmpDate, u8 TmpHours, u8
 }
 
 #ifdef DESIGN_VERIFICATION_RTCTASK
-#include "kinetis/test.h"
+#include "kinetis/test-kinetis.h"
 #include "kinetis/timeout.h"
 
 struct RTCTask_TypeDef RTCTask1;

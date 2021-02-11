@@ -318,7 +318,7 @@ void ak8975_Init(void)
 }
 
 #ifdef DESIGN_VERIFICATION_AK8975
-#include "kinetis/test.h"
+#include "kinetis/test-kinetis.h"
 
 int t_ak8975_BasicInfo(int argc, char **argv)
 {

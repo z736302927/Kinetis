@@ -1,4 +1,4 @@
-#include "peripheral/rak477.h"
+#include "kinetis/rak477.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

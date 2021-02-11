@@ -1,6 +1,6 @@
 #include "algorithm/slist.h"
-#include "linux/gfp.h"
-#include "kinetis/memory.h"
+#include <linux/gfp.h>
+#include <linux/slab.h>
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

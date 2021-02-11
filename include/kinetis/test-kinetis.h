@@ -1,5 +1,5 @@
-#ifndef __K_TEST_H
-#define __K_TEST_H
+#ifndef __K_TEST_KINETIS_H
+#define __K_TEST_KINETIS_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,9 +14,9 @@ typedef enum {
     PASS = 0U,
     FAIL,
     NOT_EXSIST
-} TestStatus;
+} test_status;
 
-void k_TestCase_Schedule(void);
+void k_test_case_schedule(void);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -25,4 +25,4 @@ void k_TestCase_Schedule(void);
 }
 #endif
 
-#endif /* __K_TEST_H */
+#endif /* __K_TEST_KINETIS_H */

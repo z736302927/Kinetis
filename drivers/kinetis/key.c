@@ -1,4 +1,4 @@
-#include "peripheral/key.h"
+#include "kinetis/key.h"
 #include "algorithm/slist.h"
 
 static struct Button_TypeDef *head_handle = NULL;
@@ -269,7 +269,7 @@ void Button_Ticks(void)
 }
 
 #ifdef DESIGN_VERIFICATION_BUTTON
-#include "kinetis/test.h"
+#include "kinetis/test-kinetis.h"
 
 static struct Button_TypeDef Button_Test_Inst;
 

@@ -1215,7 +1215,7 @@ void icm20602_Test(void)
     u16 BufferLength = 0;
     u32 TestAddr = 0;
 
-    Random_Get8bit(&hrng, &TmpRngdata);
+    random_get8bit(&hrng, &TmpRngdata);
     BufferLength = TmpRngdata & 0xFF;
     icm20602_printf("BufferLength = %d.", BufferLength);
 
@@ -1227,12 +1227,12 @@ void icm20602_Test(void)
     memset(tx_buffer, 0, BufferLength);
     memset(rx_buffer, 0, BufferLength);
 
-    Random_Get8bit(&hrng, &TmpRngdata);
+    random_get8bit(&hrng, &TmpRngdata);
     TestAddr = TmpRngdata & 0xFF;
     icm20602_printf("TestAddr = 0x%02X.", TestAddr);
 
     for (u16 i = 0; i < BufferLength; i += 4) {
-        Random_Get8bit(&hrng, &TmpRngdata);
+        random_get8bit(&hrng, &TmpRngdata);
         tx_buffer[i + 3] = (TmpRngdata & 0xFF000000) >> 24;;
         tx_buffer[i + 2] = (TmpRngdata & 0x00FF0000) >> 16;
         tx_buffer[i + 1] = (TmpRngdata & 0x0000FF00) >> 8;

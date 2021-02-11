@@ -120,7 +120,7 @@ void TimTask_Ticks(void)
 }
 
 #ifdef DESIGN_VERIFICATION_TIMTASK
-#include "kinetis/test.h"
+#include "kinetis/test-kinetis.h"
 #include "kinetis/timeout.h"
 
 struct TimTask_TypeDef TimTask1;

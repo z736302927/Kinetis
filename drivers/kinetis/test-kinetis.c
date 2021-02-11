@@ -1,9 +1,11 @@
-#include "kinetis/test.h"
+#include "kinetis/test-kinetis.h"
 #include "kinetis/shell.h"
+#include "kinetis/idebug.h"
+
+#include <linux/gfp.h>
+#include <linux/slab.h>
+
 #include "string.h"
-#include "stdio.h"
-#include "kinetis/memory.h"
-#include "linux/gfp.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -15,15 +17,12 @@
   * @step 5:
   */
 
-#define DEBUG
-#include "kinetis/idebug.h"
-
 #ifdef DESIGN_VERIFICATION_AT24CXX
-int t_at24cxx_ReadWirte(int argc, char **argv);
-int t_at24cxx_CurrentAddrRead(int argc, char **argv);
-int t_at24cxx_RandomRead(int argc, char **argv);
-int t_at24cxx_SequentialRead(int argc, char **argv);
-int t_at24cxx_ReadWirteSpeed(int argc, char **argv);
+int t_at24cxx_loopback(int argc, char **argv);
+int t_at24cxx_current_addr_read(int argc, char **argv);
+int t_current_random_read(int argc, char **argv);
+int t_at24cxx_sequential_read(int argc, char **argv);
+int t_at24cxx_loopback_speed(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_BASICTIMER
@@ -120,12 +119,13 @@ int t_TimTask_Add(int argc, char **argv);
 int t_TimTask_Add(int argc, char **argv);
 #endif
 
-typedef struct _Test_Case_TypeDef {
-    char *Command;
-    int (*Function)(int argc, char **argv);
-} Test_Case_TypeDef;
+struct test_case_typedef {
+    char *command;
+    int (*function)(int argc, char **argv);
+};
 
-Test_Case_TypeDef Kinetis_Case_Table[] = {
+struct test_case_typedef kinetis_case_table[] = {
+    
 #ifdef DESIGN_VERIFICATION_AK8975
     {"ak8975.BasicInfo", t_ak8975_BasicInfo},
     {"ak8975.Magnetic", t_ak8975_Magnetic},
@@ -133,11 +133,11 @@ Test_Case_TypeDef Kinetis_Case_Table[] = {
     {"ak8975.FuseROMAccess", t_ak8975_FuseROMAccess},
 #endif
 #ifdef DESIGN_VERIFICATION_AT24CXX
-    {"at24cxx.ReadWirte", t_at24cxx_ReadWirte},
-    {"at24cxx.CurrentAddrRead", t_at24cxx_CurrentAddrRead},
-    {"at24cxx.RandomRead", t_at24cxx_RandomRead},
-    {"at24cxx.SequentialRead", t_at24cxx_SequentialRead},
-    {"at24cxx.ReadWirteSpeed", t_at24cxx_ReadWirteSpeed},
+    {"at24cxx.lb", t_at24cxx_loopback},
+    {"at24cxx.current_addr_read", t_at24cxx_current_addr_read},
+    {"at24cxx.random_read", t_current_random_read},
+    {"at24cxx.seq_read", t_at24cxx_sequential_read},
+    {"at24cxx.lb_speed", t_at24cxx_loopback_speed},
 #endif
 #ifdef DESIGN_VERIFICATION_BMI160
     {"bmi160.", fuction},
@@ -350,44 +350,46 @@ char *strsep(char **s, const char *ct)
     return sbegin;
 }
 
-u8 ParseTest_AllCase(char *Command)
+static int parse_test_all_case(char *cmd)
 {
     u32 i = 0;
     u32 argc = 0;
     char *argv[128];
 
     do {
-        argv[argc] = strsep(&Command, " ");
+        argv[argc] = strsep(&cmd, " ");
         kinetis_print_trace(KERN_DEBUG, "[%d] %s", argc, argv[argc]);
         argc++;
-    } while (Command);
+    } while (cmd);
 
-    for (i = 0; i < sizeof(Kinetis_Case_Table) / sizeof(Test_Case_TypeDef); i++) {
-        if ((!strcmp(Kinetis_Case_Table[i].Command, argv[0])) && (Kinetis_Case_Table[i].Function != NULL))
-            return Kinetis_Case_Table[i].Function(argc, argv);
+    for (i = 0; i < sizeof(kinetis_case_table) / sizeof(kinetis_case_table[0]); i++) {
+        if (!strcmp(kinetis_case_table[i].command, argv[0]) &&
+            kinetis_case_table[i].function != NULL)
+            return kinetis_case_table[i].function(argc, argv);
     }
 
     return NOT_EXSIST;
 }
 
-void k_TestCase_Schedule(void)
+void k_test_case_schedule(void)
 {
-    char *Buffer;
-    u8 Result;
-    Buffer = kmalloc(128, __GFP_ZERO);
+    char *buffer;
+    int ret;
+    
+    buffer = kmalloc(128, __GFP_ZERO);
 
     while (1) {
-        if (shell_GetUserInput(Buffer) == true) {
-            if (Buffer[0] == '\r')
+        if (shell_get_user_input(buffer) == true) {
+            if (buffer[0] == '\r')
                 printf("/ # ");
-            else if (Buffer[0] == 27)
+            else if (buffer[0] == 27)
                 break;
             else {
-                Result = ParseTest_AllCase(Buffer);
+                ret = parse_test_all_case(buffer);
 
-                if (Result == PASS)
+                if (ret == PASS)
                     kinetis_print_trace(KERN_DEBUG, "TEST PASS");
-                else if (Result == FAIL)
+                else if (ret == FAIL)
                     kinetis_print_trace(KERN_DEBUG, "TEST FAIL");
                 else
                     kinetis_print_trace(KERN_DEBUG, "TEST NOT EXSIST");
@@ -397,7 +399,7 @@ void k_TestCase_Schedule(void)
         }
     }
 
-    kfree(Buffer);
+    kfree(buffer);
 }
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */

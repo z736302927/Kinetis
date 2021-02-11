@@ -1,5 +1,5 @@
-#ifndef __KRNG_H
-#define __KRNG_H
+#ifndef __KRANDOM_GENE_H
+#define __KRANDOM_GENE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -8,6 +8,8 @@ extern "C" {
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /* Includes ------------------------------------------------------------------*/
+#include <linux/types.h>
+
 #include "kinetis/core_common.h"
 
 #define RNG_8BITS                       8
@@ -15,10 +17,10 @@ extern "C" {
 #define RNG_16BITS                      32
 #define RNG_64BITS                      64
 
-u8 Random_Get8bit(void);
-u16 Random_Get16bit(void);
-u32 Random_Get32bit(void);
-void Random_GetArray(void *pData, u32 Length, u8 Bits);
+u8 random_get8bit(void);
+u16 random_get16bit(void);
+u32 random_get32bit(void);
+void random_get_array(void *pdata, u32 length, u8 bits);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -27,4 +29,4 @@ void Random_GetArray(void *pData, u32 Length, u8 Bits);
 }
 #endif
 
-#endif /* __KRNG_H */
+#endif /* __KRANDOM_GENE_H */

@@ -15,8 +15,7 @@
 #include <linux/gfp.h>
 #include <linux/overflow.h>
 #include <linux/types.h>
-#include <linux/workqueue.h>
-#include <linux/percpu-refcount.h>
+#include <asm/page.h>
 
 
 /*
@@ -133,51 +132,6 @@
 #define ZERO_OR_NULL_PTR(x) ((unsigned long)(x) <= \
 				(unsigned long)ZERO_SIZE_PTR)
 
-#include <linux/kasan.h>
-
-struct mem_cgroup;
-/*
- * struct kmem_cache related prototypes
- */
-void __init kmem_cache_init(void);
-bool slab_is_available(void);
-
-extern bool usercopy_fallback;
-
-struct kmem_cache *kmem_cache_create(const char *name, unsigned int size,
-			unsigned int align, slab_flags_t flags,
-			void (*ctor)(void *));
-struct kmem_cache *kmem_cache_create_usercopy(const char *name,
-			unsigned int size, unsigned int align,
-			slab_flags_t flags,
-			unsigned int useroffset, unsigned int usersize,
-			void (*ctor)(void *));
-void kmem_cache_destroy(struct kmem_cache *);
-int kmem_cache_shrink(struct kmem_cache *);
-
-/*
- * Please use this macro to create slab caches. Simply specify the
- * name of the structure and maybe some flags that are listed above.
- *
- * The alignment of the struct determines object alignment. If you
- * f.e. add ____cacheline_aligned_in_smp to the struct declaration
- * then the objects will be properly aligned in SMP configurations.
- */
-#define KMEM_CACHE(__struct, __flags)					\
-		kmem_cache_create(#__struct, sizeof(struct __struct),	\
-			__alignof__(struct __struct), (__flags), NULL)
-
-/*
- * To whitelist a single field for copying to/from usercopy, use this
- * macro instead for KMEM_CACHE() above.
- */
-#define KMEM_CACHE_USERCOPY(__struct, __flags, __field)			\
-		kmem_cache_create_usercopy(#__struct,			\
-			sizeof(struct __struct),			\
-			__alignof__(struct __struct), (__flags),	\
-			offsetof(struct __struct, __field),		\
-			sizeof_field(struct __struct, __field), NULL)
-
 /*
  * Common kmalloc functions provided by all allocators
  */
@@ -190,9 +144,6 @@ size_t ksize(const void *);
 #ifdef CONFIG_HAVE_HARDENED_USERCOPY_ALLOCATOR
 void __check_heap_object(const void *ptr, unsigned long n, struct page *page,
 			bool to_user);
-#else
-static inline void __check_heap_object(const void *ptr, unsigned long n,
-				       struct page *page, bool to_user) { }
 #endif
 
 /*
@@ -229,8 +180,8 @@ static inline void __check_heap_object(const void *ptr, unsigned long n,
 /*
  * Kmalloc array related definitions
  */
+#define MAX_ORDER 11
 
-#ifdef CONFIG_SLAB
 /*
  * The largest kmalloc size supported by the SLAB allocators is
  * 32 megabyte (2^25) or the maximum allocatable page order if that is
@@ -245,7 +196,6 @@ static inline void __check_heap_object(const void *ptr, unsigned long n,
 #define KMALLOC_SHIFT_MAX	KMALLOC_SHIFT_HIGH
 #ifndef KMALLOC_SHIFT_LOW
 #define KMALLOC_SHIFT_LOW	5
-#endif
 #endif
 
 #ifdef CONFIG_SLUB
@@ -379,15 +329,14 @@ static __always_inline unsigned int kmalloc_index(size_t size)
 	if (size <=  16 * 1024 * 1024) return 24;
 	if (size <=  32 * 1024 * 1024) return 25;
 	if (size <=  64 * 1024 * 1024) return 26;
-	BUG();
 
 	/* Will never be reached. Needed because the compiler may complain */
-	return -1;
+	return 0xffffffff;
 }
 #endif /* !CONFIG_SLOB */
 
-void *__kmalloc(size_t size, gfp_t flags) __assume_kmalloc_alignment __malloc;
-void *kmem_cache_alloc(struct kmem_cache *, gfp_t flags) __assume_slab_alignment __malloc;
+void *kmalloc(size_t size, gfp_t flags);
+void *kmem_cache_alloc(struct kmem_cache *, gfp_t flags);
 void kmem_cache_free(struct kmem_cache *, void *);
 
 /*
@@ -415,7 +364,7 @@ void *kmem_cache_alloc_node(struct kmem_cache *, gfp_t flags, int node) __assume
 #else
 static __always_inline void *__kmalloc_node(size_t size, gfp_t flags, int node)
 {
-	return __kmalloc(size, flags);
+	return kmalloc(size, flags);
 }
 
 static __always_inline void *kmem_cache_alloc_node(struct kmem_cache *s, gfp_t flags, int node)
@@ -441,26 +390,6 @@ kmem_cache_alloc_node_trace(struct kmem_cache *s,
 }
 #endif /* CONFIG_NUMA */
 
-#else /* CONFIG_TRACING */
-static __always_inline void *kmem_cache_alloc_trace(struct kmem_cache *s,
-		gfp_t flags, size_t size)
-{
-	void *ret = kmem_cache_alloc(s, flags);
-
-	ret = kasan_kmalloc(s, ret, size, flags);
-	return ret;
-}
-
-static __always_inline void *
-kmem_cache_alloc_node_trace(struct kmem_cache *s,
-			      gfp_t gfpflags,
-			      int node, size_t size)
-{
-	void *ret = kmem_cache_alloc_node(s, gfpflags, node);
-
-	ret = kasan_kmalloc(s, ret, size, gfpflags);
-	return ret;
-}
 #endif /* CONFIG_TRACING */
 
 extern void *kmalloc_order(size_t size, gfp_t flags, unsigned int order) __assume_page_alignment __malloc;
@@ -481,98 +410,9 @@ static __always_inline void *kmalloc_large(size_t size, gfp_t flags)
 	return kmalloc_order_trace(size, flags, order);
 }
 
-/**
- * kmalloc - allocate memory
- * @size: how many bytes of memory are required.
- * @flags: the type of memory to allocate.
- *
- * kmalloc is the normal method of allocating memory
- * for objects smaller than page size in the kernel.
- *
- * The allocated object address is aligned to at least ARCH_KMALLOC_MINALIGN
- * bytes. For @size of power of two bytes, the alignment is also guaranteed
- * to be at least to the size.
- *
- * The @flags argument may be one of the GFP flags defined at
- * include/linux/gfp.h and described at
- * :ref:`Documentation/core-api/mm-api.rst <mm-api-gfp-flags>`
- *
- * The recommended usage of the @flags is described at
- * :ref:`Documentation/core-api/memory-allocation.rst <memory_allocation>`
- *
- * Below is a brief outline of the most useful GFP flags
- *
- * %GFP_KERNEL
- *	Allocate normal kernel ram. May sleep.
- *
- * %GFP_NOWAIT
- *	Allocation will not sleep.
- *
- * %GFP_ATOMIC
- *	Allocation will not sleep.  May use emergency pools.
- *
- * %GFP_HIGHUSER
- *	Allocate memory from high memory on behalf of user.
- *
- * Also it is possible to set different flags by OR'ing
- * in one or more of the following additional @flags:
- *
- * %__GFP_HIGH
- *	This allocation has high priority and may use emergency pools.
- *
- * %__GFP_NOFAIL
- *	Indicate that this allocation is in no way allowed to fail
- *	(think twice before using).
- *
- * %__GFP_NORETRY
- *	If memory is not immediately available,
- *	then give up at once.
- *
- * %__GFP_NOWARN
- *	If allocation fails, don't issue any warnings.
- *
- * %__GFP_RETRY_MAYFAIL
- *	Try really hard to succeed the allocation but fail
- *	eventually.
- */
-static __always_inline void *kmalloc(size_t size, gfp_t flags)
-{
-	if (__builtin_constant_p(size)) {
-#ifndef CONFIG_SLOB
-		unsigned int index;
-#endif
-		if (size > KMALLOC_MAX_CACHE_SIZE)
-			return kmalloc_large(size, flags);
-#ifndef CONFIG_SLOB
-		index = kmalloc_index(size);
-
-		if (!index)
-			return ZERO_SIZE_PTR;
-
-		return kmem_cache_alloc_trace(
-				kmalloc_caches[kmalloc_type(flags)][index],
-				flags, size);
-#endif
-	}
-	return __kmalloc(size, flags);
-}
-
 static __always_inline void *kmalloc_node(size_t size, gfp_t flags, int node)
 {
-#ifndef CONFIG_SLOB
-	if (__builtin_constant_p(size) &&
-		size <= KMALLOC_MAX_CACHE_SIZE) {
-		unsigned int i = kmalloc_index(size);
-
-		if (!i)
-			return ZERO_SIZE_PTR;
-
-		return kmem_cache_alloc_node_trace(
-				kmalloc_caches[kmalloc_type(flags)][i],
-						flags, node, size);
-	}
-#endif
-	return __kmalloc_node(size, flags, node);
+	return kmalloc_node(size, flags, node);
 }
 
 /**
@@ -589,7 +429,7 @@ static inline void *kmalloc_array(size_t n, size_t size, gfp_t flags)
 		return NULL;
 	if (__builtin_constant_p(n) && __builtin_constant_p(size))
 		return kmalloc(bytes, flags);
-	return __kmalloc(bytes, flags);
+	return kmalloc(bytes, flags);
 }
 
 /**
@@ -676,7 +516,7 @@ static inline void *kzalloc_node(size_t size, gfp_t flags, int node)
 }
 
 unsigned int kmem_cache_size(struct kmem_cache *s);
-void __init kmem_cache_init_late(void);
+void kmem_cache_init_late(void);
 
 #if defined(CONFIG_SMP) && defined(CONFIG_SLAB)
 int slab_prepare_cpu(unsigned int cpu);

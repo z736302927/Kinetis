@@ -5,7 +5,7 @@
 #include "string.h"
 #include "stdio.h"
 #include "stdlib.h"
-#include "kinetis/memory.h"
+#include <linux/slab.h>
 #include "kinetis/basic-timer.h"
 #include <linux/delay.h>
 #include <linux/crc16.h>
@@ -2402,8 +2402,8 @@ int HydrologyH_Process(HydrologyElementInfo *Element_table, u8 Count,
 }
 
 #ifdef DESIGN_VERIFICATION_HYDROLOGY
-#include "kinetis/test.h"
-#include "kinetis/rng.h"
+#include "kinetis/test-kinetis.h"
+#include "kinetis/random-gene.h"
 
 int t_HydrologyH_M1M2M3(HydrologyMode Mode)
 {
@@ -2442,7 +2442,7 @@ int t_HydrologyH_RandomElement(HydrologyMode Mode, HydrologyBodyType Funcode)
             }
 
             Hydrology_ReadSpecifiedElementInfo(&Element_table[0], Funcode, 0x04);
-            j = Random_Get8bit() % (sizeof(s_guide) - 1);
+            j = random_get8bit() % (sizeof(s_guide) - 1);
             Hydrology_ReadSpecifiedElementInfo(&Element_table[1], Funcode, s_guide[j]);
 
             ret = HydrologyH_Process(Element_table, count, Mode, Funcode);
@@ -2451,7 +2451,7 @@ int t_HydrologyH_RandomElement(HydrologyMode Mode, HydrologyBodyType Funcode)
             break;
 
         case SpecifiedElement:
-            count = Random_Get8bit() % (117 - 100);
+            count = random_get8bit() % (117 - 100);
 
             if (count == 0)
                 count = 1;
@@ -2465,7 +2465,7 @@ int t_HydrologyH_RandomElement(HydrologyMode Mode, HydrologyBodyType Funcode)
             }
 
             for (i = 0;;) {
-                guide = Random_Get8bit() % 0x75;
+                guide = random_get8bit() % 0x75;
 
                 if (!guide)
                     continue;
@@ -2485,7 +2485,7 @@ int t_HydrologyH_RandomElement(HydrologyMode Mode, HydrologyBodyType Funcode)
 
         case ConfigurationModification:
         case ConfigurationRead:
-            count = Random_Get8bit() % 15;
+            count = random_get8bit() % 15;
 
             if (count == 0)
                 count = 1;
@@ -2499,7 +2499,7 @@ int t_HydrologyH_RandomElement(HydrologyMode Mode, HydrologyBodyType Funcode)
             }
 
             for (i = 0;;) {
-                guide = Random_Get8bit() % 0x0F;
+                guide = random_get8bit() % 0x0F;
 
                 if (!guide)
                     continue;
@@ -2519,7 +2519,7 @@ int t_HydrologyH_RandomElement(HydrologyMode Mode, HydrologyBodyType Funcode)
 
         case ParameterModification:
         case ParameterRead:
-            count = Random_Get8bit() % (137 - 120);
+            count = random_get8bit() % (137 - 120);
 
             if (count == 0)
                 count = 1;
@@ -2533,7 +2533,7 @@ int t_HydrologyH_RandomElement(HydrologyMode Mode, HydrologyBodyType Funcode)
             }
 
             for (i = 0;;) {
-                guide = Random_Get8bit() % 0xA8;
+                guide = random_get8bit() % 0xA8;
 
                 if (guide < 0x20)
                     continue;

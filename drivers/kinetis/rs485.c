@@ -1,4 +1,4 @@
-#include "peripheral/rs485.h"
+#include "kinetis/rs485.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -15,9 +15,9 @@
 #include "stdbool.h"
 #include "stdio.h"
 #include "usart.h"
-#include "peripheral/serialport.h"
+#include "kinetis/serialport.h"
 #include "algorithm/crc.h"
-#include "linux/gfp.h"
+#include <linux/gfp.h>
 
 #define DEBUG
 #include "kinetis/idebug.h"

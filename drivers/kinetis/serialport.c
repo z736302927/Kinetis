@@ -1,7 +1,7 @@
-#include "peripheral/serialport.h"
+#include "kinetis/serialport.h"
 #include <linux/delay.h>
-#include "linux/gfp.h"
-#include "kinetis/memory.h"
+#include <linux/gfp.h>
+#include <linux/slab.h>
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -281,7 +281,7 @@ u8 SerialPort_Receive(SerialPort_TypeDef *Instance)
 }
 
 #ifdef DESIGN_VERIFICATION_SEIRALPORT
-#include "kinetis/test.h"
+#include "kinetis/test-kinetis.h"
 
 int t_SerialPort_Shell(int argc, char **argv)
 {

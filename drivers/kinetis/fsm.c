@@ -10,7 +10,7 @@
   * @step 5:  Finally, HydrologyTask_Init is called in the main function.
   */
 
-#include "peripheral/nb_app.h"
+#include "kinetis/nb_app.h"
 
 #define DEBUG
 #include "kinetis/idebug.h"
@@ -50,7 +50,7 @@ State FSM_Step(pStateMachine machine, SM_VAR *sm_var, pTransition **table)
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 #ifdef DESIGN_VERIFICATION_FSM
-#include "kinetis/test.h"
+#include "kinetis/test-kinetis.h"
 
 extern int FSM_NB_None(pStateMachine machine, SM_VAR *sm_var);
 extern int FSM_NB_Init(pStateMachine machine, SM_VAR *sm_var);

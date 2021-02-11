@@ -202,8 +202,8 @@ u8 RTC_GetTimeFormat(void)
 }
 
 #ifdef DESIGN_VERIFICATION_RTC
-#include "kinetis/test.h"
-#include "kinetis/rng.h"
+#include "kinetis/test-kinetis.h"
+#include "kinetis/random-gene.h"
 #include "stdlib.h"
 
 int t_RTC_SetClock(int argc, char **argv)
@@ -212,13 +212,13 @@ int t_RTC_SetClock(int argc, char **argv)
     u8 Hours, Minutes, Seconds, WeekDay;
     char Time[25];
 
-    Year = Random_Get8bit() % 100;
-    Month = Random_Get8bit() % 12;
-    Date = Random_Get8bit() % 28;
-    Hours = Random_Get8bit() % 24;
-    Minutes = Random_Get8bit() % 60;
-    Seconds = Random_Get8bit() % 60;
-    WeekDay = Random_Get8bit() % 7;
+    Year = random_get8bit() % 100;
+    Month = random_get8bit() % 12;
+    Date = random_get8bit() % 28;
+    Hours = random_get8bit() % 24;
+    Minutes = random_get8bit() % 60;
+    Seconds = random_get8bit() % 60;
+    WeekDay = random_get8bit() % 7;
 
     if (argc > 1)
         Year = strtoul(argv[1], &argv[1], 10);

@@ -8,14 +8,12 @@ extern "C" {
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /* Includes ------------------------------------------------------------------*/
-#include "kinetis/core_common.h"
 
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-void shell_Init(void);
-u8 shell_GetUserInput(char *pointer);
-
+void shell_init(void);
+int shell_get_user_input(char *cur_pos);
 
 #ifdef __cplusplus
 }

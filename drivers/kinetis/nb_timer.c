@@ -1,5 +1,5 @@
-#include "peripheral/nb_timer.h"
-#include "peripheral/nb_bc95.h"
+#include "kinetis/nb_timer.h"
+#include "kinetis/nb_bc95.h"
 
 static NB_TimeoutCallback  NB_IOT_TimeoutCallback;
 

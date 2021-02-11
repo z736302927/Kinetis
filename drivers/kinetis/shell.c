@@ -1,5 +1,10 @@
 #include "kinetis/shell.h"
+
+#include "string.h"
 #include "stdio.h"
+
+#include <linux/gfp.h>
+#include <linux/types.h>
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -12,34 +17,30 @@
   */
 
 #include "usart.h"
-#include "peripheral/serialport.h"
-#include "linux/gfp.h"
-#include "kinetis/memory.h"
-#include "string.h"
 
-static u16 shell_Buffer[128];
-u16 *shell_Pointer = shell_Buffer;
+static u16 shell_buffer[128];
+static u16 *shell_cur_pos = shell_buffer;
 
-void shell_Init(void)
+void shell_init(void)
 {
-    HAL_UART_Receive_DMA(&huart1, (u8 *)shell_Buffer, 128);
-    memset(shell_Buffer, 0xFF, sizeof(shell_Buffer));
+    HAL_UART_Receive_DMA(&huart1, (u8 *)shell_buffer, 128);
+    memset(shell_buffer, 0xFF, sizeof(shell_buffer));
 }
 
-static inline u8 shell_PortReceive(void)
+static inline u8 shell_port_receive(void)
 {
-    u8 Data = 0;
+    u8 tmp = 0;
 
-    if (*shell_Pointer & 0xFF00)
-        Data = 0xFF;
+    if (*shell_cur_pos & 0xFF00)
+        tmp = 0xFF;
     else {
-        Data = (u8) * shell_Pointer;
-        *shell_Pointer = 0xFFFF;
+        tmp = (u8) *shell_cur_pos;
+        *shell_cur_pos = 0xFFFF;
 
-        if (shell_Pointer == &shell_Buffer[127])
-            shell_Pointer = shell_Buffer;
+        if (shell_cur_pos == &shell_buffer[127])
+            shell_cur_pos = shell_buffer;
         else
-            shell_Pointer++;
+            shell_cur_pos++;
     }
 
 //    HAL_UART_Receive_IT(&huart1, &Data, 1);
@@ -49,55 +50,55 @@ static inline u8 shell_PortReceive(void)
 //    SerialPort_TypeDef Instance;
 
 //    Instance.PortNbr = 1;
-//    Instance.TxBuffer_Size = 1;
-//    Instance.TempBuffer_Size = 1;
+//    Instance.Txbuffer_Size = 1;
+//    Instance.Tempbuffer_Size = 1;
 //    Instance.RxScanInterval = 10;
 //    Instance.Endchar = NULL;
 //    SerialPort_Open(&Instance);
 
 //    if(SerialPort_Receive(&Instance) == true)
 //    {
-//        Data = Instance.RxBuffer[0];
-//        kfree(Instance.RxBuffer);
+//        Data = Instance.Rxbuffer[0];
+//        kfree(Instance.Rxbuffer);
 //    }
 
 //    SerialPort_Close(&Instance);
 
-    return Data;
+    return tmp;
 }
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-u8 shell_GetUserInput(char *pointer)
+int shell_get_user_input(char *cur_pos)
 {
-    char inputchar = '\0';
-    u16 inputlen = 0;
+    char input = '\0';
+    u16 length = 0;
 
-    while (inputchar != '\r') {
-        inputchar = shell_PortReceive();
+    while (input != '\r') {
+        input = shell_port_receive();
 
-        if (inputchar == 0xFF)
+        if (input == 0xFF)
             continue;
-        else if (inputchar == '\b') {
-            if (inputlen != 0) {
-                pointer--;
-                inputlen--;
+        else if (input == '\b') {
+            if (length != 0) {
+                cur_pos--;
+                length--;
                 printf("\b \b");
             }
         } else {
-            *pointer = inputchar;
-            pointer++;
-            inputlen++;
-            printf("%c", inputchar);
+            *cur_pos = input;
+            cur_pos++;
+            length++;
+            printf("%c", input);
         }
     }
 
-    pointer--;
+    cur_pos--;
 
-    if (inputlen == 1)
-        *pointer = '\r';
+    if (length == 1)
+        *cur_pos = '\r';
     else
-        *pointer = '\0';
+        *cur_pos = '\0';
 
     printf("\r\n");
 

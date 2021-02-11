@@ -1,5 +1,5 @@
 #include "kinetis/w25qxxx.h"
-#include "kinetis/rng.h"
+#include "kinetis/random-gene.h"
 #include "kinetis/idebug.h"
 #include "kinetis/delay.h"
 #include "kinetis/basic-timer.h"
@@ -1387,7 +1387,7 @@ void w25qxxx_read_info(u8 w25qxxx)
 }
 
 #ifdef DESIGN_VERIFICATION_W25QXXX
-#include "kinetis/test.h"
+#include "kinetis/test-kinetis.h"
 
 static u8 tx_buffer[32767];
 static u8 rx_buffer[32767];
@@ -1398,14 +1398,14 @@ void t_w25qxxx_loopback(u8 w25qxxx)
     u16 i, length = 0;
     u32 test_addr = 0;
 
-    tmp_rng = Random_Get32bit();
+    tmp_rng = random_get32bit();
     length = tmp_rng & 0x7FFF;
     kinetis_print_trace(KERN_DEBUG, "length = %d.", length);
 
     memset(tx_buffer, 0, length);
     memset(rx_buffer, 0, length);
 
-    tmp_rng = Random_Get32bit();
+    tmp_rng = random_get32bit();
 
     switch (w25qxxx) {
         case W25Q128:
@@ -1424,7 +1424,7 @@ void t_w25qxxx_loopback(u8 w25qxxx)
     kinetis_print_trace(KERN_DEBUG, "test addr: 0x%08x.", test_addr);
 
     for (i = 0; i < length; i += 4) {
-        tmp_rng = Random_Get32bit();
+        tmp_rng = random_get32bit();
         tx_buffer[i + 3] = (tmp_rng & 0xFF000000) >> 24;;
         tx_buffer[i + 2] = (tmp_rng & 0x00FF0000) >> 16;
         tx_buffer[i + 1] = (tmp_rng & 0x0000FF00) >> 8;

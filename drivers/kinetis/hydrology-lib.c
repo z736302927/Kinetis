@@ -5,7 +5,7 @@
 #include "task/hydrology-task.h"
 #include "string.h"
 #include "stdio.h"
-#include "kinetis/memory.h"
+#include <linux/slab.h>
 #include <linux/crc16.h>
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
@@ -20,7 +20,7 @@
 
 #include "task/timtask.h"
 #include "kinetis/rtc.h"
-#include "peripheral/serialport.h"
+#include "kinetis/serialport.h"
 #include <linux/delay.h>
 #include "kinetis/basic-timer.h"
 #include "ff.h"
@@ -911,7 +911,7 @@ int hydrology_ReadSpecifiedElementInfo(HydrologyElementInfo *Element,
 }
 
 #ifdef DESIGN_VERIFICATION_HYDROLOGY
-#include "kinetis/test.h"
+#include "kinetis/test-kinetis.h"
 
 int t_HydrologyD_M1M2(HydrologyMode Mode);
 int t_HydrologyH_M1M2M3(HydrologyMode Mode);

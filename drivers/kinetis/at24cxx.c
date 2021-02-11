@@ -185,10 +185,10 @@ void at24cxx_sequential_read(u8 *pdata, u32 length)
 }
 
 #ifdef DESIGN_VERIFICATION_AT24CXX
-#include "kinetis/test.h"
+#include "kinetis/test-kinetis.h"
 #include "stdlib.h"
 #include "string.h"
-#include "kinetis/rng.h"
+#include "kinetis/random-gene.h"
 #include "kinetis/basic-timer.h"
 
 static u8 tx_buffer[AT24CXX_VOLUME];
@@ -205,12 +205,12 @@ int t_at24cxx_loopback(int argc, char **argv)
         times = strtoul(argv[1], &argv[1], 10);
 
     for (j = 0; j < times; j++) {
-        length = Random_Get8bit();
+        length = random_get8bit();
 
         if (length <= 0)
             length = 10;
 
-        test_addr = Random_Get8bit();
+        test_addr = random_get8bit();
 
         if (length >= (AT24CXX_MAX_ADDR - test_addr + 1))
             length = AT24CXX_MAX_ADDR - test_addr + 1;
@@ -221,7 +221,7 @@ int t_at24cxx_loopback(int argc, char **argv)
             test_addr, length);
 
         for (i = 0; i < length; i++)
-            tx_buffer[i] = Random_Get8bit();
+            tx_buffer[i] = random_get8bit();
 
         at24cxx_write_data(test_addr, tx_buffer, length);
         at24cxx_read_data(test_addr, rx_buffer, length);
@@ -263,8 +263,8 @@ int t_current_random_read(int argc, char **argv)
     if (argc > 1)
         times = strtoul(argv[1], &argv[1], 10);
 
-    test_addr = Random_Get8bit();
-    length = Random_Get8bit() % (AT24CXX_MAX_ADDR - test_addr);
+    test_addr = random_get8bit();
+    length = random_get8bit() % (AT24CXX_MAX_ADDR - test_addr);
     current_random_read(test_addr, &rx_buffer[test_addr], length);
     kinetis_print_trace(KERN_DEBUG, "at24cxx Random Read %u", times);
 
@@ -294,7 +294,7 @@ int t_at24cxx_loopback_speed(int argc, char **argv)
     time_stamp = basic_timer_get_timer_cnt();
 
     for (i = 0; i < AT24CXX_VOLUME; i++)
-        tx_buffer[i] = Random_Get8bit();
+        tx_buffer[i] = random_get8bit();
 
     at24cxx_write_data(0, tx_buffer, AT24CXX_VOLUME);
 

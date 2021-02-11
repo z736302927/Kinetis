@@ -10,7 +10,7 @@
   * @step 5:
   */
 
-#include "peripheral/iic_soft.h"
+#include "kinetis/iic_soft.h"
 #include "i2c.h"
 #include "string.h"
 

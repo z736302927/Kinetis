@@ -1,9 +1,9 @@
-#include "peripheral/led.h"
+#include "kinetis/led.h"
 #include "algorithm/slist.h"
 #include "string.h"
 #include "stdlib.h"
-#include "linux/gfp.h"
-#include "kinetis/memory.h"
+#include <linux/gfp.h>
+#include <linux/slab.h>
 
 //LED Handle list head.
 static struct LED_TypeDef *LED_HeadHandler = NULL;
@@ -155,7 +155,7 @@ void K_LED_Toggle(LEDn_Type LED)
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 #ifdef DESIGN_VERIFICATION_LED
-#include "kinetis/test.h"
+#include "kinetis/test-kinetis.h"
 #include "task/timtask.h"
 
 struct TimTask_TypeDef LEDTask;

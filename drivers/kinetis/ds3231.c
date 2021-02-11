@@ -527,7 +527,7 @@ void ds3231_GetTemperature(float *pData)
 }
 
 #ifdef DESIGN_VERIFICATION_DS3231
-#include "kinetis/test.h"
+#include "kinetis/test-kinetis.h"
 
 int t_ds3231_SetClock(int argc, char **argv)
 {

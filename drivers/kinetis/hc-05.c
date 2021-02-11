@@ -1,4 +1,4 @@
-#include "peripheral/hc-05.h"
+#include "kinetis/hc-05.h"
 #include "algorithm/general.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
@@ -42,7 +42,7 @@ void hc_05_TestCommand(void)
 }
 
 #ifdef DESIGN_VERIFICATION_HC_05
-#include "kinetis/test.h"
+#include "kinetis/test-kinetis.h"
 
 int t_hc_05_TestCommand(int argc, char **argv)
 {

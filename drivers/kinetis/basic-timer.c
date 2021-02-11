@@ -130,7 +130,7 @@ void basic_timer_resume(void)
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 #ifdef DESIGN_VERIFICATION_BASICTIMER
-#include "kinetis/test.h"
+#include "kinetis/test-kinetis.h"
 #include "kinetis/idebug.h"
 #include "stdlib.h"
 

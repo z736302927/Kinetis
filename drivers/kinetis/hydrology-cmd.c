@@ -2,7 +2,7 @@
 #include "kinetis/hydrology-config.h"
 #include "kinetis/hydrology-identifier.h"
 #include <string.h>
-#include "kinetis/memory.h"
+#include <linux/slab.h>
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

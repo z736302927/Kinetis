@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "peripheral/nb_bc95.h"
-#include "peripheral/nb_board.h"
+#include "kinetis/nb_bc95.h"
+#include "kinetis/nb_board.h"
 
 /**
   * @step 1:  For file nb_app.c call, no need to care about the implementation process.

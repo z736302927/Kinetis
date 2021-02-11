@@ -11,6 +11,8 @@ extern "C" {
 
 #include <linux/types.h>
 
+#include "kinetis/core_common.h"
+
 void at24cxx_byte_write(u8 addr, u8 tmp);
 void at24cxx_write_data(u8 addr, u8 *tmp, u32 length);
 void at24cxx_current_addr_read(u8 *tmp);

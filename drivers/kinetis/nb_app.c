@@ -1,7 +1,7 @@
-#include "peripheral/nb_timer.h"
-#include "peripheral/nb_app.h"
-#include "peripheral/nb_board.h"
-#include "peripheral/nb_bc95.h"
+#include "kinetis/nb_timer.h"
+#include "kinetis/nb_app.h"
+#include "kinetis/nb_board.h"
+#include "kinetis/nb_bc95.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

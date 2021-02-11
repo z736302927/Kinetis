@@ -1,6 +1,6 @@
 #include "algorithm/general.h"
 #include "algorithm/slist.h"
-#include "peripheral/serialport.h"
+#include "kinetis/serialport.h"
 #include <linux/delay.h>
 #include "kinetis/basic-timer.h"
 #include "string.h"
@@ -133,7 +133,7 @@ void General_ProcessCommand(GeneralCommand_TypeDef *Command)
 }
 
 #ifdef DESIGN_VERIFICATION_GENERAL
-#include "kinetis/test.h"
+#include "kinetis/test-kinetis.h"
 
 int t_General_Success(int argc, char **argv)
 {

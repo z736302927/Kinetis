@@ -1,5 +1,5 @@
-#include "peripheral/nb_serialport.h"
-#include "peripheral/nb_bc95.h"
+#include "kinetis/nb_serialport.h"
+#include "kinetis/nb_bc95.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -14,7 +14,7 @@
 #include "usart.h"
 #include "string.h"
 #include "stdlib.h"
-#include "peripheral/serialport.h"
+#include "kinetis/serialport.h"
 
 #define DEBUG
 #include "kinetis/idebug.h"
