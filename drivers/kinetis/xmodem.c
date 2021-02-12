@@ -198,7 +198,7 @@ u8 xmodem_Timeout(void)
                 currenttime + UINT32_MAX - begintime;
 
             if (timediff > 30000) { /* 3s */
-                kinetis_print_trace(KERN_DEBUG, "Command execution timeout !");
+                printk(KERN_DEBUG "Command execution timeout !");
                 return false;
             }
         }

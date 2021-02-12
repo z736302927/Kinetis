@@ -17,7 +17,6 @@
 struct random_ready_callback {
 	struct list_head list;
 	void (*func)(struct random_ready_callback *rdy);
-	struct module *owner;
 };
 
 extern void add_device_randomness(const void *, unsigned int);

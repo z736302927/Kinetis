@@ -4,6 +4,8 @@
 
 #include "stm32f4xx_hal.h"
 
+#include <linux/printk.h>
+
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /**
@@ -289,7 +291,7 @@ u8 iic_soft_read_byte(u8 ack)
 static bool iic_soft_write_byte_with_addr(u8 slave_addr, u16 reg, u8 tmp)
 {
     if (iic_soft_start() == false) {
-        kinetis_print_trace(KERN_ERR,
+        printk(KERN_ERR
             "Arbitration failed ! Device(addr = 0x%X) cannot obtain the bus.",
             slave_addr);
 //    return false;
@@ -319,7 +321,7 @@ static bool iic_soft_write_byte_with_addr(u8 slave_addr, u16 reg, u8 tmp)
 static bool iic_soft_read_byte_with_addr(u8 slave_addr, u16 reg, u8 *tmp)
 {
     if (iic_soft_start() == false) {
-        kinetis_print_trace(KERN_ERR,
+        printk(KERN_ERR
             "Arbitration failed ! Device(addr = 0x%X) cannot obtain the bus.",
             slave_addr);
 //    return false;
@@ -353,7 +355,7 @@ static bool iic_soft_write_bytes_with_addr(u8 slave_addr, u16 reg,
     u8 *pdata, u8 length)
 {
     if (iic_soft_start() == false) {
-        kinetis_print_trace(KERN_ERR,
+        printk(KERN_ERR
             "Arbitration failed ! Device(addr = 0x%X) cannot obtain the bus.",
             slave_addr);
 //    return false;
@@ -389,7 +391,7 @@ static bool iic_soft_read_bytes_with_addr(u8 slave_addr, u16 reg,
     u8 *pdata, u8 length)
 {
     if (iic_soft_start() == false) {
-        kinetis_print_trace(KERN_ERR,
+        printk(KERN_ERR
             "Arbitration failed ! Device(addr = 0x%X) cannot obtain the bus.",
             slave_addr);
 //    return false;

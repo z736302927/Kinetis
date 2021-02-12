@@ -194,7 +194,7 @@ static void GTP_Touch_Down(int32_t id, int32_t x, int32_t y, int32_t w)
 {
 
     /*取x、y初始值大于屏幕像素值*/
-    kinetis_print_trace(KERN_DEBUG, "ID:%d, X:%d, Y:%d, W:%d", id, x, y, w);
+    printk(KERN_DEBUG "ID:%d, X:%d, Y:%d, W:%d", id, x, y, w);
 
 //  /* 处理触摸按钮，用于触摸画板 */
 //  Touch_Button_Down(x,y);
@@ -233,7 +233,7 @@ static void GTP_Touch_Up(int32_t id)
     pre_x[id] = -1;
     pre_y[id] = -1;
 
-    kinetis_print_trace(KERN_DEBUG, "Touch id[%2d] release!", id);
+    printk(KERN_DEBUG "Touch id[%2d] release!", id);
 }
 
 /**
@@ -399,7 +399,7 @@ static int32_t GTP_Get_Info(void)
 
     int_trigger_type = opr_buf[0] & 0x03;
 
-    kinetis_print_trace(KERN_DEBUG, "X_MAX = %d, Y_MAX = %d, TRIGGER = 0x%02x", abs_x_max, abs_y_max, int_trigger_type);
+    printk(KERN_DEBUG "X_MAX = %d, Y_MAX = %d, TRIGGER = 0x%02x", abs_x_max, abs_y_max, int_trigger_type);
 
     return SUCCESS;
 }
@@ -448,7 +448,7 @@ int32_t GTP_Init_Panel(void)
     I2C_ResetChip();
 
     if (GTP_I2C_Test() < 0) {
-        kinetis_print_trace(KERN_DEBUG, "I2C communication ERROR!");
+        printk(KERN_DEBUG "I2C communication ERROR!");
         return ret;
     }
 
@@ -486,12 +486,12 @@ int32_t GTP_Init_Panel(void)
 //  {
 //    if(CTP_CFG_GT9271[i] != buf[i])
 //    {
-////   kinetis_print_trace(KERN_DEBUG, "Config fail ! i = %d ",i);
+////   printk(KERN_DEBUG "Config fail ! i = %d ",i);
 ////      return -1;
 //      j++;
 //    }
 //  }
-//kinetis_print_trace(KERN_DEBUG, "Config success ! i = %d ",j);
+//printk(KERN_DEBUG "Config success ! i = %d ",j);
 
 //  GTP_Get_Info();
 //  HAL_NVIC_EnableIRQ(EXTI0_IRQn);

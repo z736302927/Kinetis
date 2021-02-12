@@ -4,6 +4,7 @@
 
 #include <linux/gfp.h>
 #include <linux/slab.h>
+#include <linux/kernel.h>
 
 #include "string.h"
 
@@ -358,7 +359,7 @@ static int parse_test_all_case(char *cmd)
 
     do {
         argv[argc] = strsep(&cmd, " ");
-        kinetis_print_trace(KERN_DEBUG, "[%d] %s", argc, argv[argc]);
+        printk(KERN_DEBUG "[%d] %s", argc, argv[argc]);
         argc++;
     } while (cmd);
 
@@ -388,11 +389,11 @@ void k_test_case_schedule(void)
                 ret = parse_test_all_case(buffer);
 
                 if (ret == PASS)
-                    kinetis_print_trace(KERN_DEBUG, "TEST PASS");
+                    printk(KERN_DEBUG "TEST PASS");
                 else if (ret == FAIL)
-                    kinetis_print_trace(KERN_DEBUG, "TEST FAIL");
+                    printk(KERN_DEBUG "TEST FAIL");
                 else
-                    kinetis_print_trace(KERN_DEBUG, "TEST NOT EXSIST");
+                    printk(KERN_DEBUG "TEST NOT EXSIST");
 
                 printf("\r\n/ # ");
             }

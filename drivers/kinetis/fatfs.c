@@ -42,7 +42,7 @@ void FatFs_Init(void)
             res = f_mkfs((const TCHAR *)DISKPath, 0, workBuffer, sizeof(workBuffer));
 
             if (res != FR_OK) {
-                kinetis_print_trace(KERN_ERR, " ");
+                printk(KERN_ERR " ");
                 Printf_FatFs_Err(res);
 
                 while (1)
@@ -50,7 +50,7 @@ void FatFs_Init(void)
             }
         }
     } else {
-        kinetis_print_trace(KERN_ERR, " ");
+        printk(KERN_ERR " ");
 
         while (1)
             ;
@@ -62,80 +62,80 @@ void Printf_FatFs_Err(FRESULT fresult)
 {
     switch (fresult) {
         case FR_OK:                   //(0)
-            kinetis_print_trace(KERN_DEBUG, "Operation successful.");
+            printk(KERN_DEBUG "Operation successful.");
             break;
 
         case FR_DISK_ERR:             //(1)
-            kinetis_print_trace(KERN_DEBUG, "Hardware input/output driver error.");
+            printk(KERN_DEBUG "Hardware input/output driver error.");
             break;
 
         case FR_INT_ERR:              //(2)
-            kinetis_print_trace(KERN_DEBUG, "Assertion error.");
+            printk(KERN_DEBUG "Assertion error.");
             break;
 
         case FR_NOT_READY:            //(3)
-            kinetis_print_trace(KERN_DEBUG, "The physical device doesn't work.");
+            printk(KERN_DEBUG "The physical device doesn't work.");
             break;
 
         case FR_NO_FILE:              //(4)
-            kinetis_print_trace(KERN_DEBUG, "Unable to locate file.");
+            printk(KERN_DEBUG "Unable to locate file.");
             break;
 
         case FR_NO_PATH:              //(5)
-            kinetis_print_trace(KERN_DEBUG, "Unable to find path.");
+            printk(KERN_DEBUG "Unable to find path.");
             break;
 
         case FR_INVALID_NAME:         //(6)
-            kinetis_print_trace(KERN_DEBUG, "Invalid path name.");
+            printk(KERN_DEBUG "Invalid path name.");
             break;
 
         case FR_DENIED:               //(7)
         case FR_EXIST:                //(8)
-            kinetis_print_trace(KERN_DEBUG, "Access denied.");
+            printk(KERN_DEBUG "Access denied.");
             break;
 
         case FR_INVALID_OBJECT:       //(9)
-            kinetis_print_trace(KERN_DEBUG, "Invalid file or path.");
+            printk(KERN_DEBUG "Invalid file or path.");
             break;
 
         case FR_WRITE_PROTECTED:      //(10)
-            kinetis_print_trace(KERN_DEBUG, "Logical device write protection.");
+            printk(KERN_DEBUG "Logical device write protection.");
             break;
 
         case FR_INVALID_DRIVE:        //(11)
-            kinetis_print_trace(KERN_DEBUG, "Invalid logic device.");
+            printk(KERN_DEBUG "Invalid logic device.");
             break;
 
         case FR_NOT_ENABLED:          //(12)
-            kinetis_print_trace(KERN_DEBUG, "Invalid workspace.");
+            printk(KERN_DEBUG "Invalid workspace.");
             break;
 
         case FR_NO_FILESYSTEM:        //(13)
-            kinetis_print_trace(KERN_DEBUG, "Invalid file system.");
+            printk(KERN_DEBUG "Invalid file system.");
             break;
 
         case FR_MKFS_ABORTED:         //(14)
-            kinetis_print_trace(KERN_DEBUG, "The f_mkfs function failed because of a function parameter problem.");
+            printk(KERN_DEBUG "The f_mkfs function failed because of a function parameter problem.");
             break;
 
         case FR_TIMEOUT:              //(15)
-            kinetis_print_trace(KERN_DEBUG, "The operation timed out.");
+            printk(KERN_DEBUG "The operation timed out.");
             break;
 
         case FR_LOCKED:               //(16)
-            kinetis_print_trace(KERN_DEBUG, "The file is protected.");
+            printk(KERN_DEBUG "The file is protected.");
             break;
 
         case FR_NOT_ENOUGH_CORE:      //(17)
-            kinetis_print_trace(KERN_DEBUG, "Long filename support failed to get heap space.");
+            printk(KERN_DEBUG "Long filename support failed to get heap space.");
             break;
 
         case FR_TOO_MANY_OPEN_FILES:  //(18)
-            kinetis_print_trace(KERN_DEBUG, "Too many files open.");
+            printk(KERN_DEBUG "Too many files open.");
             break;
 
         case FR_INVALID_PARAMETER:    // (19)
-            kinetis_print_trace(KERN_DEBUG, "Invalid parameter.");
+            printk(KERN_DEBUG "Invalid parameter.");
             break;
 
         default:
@@ -154,16 +154,16 @@ FRESULT Miscellaneous(void)
     int32_t byteswritten = 0;
     uint32_t bytesread = 0;
 
-    kinetis_print_trace(KERN_DEBUG, "Device information acquisition.");
+    printk(KERN_DEBUG "Device information acquisition.");
     /* Gets device information and empty cluster size. */
     res = f_getfree("1:", &fre_clust, &pfs);
     /* The total number of sectors and the number of empty sectors are calculated. */
     tot_sect = (pfs->n_fatent - 2) * pfs->csize;
     fre_sect = fre_clust * pfs->csize;
     /* Print information (4096 bytes/sector) */
-    kinetis_print_trace(KERN_DEBUG, "Total equipment space:%6u MB.\r\nAvailable space: %6u MB.", tot_sect * 4 / 1024, fre_sect * 4 / 1024);
+    printk(KERN_DEBUG "Total equipment space:%6u MB.\r\nAvailable space: %6u MB.", tot_sect * 4 / 1024, fre_sect * 4 / 1024);
 
-    kinetis_print_trace(KERN_DEBUG, "File location and formatting write function test");
+    printk(KERN_DEBUG "File location and formatting write function test");
     res = f_open(&MyFile, "FatFs.txt", FA_OPEN_EXISTING | FA_WRITE | FA_READ);
 
     if (res == FR_OK) {
@@ -175,12 +175,12 @@ FRESULT Miscellaneous(void)
             byteswritten = f_printf(&MyFile, "add a new line to the original file.");
 
             if (byteswritten == EOF)
-                kinetis_print_trace(KERN_ERR, " ");
+                printk(KERN_ERR " ");
 
             byteswritten = f_printf(&MyFile, "Total equipment space:%6lu MB.\r\nAvailable space: %6lu MB.", tot_sect * 4 / 1024, fre_sect * 4 / 1024);
 
             if (byteswritten == EOF)
-                kinetis_print_trace(KERN_ERR, " ");
+                printk(KERN_ERR " ");
 
             /* The file is positioned at the start of the file. */
             res = f_lseek(&MyFile, 0);
@@ -188,12 +188,12 @@ FRESULT Miscellaneous(void)
             res = f_read(&MyFile, rtext, f_size(&MyFile), &bytesread);
 
             if (res == FR_OK)
-                kinetis_print_trace(KERN_DEBUG, "The file content: %s", rtext);
+                printk(KERN_DEBUG "The file content: %s", rtext);
         }
 
         f_close(&MyFile);
 
-        kinetis_print_trace(KERN_DEBUG, "Directory creation and rename function test");
+        printk(KERN_DEBUG "Directory creation and rename function test");
         /* Try opening a directory. */
         res = f_opendir(&MyDir, "TestDir");
 
@@ -212,8 +212,8 @@ FRESULT Miscellaneous(void)
             res = f_rename("FatFs.txt", "TestDir/testdir.txt");
         }
     } else {
-        kinetis_print_trace(KERN_DEBUG, "Failed to open file: %d", res);
-        kinetis_print_trace(KERN_DEBUG, "You may need to run the FatFs migration and read and write test project again.");
+        printk(KERN_DEBUG "Failed to open file: %d", res);
+        printk(KERN_DEBUG "You may need to run the FatFs migration and read and write test project again.");
     }
 
     return res;
@@ -264,7 +264,7 @@ static FRESULT FatFs_Scan_Files(char *path)
                 if (res != FR_OK)
                     break;
             } else {
-                kinetis_print_trace(KERN_DEBUG, "%s/%s", path, fn);                //Output file name
+                printk(KERN_DEBUG "%s/%s", path, fn);                //Output file name
                 /* Here you can extract the file path for a particular format. */
             }
         }
@@ -406,127 +406,127 @@ int FatFs_Diskio(
     DRESULT dr;
 
 
-    kinetis_print_trace(KERN_DEBUG, "test_diskio(%u, %u, 0x%08X, 0x%08X)", pdrv, ncyc, (UINT)buff, sz_buff);
+    printk(KERN_DEBUG "test_diskio(%u, %u, 0x%08X, 0x%08X)", pdrv, ncyc, (UINT)buff, sz_buff);
 
     if (sz_buff < FF_MAX_SS + 8) {
-        kinetis_print_trace(KERN_DEBUG, "Insufficient work area to run the program.");
+        printk(KERN_DEBUG "Insufficient work area to run the program.");
         return 1;
     }
 
     for (cc = 1; cc <= ncyc; cc++) {
-        kinetis_print_trace(KERN_DEBUG, "**** Test cycle %u of %u start ****", cc, ncyc);
+        printk(KERN_DEBUG "**** Test cycle %u of %u start ****", cc, ncyc);
 
-        kinetis_print_trace(KERN_DEBUG, " disk_initalize(%u)", pdrv);
+        printk(KERN_DEBUG " disk_initalize(%u)", pdrv);
         ds = disk_initialize(pdrv);
 
         if (ds & STA_NOINIT) {
-            kinetis_print_trace(KERN_DEBUG, " - failed.");
+            printk(KERN_DEBUG " - failed.");
             return 2;
         } else
-            kinetis_print_trace(KERN_DEBUG, " - ok.");
+            printk(KERN_DEBUG " - ok.");
 
-        kinetis_print_trace(KERN_DEBUG, "**** Get drive size ****");
-        kinetis_print_trace(KERN_DEBUG, " disk_ioctl(%u, GET_SECTOR_COUNT, 0x%08X)", pdrv, (UINT)&sz_drv);
+        printk(KERN_DEBUG "**** Get drive size ****");
+        printk(KERN_DEBUG " disk_ioctl(%u, GET_SECTOR_COUNT, 0x%08X)", pdrv, (UINT)&sz_drv);
         sz_drv = 0;
         dr = disk_ioctl(pdrv, GET_SECTOR_COUNT, &sz_drv);
 
         if (dr == RES_OK)
-            kinetis_print_trace(KERN_DEBUG, " - ok.");
+            printk(KERN_DEBUG " - ok.");
         else {
-            kinetis_print_trace(KERN_DEBUG, " - failed.");
+            printk(KERN_DEBUG " - failed.");
             return 3;
         }
 
         if (sz_drv < 128) {
-            kinetis_print_trace(KERN_DEBUG, "Failed: Insufficient drive size to test.");
+            printk(KERN_DEBUG "Failed: Insufficient drive size to test.");
             return 4;
         }
 
-        kinetis_print_trace(KERN_DEBUG, " Number of sectors on the drive %u is %lu.", pdrv, sz_drv);
+        printk(KERN_DEBUG " Number of sectors on the drive %u is %lu.", pdrv, sz_drv);
 
 #if FF_MAX_SS != FF_MIN_SS
-        kinetis_print_trace(KERN_DEBUG, "**** Get sector size ****");
-        kinetis_print_trace(KERN_DEBUG, " disk_ioctl(%u, GET_SECTOR_SIZE, 0x%X)", pdrv, (UINT)&sz_sect);
+        printk(KERN_DEBUG "**** Get sector size ****");
+        printk(KERN_DEBUG " disk_ioctl(%u, GET_SECTOR_SIZE, 0x%X)", pdrv, (UINT)&sz_sect);
         sz_sect = 0;
         dr = disk_ioctl(pdrv, GET_SECTOR_SIZE, &sz_sect);
 
         if (dr == RES_OK)
-            kinetis_print_trace(KERN_DEBUG, " - ok.");
+            printk(KERN_DEBUG " - ok.");
         else {
-            kinetis_print_trace(KERN_DEBUG, " - failed.");
+            printk(KERN_DEBUG " - failed.");
             return 5;
         }
 
-        kinetis_print_trace(KERN_DEBUG, " Size of sector is %u bytes.", sz_sect);
+        printk(KERN_DEBUG " Size of sector is %u bytes.", sz_sect);
 #else
         sz_sect = FF_MAX_SS;
 #endif
 
-        kinetis_print_trace(KERN_DEBUG, "**** Get block size ****");
-        kinetis_print_trace(KERN_DEBUG, " disk_ioctl(%u, GET_BLOCK_SIZE, 0x%X)", pdrv, (UINT)&sz_eblk);
+        printk(KERN_DEBUG "**** Get block size ****");
+        printk(KERN_DEBUG " disk_ioctl(%u, GET_BLOCK_SIZE, 0x%X)", pdrv, (UINT)&sz_eblk);
         sz_eblk = 0;
         dr = disk_ioctl(pdrv, GET_BLOCK_SIZE, &sz_eblk);
 
         if (dr == RES_OK)
-            kinetis_print_trace(KERN_DEBUG, " - ok.");
+            printk(KERN_DEBUG " - ok.");
         else
-            kinetis_print_trace(KERN_DEBUG, " - failed.");
+            printk(KERN_DEBUG " - failed.");
 
         if (dr == RES_OK || sz_eblk >= 2)
-            kinetis_print_trace(KERN_DEBUG, " Size of the erase block is %lu sectors.", sz_eblk);
+            printk(KERN_DEBUG " Size of the erase block is %lu sectors.", sz_eblk);
         else
-            kinetis_print_trace(KERN_DEBUG, " Size of the erase block is unknown.");
+            printk(KERN_DEBUG " Size of the erase block is unknown.");
 
         /* Single sector write test */
-        kinetis_print_trace(KERN_DEBUG, "**** Single sector write test ****");
+        printk(KERN_DEBUG "**** Single sector write test ****");
         lba = 0;
 
         for (n = 0, FatFs_Diskio_Pseudo(pns); n < sz_sect; n++)
             pbuff[n] = (BYTE)FatFs_Diskio_Pseudo(0);
 
-        kinetis_print_trace(KERN_DEBUG, " disk_write(%u, 0x%X, %lu, 1)", pdrv, (UINT)pbuff, lba);
+        printk(KERN_DEBUG " disk_write(%u, 0x%X, %lu, 1)", pdrv, (UINT)pbuff, lba);
         dr = disk_write(pdrv, pbuff, lba, 1);
 
         if (dr == RES_OK)
-            kinetis_print_trace(KERN_DEBUG, " - ok.");
+            printk(KERN_DEBUG " - ok.");
         else {
-            kinetis_print_trace(KERN_DEBUG, " - failed.");
+            printk(KERN_DEBUG " - failed.");
             return 6;
         }
 
-        kinetis_print_trace(KERN_DEBUG, " disk_ioctl(%u, CTRL_SYNC, NULL)", pdrv);
+        printk(KERN_DEBUG " disk_ioctl(%u, CTRL_SYNC, NULL)", pdrv);
         dr = disk_ioctl(pdrv, CTRL_SYNC, 0);
 
         if (dr == RES_OK)
-            kinetis_print_trace(KERN_DEBUG, " - ok.");
+            printk(KERN_DEBUG " - ok.");
         else {
-            kinetis_print_trace(KERN_DEBUG, " - failed.");
+            printk(KERN_DEBUG " - failed.");
             return 7;
         }
 
         memset(pbuff, 0, sz_sect);
-        kinetis_print_trace(KERN_DEBUG, " disk_read(%u, 0x%X, %lu, 1)", pdrv, (UINT)pbuff, lba);
+        printk(KERN_DEBUG " disk_read(%u, 0x%X, %lu, 1)", pdrv, (UINT)pbuff, lba);
         dr = disk_read(pdrv, pbuff, lba, 1);
 
         if (dr == RES_OK)
-            kinetis_print_trace(KERN_DEBUG, " - ok.");
+            printk(KERN_DEBUG " - ok.");
         else {
-            kinetis_print_trace(KERN_DEBUG, " - failed.");
+            printk(KERN_DEBUG " - failed.");
             return 8;
         }
 
         for (n = 0, FatFs_Diskio_Pseudo(pns); n < sz_sect && pbuff[n] == (BYTE)FatFs_Diskio_Pseudo(0); n++) ;
 
         if (n == sz_sect)
-            kinetis_print_trace(KERN_DEBUG, " Read data matched.");
+            printk(KERN_DEBUG " Read data matched.");
         else {
-            kinetis_print_trace(KERN_DEBUG, " Read data differs from the data written.");
+            printk(KERN_DEBUG " Read data differs from the data written.");
             return 10;
         }
 
         pns++;
 
-        kinetis_print_trace(KERN_DEBUG, "**** Multiple sector write test ****");
+        printk(KERN_DEBUG "**** Multiple sector write test ****");
         lba = 5;
         ns = sz_buff / sz_sect;
 
@@ -537,99 +537,99 @@ int FatFs_Diskio(
             for (n = 0, FatFs_Diskio_Pseudo(pns); n < (UINT)(sz_sect * ns); n++)
                 pbuff[n] = (BYTE)FatFs_Diskio_Pseudo(0);
 
-            kinetis_print_trace(KERN_DEBUG, " disk_write(%u, 0x%X, %lu, %u)", pdrv, (UINT)pbuff, lba, ns);
+            printk(KERN_DEBUG " disk_write(%u, 0x%X, %lu, %u)", pdrv, (UINT)pbuff, lba, ns);
             dr = disk_write(pdrv, pbuff, lba, ns);
 
             if (dr == RES_OK)
-                kinetis_print_trace(KERN_DEBUG, " - ok.");
+                printk(KERN_DEBUG " - ok.");
             else {
-                kinetis_print_trace(KERN_DEBUG, " - failed.");
+                printk(KERN_DEBUG " - failed.");
                 return 11;
             }
 
-            kinetis_print_trace(KERN_DEBUG, " disk_ioctl(%u, CTRL_SYNC, NULL)", pdrv);
+            printk(KERN_DEBUG " disk_ioctl(%u, CTRL_SYNC, NULL)", pdrv);
             dr = disk_ioctl(pdrv, CTRL_SYNC, 0);
 
             if (dr == RES_OK)
-                kinetis_print_trace(KERN_DEBUG, " - ok.");
+                printk(KERN_DEBUG " - ok.");
             else {
-                kinetis_print_trace(KERN_DEBUG, " - failed.");
+                printk(KERN_DEBUG " - failed.");
                 return 12;
             }
 
             memset(pbuff, 0, sz_sect * ns);
-            kinetis_print_trace(KERN_DEBUG, " disk_read(%u, 0x%X, %lu, %u)", pdrv, (UINT)pbuff, lba, ns);
+            printk(KERN_DEBUG " disk_read(%u, 0x%X, %lu, %u)", pdrv, (UINT)pbuff, lba, ns);
             dr = disk_read(pdrv, pbuff, lba, ns);
 
             if (dr == RES_OK)
-                kinetis_print_trace(KERN_DEBUG, " - ok.");
+                printk(KERN_DEBUG " - ok.");
             else {
-                kinetis_print_trace(KERN_DEBUG, " - failed.");
+                printk(KERN_DEBUG " - failed.");
                 return 13;
             }
 
             for (n = 0, FatFs_Diskio_Pseudo(pns); n < (UINT)(sz_sect * ns) && pbuff[n] == (BYTE)FatFs_Diskio_Pseudo(0); n++) ;
 
             if (n == (UINT)(sz_sect * ns))
-                kinetis_print_trace(KERN_DEBUG, " Read data matched.");
+                printk(KERN_DEBUG " Read data matched.");
             else {
-                kinetis_print_trace(KERN_DEBUG, " Read data differs from the data written.");
+                printk(KERN_DEBUG " Read data differs from the data written.");
                 return 14;
             }
         } else
-            kinetis_print_trace(KERN_DEBUG, " Test skipped.");
+            printk(KERN_DEBUG " Test skipped.");
 
         pns++;
 
-        kinetis_print_trace(KERN_DEBUG, "**** Single sector write test (unaligned buffer address) ****");
+        printk(KERN_DEBUG "**** Single sector write test (unaligned buffer address) ****");
         lba = 5;
 
         for (n = 0, FatFs_Diskio_Pseudo(pns); n < sz_sect; n++)
             pbuff[n + 3] = (BYTE)FatFs_Diskio_Pseudo(0);
 
-        kinetis_print_trace(KERN_DEBUG, " disk_write(%u, 0x%X, %lu, 1)", pdrv, (UINT)(pbuff + 3), lba);
+        printk(KERN_DEBUG " disk_write(%u, 0x%X, %lu, 1)", pdrv, (UINT)(pbuff + 3), lba);
         dr = disk_write(pdrv, pbuff + 3, lba, 1);
 
         if (dr == RES_OK)
-            kinetis_print_trace(KERN_DEBUG, " - ok.");
+            printk(KERN_DEBUG " - ok.");
         else {
-            kinetis_print_trace(KERN_DEBUG, " - failed.");
+            printk(KERN_DEBUG " - failed.");
             return 15;
         }
 
-        kinetis_print_trace(KERN_DEBUG, " disk_ioctl(%u, CTRL_SYNC, NULL)", pdrv);
+        printk(KERN_DEBUG " disk_ioctl(%u, CTRL_SYNC, NULL)", pdrv);
         dr = disk_ioctl(pdrv, CTRL_SYNC, 0);
 
         if (dr == RES_OK)
-            kinetis_print_trace(KERN_DEBUG, " - ok.");
+            printk(KERN_DEBUG " - ok.");
         else {
-            kinetis_print_trace(KERN_DEBUG, " - failed.");
+            printk(KERN_DEBUG " - failed.");
             return 16;
         }
 
         memset(pbuff + 5, 0, sz_sect);
-        kinetis_print_trace(KERN_DEBUG, " disk_read(%u, 0x%X, %lu, 1)", pdrv, (UINT)(pbuff + 5), lba);
+        printk(KERN_DEBUG " disk_read(%u, 0x%X, %lu, 1)", pdrv, (UINT)(pbuff + 5), lba);
         dr = disk_read(pdrv, pbuff + 5, lba, 1);
 
         if (dr == RES_OK)
-            kinetis_print_trace(KERN_DEBUG, " - ok.");
+            printk(KERN_DEBUG " - ok.");
         else {
-            kinetis_print_trace(KERN_DEBUG, " - failed.");
+            printk(KERN_DEBUG " - failed.");
             return 17;
         }
 
         for (n = 0, FatFs_Diskio_Pseudo(pns); n < sz_sect && pbuff[n + 5] == (BYTE)FatFs_Diskio_Pseudo(0); n++) ;
 
         if (n == sz_sect)
-            kinetis_print_trace(KERN_DEBUG, " Read data matched.");
+            printk(KERN_DEBUG " Read data matched.");
         else {
-            kinetis_print_trace(KERN_DEBUG, " Read data differs from the data written.");
+            printk(KERN_DEBUG " Read data differs from the data written.");
             return 18;
         }
 
         pns++;
 
-        kinetis_print_trace(KERN_DEBUG, "**** 4GB barrier test ****");
+        printk(KERN_DEBUG "**** 4GB barrier test ****");
 
         if (sz_drv >= 128 + 0x80000000 / (sz_sect / 2)) {
             lba = 6;
@@ -638,71 +638,71 @@ int FatFs_Diskio(
             for (n = 0, FatFs_Diskio_Pseudo(pns); n < (UINT)(sz_sect * 2); n++)
                 pbuff[n] = (BYTE)FatFs_Diskio_Pseudo(0);
 
-            kinetis_print_trace(KERN_DEBUG, " disk_write(%u, 0x%X, %lu, 1)", pdrv, (UINT)pbuff, lba);
+            printk(KERN_DEBUG " disk_write(%u, 0x%X, %lu, 1)", pdrv, (UINT)pbuff, lba);
             dr = disk_write(pdrv, pbuff, lba, 1);
 
             if (dr == RES_OK)
-                kinetis_print_trace(KERN_DEBUG, " - ok.");
+                printk(KERN_DEBUG " - ok.");
             else {
-                kinetis_print_trace(KERN_DEBUG, " - failed.");
+                printk(KERN_DEBUG " - failed.");
                 return 19;
             }
 
-            kinetis_print_trace(KERN_DEBUG, " disk_write(%u, 0x%X, %lu, 1)", pdrv, (UINT)(pbuff + sz_sect), lba2);
+            printk(KERN_DEBUG " disk_write(%u, 0x%X, %lu, 1)", pdrv, (UINT)(pbuff + sz_sect), lba2);
             dr = disk_write(pdrv, pbuff + sz_sect, lba2, 1);
 
             if (dr == RES_OK)
-                kinetis_print_trace(KERN_DEBUG, " - ok.");
+                printk(KERN_DEBUG " - ok.");
             else {
-                kinetis_print_trace(KERN_DEBUG, " - failed.");
+                printk(KERN_DEBUG " - failed.");
                 return 20;
             }
 
-            kinetis_print_trace(KERN_DEBUG, " disk_ioctl(%u, CTRL_SYNC, NULL)", pdrv);
+            printk(KERN_DEBUG " disk_ioctl(%u, CTRL_SYNC, NULL)", pdrv);
             dr = disk_ioctl(pdrv, CTRL_SYNC, 0);
 
             if (dr == RES_OK)
-                kinetis_print_trace(KERN_DEBUG, " - ok.");
+                printk(KERN_DEBUG " - ok.");
             else {
-                kinetis_print_trace(KERN_DEBUG, " - failed.");
+                printk(KERN_DEBUG " - failed.");
                 return 21;
             }
 
             memset(pbuff, 0, sz_sect * 2);
-            kinetis_print_trace(KERN_DEBUG, " disk_read(%u, 0x%X, %lu, 1)", pdrv, (UINT)pbuff, lba);
+            printk(KERN_DEBUG " disk_read(%u, 0x%X, %lu, 1)", pdrv, (UINT)pbuff, lba);
             dr = disk_read(pdrv, pbuff, lba, 1);
 
             if (dr == RES_OK)
-                kinetis_print_trace(KERN_DEBUG, " - ok.");
+                printk(KERN_DEBUG " - ok.");
             else {
-                kinetis_print_trace(KERN_DEBUG, " - failed.");
+                printk(KERN_DEBUG " - failed.");
                 return 22;
             }
 
-            kinetis_print_trace(KERN_DEBUG, " disk_read(%u, 0x%X, %lu, 1)", pdrv, (UINT)(pbuff + sz_sect), lba2);
+            printk(KERN_DEBUG " disk_read(%u, 0x%X, %lu, 1)", pdrv, (UINT)(pbuff + sz_sect), lba2);
             dr = disk_read(pdrv, pbuff + sz_sect, lba2, 1);
 
             if (dr == RES_OK)
-                kinetis_print_trace(KERN_DEBUG, " - ok.");
+                printk(KERN_DEBUG " - ok.");
             else {
-                kinetis_print_trace(KERN_DEBUG, " - failed.");
+                printk(KERN_DEBUG " - failed.");
                 return 23;
             }
 
             for (n = 0, FatFs_Diskio_Pseudo(pns); pbuff[n] == (BYTE)FatFs_Diskio_Pseudo(0) && n < (UINT)(sz_sect * 2); n++) ;
 
             if (n == (UINT)(sz_sect * 2))
-                kinetis_print_trace(KERN_DEBUG, " Read data matched.");
+                printk(KERN_DEBUG " Read data matched.");
             else {
-                kinetis_print_trace(KERN_DEBUG, " Read data differs from the data written.");
+                printk(KERN_DEBUG " Read data differs from the data written.");
                 return 24;
             }
         } else
-            kinetis_print_trace(KERN_DEBUG, " Test skipped.");
+            printk(KERN_DEBUG " Test skipped.");
 
         pns++;
 
-        kinetis_print_trace(KERN_DEBUG, "**** Test cycle %u of %u completed ****", cc, ncyc);
+        printk(KERN_DEBUG "**** Test cycle %u of %u completed ****", cc, ncyc);
     }
 
     return 0;
@@ -777,7 +777,7 @@ int FatFs_Raw_Speed(
 #if FF_MIN_SS != FF_MAX_SS
 
     if (disk_ioctl(pdrv, GET_SECTOR_SIZE, &ss) != RES_OK) {
-        kinetis_print_trace(KERN_DEBUG, "disk_ioctl() failed.");
+        printk(KERN_DEBUG "disk_ioctl() failed.");
         return false;
     }
 
@@ -785,37 +785,37 @@ int FatFs_Raw_Speed(
     ss = FF_MAX_SS;
 #endif
 
-    kinetis_print_trace(KERN_DEBUG, "Starting raw write test at sector %lu in %u bytes of data chunks...", lba, sz_buff);
+    printk(KERN_DEBUG "Starting raw write test at sector %lu in %u bytes of data chunks...", lba, sz_buff);
     tmr = basic_timer_get_timer_cnt();
 
     for (ofs = 0; ofs < len / ss; ofs += sz_buff / ss) {
         if (disk_write(pdrv, buff, lba + ofs, sz_buff / ss) != RES_OK) {
-            kinetis_print_trace(KERN_DEBUG, "disk_write() failed.");
+            printk(KERN_DEBUG "disk_write() failed.");
             return false;
         }
     }
 
     if (disk_ioctl(pdrv, CTRL_SYNC, 0) != RES_OK) {
-        kinetis_print_trace(KERN_DEBUG, "disk_ioctl() failed.");
+        printk(KERN_DEBUG "disk_ioctl() failed.");
         return false;
     }
 
     tmr = basic_timer_get_timer_cnt() - tmr;
-    kinetis_print_trace(KERN_DEBUG, "%lu bytes written and it took %lu timer ticks.", len, tmr);
+    printk(KERN_DEBUG "%lu bytes written and it took %lu timer ticks.", len, tmr);
 
-    kinetis_print_trace(KERN_DEBUG, "Starting raw read test at sector %lu in %u bytes of data chunks...", lba, sz_buff);
+    printk(KERN_DEBUG "Starting raw read test at sector %lu in %u bytes of data chunks...", lba, sz_buff);
     tmr = basic_timer_get_timer_cnt();
 
     for (ofs = 0; ofs < len / ss; ofs += sz_buff / ss) {
         if (disk_read(pdrv, buff, lba + ofs, sz_buff / ss) != RES_OK) {
-            kinetis_print_trace(KERN_DEBUG, "disk_read() failed.");
+            printk(KERN_DEBUG "disk_read() failed.");
             return false;
         }
     }
 
     tmr = basic_timer_get_timer_cnt() - tmr;
-    kinetis_print_trace(KERN_DEBUG, "%lu bytes read and it took %lu timer ticks.", len, tmr);
-    kinetis_print_trace(KERN_DEBUG, "Test completed.");
+    printk(KERN_DEBUG "%lu bytes read and it took %lu timer ticks.", len, tmr);
+    printk(KERN_DEBUG "Test completed.");
 
     return true;
 }
@@ -895,7 +895,7 @@ int t_FatFs_ReadWrite(int argc, char **argv)
                                     Printf_FatFs_Err(res);
                                 } else {
                                     /* Success of the demo: no error occurrence */
-                                    kinetis_print_trace(KERN_DEBUG, "FatFs TEST PASS");
+                                    printk(KERN_DEBUG "FatFs TEST PASS");
                                 }
                             }
                         }
@@ -933,11 +933,11 @@ int t_FatFs_File_Check(int argc, char **argv)
     res = f_stat("TestDir/testdir.txt", &finfo);
 
     if (res == FR_OK) {
-        kinetis_print_trace(KERN_DEBUG, "¡°testdir.txt¡±File information£º");
-        kinetis_print_trace(KERN_DEBUG, "The file size: %lud(B)", finfo.fsize);
-        kinetis_print_trace(KERN_DEBUG, "The time stamp: %u/%02u/%02u, %02u:%02u",
+        printk(KERN_DEBUG "¡°testdir.txt¡±File information£º");
+        printk(KERN_DEBUG "The file size: %lud(B)", finfo.fsize);
+        printk(KERN_DEBUG "The time stamp: %u/%02u/%02u, %02u:%02u",
             (finfo.fdate >> 9) + 1980, finfo.fdate >> 5 & 15, finfo.fdate & 31, finfo.ftime >> 11, finfo.ftime >> 5 & 63);
-        kinetis_print_trace(KERN_DEBUG, "attribute: %c%c%c%c%c",
+        printk(KERN_DEBUG "attribute: %c%c%c%c%c",
             (finfo.fattrib & AM_DIR) ? 'D' : '-',      // Directory
             (finfo.fattrib & AM_RDO) ? 'R' : '-',      // A read-only file
             (finfo.fattrib & AM_HID) ? 'H' : '-',      // Hidden files
@@ -953,7 +953,7 @@ int t_FatFs_Scan_Files(int argc, char **argv)
 {
     FRESULT res;
 
-    kinetis_print_trace(KERN_DEBUG, "Document scanning test.");
+    printk(KERN_DEBUG "Document scanning test.");
     strcpy(DISKPath, "1:");
     FatFs_Scan_Files(DISKPath);
 
@@ -1005,10 +1005,10 @@ int t_FatFs_Delete_Node(int argc, char **argv)  /* How to use */
 
     /* Check the result */
     if (fr) {
-        kinetis_print_trace(KERN_DEBUG, _T("Failed to delete the directory. (%u)"), fr);
+        printk(KERN_DEBUG _T("Failed to delete the directory. (%u)"), fr);
         return FAIL;
     } else {
-        kinetis_print_trace(KERN_DEBUG, _T("The directory and the contents have successfully been deleted."));
+        printk(KERN_DEBUG _T("The directory and the contents have successfully been deleted."));
         return PASS;
     }
 }
@@ -1045,7 +1045,7 @@ int t_FatFs_Expend(int argc, char **argv)
     org = f_expand(&fil, 0x10000000, 1);
 
     if (!org) {
-        kinetis_print_trace(KERN_DEBUG, "Function failed due to any error or insufficient contiguous area.");
+        printk(KERN_DEBUG "Function failed due to any error or insufficient contiguous area.");
         f_close(&fil);
         return FAIL;
     }
@@ -1066,10 +1066,10 @@ int t_FatFs_Diskio(int argc, char **argv)
     rc = FatFs_Diskio(0, 3, buff, sizeof buff);
 
     if (rc) {
-        kinetis_print_trace(KERN_DEBUG, "Sorry the function/compatibility test failed. (rc=%d)\nFatFs will not work with this disk driver.", rc);
+        printk(KERN_DEBUG "Sorry the function/compatibility test failed. (rc=%d)\nFatFs will not work with this disk driver.", rc);
         return FAIL;
     } else {
-        kinetis_print_trace(KERN_DEBUG, "Congratulations! The disk driver works well.");
+        printk(KERN_DEBUG "Congratulations! The disk driver works well.");
         return PASS;
     }
 }
@@ -1083,10 +1083,10 @@ int t_FatFs_Contiguous_File(int argc, char **argv)
     rc = FatFs_Diskio(0, 3, buff, sizeof buff);
 
     if (rc) {
-        kinetis_print_trace(KERN_DEBUG, "Sorry the function/compatibility test failed. (rc=%d)\nFatFs will not work with this disk driver.", rc);
+        printk(KERN_DEBUG "Sorry the function/compatibility test failed. (rc=%d)\nFatFs will not work with this disk driver.", rc);
         return FAIL;
     } else {
-        kinetis_print_trace(KERN_DEBUG, "Congratulations! The disk driver works well.");
+        printk(KERN_DEBUG "Congratulations! The disk driver works well.");
         return PASS;
     }
 }
@@ -1100,10 +1100,10 @@ int t_FatFs_Raw_Speed(int argc, char **argv)
     rc = FatFs_Diskio(0, 3, buff, sizeof buff);
 
     if (rc) {
-        kinetis_print_trace(KERN_DEBUG, "Sorry the function/compatibility test failed. (rc=%d)\nFatFs will not work with this disk driver.", rc);
+        printk(KERN_DEBUG "Sorry the function/compatibility test failed. (rc=%d)\nFatFs will not work with this disk driver.", rc);
         return FAIL;
     } else {
-        kinetis_print_trace(KERN_DEBUG, "Congratulations! The disk driver works well.");
+        printk(KERN_DEBUG "Congratulations! The disk driver works well.");
         return PASS;
     }
 }

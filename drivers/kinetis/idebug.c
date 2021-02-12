@@ -2,6 +2,8 @@
 #include "stdarg.h"
 
 #include <linux/types.h>
+#include <linux/printk.h>
+#include <linux/errno.h>
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -38,41 +40,84 @@ PUTCHAR_PROTOTYPE {
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-void kinetis_print_trace(int dbg_level, const char *format, ...)
+enum log_flags {
+	LOG_NEWLINE	= 2,	/* text ended with a newline */
+	LOG_CONT	= 8,	/* text is a fragment of a continuation line */
+};
+
+#ifdef CONFIG_PRINTK_CALLER
+#define PREFIX_MAX		48
+#else
+#define PREFIX_MAX		32
+#endif
+#define LOG_LINE_MAX		(1024 - PREFIX_MAX)
+
+#define LOG_LEVEL(v)		((v) & 0x07)
+#define LOG_FACILITY(v)		((v) >> 3 & 0xff)
+
+int printk(const char *fmt, ...)
 {
-    char buffer[256];
+	static char textbuf[LOG_LINE_MAX];
+	char *text = textbuf;
+	size_t text_len;
+	enum log_flags lflags = 0;
     va_list args;
-    int size;
+	int level = LOGLEVEL_DEFAULT, kern_level;
+    
+    va_start(args, fmt);
+    text_len = vsprintf(textbuf, fmt, args);
+    va_end(args);
+    
+	/* mark and strip a trailing newline */
+	if (text_len && text[text_len-1] == '\n') {
+		text_len--;
+		lflags |= LOG_NEWLINE;
+	}
+		
+    while ((kern_level = printk_get_level(text)) != 0) {
+        switch (kern_level) {
+        case '0' ... '7':
+            if (level == LOGLEVEL_DEFAULT)
+                level = kern_level - '0';
+            break;
+        case 'c':	/* KERN_CONT */
+            lflags |= LOG_CONT;
+        }
 
-    if (dbg_level > KERN_DEFAULT)
-        return;
+        text_len -= 2;
+        text += 2;
+    }
 
-    printf("[%5d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt());
+    if (level > LOGLEVEL_DEFAULT)
+        return -EINVAL;
+    
+    if (!(lflags & LOG_NEWLINE))
+        printf("[%5d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt());
 
-    switch (dbg_level) {
-        case KERN_EMERG:
-        case KERN_ALERT:
-        case KERN_CRIT:
-        case KERN_ERR:
+    switch (level) {
+        case LOGLEVEL_DEFAULT:
+            break;
+        case LOGLEVEL_EMERG:
+        case LOGLEVEL_ALERT:
+        case LOGLEVEL_CRIT:
+        case LOGLEVEL_ERR:
             printf("%s err in %d\n", __FUNCTION__, __LINE__);
             break;
 
-        case KERN_WARNING:
+        case LOGLEVEL_WARNING:
             printf("%s warning in %d\n", __FUNCTION__, __LINE__);
             break;
 
-        case KERN_NOTICE:
-            break;
-
-        case KERN_DEBUG:
+        case LOGLEVEL_NOTICE:
+        case LOGLEVEL_INFO:
+        case LOGLEVEL_DEBUG:
             break;
     }
-
-    va_start(args, format);
-    size = vsprintf(buffer, format, args);
-    va_end(args);
-    HAL_UART_Transmit(&huart1, (u8 *)buffer, size, 0xFFFF);
+		
+    HAL_UART_Transmit(&huart1, (u8 *)text, text_len, 0xFFFF);
     printf("\r\n");
+    
+    return text_len;
 }
 
 void kinetis_dump_buffer(void *Buffer, int Size)

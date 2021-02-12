@@ -47,7 +47,7 @@ void Task_Temperature_Humidit_Callback(void)
 
 void HydrologyTask_LinkMaintenance_Callback(void)
 {
-    kinetis_print_trace(KERN_DEBUG, "Send packet, function code = LinkMaintenance");
+    printk(KERN_DEBUG "Send packet, function code = LinkMaintenance");
     HydrologyD_Process(NULL, 0, HYDROLOGY_M1, LinkMaintenance);
 }
 
@@ -74,23 +74,23 @@ void HydrologyTask_Test_Callback(void)
             Elment.value);
     }
 
-    kinetis_print_trace(KERN_DEBUG, "Send packet, function code = Test");
+    printk(KERN_DEBUG "Send packet, function code = Test");
     HydrologyD_Process(Element_table, 1, HYDROLOGY_M1, Test);
 }
 
 void HydrologyTask_TimerReport_Callback(void)
 {
-    kinetis_print_trace(KERN_DEBUG, "Send packet, function code = TimerReport");
+    printk(KERN_DEBUG "Send packet, function code = TimerReport");
 }
 
 void HydrologyTask_AddReport_Callback(void)
 {
-    kinetis_print_trace(KERN_DEBUG, "Send packet, function code = AddReport");
+    printk(KERN_DEBUG "Send packet, function code = AddReport");
 }
 
 void HydrologyTask_Hour_Callback(void)
 {
-    kinetis_print_trace(KERN_DEBUG, "Send packet, function code = Hour");
+    printk(KERN_DEBUG "Send packet, function code = Hour");
 }
 
 void HydrologyTask_Deinit(void)

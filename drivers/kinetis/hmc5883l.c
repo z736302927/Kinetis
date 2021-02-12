@@ -200,17 +200,17 @@ int t_hmc5883l_BasicInfo(int argc, char **argv)
     u8 Data = 0;
 
     hmc5883l_WhoAmI(&Data);
-    kinetis_print_trace(KERN_DEBUG, "Device ID of AKM8975 is 0x%x", Data);
+    printk(KERN_DEBUG "Device ID of AKM8975 is 0x%x", Data);
 
     if (Data != AKM_DEVID)
         return PASS;
     else {
-        kinetis_print_trace(KERN_DEBUG, "Device ID of AKM8975 is not correct");
+        printk(KERN_DEBUG "Device ID of AKM8975 is not correct");
         return FAIL;
     }
 
     hmc5883l_DeviceInformation(&Data);
-    kinetis_print_trace(KERN_DEBUG, "Device information for AKM8975 %x", Data);
+    printk(KERN_DEBUG "Device information for AKM8975 %x", Data);
 
     if (Data != 0x00)
         return PASS;
@@ -241,17 +241,17 @@ int t_hmc5883l_Magnetic(int argc, char **argv)
         } while (Timeout--)
 
             if (Timeout <= 0) {
-                kinetis_print_trace(KERN_DEBUG, "[Error] hmc5883l Magnetic Data not ready");
+                printk(KERN_DEBUG "[Error] hmc5883l Magnetic Data not ready");
                 return FAIL;
             }
 
 //    Timeout_WaitMSDone(&hmc5883l_DR_Flag, true, 1000);
 
         if (hmc5883l_DataOverrun() == true)
-            kinetis_print_trace(KERN_DEBUG, "[Warning] hmc5883l Magnetic Data Overrun");
+            printk(KERN_DEBUG "[Warning] hmc5883l Magnetic Data Overrun");
 
         hmc5883l_MagneticMeasurements(Magnetic);
-        kinetis_print_trace(KERN_DEBUG, "hmc5883l Magnetic Data %x, %x, %x", Magnetic[0], Magnetic[1], Magnetic[2]);
+        printk(KERN_DEBUG "hmc5883l Magnetic Data %x, %x, %x", Magnetic[0], Magnetic[1], Magnetic[2]);
     }
 
     return PASS;
@@ -274,7 +274,7 @@ int t_hmc5883l_Selftest(int argc, char **argv)
     } while (Timeout--)
 
         if (Timeout <= 0) {
-            kinetis_print_trace(KERN_DEBUG, "[Error] hmc5883l Magnetic Data not ready");
+            printk(KERN_DEBUG "[Error] hmc5883l Magnetic Data not ready");
             return FAIL;
         }
 
@@ -282,10 +282,10 @@ int t_hmc5883l_Selftest(int argc, char **argv)
 
     hmc5883l_MagneticMeasurements(Magnetic);
     hmc5883l_SelfTestControl(false);
-    kinetis_print_trace(KERN_DEBUG, "hmc5883l Selftest Magnetic Data %x, %x, %x", Magnetic[0], Magnetic[1], Magnetic[2]);
+    printk(KERN_DEBUG "hmc5883l Selftest Magnetic Data %x, %x, %x", Magnetic[0], Magnetic[1], Magnetic[2]);
 
     if (Magnetic[0] <= AK8975_TBD && Magnetic[1] <= AK8975_TBD && Magnetic[2] >= AK8975_TBD)
-        kinetis_print_trace(KERN_DEBUG, "AK8975/B is working normally");
+        printk(KERN_DEBUG "AK8975/B is working normally");
     else
         return FAIL;
 
@@ -298,7 +298,7 @@ int t_hmc5883l_FuseROMAccess(int argc, char **argv)
 
     hmc5883l_EnterFuseROMAccessMode();
     hmc5883l_SensitivityAdjustmentValues(Magnetic);
-    kinetis_print_trace(KERN_DEBUG, "hmc5883l Adjustment Values %x, %x, %x", Magnetic[0], Magnetic[1], Magnetic[2]);
+    printk(KERN_DEBUG "hmc5883l Adjustment Values %x, %x, %x", Magnetic[0], Magnetic[1], Magnetic[2]);
     hmc5883l_EnterPowerdownMode();
 
     return PASS;

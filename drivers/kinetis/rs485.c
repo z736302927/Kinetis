@@ -52,7 +52,7 @@ void RS485_Port_Receive(u8 *pData, u16 *Len)
                 currenttime + UINT32_MAX - begintime;
 
             if (timediff > 3000) { /* 10s */
-                kinetis_print_trace(KERN_DEBUG, "No data came !");
+                printk(KERN_DEBUG "No data came !");
                 break;
             }
         }
@@ -94,7 +94,7 @@ int RS485_Master_Receive(u8 *pData, u16 *Len)
             pData = (u8 *)kmalloc(Data[2], __GFP_ZERO);
 
             if (pData == NULL) {
-                kinetis_print_trace(KERN_DEBUG, "Data to memory malloc failed");
+                printk(KERN_DEBUG "Data to memory malloc failed");
                 RS485_error;
                 retValue = false;
             } else {

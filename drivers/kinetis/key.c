@@ -287,31 +287,31 @@ static void Button_Callback(void *btn)
     switch (btn_event_val) {
         case PRESS_DOWN:
             HydrologyProcessSend(Test);
-            kinetis_print_trace(KERN_DEBUG, "Button press down");
+            printk(KERN_DEBUG "Button press down");
             break;
 
         case PRESS_UP:
-            kinetis_print_trace(KERN_DEBUG, "Button press up");
+            printk(KERN_DEBUG "Button press up");
             break;
 
         case PRESS_REPEAT:
-            kinetis_print_trace(KERN_DEBUG, "Button press repeat");
+            printk(KERN_DEBUG "Button press repeat");
             break;
 
         case SINGLE_CLICK:
-            kinetis_print_trace(KERN_DEBUG, "Button single click");
+            printk(KERN_DEBUG "Button single click");
             break;
 
         case DOUBLE_CLICK:
-            kinetis_print_trace(KERN_DEBUG, "Button double click");
+            printk(KERN_DEBUG "Button double click");
             break;
 
         case LONG_RRESS_START:
-            kinetis_print_trace(KERN_DEBUG, "Button long press start");
+            printk(KERN_DEBUG "Button long press start");
             break;
 
         case LONG_PRESS_HOLD:
-            kinetis_print_trace(KERN_DEBUG, "Button long press hold");
+            printk(KERN_DEBUG "Button long press hold");
             break;
     }
 }
@@ -331,7 +331,7 @@ int t_Button_Attach(int argc, char **argv)
     Button_Attach(&Button_Test_Inst, LONG_PRESS_HOLD, Button_Callback);
     Button_Start(&Button_Test_Inst);
 
-    kinetis_print_trace(KERN_DEBUG, "Button test is running, please push the button.");
+    printk(KERN_DEBUG "Button test is running, please push the button.");
 
     return PASS;
 }
@@ -351,7 +351,7 @@ int t_Button_Detach(int argc, char **argv)
     Button_Detach(&Button_Test_Inst, LONG_PRESS_HOLD);
     Button_Stop(&Button_Test_Inst);
 
-    kinetis_print_trace(KERN_DEBUG, "Button test is over");
+    printk(KERN_DEBUG "Button test is over");
 
     return PASS;
 }

@@ -8,31 +8,21 @@ extern "C" {
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /* Includes ------------------------------------------------------------------*/
-
 #include "stdio.h"
 #include "kinetis/basic-timer.h"
 
+#include <linux/kern_levels.h>
+
 #define RELEASE_VERSION       1
 
-#define KERN_DEFAULT	7	/* the default kernel loglevel */
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
-
-#define KERN_EMERG	    0	/* system is unusable */
-#define KERN_ALERT	    1	/* action must be taken immediately */
-#define KERN_CRIT	    2	/* critical conditions */
-#define KERN_ERR	    3	/* error conditions */
-#define KERN_WARNING	4	/* warning conditions */
-#define KERN_NOTICE	    5	/* normal but significant condition */
-#define KERN_INFO	    6	/* informational */
-#define KERN_DEBUG	    7	/* debug-level messages */
 
 #if RELEASE_VERSION
 #undef KERN_DEFAULT
 #define KERN_DEFAULT	3
 #endif
 
-void kinetis_print_trace(int dbg_level, const char *format, ...);
 void kinetis_dump_buffer(void *Buffer, int Size);
 
 #define ERR_PRINT_TIME  printf("[%05d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt())

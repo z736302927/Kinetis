@@ -26,7 +26,7 @@
 /* integer equivalents of KERN_<LEVEL> */
 #define LOGLEVEL_SCHED		-2	/* Deferred messages from sched code
 					 * are set to this special level */
-#define LOGLEVEL_DEFAULT	-1	/* default (or last) loglevel */
+#define LOGLEVEL_DEFAULT	8	/* default (or last) loglevel */
 #define LOGLEVEL_EMERG		0	/* system is unusable */
 #define LOGLEVEL_ALERT		1	/* action must be taken immediately */
 #define LOGLEVEL_CRIT		2	/* critical conditions */

@@ -41,7 +41,7 @@ int hydrology_read_file_size(char *file_name, u32 *Size)
         *Size = file.obj.objsize;
     else {
         Printf_FatFs_Err(res);
-        kinetis_print_trace(KERN_DEBUG, "Read the size of %s failed.", file_name);
+        printk(KERN_DEBUG "Read the size of %s failed.", file_name);
         return false;
     }
 
@@ -68,7 +68,7 @@ int hydrology_read_store_info(char *file_name, long addr, u8 *pdata, int len)
             return false;
     } else {
         Printf_FatFs_Err(res);
-        kinetis_print_trace(KERN_DEBUG, "Read %s failed.", file_name);
+        printk(KERN_DEBUG "Read %s failed.", file_name);
         return false;
     }
 
@@ -141,7 +141,7 @@ int hydrology_write_store_info(char *file_name, long addr, u8 *pdata, int len)
             return false;
     } else {
         Printf_FatFs_Err(res);
-        kinetis_print_trace(KERN_DEBUG, "Write %s failed.", file_name);
+        printk(KERN_DEBUG "Write %s failed.", file_name);
         return false;
     }
 
@@ -222,7 +222,7 @@ int hydrology_PortTransmmitData(u8 *pData, u16 Len)
     SerialPort_TypeDef hydrology_Port;
 
     kinetis_dump_buffer(pData, Len);
-    kinetis_print_trace(KERN_DEBUG, " ");
+    printk(KERN_DEBUG " ");
 
     hydrology_open_port();
 
@@ -280,7 +280,7 @@ int hydrology_PortReceiveData(u8 **ppData, u16 *pLen, u32 Timeout)
                         basic_timer_get_ss() + (DELAY_TIMER_UNIT - Refer);
 
                     if (Delta > Timeout) {
-                        kinetis_print_trace(KERN_DEBUG, "[warning]Receive data timeout.");
+                        printk(KERN_DEBUG "[warning]Receive data timeout.");
                         SerialPort_Close(&hydrology_Port);
                         ret = false;
                         break;
@@ -310,8 +310,8 @@ u32 hydrology_GetFlashSize(void)
     tot_sect = (pfs->n_fatent - 2) * pfs->csize;
     fre_sect = fre_clust * pfs->csize;
     /* Print information (4096 bytes/sector) */
-    kinetis_print_trace(KERN_DEBUG, "Total equipment space: %u MB.", tot_sect * 4 / 1024);
-    kinetis_print_trace(KERN_DEBUG, "Available space: %u MB.", fre_sect * 4 / 1024);
+    printk(KERN_DEBUG "Total equipment space: %u MB.", tot_sect * 4 / 1024);
+    printk(KERN_DEBUG "Available space: %u MB.", fre_sect * 4 / 1024);
 
     return fre_sect * 4 * 1024;
 }
@@ -334,8 +334,8 @@ int hydrology_ResourceInit(void)
     min_size += HYDROLOGY_D_RGZS_REVSPACE;
 
     if (min_size >= flash_size) {
-        kinetis_print_trace(KERN_ERR, "ERR Current flash size is %.2f KB", (float)flash_size / 1024);
-        kinetis_print_trace(KERN_ERR, "ERR Flash size minimum requirement %.2f KB", (float)min_size / 1024);
+        printk(KERN_ERR "ERR Current flash size is %.2f KB", (float)flash_size / 1024);
+        printk(KERN_ERR "ERR Flash size minimum requirement %.2f KB", (float)min_size / 1024);
         return false;
     }
 
@@ -343,11 +343,11 @@ int hydrology_ResourceInit(void)
             &Data, 1);
 
     if (ret == false) {
-        kinetis_print_trace(KERN_DEBUG, "It is first time to use device");
-        kinetis_print_trace(KERN_DEBUG, "Writing to flash");
+        printk(KERN_DEBUG "It is first time to use device");
+        printk(KERN_DEBUG "Writing to flash");
         HydrologyD_Reset();
         HydrologyH_Reset();
-        kinetis_print_trace(KERN_DEBUG, "Writing to flash has completed");
+        printk(KERN_DEBUG "Writing to flash has completed");
     }
 
     return true;
@@ -570,7 +570,7 @@ int hydrology_MallocElement(u8 element, u8 D, u8 d,
         ele->value = (u8 *)kmalloc(D / 2, __GFP_ZERO);
 
         if (ele->value == NULL) {
-            kinetis_print_trace(KERN_DEBUG, "element->value malloc failed");
+            printk(KERN_DEBUG "element->value malloc failed");
             return false;
         }
 
@@ -579,7 +579,7 @@ int hydrology_MallocElement(u8 element, u8 D, u8 d,
         ele->value = (u8 *)kmalloc((D + 1) / 2, __GFP_ZERO);
 
         if (ele->value == NULL) {
-            kinetis_print_trace(KERN_DEBUG, "element->value malloc failed");
+            printk(KERN_DEBUG "element->value malloc failed");
             return false;
         }
 
@@ -669,7 +669,7 @@ int hydrology_MallocElement(u8 element, u8 D, u8 d,
 
 //            if(g_Hydrology.epi == NULL)
 //            {
-//    kinetis_print_trace(KERN_DEBUG, "g_Hydrology.epi malloc failed", i);
+//    printk(KERN_DEBUG "g_Hydrology.epi malloc failed", i);
 //                return false;
 //            }
 
@@ -743,7 +743,7 @@ int hydrology_MallocElement(u8 element, u8 D, u8 d,
 ////
 ////            if(upbody->element[i]->value == NULL)
 ////            {
-////    kinetis_print_trace(KERN_DEBUG, "upbody->element[%d]->value malloc failed", i);
+////    printk(KERN_DEBUG "upbody->element[%d]->value malloc failed", i);
 ////                return false;
 ////            }
 ////            else
@@ -759,7 +759,7 @@ int hydrology_MallocElement(u8 element, u8 D, u8 d,
 
 //            if(upbody->element[i]->value == NULL)
 //            {
-//    kinetis_print_trace(KERN_DEBUG, "upbody->element[%d]->value malloc failed", i);
+//    printk(KERN_DEBUG "upbody->element[%d]->value malloc failed", i);
 //                return false;
 //            }
 //            else

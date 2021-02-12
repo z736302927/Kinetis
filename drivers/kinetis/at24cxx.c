@@ -3,6 +3,8 @@
 #include "kinetis/idebug.h"
 #include "kinetis/delay.h"
 
+#include <linux/printk.h>
+
 #define AT24CXX_ADDR                    0x50
 #define PAGE_SIZE                       8
 #define AT24CXX_MAX_ADDR                255
@@ -119,7 +121,7 @@ void at24cxx_write_data(u8 addr, u8 *pdata, u32 length)
     remain = AT24CXX_MAX_ADDR - addr;
 
     if (remain < length) {
-        kinetis_print_trace(KERN_DEBUG,
+        printk(KERN_DEBUG
             "There is not enough space left to write the specified length.");
         return ;
     }
@@ -148,7 +150,7 @@ static void current_random_read(u8 addr, u8 *pdata, u32 length)
     remain = AT24CXX_MAX_ADDR - addr;
 
     if (remain < length) {
-        kinetis_print_trace(KERN_DEBUG,
+        printk(KERN_DEBUG
             "There is not enough space left to read the specified length.");
         return ;
     }
@@ -217,7 +219,7 @@ int t_at24cxx_loopback(int argc, char **argv)
 
         memset(tx_buffer, 0, length);
         memset(rx_buffer, 0, length);
-        kinetis_print_trace(KERN_DEBUG, "test_addr: 0x%02X, length = %d.",
+        printk(KERN_DEBUG "test_addr: 0x%02X, length = %d.",
             test_addr, length);
 
         for (i = 0; i < length; i++)
@@ -228,17 +230,17 @@ int t_at24cxx_loopback(int argc, char **argv)
 
         for (i = 0; i < length; i++) {
             if (tx_buffer[i] != rx_buffer[i]) {
-                kinetis_print_trace(KERN_DEBUG,
+                printk(KERN_DEBUG
                     "tx[%d] = 0x%02X, rx[%d] = 0x%02X",
                     i, tx_buffer[i], i, rx_buffer[i]);
-                kinetis_print_trace(KERN_DEBUG,
+                printk(KERN_DEBUG
                     "Data writes and reads do not match, TEST FAILED !");
                 return FAIL;
             }
         }
     }
 
-    kinetis_print_trace(KERN_DEBUG, "at24cxx Read and write TEST PASSED !");
+    printk(KERN_DEBUG "at24cxx Read and write TEST PASSED !");
 
     return PASS;
 }
@@ -248,7 +250,7 @@ int t_at24cxx_current_addr_read(int argc, char **argv)
     u8 tmp = 0;
 
     at24cxx_current_addr_read(&tmp);
-    kinetis_print_trace(KERN_DEBUG, "at24cxx current address data %d", tmp);
+    printk(KERN_DEBUG "at24cxx current address data %d", tmp);
 
     return PASS;
 }
@@ -266,10 +268,10 @@ int t_current_random_read(int argc, char **argv)
     test_addr = random_get8bit();
     length = random_get8bit() % (AT24CXX_MAX_ADDR - test_addr);
     current_random_read(test_addr, &rx_buffer[test_addr], length);
-    kinetis_print_trace(KERN_DEBUG, "at24cxx Random Read %u", times);
+    printk(KERN_DEBUG "at24cxx Random Read %u", times);
 
     for (i = 0; i < length; i++)
-        kinetis_print_trace(KERN_DEBUG, "Data[%d] = %d",
+        printk(KERN_DEBUG "Data[%d] = %d",
             i, rx_buffer[test_addr + i]);
 
     return PASS;
@@ -280,7 +282,7 @@ int t_at24cxx_sequential_read(int argc, char **argv)
     u8 tmp = 0;
 
     at24cxx_sequential_read(&tmp, 1);
-    kinetis_print_trace(KERN_DEBUG, "at24cxx Sequential Read data %d", tmp);
+    printk(KERN_DEBUG "at24cxx Sequential Read data %d", tmp);
 
     return PASS;
 }
@@ -290,7 +292,7 @@ int t_at24cxx_loopback_speed(int argc, char **argv)
     u32 time_stamp = 0;
     u16 i = 0;
 
-    kinetis_print_trace(KERN_DEBUG, "Starting at24cxx raw write test");
+    printk(KERN_DEBUG "Starting at24cxx raw write test");
     time_stamp = basic_timer_get_timer_cnt();
 
     for (i = 0; i < AT24CXX_VOLUME; i++)
@@ -299,18 +301,18 @@ int t_at24cxx_loopback_speed(int argc, char **argv)
     at24cxx_write_data(0, tx_buffer, AT24CXX_VOLUME);
 
     time_stamp = basic_timer_get_timer_cnt() - time_stamp;
-    kinetis_print_trace(KERN_DEBUG, "%u bytes written and it took %luus.",
+    printk(KERN_DEBUG "%u bytes written and it took %luus.",
         AT24CXX_VOLUME, time_stamp);
 
-    kinetis_print_trace(KERN_DEBUG, "Starting at24cxx raw read test");
+    printk(KERN_DEBUG "Starting at24cxx raw read test");
     time_stamp = basic_timer_get_timer_cnt();
 
     at24cxx_read_data(0, rx_buffer, AT24CXX_VOLUME);
 
     time_stamp = basic_timer_get_timer_cnt() - time_stamp;
-    kinetis_print_trace(KERN_DEBUG, "%u bytes read and it took %luus.",
+    printk(KERN_DEBUG "%u bytes read and it took %luus.",
         AT24CXX_VOLUME, time_stamp);
-    kinetis_print_trace(KERN_DEBUG, "Test completed.");
+    printk(KERN_DEBUG "Test completed.");
 
     return PASS;
 }

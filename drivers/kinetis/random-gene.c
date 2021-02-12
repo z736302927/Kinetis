@@ -107,13 +107,13 @@ void random_get_array(void *pdata, u32 length, u8 bits)
 
 int t_random_number(int argc, char **argv)
 {
-    kinetis_print_trace(KERN_DEBUG, "8 bits random number is %u", random_get8bit());
+    printk(KERN_DEBUG "8 bits random number is %u", random_get8bit());
 
-    kinetis_print_trace(KERN_DEBUG, "16 bits random number is %u", random_get16bit());
+    printk(KERN_DEBUG "16 bits random number is %u", random_get16bit());
 
-    kinetis_print_trace(KERN_DEBUG, "32 bits random number is %u", random_get32bit());
+    printk(KERN_DEBUG "32 bits random number is %u", random_get32bit());
 
-    kinetis_print_trace(KERN_DEBUG, "64 bits random number is %llu", random_get64bit());
+    printk(KERN_DEBUG "64 bits random number is %llu", random_get64bit());
 
     return PASS;
 }
@@ -135,15 +135,15 @@ int t_random_array(int argc, char **argv)
     pdata = kmalloc(length, __GFP_ZERO);
 
     if (pdata == NULL) {
-        kinetis_print_trace(KERN_DEBUG, "Random array malloc failed !");
+        printk(KERN_DEBUG "Random array malloc failed !");
         return FAIL;
     }
 
     random_get_array(pdata, length, bits);
-    kinetis_print_trace(KERN_DEBUG, "random number is the following");
+    printk(KERN_DEBUG "random number is the following");
 
     for (i = 0; i < length; ++i) {
-        kinetis_print_trace(KERN_DEBUG, "%u", pdata[i]);
+        printk(KERN_DEBUG "%u", pdata[i]);
 
         if ((i % 4) == 0)
             printf("\n");

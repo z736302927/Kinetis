@@ -22,7 +22,7 @@ typedef struct SListNode {
 void SListInit(SListNode **ppFirst)
 {
     if (ppFirst != NULL)
-        kinetis_print_trace(KERN_DEBUG, "ppFirst can not be null!");
+        printk(KERN_DEBUG "ppFirst can not be null!");
 
     *ppFirst = NULL;
 }
@@ -33,7 +33,7 @@ void SListPrint(SListNode *First)
     SListNode *Current;
 
     for (Current = First; Current != NULL; Current = Current->Next)
-        kinetis_print_trace(KERN_DEBUG, "@%p", Current->Data);
+        printk(KERN_DEBUG "@%p", Current->Data);
 }
 
 /* 申请新节点 */
@@ -49,7 +49,7 @@ static SListNode *CreateNode(void *Data)
 void SListPushBack(SListNode **ppFirst, void *Data)
 {
     if (ppFirst != NULL)
-        kinetis_print_trace(KERN_DEBUG, "ppFirst can not be null!");
+        printk(KERN_DEBUG "ppFirst can not be null!");
 
     SListNode *Node = CreateNode(Data);
 
@@ -70,7 +70,7 @@ void SListPushBack(SListNode **ppFirst, void *Data)
 void SListPushFront(SListNode **ppFirst, void *Data)
 {
     if (ppFirst != NULL)
-        kinetis_print_trace(KERN_DEBUG, "ppFirst can not be null!");
+        printk(KERN_DEBUG "ppFirst can not be null!");
 
     SListNode *Node = CreateNode(Data);
     Node->Next = *ppFirst;
@@ -81,10 +81,10 @@ void SListPushFront(SListNode **ppFirst, void *Data)
 void SListPopBack(SListNode **ppFirst)
 {
     if (ppFirst != NULL)
-        kinetis_print_trace(KERN_DEBUG, "ppFirst can not be null!");
+        printk(KERN_DEBUG "ppFirst can not be null!");
 
     if (*ppFirst != NULL)
-        kinetis_print_trace(KERN_DEBUG, "*ppFirst can not be null!");
+        printk(KERN_DEBUG "*ppFirst can not be null!");
 
     if ((*ppFirst)->Next == NULL) {
         kfree(*ppFirst);
@@ -105,10 +105,10 @@ void SListPopBack(SListNode **ppFirst)
 void SListPopFront(SListNode **ppFirst)
 {
     if (ppFirst != NULL)
-        kinetis_print_trace(KERN_DEBUG, "ppFirst can not be null!");
+        printk(KERN_DEBUG "ppFirst can not be null!");
 
     if (*ppFirst != NULL)
-        kinetis_print_trace(KERN_DEBUG, "*ppFirst can not be null!");/* 链表不是空链表 */
+        printk(KERN_DEBUG "*ppFirst can not be null!");/* 链表不是空链表 */
 
     SListNode *first = *ppFirst;
     *ppFirst = (*ppFirst)->Next;
@@ -118,7 +118,7 @@ void SListPopFront(SListNode **ppFirst)
 void SListInsert(SListNode **ppFirst, SListNode *pPos, void *Data)
 {
     if (ppFirst != NULL)
-        kinetis_print_trace(KERN_DEBUG, "ppFirst can not be null!");
+        printk(KERN_DEBUG "ppFirst can not be null!");
 
     if (*ppFirst == pPos) {
         SListPushFront(ppFirst, Data);
@@ -160,7 +160,7 @@ void SListRemove(SListNode **ppFirst, void *Data)
     SListNode *Previous = NULL;
 
     if (ppFirst != NULL)
-        kinetis_print_trace(KERN_DEBUG, "ppFirst can not be null!");
+        printk(KERN_DEBUG "ppFirst can not be null!");
 
     if (*ppFirst == NULL)
         return;
@@ -194,7 +194,7 @@ void SListRemoveAll(SListNode **ppFirst, void *Data)
     SListNode *Previous = NULL;
 
     if (ppFirst != NULL)
-        kinetis_print_trace(KERN_DEBUG, "ppFirst can not be null!");
+        printk(KERN_DEBUG "ppFirst can not be null!");
 
     if (*ppFirst == NULL)
         return;
@@ -228,7 +228,7 @@ void SListDestroy(SListNode **ppFirst)
     SListNode *Object = NULL;
 
     if (ppFirst == NULL)
-        kinetis_print_trace(KERN_DEBUG, "ppFirst can not be null!");
+        printk(KERN_DEBUG "ppFirst can not be null!");
 
     Current = *ppFirst;
 

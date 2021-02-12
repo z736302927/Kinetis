@@ -7,6 +7,7 @@
 #include <linux/bitops.h>
 #include <linux/iopoll.h>
 #include <linux/errno.h>
+#include <linux/printk.h>
 
 #include "stdlib.h"
 #include "string.h"
@@ -765,7 +766,7 @@ static int w25qxxx_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
     int ret;
 
     if (length == 0)
-        kinetis_print_trace(KERN_ERR, "Programing page failed.");
+        printk(KERN_ERR "Programing page failed.");
 
     if (w25qxxx == W25Q256)
         sub_addr[0] = (addr & 0xFF000000) >> 24;
@@ -789,7 +790,7 @@ static int w25qxxx_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
             busy == 0, 0, 30000000);
 
     if (ret)
-        kinetis_print_trace(KERN_ERR, "Programing page is timeout.");
+        printk(KERN_ERR "Programing page is timeout.");
 
     return 0;
 }
@@ -986,7 +987,7 @@ void w25qxxx_write_data(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
         remain = w25q256_max_addr - addr;
 
     if (remain < length) {
-        kinetis_print_trace(KERN_DEBUG,
+        printk(KERN_DEBUG
             "There is not enough space left to write the specified length.");
         return ;
     }
@@ -1373,15 +1374,15 @@ void w25qxxx_read_info(u8 w25qxxx)
     u8 jedec_id[3];
     u8 unique_id[8];
 
-    kinetis_print_trace(KERN_DEBUG, "w25qxxx is 0x%02X.", w25qxxx);
+    printk(KERN_DEBUG "w25qxxx is 0x%02X.", w25qxxx);
     w25qxxx_read_jedec_id(w25qxxx, jedec_id);
-    kinetis_print_trace(KERN_DEBUG, "JEDEC ID is 0x%02X%02X%02X",
+    printk(KERN_DEBUG "JEDEC ID is 0x%02X%02X%02X",
         jedec_id[0], jedec_id[1], jedec_id[2]);
     w25qxxx_read_manufacturer_device_id(w25qxxx, &manufacturer_id, &device_id);
-    kinetis_print_trace(KERN_DEBUG, "Manufacturer ID is 0x%02X, Device ID is 0x%02X.",
+    printk(KERN_DEBUG "Manufacturer ID is 0x%02X, Device ID is 0x%02X.",
         manufacturer_id, device_id);
     w25qxxx_read_unique_id(w25qxxx, unique_id);
-    kinetis_print_trace(KERN_DEBUG, "Unique ID is %02X%02X%02X%02X%02X%02X%02X%02X",
+    printk(KERN_DEBUG "Unique ID is %02X%02X%02X%02X%02X%02X%02X%02X",
         unique_id[0], unique_id[1], unique_id[2], unique_id[3],
         unique_id[4], unique_id[5], unique_id[6], unique_id[7]);
 }
@@ -1400,7 +1401,7 @@ void t_w25qxxx_loopback(u8 w25qxxx)
 
     tmp_rng = random_get32bit();
     length = tmp_rng & 0x7FFF;
-    kinetis_print_trace(KERN_DEBUG, "length = %d.", length);
+    printk(KERN_DEBUG "length = %d.", length);
 
     memset(tx_buffer, 0, length);
     memset(rx_buffer, 0, length);
@@ -1421,7 +1422,7 @@ void t_w25qxxx_loopback(u8 w25qxxx)
             break;
     }
 
-    kinetis_print_trace(KERN_DEBUG, "test addr: 0x%08x.", test_addr);
+    printk(KERN_DEBUG "test addr: 0x%08x.", test_addr);
 
     for (i = 0; i < length; i += 4) {
         tmp_rng = random_get32bit();
@@ -1437,16 +1438,16 @@ void t_w25qxxx_loopback(u8 w25qxxx)
 
     for (i = 0; i < length; i++) {
         if (tx_buffer[i] != rx_buffer[i]) {
-            kinetis_print_trace(KERN_DEBUG, "tx[%d]: 0x%02x, rx[%d]: 0x%02x",
+            printk(KERN_DEBUG "tx[%d]: 0x%02x, rx[%d]: 0x%02x",
                 i, tx_buffer[i],
                 i, rx_buffer[i]);
-            kinetis_print_trace(KERN_DEBUG,
+            printk(KERN_DEBUG
                 "Data writes and reads do not match, TEST FAILED !");
             return ;
         }
     }
 
-    kinetis_print_trace(KERN_DEBUG, "w25qxxx read and write TEST PASSED !");
+    printk(KERN_DEBUG "w25qxxx read and write TEST PASSED !");
 }
 
 #endif
