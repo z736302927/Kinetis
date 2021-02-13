@@ -2,7 +2,7 @@
 #include "protocol/hydrology-config.h"
 #include "protocol/hydrology-cmd.h"
 #include "protocol/hydrology-identifier.h"
-#include "task/hydrology-task.h"
+#include "kinetis/hydrology-task.h"
 #include "string.h"
 #include "stdio.h"
 #include <linux/slab.h>
@@ -18,7 +18,7 @@
   * @step 5:
   */
 
-#include "task/timtask.h"
+#include "kinetis/timtask.h"
 #include "kinetis/rtc.h"
 #include "kinetis/serialport.h"
 #include <linux/delay.h>
@@ -40,7 +40,7 @@ int hydrology_read_file_size(char *file_name, u32 *Size)
     if (res == FR_OK)
         *Size = file.obj.objsize;
     else {
-        Printf_FatFs_Err(res);
+        printf_fatfs_err(res);
         printk(KERN_DEBUG "Read the size of %s failed.", file_name);
         return false;
     }
@@ -67,7 +67,7 @@ int hydrology_read_store_info(char *file_name, long addr, u8 *pdata, int len)
         if (res != FR_OK)
             return false;
     } else {
-        Printf_FatFs_Err(res);
+        printf_fatfs_err(res);
         printk(KERN_DEBUG "Read %s failed.", file_name);
         return false;
     }
@@ -140,7 +140,7 @@ int hydrology_write_store_info(char *file_name, long addr, u8 *pdata, int len)
         if (res != FR_OK)
             return false;
     } else {
-        Printf_FatFs_Err(res);
+        printf_fatfs_err(res);
         printk(KERN_DEBUG "Write %s failed.", file_name);
         return false;
     }
@@ -174,7 +174,7 @@ void hydrology_set_time(u8 *t_time)
         t_time[4], t_time[5], NULL, KRTC_FORMAT_BCD);
 }
 
-extern struct TimTask_TypeDef HydrologyTask_LinkMaintenance;
+extern struct tim_task HydrologyTask_LinkMaintenance;
 
 void hydrology_disable_link_packet(void)
 {

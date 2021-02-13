@@ -241,7 +241,6 @@ size_t memweight(const void *ptr, size_t bytes);
 static inline void memzero_explicit(void *s, size_t count)
 {
 	memset(s, 0, count);
-	barrier_data(s);
 }
 
 /**
@@ -509,7 +508,7 @@ static inline void memcpy_and_pad(void *dest, size_t dest_len,
 {
 	if (dest_len > count) {
 		memcpy(dest, src, count);
-		memset(dest + count, pad,  dest_len - count);
+		memset((char *)dest + count, pad,  dest_len - count);
 	} else
 		memcpy(dest, src, dest_len);
 }

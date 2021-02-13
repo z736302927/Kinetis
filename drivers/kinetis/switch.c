@@ -24,7 +24,7 @@ static LIST_HEAD(head_handle);
 #define SHORT_TICKS       (300  / TICKS_INTERVAL)
 #define LONG_TICKS        (1000 / TICKS_INTERVAL)
 
-struct TimTask_TypeDef SwitchTask;
+struct tim_task SwitchTask;
 
 void SwitchTask_Callback(void)
 {
@@ -85,7 +85,7 @@ void Switch_Attach(struct Switch_TypeDef *handle, SwitchEvent Event, SwitchCallb
   * @param  event: trigger event type.
   * @retval None
   */
-void Switch_Detach(struct Switch_TypeDef *handle, PressEvent Event)
+void Switch_Detach(struct Switch_TypeDef *handle, enum press_button_event Event)
 {
     handle->CB[Event] = NULL;
 }
@@ -181,7 +181,7 @@ void Switch_Ticks(void)
 
 #ifdef DESIGN_VERIFICATION_SWITCH
 #include "kinetis/test-kinetis.h"
-#include "task/timtask.h"
+#include "kinetis/timtask.h"
 
 static struct Switch_TypeDef Switch_Test_Inst;
 

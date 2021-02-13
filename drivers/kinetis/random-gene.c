@@ -102,6 +102,7 @@ void random_get_array(void *pdata, u32 length, u8 bits)
 
 #include <linux/slab.h>
 #include <linux/gfp.h>
+#include <linux/printk.h>
 
 #include "stdio.h"
 

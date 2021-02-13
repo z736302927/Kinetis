@@ -1,4 +1,4 @@
-#include "algorithm/slist.h"
+#include "kinetis/slist.h"
 #include <linux/gfp.h>
 #include <linux/slab.h>
 

@@ -1,5 +1,5 @@
 #include "kinetis/hc-05.h"
-#include "algorithm/general.h"
+#include "kinetis/general.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

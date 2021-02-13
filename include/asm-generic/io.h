@@ -42,7 +42,7 @@
 
 /* serialize device access against a spin_unlock, usually handled there. */
 #ifndef __io_aw
-#define __io_aw()      mmiowb_set_pending()
+#define __io_aw()      //mmiowb_set_pending()
 #endif
 
 #ifndef __io_pbw
@@ -58,7 +58,7 @@
 #endif
 
 #ifndef __io_par
-#define __io_par(v)     __io_ar(v)
+#define __io_par(v)    __io_ar(v)
 #endif
 
 
@@ -441,7 +441,7 @@ static inline void writesq(volatile void __iomem *addr, const void *buffer,
 #endif /* CONFIG_64BIT */
 
 #ifndef PCI_IOBASE
-#define PCI_IOBASE ((void __iomem *)0)
+#define PCI_IOBASE ((char __iomem *)0)
 #endif
 
 #ifndef IO_SPACE_LIMIT

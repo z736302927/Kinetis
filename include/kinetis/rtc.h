@@ -8,6 +8,8 @@ extern "C" {
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /* Includes ------------------------------------------------------------------*/
+#include <linux/types.h>
+
 #include "kinetis/core_common.h"
 
 void RTC_CalendarConfig(u8 Year, u8 Month, u8 Date,

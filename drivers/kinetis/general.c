@@ -1,5 +1,5 @@
-#include "algorithm/general.h"
-#include "algorithm/slist.h"
+#include "kinetis/general.h"
+#include "kinetis/slist.h"
 #include "kinetis/serialport.h"
 #include <linux/delay.h>
 #include "kinetis/basic-timer.h"

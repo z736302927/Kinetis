@@ -16,7 +16,7 @@
 #include "stdio.h"
 #include "usart.h"
 #include "kinetis/serialport.h"
-#include "algorithm/crc.h"
+#include "kinetis/crc.h"
 #include <linux/gfp.h>
 
 #define DEBUG

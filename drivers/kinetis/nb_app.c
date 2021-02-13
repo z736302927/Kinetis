@@ -13,7 +13,7 @@
   * @step 5:  Finally, you only need to call NB_IOT_SendData to send and receive data to the cloud platform.
   * @step 6:  Note that you can use NB_IOT_Turnoff_Pipe to decide whether to close the channel or not.
   */
-#include "algorithm/fsm.h"
+#include "kinetis/fsm.h"
 #include "string.h"
 #include "usart.h"
 //#include "iwdg.h"

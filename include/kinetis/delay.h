@@ -8,8 +8,9 @@ extern "C" {
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /* Includes ------------------------------------------------------------------*/
-
 #include <linux/types.h>
+
+#include "kinetis/core_common.h"
 
 #define DELAY_32BIT_TIMER
 

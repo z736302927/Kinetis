@@ -46,7 +46,9 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include <string.h>
-#include "ff_gen_drv.h"
+
+#include "fs/fatfs/ff_gen_drv.h"
+
 #include "kinetis/w25qxxx.h"
 
 /* Private typedef -----------------------------------------------------------*/
@@ -58,28 +60,28 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* Disk status */
-static volatile DSTATUS Stat = STA_NOINIT;
+static volatile DSTATUS disk_stat = STA_NOINIT;
 
 /* Private function prototypes -----------------------------------------------*/
-DSTATUS FLASHDISK_initialize(BYTE);
-DSTATUS FLASHDISK_status(BYTE);
-DRESULT FLASHDISK_read(BYTE, BYTE *, DWORD, UINT);
+DSTATUS flash_disk_initialize(BYTE);
+DSTATUS flash_disk_status(BYTE);
+DRESULT flash_disk_read(BYTE, BYTE *, DWORD, UINT);
 #if _USE_WRITE == 1
-DRESULT FLASHDISK_write(BYTE, const BYTE *, DWORD, UINT);
+DRESULT flash_disk_write(BYTE, const BYTE *, DWORD, UINT);
 #endif /* _USE_WRITE == 1 */
 #if _USE_IOCTL == 1
-DRESULT FLASHDISK_ioctl(BYTE, BYTE, void *);
+DRESULT flash_disk_ioctl(BYTE, BYTE, void *);
 #endif /* _USE_IOCTL == 1 */
 
-const Diskio_drvTypeDef FLASHDISK_Driver = {
-    FLASHDISK_initialize,
-    FLASHDISK_status,
-    FLASHDISK_read,
+const Diskio_drvTypeDef flash_disk_driver = {
+    flash_disk_initialize,
+    flash_disk_status,
+    flash_disk_read,
 #if  _USE_WRITE == 1
-    FLASHDISK_write,
+    flash_disk_write,
 #endif /* _USE_WRITE == 1 */
 #if  _USE_IOCTL == 1
-    FLASHDISK_ioctl,
+    flash_disk_ioctl,
 #endif /* _USE_IOCTL == 1 */
 };
 
@@ -90,60 +92,60 @@ const Diskio_drvTypeDef FLASHDISK_Driver = {
   * @param  lun : not used
   * @retval DSTATUS: Operation status
   */
-DSTATUS FLASHDISK_initialize(BYTE lun)
+DSTATUS flash_disk_initialize(BYTE lun)
 {
-    Stat = STA_NOINIT;
+    disk_stat = STA_NOINIT;
 
     /* Configure the FLASH device */
-    Stat = STA_NOINIT;
+    disk_stat = STA_NOINIT;
 
     switch (lun) {
         case 0:
-            w25qxxx_Init(W25Q128);
-            Stat = disk_status(0);
+            w25qxxx_init(W25Q128);
+            disk_stat = disk_status(0);
             break;
 
         case 1:
-            w25qxxx_Init(W25Q256);
-            Stat = disk_status(1);
+            w25qxxx_init(W25Q256);
+            disk_stat = disk_status(1);
             break;
 
         default:
-            Stat = STA_NOINIT;
+            disk_stat = STA_NOINIT;
             break;
     }
 
-    return Stat;
+    return disk_stat;
 }
 
 /**
-  * @brief  Gets Disk Status
+  * @brief  Gets Disk status
   * @param  lun : not used
   * @retval DSTATUS: Operation status
   */
-DSTATUS FLASHDISK_status(BYTE lun)
+DSTATUS flash_disk_status(BYTE lun)
 {
-    Stat = STA_NOINIT;
+    disk_stat = STA_NOINIT;
 
     switch (lun) {
         case 0:
-            if (w25qxxx_ReleaseDeviceID(W25Q128) != 0)
-                Stat &= ~STA_NOINIT;
+            if (w25qxxx_release_device_id(W25Q128) != 0)
+                disk_stat &= ~STA_NOINIT;
 
             break;
 
         case 1:
-            if (w25qxxx_ReleaseDeviceID(W25Q256) != 0)
-                Stat &= ~STA_NOINIT;
+            if (w25qxxx_release_device_id(W25Q256) != 0)
+                disk_stat &= ~STA_NOINIT;
 
             break;
 
         default:
-            Stat = STA_NOINIT;
+            disk_stat = STA_NOINIT;
             break;
     }
 
-    return Stat;
+    return disk_stat;
 }
 
 /**
@@ -154,15 +156,15 @@ DSTATUS FLASHDISK_status(BYTE lun)
   * @param  count: Number of sectors to read (1..128)
   * @retval DRESULT: Operation result
   */
-DRESULT FLASHDISK_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
+DRESULT flash_disk_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
 {
     switch (lun) {
         case 0:
-            w25qxxx_ReadData(W25Q128, sector << STORAGE_SEC_SIZ_POWER, buff, count << STORAGE_SEC_SIZ_POWER);
+            w25qxxx_read_data(W25Q128, sector << STORAGE_SEC_SIZ_POWER, buff, count << STORAGE_SEC_SIZ_POWER);
             break;
 
         case 1:
-            w25qxxx_ReadData(W25Q256, sector << STORAGE_SEC_SIZ_POWER, buff, count << STORAGE_SEC_SIZ_POWER);
+            w25qxxx_read_data(W25Q256, sector << STORAGE_SEC_SIZ_POWER, buff, count << STORAGE_SEC_SIZ_POWER);
             break;
 
         default:
@@ -181,15 +183,15 @@ DRESULT FLASHDISK_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
   * @retval DRESULT: Operation result
   */
 #if _USE_WRITE == 1
-DRESULT FLASHDISK_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
+DRESULT flash_disk_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
 {
     switch (lun) {
         case 0:
-            w25qxxx_WriteData(W25Q128, sector << STORAGE_SEC_SIZ_POWER, (BYTE *)buff, count << STORAGE_SEC_SIZ_POWER);
+            w25qxxx_write_data(W25Q128, sector << STORAGE_SEC_SIZ_POWER, (BYTE *)buff, count << STORAGE_SEC_SIZ_POWER);
             break;
 
         case 1:
-            w25qxxx_WriteData(W25Q256, sector << STORAGE_SEC_SIZ_POWER, (BYTE *)buff, count << STORAGE_SEC_SIZ_POWER);
+            w25qxxx_write_data(W25Q256, sector << STORAGE_SEC_SIZ_POWER, (BYTE *)buff, count << STORAGE_SEC_SIZ_POWER);
             break;
 
         default:
@@ -208,11 +210,11 @@ DRESULT FLASHDISK_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
   * @retval DRESULT: Operation result
   */
 #if _USE_IOCTL == 1
-DRESULT FLASHDISK_ioctl(BYTE lun, BYTE cmd, void *buff)
+DRESULT flash_disk_ioctl(BYTE lun, BYTE cmd, void *buff)
 {
     DRESULT res = RES_ERROR;
 
-    if (Stat & STA_NOINIT)
+    if (disk_stat & STA_NOINIT)
         return RES_NOTRDY;
 
     switch (lun) {

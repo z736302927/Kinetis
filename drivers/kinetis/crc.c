@@ -1,4 +1,4 @@
-#include "algorithm/crc.h"
+#include "kinetis/crc.h"
 #include "stdbool.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */

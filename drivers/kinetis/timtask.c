@@ -1,91 +1,70 @@
-#include "task/timtask.h"
+#include "kinetis/timtask.h"
+#include "kinetis/basic-timer.h"
+
+#include <linux/slab.h>
+#include <linux/errno.h>
+
 #include "string.h"
 
-//TimTask Handle list head.
-static struct TimTask_TypeDef *TimTask_HeadHandler = NULL;
-
-//TimTask_TypeDef ticks
-static u32 _TimTask_ticks = 0;
+//tim_task handle list head.
+static struct list_head tim_task_head;
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /**
   * @step 1:  Modify the corresponding function according to the modified area and the corresponding function name.
-  * @step 2:  According to the example in function TimTask_Test, design the function you need and initialize it in the main function.
-  * @step 3:  Call function TimTask_Ticks periodically at the frequency you want.
-  * @step 4:  An infinite loop calls function TimTask_Loop.
+  * @step 2:  According to the example in function tim_task_Test, design the function you need and initialize it in the main function.
+  * @step 3:  Call function tim_task_Ticks periodically at the frequency you want.
+  * @step 4:  An infinite loop calls function tim_task_Loop.
   * @step 5:  Note that the base frequency determines your actual call time.Please calculate in advance.
   */
-
-#include "kinetis/idebug.h"
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /**
-  * @brief  Initializes the TimTask struct handle.
-  * @param  Handle: the TimTask handle strcut.
-  * @param  Timeout_cb: Timeout callback.
-  * @param  Repeat: Repeat interval time.
+  * @brief  add the tim_task struct handle.
+  * @param  tim_task: the tim_task handle strcut.
+  * @param  timeout_cb: Timeout callback.
+  * @param  timeout: time out time.
+  * @param  repeat: repeat interval time.
   * @retval None
   */
-void TimTask_Init(struct TimTask_TypeDef *Handle, void(*Timeout_cb)(), u32 Timeout, u32 Repeat)
+int tim_task_add(u32 interval, bool auto_load, void(*callback)())
 {
-    memset(Handle, 0, sizeof(struct TimTask_TypeDef));
-    Handle->Timeout_cb = Timeout_cb;
-    Handle->Timeout = _TimTask_ticks + Timeout;
-    Handle->Repeat = Repeat;
-}
+    struct tim_task *tim_task;
 
-/**
-  * @brief  Deinitializes the TimTask struct handle.
-  * @param  Handle: the TimTask handle strcut.
-  * @retval None
-  */
-void TimTask_Deinit(struct TimTask_TypeDef *Handle)
-{
-    memset(Handle, 0, sizeof(struct TimTask_TypeDef));
-}
+    tim_task = kmalloc(sizeof(*tim_task), GFP_KERNEL);
 
-/**
-  * @brief  Start the TimTask work, add the handle into work list.
-  * @param  btn: target handle strcut.
-  * @retval 0: succeed. -1: already exist.
-  */
-int TimTask_Start(struct TimTask_TypeDef *Handle)
-{
-    struct TimTask_TypeDef *target = TimTask_HeadHandler;
+    if (!tim_task)
+        return -ENOMEM;
 
-    while (target) {
-        if (target == Handle) {
-            return -1;    //already exist.
-        }
+    tim_task->callback = callback;
+    tim_task->timeout = basic_timer_get_ms() + interval;
+    tim_task->auto_load = auto_load;
+    
+    list_add_tail(&tim_task->list, &tim_task_head);
 
-        target = target->Next;
-    }
-
-    Handle->Next = TimTask_HeadHandler;
-    TimTask_HeadHandler = Handle;
     return 0;
 }
 
 /**
-  * @brief  Stop the TimTask work, remove the handle off work list.
-  * @param  Handle: target handle strcut.
+  * @brief  drop the tim_task struct handle.
+  * @param  tim_task: the tim_task tim_task strcut.
   * @retval None
   */
-void TimTask_Stop(struct TimTask_TypeDef *Handle)
+int tim_task_drop(void(*callback)())
 {
-    struct TimTask_TypeDef **curr;
+    struct tim_task *tim_task, *tmp;
 
-    for (curr = &TimTask_HeadHandler; *curr;) {
-        struct TimTask_TypeDef *entry = *curr;
-
-        if (entry == Handle) {
-            *curr = entry->Next;
-//      kfree(entry);
-        } else
-            curr = &entry->Next;
+    list_for_each_entry_safe(tim_task, tmp, &tim_task_head, list) {
+        if (tim_task->callback == callback) {
+            list_del(&tim_task->list);
+            kfree(tim_task);
+            return 0;
+        }
     }
+
+    return -EINVAL;
 }
 
 /**
@@ -93,70 +72,58 @@ void TimTask_Stop(struct TimTask_TypeDef *Handle)
   * @param  None.
   * @retval None
   */
-void TimTask_Loop(void)
+void tim_task_loop(void)
 {
-    struct TimTask_TypeDef *target;
+    struct tim_task *tim_task, *tmp;
 
-    for (target = TimTask_HeadHandler; target; target = target->Next) {
-        if (_TimTask_ticks >= target->Timeout) {
-            if (target->Repeat == 0)
-                TimTask_Stop(target);
-            else
-                target->Timeout = _TimTask_ticks + target->Repeat;
+    list_for_each_entry_safe(tim_task, tmp, &tim_task_head, list) {
+        if (tim_task->timeout >= basic_timer_get_ms()) {
+            tim_task->callback();
 
-            target->Timeout_cb();
+            if (tim_task->auto_load)
+                tim_task->timeout = basic_timer_get_ms();
+            else {
+                list_del(&tim_task->list);
+                kfree(tim_task);
+            }
         }
     }
 }
 
-/**
-  * @brief  background ticks, TimTask repeat invoking interval 1ms.
-  * @param  None.
-  * @retval None.
-  */
-void TimTask_Ticks(void)
-{
-    _TimTask_ticks++;
-}
-
 #ifdef DESIGN_VERIFICATION_TIMTASK
 #include "kinetis/test-kinetis.h"
-#include "kinetis/timeout.h"
+#include "kinetis/idebug.h"
 
-struct TimTask_TypeDef TimTask1;
-static u8 TimTask_Flag = 0;
+#include <linux/iopoll.h>
+#include <linux/printk.h>
 
-void TimTask1_Callback(void)
+static bool tim_task_flag = 0;
+
+void tim_task_callback(void)
 {
-    TimTask_Flag = true;
-    printk(KERN_DEBUG "TimTask1 timeout!");
+    tim_task_flag = true;
+    printk(KERN_DEBUG "tim_task timeout!");
 }
 
-int t_TimTask_Add(int argc, char **argv)
+int t_tim_task_add(int argc, char **argv)
 {
-    u32 Timestamp = 0;
+    u32 time_stamp = 0;
+    bool val;
 
-    Timestamp = basic_timer_get_ms();
+    time_stamp = basic_timer_get_ms();
 
-    TimTask_Init(&TimTask1, TimTask1_Callback, 1000, 1000); //1s loop
-    TimTask_Start(&TimTask1);
-    Timeout_WaitMSDone(&TimTask_Flag, true, 2000);
+    tim_task_add(1000, false, tim_task_callback); //1s loop
+    
+    readl_poll_timeout_atomic(&tim_task_flag, val, val == true, 0, 2000);
 
-    Timestamp = basic_timer_get_ms() - Timestamp;
-    printk(KERN_DEBUG "TimTask elapse time = %lu ms.", Timestamp);
+    time_stamp = basic_timer_get_ms() - time_stamp;
+    printk(KERN_DEBUG "tim_task elapse time = %u ms.", time_stamp);
 
-    if (Timestamp > 1100)
+    if (time_stamp > 1100)
         return FAIL;
     else
         return PASS;
 }
 
-int t_TimTask_Delete(int argc, char **argv)
-{
-    TimTask_Deinit(&TimTask1);
-    TimTask_Stop(&TimTask1);
-
-    return PASS;
-}
 #endif
 

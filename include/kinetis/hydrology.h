@@ -2,7 +2,7 @@
 #define __MHYDROLOGY_H
 
 #include "stdint.h"
-#include "algorithm/slist.h"
+#include "kinetis/slist.h"
 
 #define ELEMENT_COUNT                   298
 

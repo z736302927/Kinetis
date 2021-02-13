@@ -49,11 +49,11 @@
 #define __FLASH_DISKIO_H
 
 /* Includes ------------------------------------------------------------------*/
-#include "ff_gen_drv.h"
+#include "fs/fatfs/ff_gen_drv.h"
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */
-extern Diskio_drvTypeDef  FLASHDISK_Driver;
+extern Diskio_drvTypeDef flash_disk_driver;
 
 #endif /* __FLASH_DISKIO_H */
 

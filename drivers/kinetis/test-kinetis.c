@@ -5,6 +5,7 @@
 #include <linux/gfp.h>
 #include <linux/slab.h>
 #include <linux/kernel.h>
+#include <linux/string.h>
 
 #include "string.h"
 
@@ -27,29 +28,29 @@ int t_at24cxx_loopback_speed(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_BASICTIMER
-int t_basic_timer_GetTick(int argc, char **argv);
+int t_basic_timer_get_tick(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_BUTTON
-int t_Button_Attach(int argc, char **argv);
-int t_Button_Detach(int argc, char **argv);
+int t_button_add(int argc, char **argv);
+int t_button_drop(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_DELAY
-int t_Delay(int argc, char **argv);
+int t_delay(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_FATFS
-int t_FatFs_ReadWrite(int argc, char **argv);
-int t_FatFs_Miscellaneous(int argc, char **argv);
-int t_FatFs_File_Check(int argc, char **argv);
-int t_FatFs_Scan_Files(int argc, char **argv);
-int t_FatFs_Append(int argc, char **argv);
-int t_FatFs_Delete_Node(int argc, char **argv);
-int t_FatFs_Expend(int argc, char **argv);
-int t_FatFs_Diskio(int argc, char **argv);
-int t_FatFs_Contiguous_File(int argc, char **argv);
-int t_FatFs_Raw_Speed(int argc, char **argv);
+int t_fatfs_loopback(int argc, char **argv);
+int t_fatfs_miscellaneous(int argc, char **argv);
+int t_fatfs_file_check(int argc, char **argv);
+int t_fatfs_scan_files(int argc, char **argv);
+int t_fatfs_append(int argc, char **argv);
+int t_fatfs_delete_node(int argc, char **argv);
+int t_fatfs_expend(int argc, char **argv);
+int t_fatfs_diskio(int argc, char **argv);
+int t_fatfs_contiguous_file(int argc, char **argv);
+int t_fatfs_raw_speed(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_FSM
@@ -116,8 +117,7 @@ int t_Switch_Detach(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_TIMTASK
-int t_TimTask_Add(int argc, char **argv);
-int t_TimTask_Add(int argc, char **argv);
+int t_tim_task_add(int argc, char **argv);
 #endif
 
 struct test_case_typedef {
@@ -183,7 +183,7 @@ struct test_case_typedef kinetis_case_table[] = {
     {"is25lpwp256d.", fuction},
 #endif
 #ifdef DESIGN_VERIFICATION_BASICTIMER
-    {"basictimer.GetTick", t_basic_timer_GetTick},
+    {"basictimer.gettick", t_basic_timer_get_tick},
 #endif
 #ifdef DESIGN_VERIFICATION_CHINESE
     {"chinese.", fuction},
@@ -192,19 +192,19 @@ struct test_case_typedef kinetis_case_table[] = {
     {"crc.", fuction},
 #endif
 #ifdef DESIGN_VERIFICATION_DELAY
-    {"delay.Delay", t_Delay},
+    {"delay.Delay", t_delay},
 #endif
 #ifdef DESIGN_VERIFICATION_FATFS
-    {"fatfs.ReadWrite", t_FatFs_ReadWrite},
-    {"fatfs.Miscellaneous", t_FatFs_Miscellaneous},
-    {"fatfs.FileCheck", t_FatFs_File_Check},
-    {"fatfs.ScanFiles", t_FatFs_Scan_Files},
-    {"fatfs.Append", t_FatFs_Append},
-    {"fatfs.DeleteNode", t_FatFs_Delete_Node},
-    {"fatfs.Expend", t_FatFs_Expend},
-    {"fatfs.Diskio", t_FatFs_Diskio},
-    {"fatfs.ContiguousFile", t_FatFs_Contiguous_File},
-    {"fatfs.RawSpeed", t_FatFs_Raw_Speed},
+    {"fatfs.loopback", t_fatfs_loopback},
+    {"fatfs.miscellaneous", t_fatfs_miscellaneous},
+    {"fatfs.filecheck", t_fatfs_file_check},
+    {"fatfs.scanfiles", t_fatfs_scan_files},
+    {"fatfs.append", t_fatfs_append},
+    {"fatfs.deletenode", t_fatfs_delete_node},
+    {"fatfs.expend", t_fatfs_expend},
+    {"fatfs.diskio", t_fatfs_diskio},
+    {"fatfs.contiguousfile", t_fatfs_contiguous_file},
+    {"fatfs.rawspeed", t_fatfs_raw_speed},
 #endif
 #ifdef DESIGN_VERIFICATION_FSM
     {"fsm.Example", t_FSM_Example},
@@ -215,8 +215,8 @@ struct test_case_typedef kinetis_case_table[] = {
     {"general.Timeout", t_General_Timeout},
 #endif
 #ifdef DESIGN_VERIFICATION_BUTTON
-    {"button.Attach", t_Button_Attach},
-    {"button.Detach", t_Button_Detach},
+    {"button.add", t_button_add},
+    {"button.drop", t_button_drop},
 #endif
 #ifdef DESIGN_VERIFICATION_LCD
     {"test", fuction},
@@ -257,8 +257,7 @@ struct test_case_typedef kinetis_case_table[] = {
     {"switch.Detach", t_Switch_Detach},
 #endif
 #ifdef DESIGN_VERIFICATION_TIMTASK
-    {"timtask.Add", t_TimTask_Add},
-    {"timtask.Delete", t_TimTask_Delete},
+    {"timtask.add", t_tim_task_add},
 #endif
 #ifdef DESIGN_VERIFICATION_TOUCHSCREEN
     {"test", fuction},
@@ -304,53 +303,6 @@ struct test_case_typedef kinetis_case_table[] = {
 #endif
 };
 
-/**
- * strpbrk - Find the first occurrence of a set of characters
- * @cs: The string to be searched
- * @ct: The characters to search for
- */
-char *strpbrk(const char *cs, const char *ct)
-{
-    const char *sc1, *sc2;
-
-    for (sc1 = cs; *sc1 != '\0'; ++sc1) {
-        for (sc2 = ct; *sc2 != '\0'; ++sc2) {
-            if (*sc1 == *sc2)
-                return (char *)sc1;
-        }
-    }
-
-    return NULL;
-}
-
-/**
- * strsep - Split a string into tokens
- * @s: The string to be searched
- * @ct: The characters to search for
- *
- * strsep() updates @s to point after the token, ready for the next call.
- *
- * It returns empty tokens, too, behaving exactly like the libc function
- * of that name. In fact, it was stolen from glibc2 and de-fancy-fied.
- * Same semantics, slimmer shape. ;)
- */
-char *strsep(char **s, const char *ct)
-{
-    char *sbegin = *s;
-    char *end;
-
-    if (sbegin == NULL)
-        return NULL;
-
-    end = strpbrk(sbegin, ct);
-
-    if (end)
-        *end++ = '\0';
-
-    *s = end;
-    return sbegin;
-}
-
 static int parse_test_all_case(char *cmd)
 {
     u32 i = 0;
@@ -363,7 +315,7 @@ static int parse_test_all_case(char *cmd)
         argc++;
     } while (cmd);
 
-    for (i = 0; i < sizeof(kinetis_case_table) / sizeof(kinetis_case_table[0]); i++) {
+    for (i = 0; i < ARRAY_SIZE(kinetis_case_table); i++) {
         if (!strcmp(kinetis_case_table[i].command, argv[0]) &&
             kinetis_case_table[i].function != NULL)
             return kinetis_case_table[i].function(argc, argv);

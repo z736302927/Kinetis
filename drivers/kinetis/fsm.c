@@ -1,4 +1,6 @@
-#include "algorithm/fsm.h"
+#include "kinetis/fsm.h"
+#include "kinetis/nb_app.h"
+#include "kinetis/idebug.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -9,13 +11,6 @@
   * @step 4:  Modify four areas: XXTask_TypeDef/Task_XX_Callback/HydrologyTask_Init.
   * @step 5:  Finally, HydrologyTask_Init is called in the main function.
   */
-
-#include "kinetis/nb_app.h"
-
-#define DEBUG
-#include "kinetis/idebug.h"
-
-#define FSM_printf    p_dbg
 
 State FSM_Step(pStateMachine machine, SM_VAR *sm_var, pTransition **table)
 {

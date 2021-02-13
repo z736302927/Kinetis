@@ -1,5 +1,5 @@
 #include "kinetis/led.h"
-#include "algorithm/slist.h"
+#include "kinetis/slist.h"
 #include "string.h"
 #include "stdlib.h"
 #include <linux/gfp.h>
@@ -156,9 +156,9 @@ void K_LED_Toggle(LEDn_Type LED)
 
 #ifdef DESIGN_VERIFICATION_LED
 #include "kinetis/test-kinetis.h"
-#include "task/timtask.h"
+#include "kinetis/timtask.h"
 
-struct TimTask_TypeDef LEDTask;
+struct tim_task LEDTask;
 
 void LEDTask_Callback(void)
 {

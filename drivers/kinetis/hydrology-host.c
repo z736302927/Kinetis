@@ -20,7 +20,7 @@
   * @step 5:
   */
 
-#include "algorithm/crc.h"
+#include "kinetis/crc.h"
 #include "kinetis/idebug.h"
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */

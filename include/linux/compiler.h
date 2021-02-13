@@ -81,7 +81,7 @@ void ftrace_likely_update(struct ftrace_likely_data *f, int val,
 /* Optimization barrier */
 #ifndef barrier
 /* The "volatile" is due to gcc bugs */
-# define barrier() __asm__ __volatile__("": : :"memory")
+# define barrier() //__asm__ __volatile__("": : :"memory")
 #endif
 
 #ifndef barrier_data

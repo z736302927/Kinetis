@@ -1,4 +1,4 @@
-#include "task/hydrology-task.h"
+#include "kinetis/hydrology-task.h"
 #include "kinetis/hydrology.h"
 #include "kinetis/hydrology-config.h"
 #include "kinetis/hydrology-cmd.h"
@@ -14,14 +14,14 @@
   * @step 5:  Finally, HydrologyTask_Init is called in the main function.
   */
 
-#include "task/timtask.h"
-#include "task/rtctask.h"
+#include "kinetis/timtask.h"
+#include "kinetis/rtctask.h"
 #include "kinetis/sht20.h"
 #include "string.h"
 #include "kinetis/idebug.h"
 
-struct TimTask_TypeDef HydrologyTask_LinkMaintenance;
-struct TimTask_TypeDef Task_Temperature_Humidit;
+struct tim_task HydrologyTask_LinkMaintenance;
+struct tim_task Task_Temperature_Humidit;
 
 struct RTCTask_TypeDef HydrologyTask_Test;
 struct RTCTask_TypeDef HydrologyTask_TimerReport;

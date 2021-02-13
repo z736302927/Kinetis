@@ -5,11 +5,12 @@
 
 
 #include "ff.h"
-#include <linux/slab.h>
-#include <linux/gfp.h>
 
 
 #if FF_USE_LFN == 3	/* Dynamic memory allocation */
+
+#include <linux/slab.h>
+#include <linux/gfp.h>
 
 /*------------------------------------------------------------------------*/
 /* Allocate a memory block                                                */

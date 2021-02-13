@@ -1,6 +1,8 @@
 #include "kinetis/delay.h"
 #include "kinetis/basic-timer.h"
-#include "stdint.h"
+#include "kinetis/idebug.h"
+
+#include <linux/printk.h>
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -13,7 +15,6 @@
   */
 
 #include "tim.h"
-#include "kinetis/idebug.h"
 
 //#define DELAY_USING_HARDWARE
 
@@ -229,24 +230,24 @@ void sdelay(u32 delay)
 #ifdef DESIGN_VERIFICATION_DELAY
 #include "kinetis/test-kinetis.h"
 
-int t_Delay(int argc, char **argv)
+int t_delay(int argc, char **argv)
 {
     u32 time_stamp = 0;
 
     time_stamp = basic_timer_get_timer_cnt();
     udelay(1000);
     time_stamp = basic_timer_get_timer_cnt() - time_stamp;
-    printk(KERN_DEBUG "Delay 1000 us, The result = %lu us.", time_stamp);
+    printk(KERN_DEBUG "Delay 1000 us, The result = %u us.", time_stamp);
 
     time_stamp = basic_timer_get_ms();
     mdelay(1000);
     time_stamp = basic_timer_get_ms() - time_stamp;
-    printk(KERN_DEBUG "Delay 1000 ms, The result = %lu ms.", time_stamp);
+    printk(KERN_DEBUG "Delay 1000 ms, The result = %u ms.", time_stamp);
 
     time_stamp = basic_timer_get_ss();
     sdelay(3);
     time_stamp = basic_timer_get_ss() - time_stamp;
-    printk(KERN_DEBUG "Delay 3 s, The result = %lu s.", time_stamp);
+    printk(KERN_DEBUG "Delay 3 s, The result = %u s.", time_stamp);
 
     return PASS;
 }

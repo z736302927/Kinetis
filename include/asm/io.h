@@ -452,4 +452,5 @@ extern void register_isa_ports(unsigned int mmio, unsigned int io,
 			       unsigned int io_shift);
 
 #endif	/* __KERNEL__ */
+#include <asm-generic/io.h>
 #endif	/* __ASM_ARM_IO_H */

@@ -1,11 +1,17 @@
-#include "lib/fatfs.h"
+#include "kinetis/fatfs.h"
+#include "kinetis/rtc.h"
+#include "kinetis/basic-timer.h"
+#include "kinetis/idebug.h"
+
+#include "fs/fatfs/diskio.h"     /* Declarations of disk functions */
+#include "fs/fatfs/ff_gen_drv.h"
+#include "fs/fatfs/drivers/flash_diskio.h"
+
+#include <linux/printk.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
-#include "ff.h"         /* Declarations of sector size */
-#include "diskio.h"     /* Declarations of disk functions */
-#include "kinetis/rtc.h"
-#include "kinetis/basic-timer.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -16,34 +22,34 @@
   * @step 4:  .
   * @step 5:
   */
+/* File system object for  disk logical drive */
+static FATFS disk_fatfs;  
+/* File object */
+static FIL my_file;       
+/*  disk logical drive path */
+static char disk_path[4]; 
+/* a work buffer for the f_mkfs() */
+static uint8_t work_buffer[FF_MAX_SS]; 
 
-#include "ff_gen_drv.h"
-#include "flash_diskio.h"
-#include "kinetis/idebug.h"
-
-FATFS DISKFatFs;  /* File system object for  disk logical drive */
-FIL MyFile;       /* File object */
-char DISKPath[4]; /*  disk logical drive path */
-static uint8_t workBuffer[FF_MAX_SS]; /* a work buffer for the f_mkfs() */
-
-void FatFs_Init(void)
+void fatfs_init(void)
 {
-    uint8_t retSD;
+    int ret;
+    
     /*## FatFS: Link the SD driver ###########################*/
-    retSD = FATFS_LinkDriver(&FLASHDISK_Driver, DISKPath);
+    ret = FATFS_LinkDriver(&flash_disk_driver, disk_path);
 
     /* additional user code for init */
-    if (retSD == 0) {
+    if (ret == 0) {
         FRESULT res;
 
-        res = f_mount(&DISKFatFs, (TCHAR const *)DISKPath, 0);
+        res = f_mount(&disk_fatfs, (TCHAR const *)disk_path, 0);
 
         if (res == FR_NO_FILESYSTEM) {
-            res = f_mkfs((const TCHAR *)DISKPath, 0, workBuffer, sizeof(workBuffer));
+            res = f_mkfs((const TCHAR *)disk_path, 0, work_buffer, sizeof(work_buffer));
 
             if (res != FR_OK) {
                 printk(KERN_ERR " ");
-                Printf_FatFs_Err(res);
+                printf_fatfs_err(res);
 
                 while (1)
                     ;
@@ -58,7 +64,7 @@ void FatFs_Init(void)
 }
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-void Printf_FatFs_Err(FRESULT fresult)
+void printf_fatfs_err(FRESULT fresult)
 {
     switch (fresult) {
         case FR_OK:                   //(0)
@@ -144,13 +150,14 @@ void Printf_FatFs_Err(FRESULT fresult)
     }
 }
 
-FRESULT Miscellaneous(void)
+FRESULT fatfs_miscellaneous(void)
 {
     FATFS *pfs;
     DWORD fre_clust, fre_sect, tot_sect;
     FRESULT res;
-    DIR MyDir;
-    uint8_t rtext[100];                                  /* File read buffer */
+    DIR my_dir;
+    /* File read buffer */
+    uint8_t rtext[100];                                  
     int32_t byteswritten = 0;
     uint32_t bytesread = 0;
 
@@ -161,48 +168,52 @@ FRESULT Miscellaneous(void)
     tot_sect = (pfs->n_fatent - 2) * pfs->csize;
     fre_sect = fre_clust * pfs->csize;
     /* Print information (4096 bytes/sector) */
-    printk(KERN_DEBUG "Total equipment space:%6u MB.\r\nAvailable space: %6u MB.", tot_sect * 4 / 1024, fre_sect * 4 / 1024);
+    printk(KERN_DEBUG "Total equipment space:%6u MB.\r\nAvailable space: %6u MB.",
+    tot_sect * 4 / 1024, fre_sect * 4 / 1024);
 
     printk(KERN_DEBUG "File location and formatting write function test");
-    res = f_open(&MyFile, "FatFs.txt", FA_OPEN_EXISTING | FA_WRITE | FA_READ);
+    res = f_open(&my_file, "FatFs.txt", FA_OPEN_EXISTING | FA_WRITE | FA_READ);
 
     if (res == FR_OK) {
         /* File location */
-        res = f_lseek(&MyFile, f_size(&MyFile) - 1);
+        res = f_lseek(&my_file, f_size(&my_file) - 1);
 
         if (res == FR_OK) {
             /* Format write, parameter format similar to printf function. */
-            byteswritten = f_printf(&MyFile, "add a new line to the original file.");
+            byteswritten = f_printf(&my_file,
+            "add a new line to the original file.");
 
             if (byteswritten == EOF)
                 printk(KERN_ERR " ");
 
-            byteswritten = f_printf(&MyFile, "Total equipment space:%6lu MB.\r\nAvailable space: %6lu MB.", tot_sect * 4 / 1024, fre_sect * 4 / 1024);
+            byteswritten = f_printf(&my_file,
+            "Total equipment space:%6lu MB.\r\nAvailable space: %6lu MB.",
+            tot_sect * 4 / 1024, fre_sect * 4 / 1024);
 
             if (byteswritten == EOF)
                 printk(KERN_ERR " ");
 
             /* The file is positioned at the start of the file. */
-            res = f_lseek(&MyFile, 0);
+            res = f_lseek(&my_file, 0);
             /* Read all contents of the file into the cache. */
-            res = f_read(&MyFile, rtext, f_size(&MyFile), &bytesread);
+            res = f_read(&my_file, rtext, f_size(&my_file), &bytesread);
 
             if (res == FR_OK)
                 printk(KERN_DEBUG "The file content: %s", rtext);
         }
 
-        f_close(&MyFile);
+        f_close(&my_file);
 
         printk(KERN_DEBUG "Directory creation and rename function test");
         /* Try opening a directory. */
-        res = f_opendir(&MyDir, "TestDir");
+        res = f_opendir(&my_dir, "TestDir");
 
         if (res != FR_OK) {
             /* Failure to open directory, create directory. */
             res = f_mkdir("TestDir");
         } else {
             /* If the directory already exists, close it. */
-            res = f_closedir(&MyDir);
+            res = f_closedir(&my_dir);
             /* Delete the file */
             f_unlink("TestDir/testdir.txt");
         }
@@ -213,7 +224,8 @@ FRESULT Miscellaneous(void)
         }
     } else {
         printk(KERN_DEBUG "Failed to open file: %d", res);
-        printk(KERN_DEBUG "You may need to run the FatFs migration and read and write test project again.");
+        printk(KERN_DEBUG 
+            "You may need to run the FatFs migration and read and write test project again.");
     }
 
     return res;
@@ -224,23 +236,23 @@ FRESULT Miscellaneous(void)
   * @param  path:Initial scan path.
   * @retval result:The return value of the file system.
   */
-static FRESULT FatFs_Scan_Files(char *path)
+FRESULT fatfs_scan_files(char *path)
 {
     FRESULT res;     //The part of the variable that is modified in the recursive process is not global.
     FILINFO fno;
-    DIR MyDir;
+    DIR my_dir;
     int i;
     char *fn;        //The file name.
 
     //Open directory
-    res = f_opendir(&MyDir, path);
+    res = f_opendir(&my_dir, path);
 
     if (res == FR_OK) {
         i = strlen(path);
 
         for (;;) {
             //Reading the contents of the directory automatically reads the next file.
-            res = f_readdir(&MyDir, &fno);
+            res = f_readdir(&my_dir, &fno);
 
             //Is empty means all items read, jump out.
             if (res != FR_OK || fno.fname[0] == 0)
@@ -257,7 +269,7 @@ static FRESULT FatFs_Scan_Files(char *path)
                 //Synthesize the full directory name.
                 sprintf(&path[i], "/%s", fn);
                 //The recursive traversal.
-                res = FatFs_Scan_Files(path);
+                res = fatfs_scan_files(path);
                 path[i] = 0;
 
                 //Turn failure on and out of the loop.
@@ -277,7 +289,7 @@ static FRESULT FatFs_Scan_Files(char *path)
 / Open or create a file in append mode
 / (This function was sperseded by FA_OPEN_APPEND flag at FatFs R0.12a)
 /------------------------------------------------------------*/
-FRESULT FatFs_Open_Append(
+FRESULT fatfs_open_append(
     FIL *fp,            /* [OUT] File object to create */
     const char *path    /* [IN]  File name to be opened */
 )
@@ -304,7 +316,7 @@ FRESULT FatFs_Open_Append(
 / The delete_node() function is for R0.12+.
 / It works regardless of FF_FS_RPATH.
 */
-FRESULT FatFs_Delete_Node(
+FRESULT fatfs_delete_node(
     TCHAR *path,    /* Path name buffer with the sub-directory to delete */
     UINT sz_buff,   /* Size of path name buffer (items) */
     FILINFO *fno    /* Name read buffer */
@@ -343,7 +355,7 @@ FRESULT FatFs_Delete_Node(
         } while (fno->fname[j++]);
 
         if (fno->fattrib & AM_DIR)      /* Item is a sub-directory */
-            fr = FatFs_Delete_Node(path, sz_buff, fno);
+            fr = fatfs_delete_node(path, sz_buff, fno);
         else                            /* Item is a file */
             fr = f_unlink(path);
 
@@ -367,7 +379,7 @@ FRESULT FatFs_Delete_Node(
 / WARNING: The data on the target drive will be lost!
 */
 
-static DWORD FatFs_Diskio_Pseudo(        /* Pseudo random number generator */
+static DWORD fatfs_diskio_pseudo(        /* Pseudo random number generator */
     DWORD pns   /* 0:Initialize, !0:Read */
 )
 {
@@ -379,7 +391,7 @@ static DWORD FatFs_Diskio_Pseudo(        /* Pseudo random number generator */
         lfsr = pns;
 
         for (n = 0; n < 32; n++)
-            FatFs_Diskio_Pseudo(0);
+            fatfs_diskio_pseudo(0);
     }
 
     if (lfsr & 1) {
@@ -391,7 +403,7 @@ static DWORD FatFs_Diskio_Pseudo(        /* Pseudo random number generator */
     return lfsr;
 }
 
-int FatFs_Diskio(
+int fatfs_diskio(
     BYTE pdrv,      /* Physical drive number to be checked (all data on the drive will be lost) */
     UINT ncyc,      /* Number of test cycles */
     DWORD *buff,    /* Pointer to the working buffer */
@@ -481,8 +493,8 @@ int FatFs_Diskio(
         printk(KERN_DEBUG "**** Single sector write test ****");
         lba = 0;
 
-        for (n = 0, FatFs_Diskio_Pseudo(pns); n < sz_sect; n++)
-            pbuff[n] = (BYTE)FatFs_Diskio_Pseudo(0);
+        for (n = 0, fatfs_diskio_pseudo(pns); n < sz_sect; n++)
+            pbuff[n] = (BYTE)fatfs_diskio_pseudo(0);
 
         printk(KERN_DEBUG " disk_write(%u, 0x%X, %lu, 1)", pdrv, (UINT)pbuff, lba);
         dr = disk_write(pdrv, pbuff, lba, 1);
@@ -515,7 +527,9 @@ int FatFs_Diskio(
             return 8;
         }
 
-        for (n = 0, FatFs_Diskio_Pseudo(pns); n < sz_sect && pbuff[n] == (BYTE)FatFs_Diskio_Pseudo(0); n++) ;
+        for (n = 0, fatfs_diskio_pseudo(pns);
+        n < sz_sect && pbuff[n] == (BYTE)fatfs_diskio_pseudo(0);
+        n++) ;
 
         if (n == sz_sect)
             printk(KERN_DEBUG " Read data matched.");
@@ -534,8 +548,8 @@ int FatFs_Diskio(
             ns = 4;
 
         if (ns > 1) {
-            for (n = 0, FatFs_Diskio_Pseudo(pns); n < (UINT)(sz_sect * ns); n++)
-                pbuff[n] = (BYTE)FatFs_Diskio_Pseudo(0);
+            for (n = 0, fatfs_diskio_pseudo(pns); n < (UINT)(sz_sect * ns); n++)
+                pbuff[n] = (BYTE)fatfs_diskio_pseudo(0);
 
             printk(KERN_DEBUG " disk_write(%u, 0x%X, %lu, %u)", pdrv, (UINT)pbuff, lba, ns);
             dr = disk_write(pdrv, pbuff, lba, ns);
@@ -568,7 +582,9 @@ int FatFs_Diskio(
                 return 13;
             }
 
-            for (n = 0, FatFs_Diskio_Pseudo(pns); n < (UINT)(sz_sect * ns) && pbuff[n] == (BYTE)FatFs_Diskio_Pseudo(0); n++) ;
+            for (n = 0, fatfs_diskio_pseudo(pns);
+            n < (UINT)(sz_sect * ns) && pbuff[n] == (BYTE)fatfs_diskio_pseudo(0);
+            n++) ;
 
             if (n == (UINT)(sz_sect * ns))
                 printk(KERN_DEBUG " Read data matched.");
@@ -584,8 +600,8 @@ int FatFs_Diskio(
         printk(KERN_DEBUG "**** Single sector write test (unaligned buffer address) ****");
         lba = 5;
 
-        for (n = 0, FatFs_Diskio_Pseudo(pns); n < sz_sect; n++)
-            pbuff[n + 3] = (BYTE)FatFs_Diskio_Pseudo(0);
+        for (n = 0, fatfs_diskio_pseudo(pns); n < sz_sect; n++)
+            pbuff[n + 3] = (BYTE)fatfs_diskio_pseudo(0);
 
         printk(KERN_DEBUG " disk_write(%u, 0x%X, %lu, 1)", pdrv, (UINT)(pbuff + 3), lba);
         dr = disk_write(pdrv, pbuff + 3, lba, 1);
@@ -618,7 +634,9 @@ int FatFs_Diskio(
             return 17;
         }
 
-        for (n = 0, FatFs_Diskio_Pseudo(pns); n < sz_sect && pbuff[n + 5] == (BYTE)FatFs_Diskio_Pseudo(0); n++) ;
+        for (n = 0, fatfs_diskio_pseudo(pns);
+        n < sz_sect && pbuff[n + 5] == (BYTE)fatfs_diskio_pseudo(0);
+        n++) ;
 
         if (n == sz_sect)
             printk(KERN_DEBUG " Read data matched.");
@@ -635,8 +653,8 @@ int FatFs_Diskio(
             lba = 6;
             lba2 = lba + 0x80000000 / (sz_sect / 2);
 
-            for (n = 0, FatFs_Diskio_Pseudo(pns); n < (UINT)(sz_sect * 2); n++)
-                pbuff[n] = (BYTE)FatFs_Diskio_Pseudo(0);
+            for (n = 0, fatfs_diskio_pseudo(pns); n < (UINT)(sz_sect * 2); n++)
+                pbuff[n] = (BYTE)fatfs_diskio_pseudo(0);
 
             printk(KERN_DEBUG " disk_write(%u, 0x%X, %lu, 1)", pdrv, (UINT)pbuff, lba);
             dr = disk_write(pdrv, pbuff, lba, 1);
@@ -689,7 +707,9 @@ int FatFs_Diskio(
                 return 23;
             }
 
-            for (n = 0, FatFs_Diskio_Pseudo(pns); pbuff[n] == (BYTE)FatFs_Diskio_Pseudo(0) && n < (UINT)(sz_sect * 2); n++) ;
+            for (n = 0, fatfs_diskio_pseudo(pns);
+            pbuff[n] == (BYTE)fatfs_diskio_pseudo(0) && n < (UINT)(sz_sect * 2);
+            n++) ;
 
             if (n == (UINT)(sz_sect * 2))
                 printk(KERN_DEBUG " Read data matched.");
@@ -712,7 +732,7 @@ int FatFs_Diskio(
 / Test if the file is contiguous                                        /
 /----------------------------------------------------------------------*/
 
-FRESULT FatFs_Contiguous_File(
+FRESULT fatfs_contiguous_file(
     FIL *fp,    /* [IN]  Open file object to be checked */
     int *cont   /* [OUT] 1:Contiguous, 0:Fragmented or zero-length */
 )
@@ -763,7 +783,7 @@ FRESULT FatFs_Contiguous_File(
 /*---------------------------------------------------------------------*/
 /* Raw Read/Write Throughput Checker                                   */
 /*---------------------------------------------------------------------*/
-int FatFs_Raw_Speed(
+int fatfs_raw_speed(
     BYTE pdrv,      /* Physical drive number */
     DWORD lba,      /* Start LBA for read/write test */
     DWORD len,      /* Number of bytes to read/write (must be multiple of sz_buff) */
@@ -821,9 +841,9 @@ int FatFs_Raw_Speed(
 }
 
 #ifdef DESIGN_VERIFICATION_FATFS
-#include "dv/test.h"
+#include "kinetis/test-kinetis.h"
 
-int t_FatFs_ReadWrite(int argc, char **argv)
+int t_fatfs_loopback(int argc, char **argv)
 {
     FRESULT res;                                         /* FatFs function common result code */
     MKFS_PARM opt;
@@ -832,13 +852,13 @@ int t_FatFs_ReadWrite(int argc, char **argv)
     uint8_t rtext[100];                                  /* File read buffer */
 
     /*##-1- Link the  disk I/O driver #######################################*/
-    if (FATFS_LinkDriver(&SD_Driver, DISKPath) == 0) {
+    if (FATFS_LinkDriver(&flash_disk_driver, disk_path) == 0) {
         /*##-2- Register the file system object to the FatFs module ##############*/
-        res = f_mount(&DISKFatFs, (TCHAR const *)DISKPath, 0);
+        res = f_mount(&disk_fatfs, (TCHAR const *)disk_path, 0);
 
         if (res != FR_OK) {
             /* FatFs Initialization Error */
-            Printf_FatFs_Err(res);
+            printf_fatfs_err(res);
         } else {
             /*##-3- Create a FAT file system (format) on the logical drive #########*/
             if (res == FR_NO_FILESYSTEM) {
@@ -848,51 +868,51 @@ int t_FatFs_ReadWrite(int argc, char **argv)
                 opt.n_root = 1;
                 opt.au_size = 1;
 
-                res = f_mkfs((const TCHAR *)DISKPath, &opt, buffer, sizeof(buffer));
+                res = f_mkfs((const TCHAR *)disk_path, &opt, work_buffer, sizeof(work_buffer));
             }
 
             if (res != FR_OK) {
                 /* FatFs Format Error */
-                Printf_FatFs_Err(res);
+                printf_fatfs_err(res);
             } else {
                 /*##-4- Create and Open a new text file object with write access #####*/
-                res = f_open(&MyFile, "STM32.TXT", FA_CREATE_ALWAYS | FA_WRITE);
+                res = f_open(&my_file, "STM32.TXT", FA_CREATE_ALWAYS | FA_WRITE);
 
                 if (res != FR_OK) {
                     /* 'STM32.TXT' file Open for write Error */
-                    Printf_FatFs_Err(res);
+                    printf_fatfs_err(res);
                 } else {
                     /*##-5- Write data to the text file ################################*/
-                    res = f_write(&MyFile, wtext, sizeof(wtext), (void *)&byteswritten);
+                    res = f_write(&my_file, wtext, sizeof(wtext), (void *)&byteswritten);
 
                     if ((byteswritten == 0) || (res != FR_OK)) {
                         /* 'STM32.TXT' file Write or EOF Error */
-                        Printf_FatFs_Err(res);
+                        printf_fatfs_err(res);
                     } else {
                         /*##-6- Close the open text file #################################*/
-                        f_close(&MyFile);
+                        f_close(&my_file);
 
                         /*##-7- Open the text file object with read access ###############*/
-                        res = f_open(&MyFile, "STM32.TXT", FA_READ);
+                        res = f_open(&my_file, "STM32.TXT", FA_READ);
 
                         if (res != FR_OK) {
                             /* 'STM32.TXT' file Open for read Error */
-                            Printf_FatFs_Err(res);
+                            printf_fatfs_err(res);
                         } else {
                             /*##-8- Read data from the text file ###########################*/
-                            res = f_read(&MyFile, rtext, sizeof(rtext), (void *)&bytesread);
+                            res = f_read(&my_file, rtext, sizeof(rtext), (void *)&bytesread);
 
                             if ((bytesread == 0) || (res != FR_OK)) {
                                 /* 'STM32.TXT' file Read or EOF Error */
-                                Printf_FatFs_Err(res);
+                                printf_fatfs_err(res);
                             } else {
                                 /*##-9- Close the open text file #############################*/
-                                f_close(&MyFile);
+                                f_close(&my_file);
 
                                 /*##-10- Compare read data with the expected data ############*/
                                 if ((bytesread != byteswritten)) {
                                     /* Read data is different from the expected data */
-                                    Printf_FatFs_Err(res);
+                                    printf_fatfs_err(res);
                                 } else {
                                     /* Success of the demo: no error occurrence */
                                     printk(KERN_DEBUG "FatFs TEST PASS");
@@ -906,17 +926,17 @@ int t_FatFs_ReadWrite(int argc, char **argv)
     }
 
     /*##-11- Unlink the  disk I/O driver ####################################*/
-    FATFS_UnLinkDriver(DISKPath);
+    FATFS_UnLinkDriver(disk_path);
 
     return PASS;
 }
 
-int t_FatFs_Miscellaneous(int argc, char **argv)
+int t_fatfs_miscellaneous(int argc, char **argv)
 {
     FRESULT res;
 
     /* FatFs multifunctional test. */
-    res = Miscellaneous();
+    res = fatfs_miscellaneous();
 
     if (res == FR_OK)
         return PASS;
@@ -924,7 +944,7 @@ int t_FatFs_Miscellaneous(int argc, char **argv)
         return FAIL;
 }
 
-int t_FatFs_File_Check(int argc, char **argv)
+int t_fatfs_file_check(int argc, char **argv)
 {
     static FILINFO finfo;
     FRESULT res;
@@ -949,13 +969,13 @@ int t_FatFs_File_Check(int argc, char **argv)
     return FAIL;
 }
 
-int t_FatFs_Scan_Files(int argc, char **argv)
+int t_fatfs_scan_files(int argc, char **argv)
 {
     FRESULT res;
 
     printk(KERN_DEBUG "Document scanning test.");
-    strcpy(DISKPath, "1:");
-    FatFs_Scan_Files(DISKPath);
+    strcpy(disk_path, "1:");
+    fatfs_scan_files(disk_path);
 
     if (res == FR_OK)
         return PASS;
@@ -963,24 +983,25 @@ int t_FatFs_Scan_Files(int argc, char **argv)
         return FAIL;
 }
 
-int t_FatFs_Append(int argc, char **argv)
+int t_fatfs_append(int argc, char **argv)
 {
     FRESULT fr;
     FATFS fs;
     FIL fil;
-    uint8_t Year, Month, Date, Hours, Minutes, Seconds;
+    uint8_t year, month, date, hours, minutes, seconds;
 
     /* Open or create a log file and ready to append */
     f_mount(&fs, "", 0);
-    fr = FatFs_Open_Append(&fil, "logfile.txt");
+    fr = fatfs_open_append(&fil, "logfile.txt");
 
     if (fr != FR_OK)
         return FAIL;
 
-    RTC_CalendarShow(&Year, &Month, &Date, &Hours, &Minutes, &Seconds, NULL);
+//    RTC_CalendarShow(&year, &month, &date, &hours, &minutes, &seconds, NULL,
+//        KRTC_FORMAT_BIN);
 
     /* Append a line */
-    f_printf(&fil, "%02u/%02u/%u, %2u:%02u\n", Date, Month, Year, Hours, Minutes);
+    f_printf(&fil, "%02u/%02u/%u, %2u:%02u\n", date, month, year, hours, minutes);
 
     /* Close the file */
     f_close(&fil);
@@ -988,7 +1009,7 @@ int t_FatFs_Append(int argc, char **argv)
     return PASS;
 }
 
-int t_FatFs_Delete_Node(int argc, char **argv)  /* How to use */
+int t_fatfs_delete_node(int argc, char **argv)  /* How to use */
 {
     FRESULT fr;
     FATFS fs;
@@ -1001,7 +1022,7 @@ int t_FatFs_Delete_Node(int argc, char **argv)  /* How to use */
     strncpy(buff, _T("5:dir"), strlen(_T("5:dir")));
 
     /* Delete the directory */
-    fr = FatFs_Delete_Node(buff, sizeof buff / sizeof buff[0], &fno);
+    fr = fatfs_delete_node(buff, sizeof buff / sizeof buff[0], &fno);
 
     /* Check the result */
     if (fr) {
@@ -1025,7 +1046,7 @@ int t_FatFs_Delete_Node(int argc, char **argv)  /* How to use */
 / It is incompatible with R0.12+. Use f_expand function instead.
 /----------------------------------------------------------------------*/
 
-int t_FatFs_Expend(int argc, char **argv)
+int t_fatfs_expend(int argc, char **argv)
 {
     FRESULT fr;
     DRESULT dr;
@@ -1051,19 +1072,19 @@ int t_FatFs_Expend(int argc, char **argv)
     }
 
     /* Now you can read/write the file without filesystem layer. */
-    dr = disk_write(fs.pdrv, buffer, org, 1024);   /* Write 512KiB from top of the file */
+    dr = disk_write(fs.pdrv, work_buffer, org, 1024);   /* Write 512KiB from top of the file */
 
     f_close(&fil);
     return PASS;
 }
 
-int t_FatFs_Diskio(int argc, char **argv)
+int t_fatfs_diskio(int argc, char **argv)
 {
     int rc;
     DWORD buff[FF_MAX_SS];  /* Working buffer (4 sector in size) */
 
     /* Check function/compatibility of the physical drive #0 */
-    rc = FatFs_Diskio(0, 3, buff, sizeof buff);
+    rc = fatfs_diskio(0, 3, buff, sizeof buff);
 
     if (rc) {
         printk(KERN_DEBUG "Sorry the function/compatibility test failed. (rc=%d)\nFatFs will not work with this disk driver.", rc);
@@ -1074,13 +1095,13 @@ int t_FatFs_Diskio(int argc, char **argv)
     }
 }
 
-int t_FatFs_Contiguous_File(int argc, char **argv)
+int t_fatfs_contiguous_file(int argc, char **argv)
 {
     int rc;
     DWORD buff[FF_MAX_SS];  /* Working buffer (4 sector in size) */
 
     /* Check function/compatibility of the physical drive #0 */
-    rc = FatFs_Diskio(0, 3, buff, sizeof buff);
+    rc = fatfs_diskio(0, 3, buff, sizeof buff);
 
     if (rc) {
         printk(KERN_DEBUG "Sorry the function/compatibility test failed. (rc=%d)\nFatFs will not work with this disk driver.", rc);
@@ -1091,13 +1112,13 @@ int t_FatFs_Contiguous_File(int argc, char **argv)
     }
 }
 
-int t_FatFs_Raw_Speed(int argc, char **argv)
+int t_fatfs_raw_speed(int argc, char **argv)
 {
     int rc;
     DWORD buff[FF_MAX_SS];  /* Working buffer (4 sector in size) */
 
     /* Check function/compatibility of the physical drive #0 */
-    rc = FatFs_Diskio(0, 3, buff, sizeof buff);
+    rc = fatfs_diskio(0, 3, buff, sizeof buff);
 
     if (rc) {
         printk(KERN_DEBUG "Sorry the function/compatibility test failed. (rc=%d)\nFatFs will not work with this disk driver.", rc);

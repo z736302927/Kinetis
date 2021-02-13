@@ -8,21 +8,22 @@ extern "C" {
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /* Includes ------------------------------------------------------------------*/
+#include <linux/types.h>
+#include <linux/list.h>
+
 #include "kinetis/core_common.h"
 
-typedef struct TimTask_TypeDef {
-    u32 Timeout;
-    u32 Repeat;
-    void (*Timeout_cb)(void);
-    struct TimTask_TypeDef *Next;
-} TimTask_TypeDef;
+struct tim_task {
+    u64 timeout;
+    u32 interval;
+    void (*callback)(void);
+    struct list_head list;
+    bool auto_load;
+};
 
-void TimTask_Deinit(struct TimTask_TypeDef *Handle);
-void TimTask_Init(struct TimTask_TypeDef *Handle, void(*Timeout_cb)(), u32 Timeout, u32 Repeat);
-int  TimTask_Start(struct TimTask_TypeDef *Handle);
-void TimTask_Stop(struct TimTask_TypeDef *Handle);
-void TimTask_Ticks(void);
-void TimTask_Loop(void);
+int tim_task_add(u32 interval, bool auto_load, void(*callback)());
+int tim_task_drop(void(*callback)());
+void tim_task_loop(void);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
