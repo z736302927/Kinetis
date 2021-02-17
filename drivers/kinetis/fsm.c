@@ -1,5 +1,4 @@
 #include "kinetis/fsm.h"
-#include "kinetis/nb_app.h"
 #include "kinetis/idebug.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
@@ -12,10 +11,10 @@
   * @step 5:  Finally, HydrologyTask_Init is called in the main function.
   */
 
-State FSM_Step(pStateMachine machine, SM_VAR *sm_var, pTransition **table)
+fsm_state fsm_step(struct state_machine * machine, struct sm_var *sm_var, struct transition **table)
 {
     if (sm_var->_repeats < 2) {
-        pTransition t = table[machine->current][sm_var->_condition];
+        struct transition * t = &table[machine->current][sm_var->_condition];
         (*(t->action))(machine, sm_var);
 
         if (machine->current == t->next)
@@ -26,7 +25,7 @@ State FSM_Step(pStateMachine machine, SM_VAR *sm_var, pTransition **table)
         machine->current = t->next;
     } else {
         sm_var->_condition = cERROR_REPEATS_L3;
-        pTransition t = table[machine->current][sm_var->_condition];
+        struct transition * t = &table[machine->current][sm_var->_condition];
         (*(t->action))(machine, sm_var);
 
         sm_var->_repeats = 0;
@@ -47,110 +46,110 @@ State FSM_Step(pStateMachine machine, SM_VAR *sm_var, pTransition **table)
 #ifdef DESIGN_VERIFICATION_FSM
 #include "kinetis/test-kinetis.h"
 
-extern int FSM_NB_None(pStateMachine machine, SM_VAR *sm_var);
-extern int FSM_NB_Init(pStateMachine machine, SM_VAR *sm_var);
-extern int FSM_NB_GetSign(pStateMachine machine, SM_VAR *sm_var);
-extern int FSM_NB_GetModuleInfo(pStateMachine machine, SM_VAR *sm_var);
-extern int FSM_NB_CreateUDP(pStateMachine machine, SM_VAR *sm_var);
-extern int FSM_NB_CloseUDP(pStateMachine machine, SM_VAR *sm_var);
-extern int FSM_NB_UDPRegister(pStateMachine machine, SM_VAR *sm_var);
-extern int FSM_NB_UDPSendData(pStateMachine machine, SM_VAR *sm_var);
-extern int FSM_NB_WaitReceiveData(pStateMachine machine, SM_VAR *sm_var);
-extern int FSM_NB_Reset(pStateMachine machine, SM_VAR *sm_var);
-extern int FSM_NB_End(pStateMachine machine, SM_VAR *sm_var);
+extern int FSM_NB_None(struct state_machine * machine, struct sm_var *sm_var);
+extern int FSM_NB_Init(struct state_machine * machine, struct sm_var *sm_var);
+extern int FSM_NB_GetSign(struct state_machine * machine, struct sm_var *sm_var);
+extern int FSM_NB_GetModuleInfo(struct state_machine * machine, struct sm_var *sm_var);
+extern int FSM_NB_CreateUDP(struct state_machine * machine, struct sm_var *sm_var);
+extern int FSM_NB_CloseUDP(struct state_machine * machine, struct sm_var *sm_var);
+extern int FSM_NB_UDPRegister(struct state_machine * machine, struct sm_var *sm_var);
+extern int FSM_NB_UDPSendData(struct state_machine * machine, struct sm_var *sm_var);
+extern int FSM_NB_WaitReceiveData(struct state_machine * machine, struct sm_var *sm_var);
+extern int FSM_NB_Reset(struct state_machine * machine, struct sm_var *sm_var);
+extern int FSM_NB_End(struct state_machine * machine, struct sm_var *sm_var);
 
-Transition NB_Fail2Reset = {
+struct transition NB_Fail2Reset = {
     sNB_RESET,
     FSM_NB_Reset
 };
 
-Transition NB_Reset2None = {
+struct transition NB_Reset2None = {
     sNB_NONE,
     FSM_NB_None
 };
 
-Transition NB_None2Init = {
+struct transition NB_None2Init = {
     sNB_INIT,
     FSM_NB_Init
 };
 
-Transition NB_Init2ModuleInfo = {
+struct transition NB_Init2ModuleInfo = {
     sNB_MODULE_INFO,
     FSM_NB_GetModuleInfo
 };
 
-Transition NB_ModuleInfo2Sign = {
+struct transition NB_ModuleInfo2Sign = {
     sNB_SIGN,
     FSM_NB_GetSign
 };
 
-Transition NB_Sign2UDPCreate = {
+struct transition NB_Sign2UDPCreate = {
     sNB_UDP_CREATE,
     FSM_NB_CreateUDP
 };
 
-Transition NB_UDPCreate2Register = {
+struct transition NB_UDPCreate2Register = {
     sNB_UDP_REGISTER,
     FSM_NB_UDPRegister
 };
 
-//Transition NB_Register2GuyuCertificate =
+//struct transition NB_Register2GuyuCertificate =
 //{
 //  sNB_CERTIFICATE,
 //  FSM_NB_WaitReceiveData
 //};
 //
-//Transition NB_GuyuCertificate2SendData =
+//struct transition NB_GuyuCertificate2SendData =
 //{
 //  sNB_UDP_SEND,
 //  FSM_NB_UDPSendData
 //};
 
-//Transition NB_UDPCreate2SendData =
+//struct transition NB_UDPCreate2SendData =
 //{
 //  sNB_UDP_SEND,
 //  FSM_NB_UDPSendData
 //};
 
-Transition NB_UDPRegister2SendData = {
+struct transition NB_UDPRegister2SendData = {
     sNB_UDP_SEND,
     FSM_NB_UDPSendData
 };
 
-Transition NB_UDPSendData2ReceiveData = {
+struct transition NB_UDPSendData2ReceiveData = {
     sNB_UDP_RECEIVE,
     FSM_NB_WaitReceiveData
 };
 
-Transition NB_UDPReceiveData2UDPClose = {
+struct transition NB_UDPReceiveData2UDPClose = {
     sNB_UDP_CLOSE,
     FSM_NB_CloseUDP
 };
 
-//Transition NB_SendData2UDPClose =
+//struct transition NB_SendData2UDPClose =
 //{
 //  sNB_UDP_CLOSE,
 //  FSM_NB_CloseUDP
 //};
 
-Transition NB_UDPClose2End = {
+struct transition NB_UDPClose2End = {
     sNB_END,
     FSM_NB_End////////////////////////////
 };
 
-//Transition NB_Sign2CoAPCreate =
+//struct transition NB_Sign2CoAPCreate =
 //{
 //  sNB_CoAP_SEVER,
 //  FSM_NB_CreateUDP
 //};
 //
-//Transition NB_CoAPCreate2SendData =
+//struct transition NB_CoAPCreate2SendData =
 //{
 //  sNB_CoAP_SEND,
 //  FSM_NB_UDPSendData
 //};
 
-Transition NB_IOT_Trans_Table[FSM_STATES][FSM_CONDITIONS];
+struct transition NB_IOT_Trans_Table[FSM_STATES][FSM_CONDITIONS];
 
 void NB_IOT_FSM_Init(void)
 {
@@ -203,7 +202,7 @@ void NB_IOT_FSM_Init(void)
     NB_IOT_Trans_Table[sNB_END][2] = NB_Fail2Reset;
 }
 
-int t_FSM_Example(int argc, char **argv)
+int t_fsm_example(int argc, char **argv)
 {
 
     return PASS;

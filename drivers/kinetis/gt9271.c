@@ -32,43 +32,43 @@ static inline void gt9271_Delayms(u32 ticks)
     mdelay(ticks);
 }
 
-static inline void gt9271_PortTransmmit(u16 Addr, u8 Data)
+static inline void gt9271_port_transmmit(u16 addr, u8 Data)
 {
 #ifdef USING_I2C_SOFT
-    IIC_Soft_WriteSingleByteWithAddr(GT9271_ADDR, Addr, Data);
+    IIC_Soft_WriteSingleByteWithAddr(GT9271_ADDR, addr, Data);
 #else
     HAL_I2C_Mem_Write(&hi2c1, (GT9271_ADDR << 1),
-        Addr, I2C_MEMADD_SIZE_8BIT, &Data, 1, 10000);
+        addr, I2C_MEMADD_SIZE_8BIT, &Data, 1, 10000);
 #endif
 }
 
-static inline void gt9271_PortReceive(u16 Addr, u8 *pData)
+static inline void gt9271_port_receive(u16 addr, u8 *pdata)
 {
 #ifdef USING_I2C_SOFT
-    IIC_Soft_ReadSingleByteWithAddr(GT9271_ADDR, Addr, pData);
+    IIC_Soft_ReadSingleByteWithAddr(GT9271_ADDR, addr, pdata);
 #else
     HAL_I2C_Mem_Read(&hi2c1, (GT9271_ADDR << 1),
-        Addr, I2C_MEMADD_SIZE_8BIT, pData, 1, 10000);
+        addr, I2C_MEMADD_SIZE_8BIT, pdata, 1, 10000);
 #endif
 }
 
-static inline void gt9271_port_multi_transmmit(u16 Addr, u8 *pData, u32 Length)
+static inline void gt9271_port_multi_transmmit(u16 addr, u8 *pdata, u32 Length)
 {
 #ifdef USING_I2C_SOFT
-    IIC_Soft_WriteMultiByteWithAddr(GT9271_ADDR, Addr, pData, Length);
+    IIC_Soft_WriteMultiByteWithAddr(GT9271_ADDR, addr, pdata, Length);
 #else
     HAL_I2C_Mem_Write(&hi2c1, (GT9271_ADDR << 1),
-        Addr, I2C_MEMADD_SIZE_8BIT, pData, Length, 10000);
+        addr, I2C_MEMADD_SIZE_8BIT, pdata, Length, 10000);
 #endif
 }
 
-static inline void gt9271_port_multi_receive(u16 Addr, u8 *pData, u32 Length)
+static inline void gt9271_port_multi_receive(u16 addr, u8 *pdata, u32 Length)
 {
 #ifdef USING_I2C_SOFT
-    IIC_Soft_ReadMultiByteWithAddr(GT9271_ADDR, Addr, pData, Length);
+    IIC_Soft_ReadMultiByteWithAddr(GT9271_ADDR, addr, pdata, Length);
 #else
     HAL_I2C_Mem_Read(&hi2c1, (GT9271_ADDR << 1),
-        Addr, I2C_MEMADD_SIZE_8BIT, pData, Length, 10000);
+        addr, I2C_MEMADD_SIZE_8BIT, pdata, Length, 10000);
 #endif
 }
 
@@ -187,8 +187,8 @@ static int8_t GTP_I2C_Test(void)
   * @retval 无
   */
 /*用于记录连续触摸时(长按)的上一次触摸位置，负数值表示上一次无触摸按下*/
-static int16_t pre_x[GTP_MAX_TOUCH] = {-1, -1, -1, -1, -1};
-static int16_t pre_y[GTP_MAX_TOUCH] = {-1, -1, -1, -1, -1};
+static s16 pre_x[GTP_MAX_TOUCH] = {-1, -1, -1, -1, -1};
+static s16 pre_y[GTP_MAX_TOUCH] = {-1, -1, -1, -1, -1};
 
 static void GTP_Touch_Down(int32_t id, int32_t x, int32_t y, int32_t w)
 {
@@ -499,19 +499,19 @@ int32_t GTP_Init_Panel(void)
     return 0;
 }
 
-void GTP_ReadCurrentTSCase(u8 *pData)
+void GTP_ReadCurrentTSCase(u8 *pdata)
 {
-    gt9271_PortReceive(GT9271_GSTID_REG, pData);
+    gt9271_port_receive(GT9271_GSTID_REG, pdata);
 }
 
 void GTP_WriteCurrentTSCase(u8 Data)
 {
-    gt9271_PortTransmmit(GT9271_GSTID_REG, Data);
+    gt9271_port_transmmit(GT9271_GSTID_REG, Data);
 }
 
-void GTP_ReadCurrentTSPoint(u16 Addr, u8 *pData, u16 Len)
+void GTP_ReadCurrentTSPoint(u16 addr, u8 *pdata, u16 length)
 {
-    gt9271_port_multi_receive(Addr, pData, Len);
+    gt9271_port_multi_receive(addr, pdata, length);
 }
 
 #ifdef DESIGN_VERIFICATION_GT9271

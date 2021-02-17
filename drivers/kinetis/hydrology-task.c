@@ -3,6 +3,10 @@
 #include "kinetis/hydrology-config.h"
 #include "kinetis/hydrology-cmd.h"
 #include "kinetis/hydrology-identifier.h"
+#include "kinetis/tim-task.h"
+#include "kinetis/rtc-task.h"
+#include "kinetis/sht20.h"
+#include "kinetis/idebug.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -14,49 +18,37 @@
   * @step 5:  Finally, HydrologyTask_Init is called in the main function.
   */
 
-#include "kinetis/timtask.h"
-#include "kinetis/rtctask.h"
-#include "kinetis/sht20.h"
 #include "string.h"
-#include "kinetis/idebug.h"
-
-struct tim_task HydrologyTask_LinkMaintenance;
-struct tim_task Task_Temperature_Humidit;
-
-struct RTCTask_TypeDef HydrologyTask_Test;
-struct RTCTask_TypeDef HydrologyTask_TimerReport;
-struct RTCTask_TypeDef HydrologyTask_AddReport;
-struct RTCTask_TypeDef HydrologyTask_Hour;
 
 float SHT20_Temperature = 0;
 float SHT20_Humidit = 0;
 
-void Task_Temperature_Humidit_Callback(void)
+static void measure_temperature_humidit(void)
 {
 //    u8 tmpvalue[4] = {0, 0, 0, 0};
 
 //    SHT20_Read_TempAndRH(&SHT20_Temperature, &SHT20_Humidit);
 
 //    memcpy(tmpvalue, (char *)(&SHT20_Temperature), 4);
-//    Hydrology_WriteStoreInfo("HYDROLOGY_D_FILE_E_DATA", HYDROLOGY_ANALOG1, tmpvalue, HYDROLOGY_ANALOG_LEN);
+//    hydrology_write_store_info("HYDROLOGY_D_FILE_E_DATA", HYDROLOGY_ANALOG1, tmpvalue, HYDROLOGY_ANALOG_LEN);
 //    memcpy(tmpvalue, (char *)(&SHT20_Humidit), 4);
-//    Hydrology_WriteStoreInfo("HYDROLOGY_D_FILE_E_DATA", HYDROLOGY_ANALOG2, tmpvalue, HYDROLOGY_ANALOG_LEN);
+//    hydrology_write_store_info("HYDROLOGY_D_FILE_E_DATA", HYDROLOGY_ANALOG2, tmpvalue, HYDROLOGY_ANALOG_LEN);
 
-//    Hydrology_SetObservationTime(Element_table[0].ID, 0);
+//    hydrology_set_observation_time(element_table[0].ID, 0);
 }
 
-void HydrologyTask_LinkMaintenance_Callback(void)
+void link_packet(void)
 {
     printk(KERN_DEBUG "Send packet, function code = LinkMaintenance");
-    HydrologyD_Process(NULL, 0, HYDROLOGY_M1, LinkMaintenance);
+    hydrology_device_process(NULL, 0, HYDROLOGY_M1, LinkMaintenance);
 }
 
-void HydrologyTask_Test_Callback(void)
+static void test_packet(void)
 {
     float floatvalue;
     u8 i;
-    HydrologyElement Elment;
-    HydrologyElementInfo Element_table[] = {
+    struct hydrology_element Elment;
+    struct hydrology_element_info element_table[] = {
         HYDROLOGY_E_DT,
         NULL
     };
@@ -65,76 +57,63 @@ void HydrologyTask_Test_Callback(void)
     floatvalue = 12;
 
     for (i = 0; i < 1; i++) {
-        Hydrology_MallocElement(Element_table[i].ID,
-            Element_table[i].D, Element_table[i].d,
+        hydrology_malloc_element(element_table[i].ID,
+            element_table[i].D, element_table[i].d,
             &Elment);
 
-        Hydrology_ConvertToHexElement((double)floatvalue,
-            Element_table[i].D, Element_table[i].d,
+        hydrology_convert_to_hex_element((double)floatvalue,
+            element_table[i].D, element_table[i].d,
             Elment.value);
     }
 
     printk(KERN_DEBUG "Send packet, function code = Test");
-    HydrologyD_Process(Element_table, 1, HYDROLOGY_M1, Test);
+    hydrology_device_process(element_table, 1, HYDROLOGY_M1, Test);
 }
 
-void HydrologyTask_TimerReport_Callback(void)
+static void timer_report_packet(void)
 {
     printk(KERN_DEBUG "Send packet, function code = TimerReport");
 }
 
-void HydrologyTask_AddReport_Callback(void)
+static void add_report_packet(void)
 {
     printk(KERN_DEBUG "Send packet, function code = AddReport");
 }
 
-void HydrologyTask_Hour_Callback(void)
+static void hour_packet(void)
 {
     printk(KERN_DEBUG "Send packet, function code = Hour");
 }
 
-void HydrologyTask_Deinit(void)
+void hydrology_task_exit(void)
 {
-    TimTask_Deinit(&Task_Temperature_Humidit);
-    TimTask_Stop(&Task_Temperature_Humidit);
-
-    TimTask_Deinit(&HydrologyTask_LinkMaintenance);
-
-//  RTCTask_Deinit(&HydrologyTask_Test);
-//  RTCTask_Stop(&HydrologyTask_Test);
-
-    RTCTask_Deinit(&HydrologyTask_TimerReport);
-    RTCTask_Stop(&HydrologyTask_TimerReport);
-
-    RTCTask_Deinit(&HydrologyTask_Hour);
-    RTCTask_Stop(&HydrologyTask_Hour);
+    tim_task_drop(measure_temperature_humidit);
+    tim_task_drop(link_packet);
+    rtc_task_drop(test_packet);
+    rtc_task_drop(timer_report_packet);
+    rtc_task_drop(add_report_packet);
+    rtc_task_drop(hour_packet);
 }
 
-void HydrologyTask_Init(void)
+void hydrology_task_init(void)
 {
     u8 interval;
 
-    TimTask_Init(&Task_Temperature_Humidit, Task_Temperature_Humidit_Callback, 60 * 1000, 60 * 1000);
-    TimTask_Start(&Task_Temperature_Humidit);
+    tim_task_add(60 * 1000, true, measure_temperature_humidit); 
+    tim_task_add(40 * 1000, true, link_packet); 
 
-    TimTask_Init(&HydrologyTask_LinkMaintenance, HydrologyTask_LinkMaintenance_Callback, 40 * 1000, 40 * 1000);
+    rtc_task_add(0,0,0,0,1,0, true, test_packet);
 
-//  RTCTask_Init(&HydrologyTask_Test, HydrologyTask_Test_Callback, 0, 1, 0);
-//  RTCTask_Start(&HydrologyTask_Test);
+    hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_TI, &interval, 1);
+    rtc_task_add(0,0,0,0,interval,0, true, timer_report_packet);
 
-    Hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_TI, &interval, 1);
-    RTCTask_Init(&HydrologyTask_TimerReport, HydrologyTask_TimerReport_Callback, interval, 0, 0);
-    RTCTask_Start(&HydrologyTask_TimerReport);
-
-    Hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_AI, &interval, 1);
+    hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_AI, &interval, 1);
 
     if (interval != 0) {
-        RTCTask_Init(&HydrologyTask_AddReport, HydrologyTask_AddReport_Callback, 0, interval, 0);
-        RTCTask_Start(&HydrologyTask_AddReport);
+        rtc_task_add(0,0,0,0,interval,0, true, add_report_packet);
     }
 
-    RTCTask_Init(&HydrologyTask_Hour, HydrologyTask_Hour_Callback, 1, 0, 0);
-    RTCTask_Start(&HydrologyTask_Hour);
+    rtc_task_add(0,0,0,1,0,0, true, hour_packet);
 }
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

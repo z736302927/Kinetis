@@ -1,10 +1,13 @@
 #include "kinetis/general.h"
 #include "kinetis/slist.h"
-#include "kinetis/serialport.h"
-#include <linux/delay.h>
+#include "kinetis/serial-port.h"
 #include "kinetis/basic-timer.h"
+#include "kinetis/idebug.h"
+
 #include "string.h"
 #include "stdio.h"
+
+#include <linux/iopoll.h>
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -16,117 +19,106 @@
   * @step 5:
   */
 
-#include "kinetis/idebug.h"
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-void General_GenerateCommand(GeneralCommand_TypeDef *Command)
+static void general_generate_cmd(struct general_cmd *cmd)
 {
-    Command->SerialPort->PortNbr = 3;
-    Command->SerialPort->TempBuffer_Size = 200;
-    Command->SerialPort->RxBuffer_Size = 50;
-    Command->SerialPort->RxScanInterval = 10;
+    cmd->serial_port->port_nbr = 3;
+    cmd->serial_port->tmp_buffer_size = 200;
+    cmd->serial_port->rx_buffer_size = 50;
+    cmd->serial_port->rx_scan_interval = 10;
 
-    switch (Command->Property) {
+    switch (cmd->property) {
         case AT_NONE:
             break;
 
         case AT_TEST:
-            Command->SerialPort->TxBuffer_Size = strlen(Command->AT_Command) + strlen("?\r\n");
-            Command->SerialPort->TempBuffer_Size = 128;
-            Command->SerialPort->RxScanInterval = 10;
-            snprintf((char *)Command->SerialPort->TxBuffer,
-                Command->SerialPort->TxBuffer_Size, "%s?\r\n",
-                Command->AT_Command);
+            cmd->serial_port->tx_buffer_size = strlen(cmd->at_cmd) + strlen("?\r\n");
+            cmd->serial_port->tmp_buffer_size = 128;
+            cmd->serial_port->rx_scan_interval = 10;
+            snprintf((char *)cmd->serial_port->tx_buffer,
+                cmd->serial_port->tx_buffer_size, "%s?\r\n",
+                cmd->at_cmd);
             break;
 
         case AT_READ:
-            Command->SerialPort->TxBuffer_Size = strlen(Command->AT_Command) + strlen("?\r\n");
-            Command->SerialPort->TempBuffer_Size = 128;
-            Command->SerialPort->RxScanInterval = 10;
-            snprintf((char *)Command->SerialPort->TxBuffer,
-                Command->SerialPort->TxBuffer_Size, "%s?\r\n",
-                Command->AT_Command);
+            cmd->serial_port->tx_buffer_size = strlen(cmd->at_cmd) + strlen("?\r\n");
+            cmd->serial_port->tmp_buffer_size = 128;
+            cmd->serial_port->rx_scan_interval = 10;
+            snprintf((char *)cmd->serial_port->tx_buffer,
+                cmd->serial_port->tx_buffer_size, "%s?\r\n",
+                cmd->at_cmd);
             break;
 
         case AT_SET:
-            Command->SerialPort->TxBuffer_Size = strlen(Command->AT_Command) + strlen("?\r\n");
-            Command->SerialPort->TempBuffer_Size = 128;
-            Command->SerialPort->RxScanInterval = 10;
-            snprintf((char *)Command->SerialPort->TxBuffer,
-                Command->SerialPort->TxBuffer_Size, "%s?\r\n",
-                Command->AT_Command);
+            cmd->serial_port->tx_buffer_size = strlen(cmd->at_cmd) + strlen("?\r\n");
+            cmd->serial_port->tmp_buffer_size = 128;
+            cmd->serial_port->rx_scan_interval = 10;
+            snprintf((char *)cmd->serial_port->tx_buffer,
+                cmd->serial_port->tx_buffer_size, "%s?\r\n",
+                cmd->at_cmd);
             break;
 
         case AT_EXCUTE:
-            Command->SerialPort->TxBuffer_Size = strlen(Command->AT_Command) + strlen("?\r\n");
-            Command->SerialPort->TempBuffer_Size = 128;
-            Command->SerialPort->RxScanInterval = 10;
-            snprintf((char *)Command->SerialPort->TxBuffer,
-                Command->SerialPort->TxBuffer_Size, "%s?\r\n",
-                Command->AT_Command);
+            cmd->serial_port->tx_buffer_size = strlen(cmd->at_cmd) + strlen("?\r\n");
+            cmd->serial_port->tmp_buffer_size = 128;
+            cmd->serial_port->rx_scan_interval = 10;
+            snprintf((char *)cmd->serial_port->tx_buffer,
+                cmd->serial_port->tx_buffer_size, "%s?\r\n",
+                cmd->at_cmd);
             break;
     }
 
-    SerialPort_Open(Command->SerialPort);
+    serial_port_open(cmd->serial_port);
 }
 
-void General_TransmmitCommand(GeneralCommand_TypeDef *Command)
+static void general_transmmit_cmd(struct general_cmd *cmd)
 {
-    SerialPort_Open(Command->SerialPort);
-    SerialPort_Send(Command->SerialPort);
+    serial_port_open(cmd->serial_port);
+    serial_port_send(cmd->serial_port);
 }
 
-void General_ReceiveCommand(GeneralCommand_TypeDef *Command)
+static void general_receive_cmd(struct general_cmd *cmd)
 {
-    u32 Refer = 0;
-    u32 Delta = 0;
-
-    Refer = basic_timer_get_timer_cnt();
-
-    while (1) {
-        if (SerialPort_Receive(Command->SerialPort) == true)
-            break;
-
-        Delta = basic_timer_get_timer_cnt() >= Refer ?
-            basic_timer_get_timer_cnt() - Refer :
-            basic_timer_get_timer_cnt() + (DELAY_TIMER_UNIT - Refer);
-
-        if (Delta > Command->WaitTime) {
-            Command->TimeoutFlag = true;
-            break;
-        }
+    bool arrived;
+    int ret;
+    
+    ret = readx_poll_timeout_atomic(serial_port_receive, cmd->serial_port,
+        arrived, arrived == true,
+        0, cmd->wait_time);
+    
+    if (ret) {
+        cmd->timeout_flag = true;
     }
 
-    SerialPort_Close(Command->SerialPort);
+    serial_port_close(cmd->serial_port);
 }
 
-char *strsep(char **s, const char *ct);
-
-void General_DecomposeResult(GeneralCommand_TypeDef *Command)
+static void general_decompose_result(struct general_cmd *cmd)
 {
-    char **argv = Command->argv;
-    u16 *argc = &Command->argc;
+    char **argv = cmd->argv;
+    u16 *argc = &cmd->argc;
 
     do {
-        argv[*argc] = strsep((char **) & (Command->SerialPort->RxBuffer), Command->Delimiter);
+        argv[*argc] = strsep((char **) & (cmd->serial_port->rx_buffer), cmd->delimiter);
         printk(KERN_DEBUG "[%d] %s", *argc, argv[*argc]);
         (*argc)++;
-    } while (Command->SerialPort->RxBuffer);
+    } while (cmd->serial_port->rx_buffer);
 }
 
-void General_ProcessCommand(GeneralCommand_TypeDef *Command)
+void general_process_cmd(struct general_cmd *cmd)
 {
-    while (Command->ErrorRepetition) {
-        General_GenerateCommand(Command);
-        General_TransmmitCommand(Command);
-        General_ReceiveCommand(Command);
-        General_DecomposeResult(Command);
+    while (cmd->error_repetition) {
+        general_generate_cmd(cmd);
+        general_transmmit_cmd(cmd);
+        general_receive_cmd(cmd);
+        general_decompose_result(cmd);
 
-        Command->ErrorRepetition--;
+        cmd->error_repetition--;
 
-        if (strcmp(Command->pExpectRes, Command->argv[0]) != 0)
-            Command->ErrorFlag = true;
+        if (strcmp(cmd->expect_res, cmd->argv[0]) != 0)
+            cmd->error_flag = true;
         else
             break;
     }
@@ -135,19 +127,19 @@ void General_ProcessCommand(GeneralCommand_TypeDef *Command)
 #ifdef DESIGN_VERIFICATION_GENERAL
 #include "kinetis/test-kinetis.h"
 
-int t_General_Success(int argc, char **argv)
+int t_general_success(int argc, char **argv)
 {
 
     return PASS;
 }
 
-int t_General_Error(int argc, char **argv)
+int t_general_error(int argc, char **argv)
 {
 
     return PASS;
 }
 
-int t_General_Timeout(int argc, char **argv)
+int t_general_timeout(int argc, char **argv)
 {
 
     return PASS;

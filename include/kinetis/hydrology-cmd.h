@@ -7,11 +7,11 @@ extern "C" {
 
 #include "kinetis/hydrology.h"
 
-int Hydrology_ExecuteCommand(HydrologyBodyType Funcode);
-int Hydrology_ResponseDownstream(HydrologyBodyType Funcode);
-int Hydrology_ResponseUpstream(HydrologyBodyType Funcode, u8 End);
-int HydrologyD_Reset(void);
-int HydrologyH_Reset(void);
+int hydrology_execute_command(enum hydrology_body_type funcode);
+int hydrology_response_downstream(enum hydrology_body_type funcode);
+int hydrology_response_upstream(enum hydrology_body_type funcode, u8 End);
+int hydrology_device_reset(void);
+int hydrology_host_reset(void);
 
 #ifdef __cplusplus
 }

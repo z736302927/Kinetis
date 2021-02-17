@@ -14,9 +14,9 @@ extern "C" {
 #define GTP_MAX_WIDTH                   1280
 
 int32_t GTP_Init_Panel(void);
-void GTP_ReadCurrentTSCase(u8 *pData);
+void GTP_ReadCurrentTSCase(u8 *pdata);
 void GTP_WriteCurrentTSCase(u8 Data);
-void GTP_ReadCurrentTSPoint(u16 Addr, u8 *pData, u16 Len);
+void GTP_ReadCurrentTSPoint(u16 addr, u8 *pdata, u16 length);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

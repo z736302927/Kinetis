@@ -1,5 +1,5 @@
 #include "kinetis/fatfs.h"
-#include "kinetis/rtc.h"
+#include "kinetis/real-time-clock.h"
 #include "kinetis/basic-timer.h"
 #include "kinetis/idebug.h"
 
@@ -347,7 +347,7 @@ FRESULT fatfs_delete_node(
 
         do {    /* Make a path name */
             if (i + j >= sz_buff) { /* Buffer over flow? */
-                fr = 100;
+                fr = FR_NOT_ENOUGH_CORE;
                 break;    /* Fails with 100 when buffer overflow */
             }
 
@@ -997,8 +997,8 @@ int t_fatfs_append(int argc, char **argv)
     if (fr != FR_OK)
         return FAIL;
 
-//    RTC_CalendarShow(&year, &month, &date, &hours, &minutes, &seconds, NULL,
-//        KRTC_FORMAT_BIN);
+    rtc_calendar_show(&year, &month, &date, &hours, &minutes, &seconds, NULL,
+        KRTC_FORMAT_BIN);
 
     /* Append a line */
     f_printf(&fil, "%02u/%02u/%u, %2u:%02u\n", date, month, year, hours, minutes);
@@ -1075,6 +1075,10 @@ int t_fatfs_expend(int argc, char **argv)
     dr = disk_write(fs.pdrv, work_buffer, org, 1024);   /* Write 512KiB from top of the file */
 
     f_close(&fil);
+    
+    if (dr != RES_OK)
+        return FAIL;
+    
     return PASS;
 }
 

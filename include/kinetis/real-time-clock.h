@@ -12,10 +12,10 @@ extern "C" {
 
 #include "kinetis/core_common.h"
 
-void RTC_CalendarConfig(u8 Year, u8 Month, u8 Date,
-    u8 Hours, u8 Minutes, u8 Seconds, u8 WeekDay, u8 Format);
-void RTC_CalendarShow(u8 *Year, u8 *Month, u8 *Date,
-    u8 *Hours, u8 *Minutes, u8 *Seconds, u8 *WeekDay, u8 Format);
+void rtc_calendar_config(u8 year, u8 month, u8 date,
+    u8 hours, u8 minutes, u8 seconds, u8 weekday, u8 format);
+void rtc_calendar_show(u8 *year, u8 *month, u8 *date,
+    u8 *hours, u8 *minutes, u8 *seconds, u8 *weekday, u8 format);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

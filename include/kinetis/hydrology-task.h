@@ -10,8 +10,8 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include "kinetis/core_common.h"
 
-void HydrologyTask_Deinit(void);
-void HydrologyTask_Init(void);
+void hydrology_task_exit(void);
+void hydrology_task_init(void);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

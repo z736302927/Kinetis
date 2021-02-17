@@ -185,7 +185,7 @@ int NB_IOT_ResponseCallback(NB_MessageTypeDef types, int len, char *msg)
                 NB_Response_Result = TRUE;
 
                 if (len > 3) {
-                    HydrologySetMsgSrc(MsgFormServer);
+                    HydrologySetMsgSrc(MSG_FORM_SERVER);
                     HydrologyProcessReceieve((char *)msg, len);
                 }
             }
@@ -225,7 +225,7 @@ int NB_IOT_ResponseCallback(NB_MessageTypeDef types, int len, char *msg)
                 NB_Response_Result = TRUE;
 
                 if (len > 3) {
-                    HydrologySetMsgSrc(MsgFormServer);
+                    HydrologySetMsgSrc(MSG_FORM_SERVER);
                     HydrologyProcessReceieve((char *)msg, len);
                 }
             }
@@ -351,7 +351,7 @@ void NB_IOT_SendData(char *pdata, int len)
 {
     State state;
     StateMachine machine;
-    SM_VAR var;
+    struct sm_var var;
 
     if (NB_Turnoff_Pipe == 1)
         machine.current = sNB_NONE;
@@ -377,7 +377,7 @@ void NB_IOT_SendData(char *pdata, int len)
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-int FSM_NB_None(pStateMachine machine, SM_VAR *sm_var)
+int FSM_NB_None(struct state_machine * machine, struct sm_var *sm_var)
 {
     int _retValue = FALSE;
 
@@ -389,7 +389,7 @@ int FSM_NB_None(pStateMachine machine, SM_VAR *sm_var)
     return _retValue;
 }
 
-int FSM_NB_Init(pStateMachine machine, SM_VAR *sm_var)
+int FSM_NB_Init(struct state_machine * machine, struct sm_var *sm_var)
 {
     int _retValue = FALSE;
 
@@ -410,7 +410,7 @@ int FSM_NB_Init(pStateMachine machine, SM_VAR *sm_var)
     return _retValue;
 }
 
-int FSM_NB_GetSign(pStateMachine machine, SM_VAR *sm_var)
+int FSM_NB_GetSign(struct state_machine * machine, struct sm_var *sm_var)
 {
     int _retValue = FALSE;
 
@@ -431,7 +431,7 @@ int FSM_NB_GetSign(pStateMachine machine, SM_VAR *sm_var)
     return _retValue;
 }
 
-int FSM_NB_GetModuleInfo(pStateMachine machine, SM_VAR *sm_var)
+int FSM_NB_GetModuleInfo(struct state_machine * machine, struct sm_var *sm_var)
 {
     int _retValue = FALSE;
 
@@ -452,7 +452,7 @@ int FSM_NB_GetModuleInfo(pStateMachine machine, SM_VAR *sm_var)
     return _retValue;
 }
 
-int FSM_NB_CreateUDP(pStateMachine machine, SM_VAR *sm_var)
+int FSM_NB_CreateUDP(struct state_machine * machine, struct sm_var *sm_var)
 {
     int _retValue = FALSE;
 
@@ -477,7 +477,7 @@ int FSM_NB_CreateUDP(pStateMachine machine, SM_VAR *sm_var)
     return _retValue;
 }
 
-int FSM_NB_CloseUDP(pStateMachine machine, SM_VAR *sm_var)
+int FSM_NB_CloseUDP(struct state_machine * machine, struct sm_var *sm_var)
 {
     int _retValue = FALSE;
 
@@ -503,7 +503,7 @@ int FSM_NB_CloseUDP(pStateMachine machine, SM_VAR *sm_var)
     return _retValue;
 }
 
-int FSM_NB_UDPRegister(pStateMachine machine, SM_VAR *sm_var)
+int FSM_NB_UDPRegister(struct state_machine * machine, struct sm_var *sm_var)
 {
     int _retValue = FALSE;
 
@@ -537,7 +537,7 @@ int FSM_NB_UDPRegister(pStateMachine machine, SM_VAR *sm_var)
     return _retValue;
 }
 
-int FSM_NB_UDPSendData(pStateMachine machine, SM_VAR *sm_var)
+int FSM_NB_UDPSendData(struct state_machine * machine, struct sm_var *sm_var)
 {
     int _retValue = FALSE;
 
@@ -564,7 +564,7 @@ int FSM_NB_UDPSendData(pStateMachine machine, SM_VAR *sm_var)
     return _retValue;
 }
 
-int FSM_NB_WaitReceiveData(pStateMachine machine, SM_VAR *sm_var)
+int FSM_NB_WaitReceiveData(struct state_machine * machine, struct sm_var *sm_var)
 {
     int _retValue = FALSE;
 
@@ -587,7 +587,7 @@ int FSM_NB_WaitReceiveData(pStateMachine machine, SM_VAR *sm_var)
     return _retValue;
 }
 
-int FSM_NB_Reset(pStateMachine machine, SM_VAR *sm_var)
+int FSM_NB_Reset(struct state_machine * machine, struct sm_var *sm_var)
 {
     int _retValue = FALSE;
 
@@ -607,7 +607,7 @@ int FSM_NB_Reset(pStateMachine machine, SM_VAR *sm_var)
     return _retValue;
 }
 
-int FSM_NB_End(pStateMachine machine, SM_VAR *sm_var)
+int FSM_NB_End(struct state_machine * machine, struct sm_var *sm_var)
 {
     int _retValue = FALSE;
 

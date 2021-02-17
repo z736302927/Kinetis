@@ -1,14 +1,15 @@
 #include "kinetis/led.h"
-#include "kinetis/slist.h"
-#include "string.h"
-#include "stdlib.h"
+
 #include <linux/gfp.h>
 #include <linux/slab.h>
+#include <linux/errno.h>
 
 //LED Handle list head.
-static struct LED_TypeDef *LED_HeadHandler = NULL;
+static LIST_HEAD(led_head);
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
+
+#include "stm32f4xx_hal.h"
 
 /**
   * @step 1:  Modify the corresponding function according to the modified area and the corresponding function name.
@@ -18,37 +19,7 @@ static struct LED_TypeDef *LED_HeadHandler = NULL;
   * @step 5:
   */
 
-//GPIO_TypeDef* GPIO_PORT[LEDn] = {GPIOD,
-//                                 GPIOG,
-//                                 GPIOG,
-//                                 GPIOG
-//                                 };
-
-//const u16 GPIO_PIN[LEDn] = {GPIO_PIN_7,
-//                                 GPIO_PIN_10,
-//                                 GPIO_PIN_13,
-//                                 GPIO_PIN_14
-//                                 };
-
-GPIO_TypeDef *GPIO_PORT[LEDn] = {GPIOC,
-        GPIOC,
-        GPIOC,
-        GPIOC
-    };
-
-const u16 GPIO_PIN[LEDn] = {GPIO_PIN_6,
-        GPIO_PIN_7,
-        GPIO_PIN_8,
-        GPIO_PIN_9
-    };
-
-/**
-  * @brief  Configures LED GPIO.
-  * @param  LED: Specifies the LED to be configured.
-  *   This parameter can be one of following parameters:
-  *     @arg LEDx
-  */
-void K_LED_Init(LEDn_Type LED)
+static inline void led_init(struct led *led)
 {
     GPIO_InitTypeDef  GPIO_InitStruct;
 
@@ -56,43 +27,57 @@ void K_LED_Init(LEDn_Type LED)
     __HAL_RCC_GPIOG_CLK_ENABLE();
 
     /* Configure the GPIO_LED pin */
-    GPIO_InitStruct.Pin = GPIO_PIN[LED];
+    GPIO_InitStruct.Pin = led->num;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Pull = GPIO_PULLUP;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
 
-    HAL_GPIO_Init(GPIO_PORT[LED], &GPIO_InitStruct);
+    HAL_GPIO_Init(led->group, &GPIO_InitStruct);
 
-    HAL_GPIO_WritePin(GPIO_PORT[LED], GPIO_PIN[LED], GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(led->group, led->num, GPIO_PIN_RESET);
 }
+
+static inline void led_set_status(struct led *led, enum led_status status)
+{
+    switch (status) {
+        case ON:
+            HAL_GPIO_WritePin(led->group, led->num, GPIO_PIN_SET);
+            break;
+        case OFF:
+            HAL_GPIO_WritePin(led->group, led->num, GPIO_PIN_RESET);
+            break;
+        case TOGGLE:
+            HAL_GPIO_TogglePin(led->group, led->num);
+            break;
+
+        default:;
+    }
+}
+
+/* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /**
   * @brief  Start the LED work, add the handle into work list.
   * @param  btn: target handle strcut.
   * @retval 0: succeed. -1: already exist.
   */
-int K_Add_LED(struct LED_TypeDef *Handle, u8 UniqueID, char *Color)
+int led_add(u32 unique_id, enum led_color color, void *group, u32 num)
 {
-    struct LED_TypeDef *target = LED_HeadHandler;
+    struct led *led;
 
-    Handle->UniqueID = UniqueID;
-    Handle->Color = (char *)kmalloc(strlen(Color), __GFP_ZERO);
+    led = kmalloc(sizeof(*led), GFP_KERNEL);
 
-    if (Handle->Color != NULL)
-        strncpy(Handle->Color, Color, 10);
-    else
-        return -1;
+    if (!led)
+        return -ENOMEM;
 
-    while (target) {
-        if (target == Handle) {
-            return -1;    //already exist.
-        }
-
-        target = target->Next;
-    }
-
-    Handle->Next = LED_HeadHandler;
-    LED_HeadHandler = Handle;
+    led->unique_id = unique_id;
+    led->color = color;
+    led->group = group;
+    led->num = color;
+    led_init(led);
+    
+    list_add_tail(&led->list, &led_head);
+    
     return 0;
 }
 
@@ -101,21 +86,16 @@ int K_Add_LED(struct LED_TypeDef *Handle, u8 UniqueID, char *Color)
   * @param  Handle: target handle strcut.
   * @retval None
   */
-void K_Remove_LED(struct LED_TypeDef *Handle)
+void led_drop(u32 unique_id)
 {
-    struct LED_TypeDef **curr;
-
-    Handle->UniqueID = 0;
-    kfree(Handle->Color);
-
-    for (curr = &LED_HeadHandler; *curr;) {
-        struct LED_TypeDef *entry = *curr;
-
-        if (entry == Handle) {
-            *curr = entry->Next;
-            //kfree(entry);
-        } else
-            curr = &entry->Next;
+    struct led *led, *tmp;
+    
+    list_for_each_entry_safe(led, tmp, &led_head, list) {
+        if (led->unique_id == unique_id) {
+            list_del(&led->list);
+            kfree(led);
+            break;
+        }
     }
 }
 
@@ -125,70 +105,50 @@ void K_Remove_LED(struct LED_TypeDef *Handle)
   *   This parameter can be one of following parameters:
   *     @arg LEDx
   */
-void K_LED_On(LEDn_Type LED)
+void led_operation(u32 unique_id, enum led_status status)
 {
-    HAL_GPIO_WritePin(GPIO_PORT[LED], GPIO_PIN[LED], GPIO_PIN_SET);
+    struct led *led;
+    
+    list_for_each_entry(led, &led_head, list) {
+        if (led->unique_id == unique_id) {
+            led_set_status(led, status);
+            break;
+        }
+    }
 }
-
-/**
-  * @brief  Turns selected LED Off.
-  * @param  LED: Specifies the LED to be set off.
-  *   This parameter can be one of following parameters:
-  *     @arg LEDx
-  */
-void K_LED_Off(LEDn_Type LED)
-{
-    HAL_GPIO_WritePin(GPIO_PORT[LED], GPIO_PIN[LED], GPIO_PIN_RESET);
-}
-
-/**
-  * @brief  Toggles the selected LED.
-  * @param  LED: Specifies the LED to be toggled.
-  *   This parameter can be one of following parameters:
-  *     @arg LEDx
-  */
-void K_LED_Toggle(LEDn_Type LED)
-{
-    HAL_GPIO_TogglePin(GPIO_PORT[LED], GPIO_PIN[LED]);
-}
-
-/* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 #ifdef DESIGN_VERIFICATION_LED
 #include "kinetis/test-kinetis.h"
-#include "kinetis/timtask.h"
+#include "kinetis/tim-task.h"
 
-struct tim_task LEDTask;
-
-void LEDTask_Callback(void)
+static void led_task_callback(void)
 {
-    K_LED_Toggle(LED1);
-    K_LED_Toggle(LED2);
-    K_LED_Toggle(LED3);
-    K_LED_Toggle(LED4);
+    led_operation(1, TOGGLE);
+    led_operation(2, TOGGLE);
+    led_operation(3, TOGGLE);
+    led_operation(4, TOGGLE);
 }
 
-void LEDTask_Init(void)
+int t_led_add(int argc, char **argv)
 {
-    TimTask_Init(&LEDTask, LEDTask_Callback, 1000, 1000); //1s loop
-    TimTask_Start(&LEDTask);
-}
-
-void LEDTask_Deinit(void)
-{
-    TimTask_Stop(&LEDTask);
-}
-
-int t_LED_Toggle(int argc, char **argv)
-{
-    LEDTask_Init();
+    tim_task_add(1000, true, led_task_callback); 
+    
+    led_add(1, RED, GPIOC, GPIO_PIN_6);
+    led_add(2, RED, GPIOC, GPIO_PIN_7);
+    led_add(3, RED, GPIOC, GPIO_PIN_8);
+    led_add(4, RED, GPIOC, GPIO_PIN_9);
 
     return PASS;
 }
 
-int t_LED_Delete(int argc, char **argv)
+int t_led_drop(int argc, char **argv)
 {
-    LEDTask_Deinit();
+    tim_task_drop(led_task_callback);
+    
+    led_drop(1);
+    led_drop(2);
+    led_drop(3);
+    led_drop(4);
 
     return PASS;
 }

@@ -1,5 +1,5 @@
 #include "kinetis/button.h"
-#include "kinetis/timtask.h"
+#include "kinetis/tim-task.h"
 
 #include <linux/slab.h>
 #include <linux/errno.h>
@@ -38,7 +38,7 @@ void button_task_exit(void)
 #define SHORT_TICKS       (300  / TICKS_INTERVAL)
 #define LONG_TICKS        (1000 / TICKS_INTERVAL)
 
-static struct list_head button_head;
+static LIST_HEAD(button_head);
 
 /**
   * @brief  Initializes the button struct button.
@@ -47,9 +47,10 @@ static struct list_head button_head;
   * @param  active_level: pin pressed level.
   * @retval None
   */
-int button_add(struct button *button, u8(*pin_level)(void), u8 active_level,
+int button_add(u32 unique_id, u8(*pin_level)(void), u8 active_level,
     button_callback callback)
 {
+    struct button *button;
     u32 i;
 
     button = kmalloc(sizeof(*button), GFP_KERNEL);
@@ -57,7 +58,7 @@ int button_add(struct button *button, u8(*pin_level)(void), u8 active_level,
     if (!button)
         return -ENOMEM;
     
-    memset(button, 0, sizeof(struct button));
+    button->unique_id = unique_id;
     button->event = (u8)NONE_PRESS;
     button->hal_button_level = pin_level;
     button->button_level = button->hal_button_level();
@@ -75,10 +76,17 @@ int button_add(struct button *button, u8(*pin_level)(void), u8 active_level,
   * @param  button: the button button strcut.
   * @retval None
   */
-void button_drop(struct button *button)
+void button_drop(u32 unique_id)
 {
-    list_del(&button->list);
-    kfree(button);
+    struct button *button, *tmp;
+    
+    list_for_each_entry_safe(button, tmp, &button_head, list) {
+        if (button->unique_id == unique_id) {
+            list_del(&button->list);
+            kfree(button);
+            break;
+        }
+    }
 }
 
 /**
@@ -278,11 +286,9 @@ static void button_test_callback(void *button)
 
 int t_button_add(int argc, char **argv)
 {
-    struct button *button;
-
     button_task_init();
 
-    button_add(button, button_read_pin, 0, button_test_callback);
+    button_add(1, button_read_pin, 0, button_test_callback);
 
     printk(KERN_DEBUG "Button test is running, please push the button.");
 
@@ -291,15 +297,12 @@ int t_button_add(int argc, char **argv)
 
 int t_button_drop(int argc, char **argv)
 {
-    struct button *button, *tmp;
-    
     button_task_exit();
 
     if (list_empty(&button_head))
         return PASS;
     
-    list_for_each_entry_safe(button, tmp, &button_head, list)
-        button_drop(button);
+    button_drop(1);
 
     printk(KERN_DEBUG "Button test is over");
 

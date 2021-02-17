@@ -10,7 +10,7 @@
   * @step 5:
   */
 
-#include "iic_soft/iic_soft.h"
+#include "kinetis/iic_soft.h"
 
 #define DEBUG
 #include "kinetis/idebug.h"
@@ -29,24 +29,24 @@ void max30205_Delayms(u32 ticks)
     mdelay(ticks);
 }
 
-void max30205_PortTransmmit(u8 Addr, u8 Data)
+void max30205_port_transmmit(u8 addr, u8 Data)
 {
-    IIC_Soft_WriteSingleByteWithAddr(MAX30205_ADDR, Addr, Data);
+    IIC_Soft_WriteSingleByteWithAddr(MAX30205_ADDR, addr, Data);
 }
 
-void max30205_PortReceive(u8 Addr, u8 *pData)
+void max30205_port_receive(u8 addr, u8 *pdata)
 {
-    IIC_Soft_ReadSingleByteWithAddr(MAX30205_ADDR, Addr, pData);
+    IIC_Soft_ReadSingleByteWithAddr(MAX30205_ADDR, addr, pdata);
 }
 
-void max30205_port_multi_transmmit(u8 Addr, u8 *pData, u32 Length)
+void max30205_port_multi_transmmit(u8 addr, u8 *pdata, u32 Length)
 {
-    IIC_Soft_WriteMultiByteWithAddr(MAX30205_ADDR, Addr, pData, Length);
+    IIC_Soft_WriteMultiByteWithAddr(MAX30205_ADDR, addr, pdata, Length);
 }
 
-void max30205_port_multi_receive(u8 Addr, u8 *pData, u32 Length)
+void max30205_port_multi_receive(u8 addr, u8 *pdata, u32 Length)
 {
-    IIC_Soft_ReadMultiByteWithAddr(MAX30205_ADDR, Addr, pData, Length);
+    IIC_Soft_ReadMultiByteWithAddr(MAX30205_ADDR, addr, pdata, Length);
 }
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
@@ -56,132 +56,132 @@ void max30205_port_multi_receive(u8 Addr, u8 *pData, u32 Length)
 #define THYST                           0x02
 #define TOS                             0x03
 
-void max30205_TempMeasurement(u16 *pData)
+void max30205_TempMeasurement(u16 *pdata)
 {
     u8 TmpVal[2];
 
     max30205_port_multi_receive(TEMPERATURE, TmpVal, 2);
 
-    pData[0] = (TmpVal[0] << 8) | TmpVal[1];
+    pdata[0] = (TmpVal[0] << 8) | TmpVal[1];
 }
 
-void max30205_GetTemperature(float *pData)
+void max30205_GetTemperature(float *pdata)
 {
     u16 TmpVal;
 
     max30205_TempMeasurement(&TmpVal);
 
-    pData[0] = (float)TmpVal * 0.00390625;
+    pdata[0] = (float)TmpVal * 0.00390625;
 }
 
 void max30205_ShutDown(u8 Data)
 {
     u8 TmpReg = 0;
 
-    max30205_PortReceive(CONFIGRATION, &TmpReg);
+    max30205_port_receive(CONFIGRATION, &TmpReg);
 
     Data &= 0x01;
     TmpReg &= ~(0x01 << 0);
     TmpReg |= (Data << 0);
 
-    max30205_PortTransmmit(CONFIGRATION, TmpReg);
+    max30205_port_transmmit(CONFIGRATION, TmpReg);
 }
 
 void max30205_EnterComparatorMode(void)
 {
     u8 TmpReg = 0;
 
-    max30205_PortReceive(CONFIGRATION, &TmpReg);
+    max30205_port_receive(CONFIGRATION, &TmpReg);
 
     TmpReg &= ~(0x01 << 1);
 
-    max30205_PortTransmmit(CONFIGRATION, TmpReg);
+    max30205_port_transmmit(CONFIGRATION, TmpReg);
 }
 
 void max30205_EnterInterruptMode(void)
 {
     u8 TmpReg = 0;
 
-    max30205_PortReceive(CONFIGRATION, &TmpReg);
+    max30205_port_receive(CONFIGRATION, &TmpReg);
 
     TmpReg &= ~(0x01 << 1);
     TmpReg |= (1 << 1);
 
-    max30205_PortTransmmit(CONFIGRATION, TmpReg);
+    max30205_port_transmmit(CONFIGRATION, TmpReg);
 }
 
 void max30205_OSPolarity(u8 Data)
 {
     u8 TmpReg = 0;
 
-    max30205_PortReceive(CONFIGRATION, &TmpReg);
+    max30205_port_receive(CONFIGRATION, &TmpReg);
 
     Data &= 0x01;
     TmpReg &= ~(0x01 << 2);
     TmpReg |= (Data << 2);
 
-    max30205_PortTransmmit(CONFIGRATION, TmpReg);
+    max30205_port_transmmit(CONFIGRATION, TmpReg);
 }
 
 void max30205_ConfigFaultQueue(u8 Data)
 {
     u8 TmpReg = 0;
 
-    max30205_PortReceive(CONFIGRATION, &TmpReg);
+    max30205_port_receive(CONFIGRATION, &TmpReg);
 
     Data &= 0x03;
     TmpReg &= ~(0x03 << 3);
     TmpReg |= (Data << 3);
 
-    max30205_PortTransmmit(CONFIGRATION, TmpReg);
+    max30205_port_transmmit(CONFIGRATION, TmpReg);
 }
 
 void max30205_DataFormat(u8 Data)
 {
     u8 TmpReg = 0;
 
-    max30205_PortReceive(CONFIGRATION, &TmpReg);
+    max30205_port_receive(CONFIGRATION, &TmpReg);
 
     Data &= 0x01;
     TmpReg &= ~(0x01 << 5);
     TmpReg |= (Data << 5);
 
-    max30205_PortTransmmit(CONFIGRATION, TmpReg);
+    max30205_port_transmmit(CONFIGRATION, TmpReg);
 }
 
 void max30205_EnableTimeout(u8 Data)
 {
     u8 TmpReg = 0;
 
-    max30205_PortReceive(CONFIGRATION, &TmpReg);
+    max30205_port_receive(CONFIGRATION, &TmpReg);
 
     Data &= 0x01;
     TmpReg &= ~(0x01 << 6);
     TmpReg |= (Data << 6);
 
-    max30205_PortTransmmit(CONFIGRATION, TmpReg);
+    max30205_port_transmmit(CONFIGRATION, TmpReg);
 }
 
 void max30205_OneShot(u8 Data)
 {
     u8 TmpReg = 0;
 
-    max30205_PortReceive(CONFIGRATION, &TmpReg);
+    max30205_port_receive(CONFIGRATION, &TmpReg);
 
     Data &= 0x01;
     TmpReg &= ~(0x01 << 7);
     TmpReg |= (Data << 7);
 
-    max30205_PortTransmmit(CONFIGRATION, TmpReg);
+    max30205_port_transmmit(CONFIGRATION, TmpReg);
 }
 
-void max30205_ReadTHYST(u16 *pData)
+void max30205_ReadTHYST(u16 *pdata)
 {
     u8 TmpVal[2];
 
     max30205_port_multi_receive(THYST, TmpVal, 2);
 
-    pData[0] = (TmpVal[0] << 8) | TmpVal[1];
+    pdata[0] = (TmpVal[0] << 8) | TmpVal[1];
 }
 
 void max30205_WriteTHYST(u16 Data)
@@ -194,13 +194,13 @@ void max30205_WriteTHYST(u16 Data)
     max30205_port_multi_transmmit(THYST, TmpVal, 2);
 }
 
-void max30205_ReadTOS(u16 *pData)
+void max30205_ReadTOS(u16 *pdata)
 {
     u8 TmpVal[2];
 
     max30205_port_multi_receive(TOS, TmpVal, 2);
 
-    pData[0] = (TmpVal[0] << 8) | TmpVal[1];
+    pdata[0] = (TmpVal[0] << 8) | TmpVal[1];
 }
 
 void max30205_WriteTOS(u16 Data)

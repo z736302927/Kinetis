@@ -47,22 +47,22 @@ static inline u8 shell_port_receive(void)
 
 //    if(shell_PortState() == false) {}
 
-//    SerialPort_TypeDef Instance;
+//    struct serial_port Instance;
 
 //    Instance.PortNbr = 1;
 //    Instance.Txbuffer_Size = 1;
 //    Instance.Tempbuffer_Size = 1;
 //    Instance.RxScanInterval = 10;
 //    Instance.Endchar = NULL;
-//    SerialPort_Open(&Instance);
+//    serial_port_Open(&Instance);
 
-//    if(SerialPort_Receive(&Instance) == true)
+//    if(serial_port_Receive(&Instance) == true)
 //    {
 //        Data = Instance.Rxbuffer[0];
 //        kfree(Instance.Rxbuffer);
 //    }
 
-//    SerialPort_Close(&Instance);
+//    serial_port_Close(&Instance);
 
     return tmp;
 }

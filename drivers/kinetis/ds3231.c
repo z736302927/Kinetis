@@ -1,4 +1,9 @@
 #include "kinetis/ds3231.h"
+#include "kinetis/iic_soft.h"
+#include "kinetis/idebug.h"
+#include "kinetis/delay.h"
+
+#include "string.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -10,32 +15,28 @@
   * @step 5:
   */
 
-#include "kinetis/iic_soft.h"
 #include "i2c.h"
-#include "string.h"
-#include <linux/delay.h>
-#include "kinetis/idebug.h"
 
 #define DS3231_ADDR                     0x68
 
-static inline void ds3231_PortTransmmit(u8 Addr, u8 Data)
+static inline void ds3231_port_transmmit(u8 addr, u8 tmp)
 {
-    iic_port_transmmit(IIC_1, DS3231_ADDR, Addr, Data);
+    iic_port_transmmit(IIC_1, DS3231_ADDR, addr, tmp);
 }
 
-static inline void ds3231_PortReceive(u8 Addr, u8 *pData)
+static inline void ds3231_port_receive(u8 addr, u8 *pdata)
 {
-    iic_port_transmmit(IIC_1, DS3231_ADDR, Addr, pData);
+    iic_port_receive(IIC_1, DS3231_ADDR, addr, pdata);
 }
 
-static inline void ds3231_port_multi_transmmit(u8 Addr, u8 *pData, u32 Length)
+static inline void ds3231_port_multi_transmmit(u8 addr, u8 *pdata, u32 length)
 {
-    iic_port_multi_transmmit(IIC_1, DS3231_ADDR, Addr, pData, Length);
+    iic_port_multi_transmmit(IIC_1, DS3231_ADDR, addr, pdata, length);
 }
 
-static inline void ds3231_port_multi_receive(u8 Addr, u8 *pData, u32 Length)
+static inline void ds3231_port_multi_receive(u8 addr, u8 *pdata, u32 length)
 {
-    iic_port_multi_receive(IIC_1, DS3231_ADDR, Addr, pData, Length);
+    iic_port_multi_receive(IIC_1, DS3231_ADDR, addr, pdata, length);
 }
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -72,490 +73,495 @@ static inline void ds3231_port_multi_receive(u8 Addr, u8 *pData, u32 Length)
 #define MSB_OF_TEMP                     0x11
 #define LSB_OF_TEMP                     0x12
 
-volatile u8 g_TimeMode = DS3231_HOURS24;
-volatile u8 g_TimeRegion = DS3231_AM;
+static u8 g_time_mode = DS3231_HOURS24;
+static u8 g_time_region = DS3231_AM;
 
-u8 ds3231_GetTimeMode(void)
+u8 ds3231_get_time_mode(void)
 {
-    return g_TimeMode;
+    return g_time_mode;
 }
 
-void ds3231_SetTimeMode(u8 Data)
+void ds3231_set_time_mode(u8 tmp)
 {
-    g_TimeMode = Data;
+    g_time_mode = tmp;
 }
 
-u8 ds3231_GetTimeRegion(void)
+u8 ds3231_get_time_region(void)
 {
-    return g_TimeRegion;
+    return g_time_region;
 }
 
-void ds3231_SetTimeRegion(u8 Data)
+void ds3231_set_time_region(u8 tmp)
 {
-    g_TimeRegion = Data;
+    g_time_region = tmp;
 }
 
-void ds3231_ReadTime(u8 *pData, u8 Format)
+void ds3231_get_time(u8 *pdata, u8 format)
 {
-    u8 Tmp[7];
-    u8 Hour10 = 0;
+    u8 tmp[7];
+    u8 hour10 = 0;
 
-    ds3231_port_multi_receive(SECONDS, Tmp, 7);
+    ds3231_port_multi_receive(SECONDS, tmp, 7);
 
-    if (Tmp[2] & 0x40) {
-        g_TimeMode = DS3231_HOURS12;
-        Hour10 = (Tmp[2] & 0x10) >> 4;
+    if (tmp[2] & 0x40) {
+        g_time_mode = DS3231_HOURS12;
+        hour10 = (tmp[2] & 0x10) >> 4;
 
-        if (Tmp[2] & 0x20)
-            g_TimeRegion = DS3231_PM;
+        if (tmp[2] & 0x20)
+            g_time_region = DS3231_PM;
         else
-            g_TimeRegion = DS3231_AM;
+            g_time_region = DS3231_AM;
     } else {
-        g_TimeMode = DS3231_HOURS24;
-        Hour10 = (Tmp[2] & 0x30) >> 4;
+        g_time_mode = DS3231_HOURS24;
+        hour10 = (tmp[2] & 0x30) >> 4;
     }
 
-    pData[0] = (Tmp[0] >> 4) * 10 + (Tmp[0] & 0x0F);
-    pData[1] = (Tmp[1] >> 4) * 10 + (Tmp[1] & 0x0F);
-    pData[2] = Hour10 * 10 + (Tmp[2] & 0x0F);
-    pData[3] = (Tmp[4] >> 4) * 10 + (Tmp[4] & 0x0F);
-    pData[4] = ((Tmp[5] & 0x1F) >> 4) * 10 + (Tmp[5] & 0x0F);
-    pData[5] = (Tmp[6] >> 4) * 10 + (Tmp[6] & 0x0F);
+    pdata[0] = (tmp[0] >> 4) * 10 + (tmp[0] & 0x0F);
+    pdata[1] = (tmp[1] >> 4) * 10 + (tmp[1] & 0x0F);
+    pdata[2] = hour10 * 10 + (tmp[2] & 0x0F);
+    pdata[3] = (tmp[4] >> 4) * 10 + (tmp[4] & 0x0F);
+    pdata[4] = ((tmp[5] & 0x1F) >> 4) * 10 + (tmp[5] & 0x0F);
+    pdata[5] = (tmp[6] >> 4) * 10 + (tmp[6] & 0x0F);
 }
 
-void ds3231_SetTime(u8 *pData, u8 Format)
+void ds3231_set_time(u8 *pdata, u8 format)
 {
-    u8 Tmp[7] = {0, 0, 0, 0, 0, 0, 0};
+    u8 tmp[7] = {0, 0, 0, 0, 0, 0, 0};
 
-    ds3231_port_multi_transmmit(SECONDS, Tmp, 3);
-    ds3231_port_multi_transmmit(DATE, Tmp, 3);
+    ds3231_port_multi_transmmit(SECONDS, tmp, 3);
+    ds3231_port_multi_transmmit(DATE, tmp, 3);
 
-    Tmp[6] |= (pData[0] / 10) << 4;
-    Tmp[6] |= (pData[0] % 10) << 0;
-    Tmp[5] |= (pData[1] / 10) << 4;
-    Tmp[5] |= (pData[1] % 10) << 0;
-    Tmp[4] |= (pData[2] / 10) << 4;
-    Tmp[4] |= (pData[2] % 10) << 0;
-    ds3231_port_multi_transmmit(DATE, &Tmp[4], 3);
+    tmp[6] |= (pdata[0] / 10) << 4;
+    tmp[6] |= (pdata[0] % 10) << 0;
+    tmp[5] |= (pdata[1] / 10) << 4;
+    tmp[5] |= (pdata[1] % 10) << 0;
+    tmp[4] |= (pdata[2] / 10) << 4;
+    tmp[4] |= (pdata[2] % 10) << 0;
+    ds3231_port_multi_transmmit(DATE, &tmp[4], 3);
 
-    Tmp[2] |= (pData[3] / 10) << 4;
-    Tmp[2] |= (pData[3] % 10) << 0;
+    tmp[2] |= (pdata[3] / 10) << 4;
+    tmp[2] |= (pdata[3] % 10) << 0;
 
-    if (g_TimeMode == DS3231_HOURS12) {
-        if (g_TimeRegion == DS3231_PM)
-            Tmp[2] |= 0x20;
+    if (g_time_mode == DS3231_HOURS12) {
+        if (g_time_region == DS3231_PM)
+            tmp[2] |= 0x20;
         else
-            Tmp[2] &= ~0x20;
+            tmp[2] &= ~0x20;
 
-        Tmp[2] |= 0x40;
+        tmp[2] |= 0x40;
     } else
-        Tmp[2] &= ~0x40;
+        tmp[2] &= ~0x40;
 
-    Tmp[1] |= (pData[4] / 10) << 4;
-    Tmp[1] |= (pData[4] % 10) << 0;
-    Tmp[0] |= (pData[5] / 10) << 4;
-    Tmp[0] |= (pData[5] % 10) << 0;
-    ds3231_port_multi_transmmit(SECONDS, Tmp, 3);
+    tmp[1] |= (pdata[4] / 10) << 4;
+    tmp[1] |= (pdata[4] % 10) << 0;
+    tmp[0] |= (pdata[5] / 10) << 4;
+    tmp[0] |= (pdata[5] % 10) << 0;
+    ds3231_port_multi_transmmit(SECONDS, tmp, 3);
 }
 
-void ds3231_ReadTimeWithString(char *pData)
+void ds3231_get_time_with_string(char *pdata)
 {
-    u8 Tmp[6];
+    u8 tmp[6];
 
-    ds3231_ReadTime(Tmp, DS3231_FORMAT_BIN);
-    pData[11] = (Tmp[0] % 10) + '0';
-    pData[10] = (Tmp[0] / 10) + '0';
-    pData[9] = (Tmp[1] % 10) + '0';
-    pData[8] = (Tmp[1] / 10) + '0';
-    pData[7] = (Tmp[2] % 10) + '0';
-    pData[6] = (Tmp[2] / 10) + '0';
-    pData[5] = (Tmp[3] % 10) + '0';
-    pData[4] = (Tmp[3] / 10) + '0';
-    pData[3] = (Tmp[4] % 10) + '0';
-    pData[2] = (Tmp[4] / 10) + '0';
-    pData[1] = (Tmp[5] % 10) + '0';
-    pData[0] = (Tmp[5] / 10) + '0';
+    ds3231_get_time(tmp, DS3231_FORMAT_BIN);
+    pdata[11] = (tmp[0] % 10) + '0';
+    pdata[10] = (tmp[0] / 10) + '0';
+    pdata[9] = (tmp[1] % 10) + '0';
+    pdata[8] = (tmp[1] / 10) + '0';
+    pdata[7] = (tmp[2] % 10) + '0';
+    pdata[6] = (tmp[2] / 10) + '0';
+    pdata[5] = (tmp[3] % 10) + '0';
+    pdata[4] = (tmp[3] / 10) + '0';
+    pdata[3] = (tmp[4] % 10) + '0';
+    pdata[2] = (tmp[4] / 10) + '0';
+    pdata[1] = (tmp[5] % 10) + '0';
+    pdata[0] = (tmp[5] / 10) + '0';
 }
 
-void ds3231_SetTimeWithString(char *pData)
+void ds3231_set_time_with_string(char *pdata)
 {
-    u8 Tmp[6];
+    u8 tmp[6];
 
-    Tmp[0] = (pData[0] - '0') * 10 + (pData[1] - '0');
-    Tmp[1] = (pData[2] - '0') * 10 + (pData[3] - '0');
-    Tmp[2] = (pData[4] - '0') * 10 + (pData[5] - '0');
-    Tmp[3] = (pData[6] - '0') * 10 + (pData[7] - '0');
-    Tmp[4] = (pData[8] - '0') * 10 + (pData[9] - '0');
-    Tmp[5] = (pData[10] - '0') * 10 + (pData[11] - '0');
-    ds3231_SetTime(Tmp, DS3231_FORMAT_BIN);
+    tmp[0] = (pdata[0] - '0') * 10 + (pdata[1] - '0');
+    tmp[1] = (pdata[2] - '0') * 10 + (pdata[3] - '0');
+    tmp[2] = (pdata[4] - '0') * 10 + (pdata[5] - '0');
+    tmp[3] = (pdata[6] - '0') * 10 + (pdata[7] - '0');
+    tmp[4] = (pdata[8] - '0') * 10 + (pdata[9] - '0');
+    tmp[5] = (pdata[10] - '0') * 10 + (pdata[11] - '0');
+    ds3231_set_time(tmp, DS3231_FORMAT_BIN);
 }
 
-void ds3231_ReadWeek(u8 *pData)
+void ds3231_get_week(u8 *pdata)
 {
-    ds3231_PortReceive(DAY, pData);
+    ds3231_port_receive(DAY, pdata);
 }
 
-void ds3231_SetWeek(u8 Data)
+void ds3231_set_week(u8 tmp)
 {
-    ds3231_PortTransmmit(DAY, Data);
+    ds3231_port_transmmit(DAY, tmp);
 }
 
-void ds3231_Alarm1Callback(void)
-{
-    ;
-}
-
-void ds3231_SetAlarm1(u8 *pData, u8 DateorDay, u8 Data)
-{
-    u8 Tmp[4] = {0, 0, 0, 0};
-    u8 Tens = 0, Unit = 0;
-
-    if (Data & ALARM_MASK_1)
-        Tmp[0] |= ALARM_MASK;
-
-    if (Data & ALARM_MASK_2)
-        Tmp[1] |= ALARM_MASK;
-
-    if (Data & ALARM_MASK_3)
-        Tmp[2] |= ALARM_MASK;
-
-    if (Data & ALARM_MASK_4)
-        Tmp[3] |= ALARM_MASK;
-
-    Unit = (pData[0] & 0x7F) % 10;
-    Tens = (pData[0] & 0x7F) / 10;
-    Tmp[0] = (Tens << 4) | Unit;
-    Unit = (pData[1] & 0x7F) % 10;
-    Tens = (pData[1] & 0x7F) / 10;
-    Tmp[1] = (Tens << 4) | Unit;
-
-    if (g_TimeMode == DS3231_HOURS24) {
-        Unit = (pData[2] & 0x3F) % 10;
-        Tens = (pData[2] & 0x3F) / 10;
-        Tmp[2] = (Tens << 4) | Unit;
-        Tmp[2] &= ~TIMEMODE_MASK;
-    } else {
-        if (pData[2] > 12)
-            pData[2] -= 12;
-
-        Unit = (pData[2] & 0x1F) % 10;
-        Tens = (pData[2] & 0x1F) / 10;
-        Tmp[2] = (Tens << 4) | Unit;
-        Tmp[2] |= TIMEMODE_MASK;
-    }
-
-    if (DateorDay == WEEK_CYCLE) {
-        Unit = (pData[3] & 0x0F) % 10;
-        Tmp[3] = Unit;
-        Tmp[3] |= DY_DT_MASK;
-    } else if (DateorDay == MONTH_CYCLE) {
-        Unit = (pData[3] & 0x0F) % 10;
-        Tens = (pData[3] & 0x0F) / 10;
-        Tmp[3] = (Tens << 4) | Unit;
-        Tmp[3] &= ~DY_DT_MASK;
-    }
-
-    ds3231_port_multi_receive(ALARM_1_SECONDS, Tmp, 4);
-}
-
-void ds3231_Alarm2Callback(void)
+void ds3231_alarm1_callback(void)
 {
     ;
 }
 
-void ds3231_SetAlarm2(u8 *pData, u8 DateorDay, u8 Data)
+void ds3231_set_alarm1(u8 *pdata, u8 date_or_day, u8 alarm)
 {
-    u8 Tmp[3] = {0, 0, 0};
-    u8 Tens = 0, Unit = 0;
+    u8 tmp[4] = {0, 0, 0, 0};
+    u8 tens = 0, unit = 0;
 
-    if (Data & ALARM_MASK_2)
-        Tmp[0] |= ALARM_MASK;
+    if (alarm & ALARM_MASK_1)
+        tmp[0] |= ALARM_MASK;
 
-    if (Data & ALARM_MASK_3)
-        Tmp[1] |= ALARM_MASK;
+    if (alarm & ALARM_MASK_2)
+        tmp[1] |= ALARM_MASK;
 
-    if (Data & ALARM_MASK_4)
-        Tmp[2] |= ALARM_MASK;
+    if (alarm & ALARM_MASK_3)
+        tmp[2] |= ALARM_MASK;
 
-    Unit = (pData[0] & 0x7F) % 10;
-    Tens = (pData[0] & 0x7F) / 10;
-    Tmp[0] = (Tens << 4) | Unit;
+    if (alarm & ALARM_MASK_4)
+        tmp[3] |= ALARM_MASK;
 
-    if (g_TimeMode == DS3231_HOURS24) {
-        Unit = (pData[1] & 0x3F) % 10;
-        Tens = (pData[1] & 0x3F) / 10;
-        Tmp[1] = (Tens << 4) | Unit;
-        Tmp[1] &= ~TIMEMODE_MASK;
+    unit = (pdata[0] & 0x7F) % 10;
+    tens = (pdata[0] & 0x7F) / 10;
+    tmp[0] = (tens << 4) | unit;
+    unit = (pdata[1] & 0x7F) % 10;
+    tens = (pdata[1] & 0x7F) / 10;
+    tmp[1] = (tens << 4) | unit;
+
+    if (g_time_mode == DS3231_HOURS24) {
+        unit = (pdata[2] & 0x3F) % 10;
+        tens = (pdata[2] & 0x3F) / 10;
+        tmp[2] = (tens << 4) | unit;
+        tmp[2] &= ~TIMEMODE_MASK;
     } else {
-        if (pData[1] > 12)
-            pData[1] -= 12;
+        if (pdata[2] > 12)
+            pdata[2] -= 12;
 
-        Unit = (pData[1] & 0x1F) % 10;
-        Tens = (pData[1] & 0x1F) / 10;
-        Tmp[1] = (Tens << 4) | Unit;
-        Tmp[1] |= TIMEMODE_MASK;
+        unit = (pdata[2] & 0x1F) % 10;
+        tens = (pdata[2] & 0x1F) / 10;
+        tmp[2] = (tens << 4) | unit;
+        tmp[2] |= TIMEMODE_MASK;
+    }
+
+    if (date_or_day == WEEK_CYCLE) {
+        unit = (pdata[3] & 0x0F) % 10;
+        tmp[3] = unit;
+        tmp[3] |= DY_DT_MASK;
+    } else if (date_or_day == MONTH_CYCLE) {
+        unit = (pdata[3] & 0x0F) % 10;
+        tens = (pdata[3] & 0x0F) / 10;
+        tmp[3] = (tens << 4) | unit;
+        tmp[3] &= ~DY_DT_MASK;
+    }
+
+    ds3231_port_multi_receive(ALARM_1_SECONDS, tmp, 4);
+}
+
+void ds3231_alarm2_callback(void)
+{
+    ;
+}
+
+void ds3231_set_alarm2(u8 *pdata, u8 DateorDay, u8 alarm)
+{
+    u8 tmp[3] = {0, 0, 0};
+    u8 tens = 0, unit = 0;
+
+    if (alarm & ALARM_MASK_2)
+        tmp[0] |= ALARM_MASK;
+
+    if (alarm & ALARM_MASK_3)
+        tmp[1] |= ALARM_MASK;
+
+    if (alarm & ALARM_MASK_4)
+        tmp[2] |= ALARM_MASK;
+
+    unit = (pdata[0] & 0x7F) % 10;
+    tens = (pdata[0] & 0x7F) / 10;
+    tmp[0] = (tens << 4) | unit;
+
+    if (g_time_mode == DS3231_HOURS24) {
+        unit = (pdata[1] & 0x3F) % 10;
+        tens = (pdata[1] & 0x3F) / 10;
+        tmp[1] = (tens << 4) | unit;
+        tmp[1] &= ~TIMEMODE_MASK;
+    } else {
+        if (pdata[1] > 12)
+            pdata[1] -= 12;
+
+        unit = (pdata[1] & 0x1F) % 10;
+        tens = (pdata[1] & 0x1F) / 10;
+        tmp[1] = (tens << 4) | unit;
+        tmp[1] |= TIMEMODE_MASK;
     }
 
     if (DateorDay == WEEK_CYCLE) {
-        Unit = (pData[2] & 0x0F) % 10;
-        Tmp[2] = Unit;
-        Tmp[2] |= DY_DT_MASK;
+        unit = (pdata[2] & 0x0F) % 10;
+        tmp[2] = unit;
+        tmp[2] |= DY_DT_MASK;
     } else if (DateorDay == MONTH_CYCLE) {
-        Unit = (pData[2] & 0x0F) % 10;
-        Tens = (pData[2] & 0x0F) / 10;
-        Tmp[2] = (Tens << 4) | Unit;
-        Tmp[2] &= ~DY_DT_MASK;
+        unit = (pdata[2] & 0x0F) % 10;
+        tens = (pdata[2] & 0x0F) / 10;
+        tmp[2] = (tens << 4) | unit;
+        tmp[2] &= ~DY_DT_MASK;
     }
 
-    ds3231_port_multi_receive(ALARM_2_MINUTES, Tmp, 3);
+    ds3231_port_multi_receive(ALARM_2_MINUTES, tmp, 3);
 }
 
-void ds3231_EnableOscillator(void)
+void ds3231_enable_oscillator(void)
 {
-    u8 TmpReg = 0;
+    u8 reg = 0;
 
-    ds3231_PortReceive(CONTROL, &TmpReg);
+    ds3231_port_receive(CONTROL, &reg);
 
-    TmpReg &= ~(0x01 << 7);
-    TmpReg |= (0x00 << 7);
+    reg &= ~(0x01 << 7);
+    reg |= (0x00 << 7);
 
-    ds3231_PortTransmmit(CONTROL, TmpReg);
+    ds3231_port_transmmit(CONTROL, reg);
 }
 
-void ds3231_ConvertTemperature(void)
+void ds3231_convert_temperature(void)
 {
-    u8 TmpReg = 0;
+    u8 reg = 0;
 
-    ds3231_PortReceive(CONTROL, &TmpReg);
+    ds3231_port_receive(CONTROL, &reg);
 
-    TmpReg &= ~(0x01 << 6);
-    TmpReg |= (0x01 << 6);
+    reg &= ~(0x01 << 6);
+    reg |= (0x01 << 6);
 
-    ds3231_PortTransmmit(CONTROL, TmpReg);
+    ds3231_port_transmmit(CONTROL, reg);
 }
 
-void ds3231_RateSelect(u8 Data)
+void ds3231_rate_select(u8 tmp)
 {
-    u8 TmpReg = 0;
+    u8 reg = 0;
 
-    ds3231_PortReceive(CONTROL, &TmpReg);
+    ds3231_port_receive(CONTROL, &reg);
 
-    switch (Data) {
+    switch (tmp) {
         case SQUARE_WAVE_1HZ:
-            TmpReg &= ~(0x00 << 3);
-            TmpReg |= (0x00 << 3);
+            reg &= ~(0x00 << 3);
+            reg |= (0x00 << 3);
             break;
 
         case SQUARE_WAVE_1_024HZ:
-            TmpReg &= ~(0x01 << 3);
-            TmpReg |= (0x01 << 3);
+            reg &= ~(0x01 << 3);
+            reg |= (0x01 << 3);
             break;
 
         case SQUARE_WAVE_4_096HZ:
-            TmpReg &= ~(0x20 << 3);
-            TmpReg |= (0x20 << 3);
+            reg &= ~(0x20 << 3);
+            reg |= (0x20 << 3);
             break;
 
         case SQUARE_WAVE_8_192HZ:
-            TmpReg &= ~(0x03 << 3);
-            TmpReg |= (0x03 << 3);
+            reg &= ~(0x03 << 3);
+            reg |= (0x03 << 3);
             break;
 
         default:
             break;
     }
 
-    ds3231_PortTransmmit(CONTROL, TmpReg);
+    ds3231_port_transmmit(CONTROL, reg);
 }
 
-void ds3231_EnableSquareWaveWithBAT(void)
+void ds3231_enable_square_wave_with_bat(void)
 {
-    u8 TmpReg = 0;
+    u8 reg = 0;
 
-    ds3231_PortReceive(CONTROL, &TmpReg);
+    ds3231_port_receive(CONTROL, &reg);
 
-    TmpReg &= ~(0x01 << 6);
-    TmpReg |= (0x01 << 6);
+    reg &= ~(0x01 << 6);
+    reg |= (0x01 << 6);
 
-    ds3231_PortTransmmit(CONTROL, TmpReg);
+    ds3231_port_transmmit(CONTROL, reg);
 }
 
-void ds3231_EnableInt(void)
+void ds3231_enable_int(void)
 {
-    u8 TmpReg = 0;
+    u8 reg = 0;
 
-    ds3231_PortReceive(CONTROL, &TmpReg);
+    ds3231_port_receive(CONTROL, &reg);
 
-    TmpReg &= ~(0x01 << 2);
-    TmpReg |= (0x01 << 2);
+    reg &= ~(0x01 << 2);
+    reg |= (0x01 << 2);
 
-    ds3231_PortTransmmit(CONTROL, TmpReg);
+    ds3231_port_transmmit(CONTROL, reg);
 }
 
-void ds3231_EnableSquareWave(void)
+void ds3231_enable_square_wave(void)
 {
-    u8 TmpReg = 0;
+    u8 reg = 0;
 
-    ds3231_PortReceive(CONTROL, &TmpReg);
+    ds3231_port_receive(CONTROL, &reg);
 
-    TmpReg &= ~(0x01 << 2);
+    reg &= ~(0x01 << 2);
 
-    ds3231_PortTransmmit(CONTROL, TmpReg);
+    ds3231_port_transmmit(CONTROL, reg);
 }
 
-void ds3231_EnableAlarm2Int(void)
+void ds3231_enable_alarm2_int(void)
 {
-    u8 TmpReg = 0;
+    u8 reg = 0;
 
-    ds3231_PortReceive(CONTROL, &TmpReg);
+    ds3231_port_receive(CONTROL, &reg);
 
-    TmpReg &= ~(0x01 << 1);
-    TmpReg |= (0x01 << 1);
+    reg &= ~(0x01 << 1);
+    reg |= (0x01 << 1);
 
-    ds3231_PortTransmmit(CONTROL, TmpReg);
+    ds3231_port_transmmit(CONTROL, reg);
 }
 
-void ds3231_EnableAlarm1Int(void)
+void ds3231_enable_alarm1_int(void)
 {
-    u8 TmpReg = 0;
+    u8 reg = 0;
 
-    ds3231_PortReceive(CONTROL, &TmpReg);
+    ds3231_port_receive(CONTROL, &reg);
 
-    TmpReg &= ~(0x01 << 0);
-    TmpReg |= (0x01 << 0);
+    reg &= ~(0x01 << 0);
+    reg |= (0x01 << 0);
 
-    ds3231_PortTransmmit(CONTROL, TmpReg);
+    ds3231_port_transmmit(CONTROL, reg);
 }
 
-u8 ds3231_OscillatorStopFlag(void)
+u8 ds3231_oscillator_stop_flag(void)
 {
-    u8 TmpReg = 0;
+    u8 reg = 0;
 
-    ds3231_PortReceive(CONTROL_STATUS, &TmpReg);
+    ds3231_port_receive(CONTROL_STATUS, &reg);
 
-    if (TmpReg & 0x80)
+    if (reg & 0x80)
         return 1;
     else
         return 0;
 }
 
-void ds3231_Enable32kHzOutput(void)
+void ds3231_enable_32khz_output(void)
 {
-    u8 TmpReg = 0;
+    u8 reg = 0;
 
-    ds3231_PortReceive(CONTROL, &TmpReg);
+    ds3231_port_receive(CONTROL, &reg);
 
-    TmpReg &= ~(0x01 << 3);
-    TmpReg |= (0x01 << 3);
+    reg &= ~(0x01 << 3);
+    reg |= (0x01 << 3);
 
-    ds3231_PortTransmmit(CONTROL, TmpReg);
+    ds3231_port_transmmit(CONTROL, reg);
 }
 
-u8 ds3231_WaitBusy(void)
+u8 ds3231_wait_busy(void)
 {
-    u8 TmpReg = 0;
+    u8 reg = 0;
 
-    ds3231_PortReceive(CONTROL_STATUS, &TmpReg);
+    ds3231_port_receive(CONTROL_STATUS, &reg);
 
-    if (TmpReg & 0x02)
+    if (reg & 0x02)
         return 1;
     else
         return 0;
 }
 
-u8 Alarm2Flag = 0;
+static u8 alarm2_flag = 0;
 
-u8 ds3231_Alarm2Flag(void)
+u8 ds3231_alarm2_flag(void)
 {
-    u8 TmpReg = 0;
+    u8 reg = 0;
 
-    ds3231_PortReceive(CONTROL_STATUS, &TmpReg);
+    ds3231_port_receive(CONTROL_STATUS, &reg);
 
-    if (TmpReg & 0x02)
+    if (reg & 0x02)
         return 1;
     else
         return 0;
 }
 
-void ds3231_ClearAlarm2Flag(void)
+void ds3231_clear_alarm2_flag(void)
 {
-    u8 TmpReg = 0;
+    u8 reg = 0;
 
-    ds3231_PortReceive(CONTROL, &TmpReg);
+    ds3231_port_receive(CONTROL, &reg);
 
-    TmpReg &= ~(0x01 << 1);
+    reg &= ~(0x01 << 1);
 
-    ds3231_PortTransmmit(CONTROL, TmpReg);
+    ds3231_port_transmmit(CONTROL, reg);
 }
 
-u8 Alarm1Flag = 0;
+static u8 alarm1_flag = 0;
 
-u8 ds3231_Alarm1Flag(void)
+u8 ds3231_alarm1_flag(void)
 {
-    u8 TmpReg = 0;
+    u8 reg = 0;
 
-    ds3231_PortReceive(CONTROL_STATUS, &TmpReg);
+    ds3231_port_receive(CONTROL_STATUS, &reg);
 
-    if (TmpReg & 0x01)
+    if (reg & 0x01)
         return 1;
     else
         return 0;
 }
 
-void ds3231_ClearAlarm1Flag(void)
+void ds3231_clear_alarm1_flag(void)
 {
-    u8 TmpReg = 0;
+    u8 reg = 0;
 
-    ds3231_PortReceive(CONTROL, &TmpReg);
+    ds3231_port_receive(CONTROL, &reg);
 
-    TmpReg &= ~(0x01 << 0);
+    reg &= ~(0x01 << 0);
 
-    ds3231_PortTransmmit(CONTROL, TmpReg);
+    ds3231_port_transmmit(CONTROL, reg);
 }
 
-void ds3231_AgingOffset(u8 *pData)
+void ds3231_aging_offset(u8 *pdata)
 {
-    ds3231_PortReceive(AGING_OFFSET, pData);
+    ds3231_port_receive(AGING_OFFSET, pdata);
 }
 
-void ds3231_GetTemperature(float *pData)
+void ds3231_get_temperature(float *pdata)
 {
-    u8 TmpVal[2];
+    u8 val[2];
 
-    ds3231_port_multi_receive(MSB_OF_TEMP, TmpVal, 2);
-    pData[0] = (float)TmpVal[0] + (float)(TmpVal[1] >> 6) * 0.25;
+    ds3231_port_multi_receive(MSB_OF_TEMP, val, 2);
+    *pdata = (float)val[0] + (float)(val[1] >> 6) * 0.25;
 }
 
 #ifdef DESIGN_VERIFICATION_DS3231
 #include "kinetis/test-kinetis.h"
 
-int t_ds3231_SetClock(int argc, char **argv)
+#include <linux/iopoll.h>
+#include <linux/printk.h>
+
+#include "stdlib.h"
+
+int t_ds3231_set_clock(int argc, char **argv)
 {
-    char Time[16];
+    char time[16];
 
-    ds3231_SetTimeMode(DS3231_HOURS24);
-    ds3231_SetTimeRegion(DS3231_PM);
-    ds3231_SetTimeWithString("200308202020");
-    ds3231_SetWeek(7);
+    ds3231_set_time_mode(DS3231_HOURS24);
+    ds3231_set_time_region(DS3231_PM);
+    ds3231_set_time_with_string("200308202020");
+    ds3231_set_week(7);
 
-    ds3231_ReadTimeWithString(Time);
+    ds3231_get_time_with_string(time);
 
-    if (strcmp("200308202020", Time) != 0)
+    if (strcmp("200308202020", time) != 0)
         return false;
 
-    if (g_TimeRegion == DS3231_AM)
-        snprintf(&Time[12], 4, " DS3231_AM");
+    if (g_time_region == DS3231_AM)
+        snprintf(&time[12], 4, " DS3231_AM");
     else
-        snprintf(&Time[12], 4, " PM");
+        snprintf(&time[12], 4, " PM");
 
-    printk(KERN_DEBUG "%s", Time);
+    printk(KERN_DEBUG "%s", time);
 
-    return true;
+    return PASS;
 }
 
-int t_ds3231_GetClock(int argc, char **argv)
+int t_ds3231_get_clock(int argc, char **argv)
 {
-    char Time[16];
+    char time[16];
     u8 i = 0;
     u16 times = 1;
 
@@ -563,29 +569,30 @@ int t_ds3231_GetClock(int argc, char **argv)
         times = strtoul(argv[1], &argv[1], 10);
 
     for (i = 0; i < times; i++) {
-        ds3231_ReadTimeWithString(Time);
+        ds3231_get_time_with_string(time);
 
-        if (g_TimeRegion == DS3231_AM)
-            snprintf(&Time[12], 4, " DS3231_AM");
+        if (g_time_region == DS3231_AM)
+            snprintf(&time[12], 4, " DS3231_AM");
         else
-            snprintf(&Time[12], 4, " PM");
+            snprintf(&time[12], 4, " PM");
 
-        printk(KERN_DEBUG "%s", Time);
-        ds3231_Delayms(1000);
+        printk(KERN_DEBUG "%s", time);
+        mdelay(1000);
     }
 
-    return true;
+    return PASS;
 }
 
-int t_ds3231_SetAlarm1(int argc, char **argv)
+int t_ds3231_set_alarm1(int argc, char **argv)
 {
     u8 ret = 0;
     u8 dy_dt = 0;
     u8 a1m4 = 0, a1m3 = 0, a1m2 = 0, a1m1 = 0;
-    u8 Alarm_Rate = 0;
-    u8 Data[4] = {0, 0, 0, 0};
-    u8 Time[7] = {0, 0, 0, 0, 0, 0, 0};
-    u32 Delta = 0;
+    u8 alarm_rate = 0;
+    u8 tmp[4] = {0, 0, 0, 0};
+    u8 time[7] = {0, 0, 0, 0, 0, 0, 0};
+    u8 flag;
+    u32 delta = 0;
 
     if (argc > 1)
         dy_dt = strtoul(argv[1], &argv[1], 10);
@@ -602,116 +609,119 @@ int t_ds3231_SetAlarm1(int argc, char **argv)
     if (argc > 5)
         a1m1 = strtoul(argv[5], &argv[5], 10);
 
-    Alarm_Rate = (a1m4 << 3) | (a1m3 << 2) | (a1m2 << 1) | a1m1;
+    alarm_rate = (a1m4 << 3) | (a1m3 << 2) | (a1m2 << 1) | a1m1;
 
-    ds3231_EnableInt();
-    ds3231_EnableAlarm1Int();
+    ds3231_enable_int();
+    ds3231_enable_alarm1_int();
 
-    switch (Alarm_Rate) {
+    switch (alarm_rate) {
         case 0x0F:
-            ds3231_SetAlarm1(Data, 0,
+            ds3231_set_alarm1(tmp, 0,
                 ALARM_MASK_1 | ALARM_MASK_2 | ALARM_MASK_3 | ALARM_MASK_4);
-            Delta = basic_timer_get_ss();
-            Timeout_WaitMSDone(&Alarm1Flag, true, 2000);
-            Delta = basic_timer_get_ss() - Delta;
-            ds3231_ClearAlarm1Flag();
+            delta = basic_timer_get_ss();
+            readb_poll_timeout_atomic(&alarm1_flag, flag, flag == true, 0, 2000);
+            delta = basic_timer_get_ss() - delta;
+            ds3231_clear_alarm1_flag();
 
-            if (Delta == 1)
-                ret = true;
+            if (delta == 1)
+                ret = PASS;
             else
-                ret = false;
+                ret = FAIL;
 
             break;
 
         case 0x0E:
-            Data[0] = 0;
-            ds3231_SetAlarm1(Data, 0,
+            tmp[0] = 0;
+            ds3231_set_alarm1(tmp, 0,
                 ALARM_MASK_1 | ALARM_MASK_2 | ALARM_MASK_3);
-            ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
-            ds3231_ClearAlarm1Flag();
+            ds3231_get_time(time, DS3231_FORMAT_BIN);
+            ds3231_clear_alarm1_flag();
 
-            if (Time[6] == 0)
-                ret = true;
+            if (time[6] == 0)
+                ret = PASS;
             else
-                ret = false;
+                ret = FAIL;
 
             break;
 
         case 0x0C:
-            Data[0] = 0;
-            Data[1] = 0;
-            ds3231_SetAlarm1(Data, 0,
+            tmp[0] = 0;
+            tmp[1] = 0;
+            ds3231_set_alarm1(tmp, 0,
                 ALARM_MASK_1 | ALARM_MASK_2);
-            ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
-            ds3231_ClearAlarm1Flag();
+            ds3231_get_time(time, DS3231_FORMAT_BIN);
+            ds3231_clear_alarm1_flag();
 
-            if (Time[5] == 0 && Time[6] == 0)
-                ret = true;
+            if (time[5] == 0 && time[6] == 0)
+                ret = PASS;
             else
-                ret = false;
+                ret = FAIL;
 
             break;
 
         case 0x08:
-            Data[0] = 0;
-            Data[1] = 0;
-            Data[2] = 0;
-            ds3231_SetAlarm1(Data, 0,
+            tmp[0] = 0;
+            tmp[1] = 0;
+            tmp[2] = 0;
+            ds3231_set_alarm1(tmp, 0,
                 ALARM_MASK_1);
-            ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
-            ds3231_ClearAlarm1Flag();
+            ds3231_get_time(time, DS3231_FORMAT_BIN);
+            ds3231_clear_alarm1_flag();
 
-            if (Time[4] == 0 && Time[5] == 0 && Time[6] == 0)
-                ret = true;
+            if (time[4] == 0 && time[5] == 0 && time[6] == 0)
+                ret = PASS;
             else
-                ret = false;
+                ret = FAIL;
 
             break;
 
         case 0x00:
             if (dy_dt) {
-                Data[0] = 0;
-                Data[1] = 0;
-                Data[2] = 0;
-                Data[3] = 0;
-                ds3231_SetAlarm1(Data, 0,
+                tmp[0] = 0;
+                tmp[1] = 0;
+                tmp[2] = 0;
+                tmp[3] = 0;
+                ds3231_set_alarm1(tmp, 0,
                     0);
-                ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
-                ds3231_ClearAlarm1Flag();
+                ds3231_get_time(time, DS3231_FORMAT_BIN);
+                ds3231_clear_alarm1_flag();
 
-                if (Time[3] == 0 && Time[4] == 0 && Time[5] == 0 && Time[6] == 0)
-                    ret = true;
+                if (time[3] == 0 && time[4] == 0 && time[5] == 0 && time[6] == 0)
+                    ret = PASS;
                 else
-                    ret = false;
+                    ret = FAIL;
             } else {
-                Data[0] = 0;
-                Data[1] = 0;
-                Data[2] = 0;
-                Data[3] = 0;
-                ds3231_SetAlarm1(Data, 0,
+                tmp[0] = 0;
+                tmp[1] = 0;
+                tmp[2] = 0;
+                tmp[3] = 0;
+                ds3231_set_alarm1(tmp, 0,
                     0);
-                ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
-                ds3231_ClearAlarm1Flag();
+                ds3231_get_time(time, DS3231_FORMAT_BIN);
+                ds3231_clear_alarm1_flag();
 
-                if (Time[3] == 0 && Time[4] == 0 && Time[5] == 0 && Time[6] == 0)
-                    ret = true;
-                else
-                    ret = false;
+                if (time[3] == 0 && time[4] == 0 && time[5] == 0 && time[6] == 0)
+                ret = PASS;
+            else
+                ret = FAIL;
             }
 
             break;
     }
+    
+    return ret;
 }
 
-int t_ds3231_SetAlarm2(int argc, char **argv)
+int t_ds3231_set_alarm2(int argc, char **argv)
 {
     u8 ret = 0;
     u8 dy_dt = 0;
     u8 a1m4 = 0, a1m3 = 0, a1m2 = 0, a1m1 = 0;
-    u8 Alarm_Rate = 0;
-    u8 Data[4] = {0, 0, 0, 0};
-    u8 Time[7] = {0, 0, 0, 0, 0, 0, 0};
-    u32 Delta = 0;
+    u8 alarm_rate = 0;
+    u8 tmp[4] = {0, 0, 0, 0};
+    u8 time[7] = {0, 0, 0, 0, 0, 0, 0};
+    u8 flag;
+    u32 delta = 0;
 
     if (argc > 1)
         dy_dt = strtoul(argv[1], &argv[1], 10);
@@ -728,21 +738,21 @@ int t_ds3231_SetAlarm2(int argc, char **argv)
     if (argc > 5)
         a1m1 = strtoul(argv[5], &argv[5], 10);
 
-    Alarm_Rate = (a1m4 << 3) | (a1m3 << 2) | (a1m2 << 1) | a1m1;
+    alarm_rate = (a1m4 << 3) | (a1m3 << 2) | (a1m2 << 1) | a1m1;
 
-    ds3231_EnableInt();
-    ds3231_EnableAlarm2Int();
+    ds3231_enable_int();
+    ds3231_enable_alarm2_int();
 
-    switch (Alarm_Rate) {
+    switch (alarm_rate) {
         case 0x0F:
-            ds3231_SetAlarm1(Data, 0,
+            ds3231_set_alarm2(tmp, 0,
                 ALARM_MASK_1 | ALARM_MASK_2 | ALARM_MASK_3 | ALARM_MASK_4);
-            Delta = basic_timer_get_ss();
-            Timeout_WaitMSDone(&Alarm1Flag, true, 2000);
-            Delta = basic_timer_get_ss() - Delta;
-            ds3231_ClearAlarm1Flag();
+            delta = basic_timer_get_ss();
+            readb_poll_timeout_atomic(&alarm2_flag, flag, flag == true, 0, 2000);
+            delta = basic_timer_get_ss() - delta;
+            ds3231_clear_alarm2_flag();
 
-            if (Delta == 1)
+            if (delta == 1)
                 ret = true;
             else
                 ret = false;
@@ -750,13 +760,13 @@ int t_ds3231_SetAlarm2(int argc, char **argv)
             break;
 
         case 0x0E:
-            Data[0] = 0;
-            ds3231_SetAlarm1(Data, 0,
+            tmp[0] = 0;
+            ds3231_set_alarm2(tmp, 0,
                 ALARM_MASK_1 | ALARM_MASK_2 | ALARM_MASK_3);
-            ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
-            ds3231_ClearAlarm1Flag();
+            ds3231_get_time(time, DS3231_FORMAT_BIN);
+            ds3231_clear_alarm2_flag();
 
-            if (Time[6] == 0)
+            if (time[6] == 0)
                 ret = true;
             else
                 ret = false;
@@ -764,14 +774,13 @@ int t_ds3231_SetAlarm2(int argc, char **argv)
             break;
 
         case 0x0C:
-            Data[0] = 0;
-            Data[1] = 0;
-            ds3231_SetAlarm1(Data, 0,
-                ALARM_MASK_1 | ALARM_MASK_2);
-            ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
-            ds3231_ClearAlarm1Flag();
+            tmp[0] = 0;
+            tmp[1] = 0;
+            ds3231_set_alarm2(tmp, 0,ALARM_MASK_1 | ALARM_MASK_2);
+            ds3231_get_time(time, DS3231_FORMAT_BIN);
+            ds3231_clear_alarm2_flag();
 
-            if (Time[5] == 0 && Time[6] == 0)
+            if (time[5] == 0 && time[6] == 0)
                 ret = true;
             else
                 ret = false;
@@ -779,15 +788,14 @@ int t_ds3231_SetAlarm2(int argc, char **argv)
             break;
 
         case 0x08:
-            Data[0] = 0;
-            Data[1] = 0;
-            Data[2] = 0;
-            ds3231_SetAlarm1(Data, 0,
-                ALARM_MASK_1);
-            ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
-            ds3231_ClearAlarm1Flag();
+            tmp[0] = 0;
+            tmp[1] = 0;
+            tmp[2] = 0;
+            ds3231_set_alarm2(tmp, 0,ALARM_MASK_1);
+            ds3231_get_time(time, DS3231_FORMAT_BIN);
+            ds3231_clear_alarm2_flag();
 
-            if (Time[4] == 0 && Time[5] == 0 && Time[6] == 0)
+            if (time[4] == 0 && time[5] == 0 && time[6] == 0)
                 ret = true;
             else
                 ret = false;
@@ -796,30 +804,28 @@ int t_ds3231_SetAlarm2(int argc, char **argv)
 
         case 0x00:
             if (dy_dt) {
-                Data[0] = 0;
-                Data[1] = 0;
-                Data[2] = 0;
-                Data[3] = 0;
-                ds3231_SetAlarm1(Data, 0,
-                    0);
-                ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
-                ds3231_ClearAlarm1Flag();
+                tmp[0] = 0;
+                tmp[1] = 0;
+                tmp[2] = 0;
+                tmp[3] = 0;
+                ds3231_set_alarm2(tmp, 0, 0);
+                ds3231_get_time(time, DS3231_FORMAT_BIN);
+                ds3231_clear_alarm2_flag();
 
-                if (Time[3] == 0 && Time[4] == 0 && Time[5] == 0 && Time[6] == 0)
+                if (time[3] == 0 && time[4] == 0 && time[5] == 0 && time[6] == 0)
                     ret = true;
                 else
                     ret = false;
             } else {
-                Data[0] = 0;
-                Data[1] = 0;
-                Data[2] = 0;
-                Data[3] = 0;
-                ds3231_SetAlarm1(Data, 0,
-                    0);
-                ds3231_ReadTime(Time, DS3231_FORMAT_BIN);
-                ds3231_ClearAlarm1Flag();
+                tmp[0] = 0;
+                tmp[1] = 0;
+                tmp[2] = 0;
+                tmp[3] = 0;
+                ds3231_set_alarm2(tmp, 0,0);
+                ds3231_get_time(time, DS3231_FORMAT_BIN);
+                ds3231_clear_alarm2_flag();
 
-                if (Time[3] == 0 && Time[4] == 0 && Time[5] == 0 && Time[6] == 0)
+                if (time[3] == 0 && time[4] == 0 && time[5] == 0 && time[6] == 0)
                     ret = true;
                 else
                     ret = false;
@@ -831,9 +837,9 @@ int t_ds3231_SetAlarm2(int argc, char **argv)
     return ret;
 }
 
-int t_ds3231_SquareWave(int argc, char **argv)
+int t_ds3231_square_wave(int argc, char **argv)
 {
-    u8 Data = 0;
+    u8 tmp = 0;
     u8 rs1 = 0, rs2 = 0;
 
     if (argc > 1)
@@ -842,52 +848,52 @@ int t_ds3231_SquareWave(int argc, char **argv)
     if (argc > 2)
         rs1 = strtoul(argv[2], &argv[2], 10);
 
-    Data = (rs2 << 1) | rs1;
+    tmp = (rs2 << 1) | rs1;
 
-    switch (Data) {
+    switch (tmp) {
         case SQUARE_WAVE_1HZ:
-            ds3231_RateSelect(SQUARE_WAVE_1HZ);
+            ds3231_rate_select(SQUARE_WAVE_1HZ);
             break;
 
         case SQUARE_WAVE_1_024HZ:
-            ds3231_RateSelect(SQUARE_WAVE_1_024HZ);
+            ds3231_rate_select(SQUARE_WAVE_1_024HZ);
             break;
 
         case SQUARE_WAVE_4_096HZ:
-            ds3231_RateSelect(SQUARE_WAVE_4_096HZ);
+            ds3231_rate_select(SQUARE_WAVE_4_096HZ);
             break;
 
         case SQUARE_WAVE_8_192HZ:
-            ds3231_RateSelect(SQUARE_WAVE_8_192HZ);
+            ds3231_rate_select(SQUARE_WAVE_8_192HZ);
             break;
 
         default:
             break;
     }
 
-    ds3231_RateSelect(SQUARE_WAVE_1HZ);
-    ds3231_EnableSquareWave();
+    ds3231_rate_select(SQUARE_WAVE_1HZ);
+    ds3231_enable_square_wave();
 
-    return true;
+    return PASS;
 }
 
-int t_ds3231_32kHzWave(int argc, char **argv)
+int t_ds3231_32khz_wave(int argc, char **argv)
 {
-    ds3231_Enable32kHzOutput();
+    ds3231_enable_32khz_output();
 
-    return true;
+    return PASS;
 }
 
-int t_ds3231_GetTemprature(int argc, char **argv)
+int t_ds3231_get_temprature(int argc, char **argv)
 {
-    float Data = 0;
+    float tmp = 0;
 
-    ds3231_ConvertTemperature();
-    ds3231_GetTemperature(&Data);
+    ds3231_convert_temperature();
+    ds3231_get_temperature(&tmp);
 
-    printk(KERN_DEBUG "Temperature is %f", Data);
+    printk(KERN_DEBUG "Temperature is %f", tmp);
 
-    return true;
+    return PASS;
 }
 
 #endif

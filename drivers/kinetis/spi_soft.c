@@ -2,6 +2,8 @@
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
+#include "stm32f4xx_hal.h"
+
 /**
   * @step 1:  Modify the corresponding function according to the modified area and the corresponding function name.
   * @step 2:  Modify four areas: GPIO_PORT/GPIO_PIN/Led_TypeDef/LEDn.
@@ -10,16 +12,16 @@
   * @step 5:
   */
 
-#define SPI_SOFT_CR1_LSBFE                   0x01
-#define SPI_SOFT_CR1_CPHA                    0x04
-#define SPI_SOFT_CR1_CPOL                    0x08
-#define SPI_SOFT_CR1_MSTR                    0x10
-#define SPI_SOFT_BR_SPR0                     0x01
-#define SPI_SOFT_BR_SPR1                     0x02
-#define SPI_SOFT_BR_SPR2                     0x04
-#define SPI_SOFT_BR_SPPR0                    0x10
-#define SPI_SOFT_BR_SPPR1                    0x20
-#define SPI_SOFT_BR_SPPR2                    0x40
+#define SPI_SOFT_CR1_LSBFE              0x01
+#define SPI_SOFT_CR1_CPHA               0x04
+#define SPI_SOFT_CR1_CPOL               0x08
+#define SPI_SOFT_CR1_MSTR               0x10
+#define SPI_SOFT_BR_SPR0                0x01
+#define SPI_SOFT_BR_SPR1                0x02
+#define SPI_SOFT_BR_SPR2                0x04
+#define SPI_SOFT_BR_SPPR0               0x10
+#define SPI_SOFT_BR_SPPR1               0x20
+#define SPI_SOFT_BR_SPPR2               0x40
 
 #define SPI_Soft_Pin_CS                 GPIO_PIN_13
 #define SPI_Soft_Pin_MOSI               GPIO_PIN_14
@@ -41,46 +43,48 @@
 #define SPI_CK_H                        HAL_GPIO_WritePin(SPI_Soft_Port_SCK, SPI_Soft_Pin_SCK, GPIO_PIN_SET)
 #define SPI_CK_L                        HAL_GPIO_WritePin(SPI_Soft_Port_SCK, SPI_Soft_Pin_SCK, GPIO_PIN_RESET)
 
-u8 SPI_BaudRatePreselection = 0;
-u8 SPI_BaudRateSelection = 0;
-u16 SPI_BaudRateDivisor = 1;
+struct spi_baudrate {
+    u8 preselection;
+    u8 selection;
+    u16 divisor;
+};
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-void SPI_SetBaudRate(u16 BaudRateDivisor)
+void spi_set_baudrate(u16 baudrate_divisor)
 {
 
 }
 
 /*
- * SPI_WriteData
+ * spi_write_data
  *
  * Writes to an 8-bit register with the SPI port
  */
-void SPI_WriteData(const u8 regAddr, const u8 regData)
+void spi_write_data(const u8 reg, const u8 val)
 {
-    /* Counter used to clock out the data */
-    u8 Count;
+    /* cnter used to clock out the data */
+    u8 cnt;
     /* Define a data structure for the SPI data */
-    u8 Data;
+    u8 tmp;
 
     /* Make sure we start with active-low CS high and CK low */
     SPI_CS_H;
     SPI_CK_L;
 
     /* Preload the data to be sent with Address */
-    Data = regAddr;
+    tmp = reg;
     /* Set active-low CS low to start the SPI cycle */
     SPI_CS_L;
-    /* Although Data could be implemented as an "int",
+    /* Although tmp could be implemented as an "int",
      * resulting in one loop, the routines run faster when two loops
-     * are implemented with Data implemented as two "char"s.
+     * are implemented with tmp implemented as two "char"s.
      */
 
     /* Prepare to clock out the Address byte */
-    for (Count = 0; Count < 8; Count++) {
+    for (cnt = 0; cnt < 8; cnt++) {
         /* Check for a 1 and set the MOSI line appropriately*/
-        if (Data & 0x80)
+        if (tmp & 0x80)
             SPI_MOSI_H;
         else
             SPI_MOSI_L;
@@ -89,22 +93,22 @@ void SPI_WriteData(const u8 regAddr, const u8 regData)
         SPI_CK_H;
         SPI_CK_L;
         /* Rotate to get the next bit */
-        Data <<= 1;
+        tmp <<= 1;
         /* and loop back to send the next bit */
     }
 
-    /* Repeat for the Data byte, Preload the data to be sent with Data */
-    Data = regData;
+    /* Repeat for the tmp byte, Preload the data to be sent with tmp */
+    tmp = val;
 
-    for (Count = 0; Count < 8; Count++) {
-        if (Data & 0x80)
+    for (cnt = 0; cnt < 8; cnt++) {
+        if (tmp & 0x80)
             SPI_MOSI_H;
         else
             SPI_MOSI_L;
 
         SPI_CK_H;
         SPI_CK_L;
-        Data <<= 1;
+        tmp <<= 1;
     }
 
     SPI_CS_H;
@@ -112,29 +116,29 @@ void SPI_WriteData(const u8 regAddr, const u8 regData)
 }
 
 /*
- * SPI_ReadData
+ * spi_read_data
  *
  * Reads an 8-bit register with the SPI port.
- * Data is returned.
+ * tmp is returned.
  */
-u8 SPI_ReadData(const u8 regAddr)
+u8 spi_read_data(const u8 reg)
 {
-    /* Counter used to clock out the data */
-    u8 Count;
-    u8 Data;
+    /* cnter used to clock out the data */
+    u8 cnt;
+    u8 tmp;
 
     /* Make sure we start with active-low CS high and CK low */
     SPI_CS_H;
     SPI_CK_L;
-    /* Preload the data to be sent with Address and Data */
-    Data = regAddr;
+    /* Preload the data to be sent with Address and tmp */
+    tmp = reg;
 
     /* Set active-low CS low to start the SPI cycle */
     SPI_CS_L;
 
-    /* Prepare to clock out the Address and Data */
-    for (Count = 0; Count < 8; Count++) {
-        if (Data & 0x80)
+    /* Prepare to clock out the Address and tmp */
+    for (cnt = 0; cnt < 8; cnt++) {
+        if (tmp & 0x80)
             SPI_MOSI_H;
         else
             SPI_MOSI_L;
@@ -142,22 +146,22 @@ u8 SPI_ReadData(const u8 regAddr)
         SPI_CK_H;
         SPI_CK_L;
         /* and loop back to send the next bit */
-        Data <<= 1;
+        tmp <<= 1;
     }
 
     /* Reset the MOSI data line */
     SPI_MOSI_L;
 
-    Data = 0;
+    tmp = 0;
 
     /* Prepare to clock in the data to be read */
-    for (Count = 0; Count < 8; Count++) {
+    for (cnt = 0; cnt < 8; cnt++) {
         /* Rotate the data */
-        Data <<= 1;
+        tmp <<= 1;
         /* Raise the clock to clock the data out of the chip */
         SPI_CK_H;
         /* Read the data bit */
-        Data += SPI_MISO;
+        tmp += SPI_MISO;
         /* Drop the clock ready for the next bit and loop back */
         SPI_CK_L;
     }
@@ -165,6 +169,6 @@ u8 SPI_ReadData(const u8 regAddr)
     /* Raise CS */
     SPI_CS_H;
     /* Finally return the read data */
-    return ((u8)Data);
+    return ((u8)tmp);
 }
 

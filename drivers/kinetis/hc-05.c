@@ -1,5 +1,6 @@
 #include "kinetis/hc-05.h"
 #include "kinetis/general.h"
+#include "kinetis/idebug.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -11,32 +12,28 @@
   * @step 5:
   */
 
-#define DEBUG
-#include "kinetis/idebug.h"
-
-#define hc_05_printf                  p_dbg
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-void hc_05_TestCommand(void)
+void hc_05_test_cmd(void)
 {
-    GeneralCommand_TypeDef Command;
+    struct general_cmd cmd;
 
-    Command.AT_Command = "AT";
-    Command.Property = AT_NONE;
-    Command.pArgument = NULL;
-    Command.pExpectRes = "OK";
-    Command.ErrorRepetition = 3;
-    Command.WaitTime = 1000;
-    Command.Interval = 1000;
+    cmd.at_cmd = "AT";
+    cmd.property = AT_NONE;
+    cmd.argu = NULL;
+    cmd.expect_res = "OK";
+    cmd.error_repetition = 3;
+    cmd.wait_time = 1000;
+    cmd.interval = 1000;
 
-    General_ProcessCommand(&Command);
+    general_process_cmd(&cmd);
 
-    if (Command.ErrorFlag == true && Command.ErrorRepetition == 0) {
+    if (cmd.error_flag == true && cmd.error_repetition == 0) {
 
     }
 
-    if (Command.TimeoutFlag == true) {
+    if (cmd.timeout_flag == true) {
 
     }
 }
@@ -44,9 +41,9 @@ void hc_05_TestCommand(void)
 #ifdef DESIGN_VERIFICATION_HC_05
 #include "kinetis/test-kinetis.h"
 
-int t_hc_05_TestCommand(int argc, char **argv)
+int t_hc_05_test_cmd(int argc, char **argv)
 {
-    hc_05_TestCommand();
+    hc_05_test_cmd();
 
     return PASS;
 }

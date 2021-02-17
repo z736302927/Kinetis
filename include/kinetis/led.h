@@ -8,27 +8,34 @@ extern "C" {
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /* Includes ------------------------------------------------------------------*/
+#include <linux/types.h>
+#include <linux/list.h>
+
 #include "kinetis/core_common.h"
 
-typedef enum {
-    LED1 = 0,
-    LED2,
-    LED3,
-    LED4
-} LEDn_Type;
+enum led_color {
+    RED,
+    GREEN,
+    BLUE
+};
+    
+enum led_status {
+    ON,
+    OFF,
+    TOGGLE
+};
 
-typedef struct LED_TypeDef {
-    u8 UniqueID;
-    char *Color;
-    struct LED_TypeDef *Next;
-} LED_TypeDef;
+struct led {
+    u32 unique_id;
+    enum led_color color;
+    void *group;
+    u32 num;
+    struct list_head list;
+};
 
-#define LEDn              4
-
-void K_LED_Init(LEDn_Type LED);
-void K_LED_On(LEDn_Type LED);
-void K_LED_Off(LEDn_Type LED);
-void K_LED_Toggle(LEDn_Type LED);
+int led_add(u32 unique_id, enum led_color color, void *group, u32 num);
+void led_drop(u32 unique_id);
+void led_operation(u32 unique_id, enum led_status status);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

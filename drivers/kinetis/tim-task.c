@@ -1,4 +1,4 @@
-#include "kinetis/timtask.h"
+#include "kinetis/tim-task.h"
 #include "kinetis/basic-timer.h"
 
 #include <linux/slab.h>
@@ -7,7 +7,7 @@
 #include "string.h"
 
 //tim_task handle list head.
-static struct list_head tim_task_head;
+static LIST_HEAD(tim_task_head);
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

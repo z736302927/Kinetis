@@ -60,7 +60,7 @@ int printk(const char *fmt, ...)
 	static char textbuf[LOG_LINE_MAX];
 	char *text = textbuf;
 	size_t text_len;
-	enum log_flags lflags = 0;
+	int lflags = 0;
     va_list args;
 	int level = LOGLEVEL_DEFAULT, kern_level;
     

@@ -1,7 +1,10 @@
 #include "kinetis/hydrology.h"
 #include "kinetis/hydrology-config.h"
 #include "kinetis/hydrology-identifier.h"
+#include "kinetis/idebug.h"
+
 #include <string.h>
+
 #include <linux/slab.h>
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
@@ -14,207 +17,201 @@
   * @step 5:
   */
 
-#include "kinetis/idebug.h"
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-void Hydrology_ChangeMode(u8 M)
+void hydrology_change_mode(u8 M)
 {
 //    HYDROLOGY_MODE = M;
 }
 
-static int Hydrology_SendRealtimeData(void)
+static int hydrology_send_realtime_data(void)
 {
-    HydrologyElementInfo Element_table[] = {
+    struct hydrology_element_info element_table[] = {
         HYDROLOGY_E_PJ,
         HYDROLOGY_E_PT,
         HYDROLOGY_E_Z,
         HYDROLOGY_E_VT
     };
 
-    if (HydrologyD_ProcessSend(Element_table,
-            sizeof(Element_table) / sizeof(HydrologyElementInfo),
+    if (hydrology_device_process_send(element_table,
+            sizeof(element_table) / sizeof(struct hydrology_element_info),
             HYDROLOGY_M4, Realtime) == false)
         return false;
 
     return true;
 }
 
-static int Hydrology_SendPeriodData(void)
+static int hydrology_send_period_data(void)
 {
-    HydrologyDownBody *downbody = (HydrologyDownBody *)g_Hydrology.downpacket->body;
-    HydrologyElementInfo Element_table[] = {
+    struct hydrology_down_body *down_body = (struct hydrology_down_body *)g_hydrology.down_packet->body;
+    struct hydrology_element_info element_table[] = {
         HYDROLOGY_E_DRxnn,
         NULL
     };
 
-    Element_table[1].ID = downbody->element[1]->guide[0];
-    Hydrology_ReadSpecifiedElementInfo(&Element_table[1], Period, Element_table[1].ID);
+    element_table[1].ID = down_body->element[1]->guide[0];
+    hydrology_read_specified_element_info(&element_table[1], Period, element_table[1].ID);
 
-    if (HydrologyD_ProcessSend(Element_table,
-            sizeof(Element_table) / sizeof(HydrologyElementInfo),
+    if (hydrology_device_process_send(element_table,
+            sizeof(element_table) / sizeof(struct hydrology_element_info),
             HYDROLOGY_M4, Period) == false)
         return false;
 
     return true;
 }
 
-static int Hydrology_SendSpecifiedElement(void)
+static int hydrology_send_specified_element(void)
 {
-    HydrologyDownHeader *header = g_Hydrology.downpacket->header;
-    HydrologyDownBody *downbody = (HydrologyDownBody *)g_Hydrology.downpacket->body;
-    HydrologyElementInfo *Element_table;
+    struct hydrology_down_header *header = g_hydrology.down_packet->header;
+    struct hydrology_down_body *down_body = (struct hydrology_down_body *)g_hydrology.down_packet->body;
+    struct hydrology_element_info *element_table;
     u8 i;
     int ret;
 
-    if (downbody->count != 0) {
-        Element_table =
-            (HydrologyElementInfo *)kmalloc(sizeof(HydrologyElementInfo) * downbody->count, __GFP_ZERO);
+    if (down_body->count != 0) {
+        element_table = kmalloc(sizeof(struct hydrology_element_info) * down_body->count, __GFP_ZERO);
 
-        if (Element_table == NULL) {
-            printk(KERN_DEBUG "Element_table malloc failed");
+        if (element_table == NULL) {
+            printk(KERN_DEBUG "element_table malloc failed");
             return false;
         }
     }
 
-    for (i = 0; i < downbody->count; i++) {
-        Hydrology_ReadSpecifiedElementInfo(&Element_table[i], (HydrologyBodyType)header->funcode,
-            downbody->element[i]->guide[0]);
+    for (i = 0; i < down_body->count; i++) {
+        hydrology_read_specified_element_info(&element_table[i], (enum hydrology_body_type)header->funcode,
+            down_body->element[i]->guide[0]);
     }
 
-    ret = HydrologyD_ProcessSend(Element_table, downbody->count,
-            HYDROLOGY_M4, SpecifiedElement);
+    ret = hydrology_device_process_send(element_table, down_body->count,
+            HYDROLOGY_M4, Specifiedelement);
 
-    kfree(Element_table);
+    kfree(element_table);
 
     return ret;
 }
 
-static int Hydrology_BasicInfoConfig(void)
+static int hydrology_basic_info_config(void)
 {
-    HydrologyDownHeader *header = g_Hydrology.downpacket->header;
-    HydrologyDownBody *downbody = (HydrologyDownBody *)g_Hydrology.downpacket->body;
-    HydrologyElementInfo *Element_table;
+    struct hydrology_down_header *header = g_hydrology.down_packet->header;
+    struct hydrology_down_body *down_body = (struct hydrology_down_body *)g_hydrology.down_packet->body;
+    struct hydrology_element_info *element_table;
     u8 i;
 
-    if (downbody->count != 0) {
-        Element_table =
-            (HydrologyElementInfo *)kmalloc(sizeof(HydrologyElementInfo) * downbody->count, __GFP_ZERO);
+    if (down_body->count != 0) {
+        element_table = kmalloc(sizeof(struct hydrology_element_info) * down_body->count, __GFP_ZERO);
 
-        if (Element_table == NULL) {
-            printk(KERN_DEBUG "Element_table malloc failed");
+        if (element_table == NULL) {
+            printk(KERN_DEBUG "element_table malloc failed");
             return false;
         }
     }
 
-    for (i = 0; i < downbody->count; i++) {
-        Hydrology_ReadSpecifiedElementInfo(&Element_table[i], (HydrologyBodyType)header->funcode,
-            downbody->element[i]->guide[0]);
+    for (i = 0; i < down_body->count; i++) {
+        hydrology_read_specified_element_info(&element_table[i], (enum hydrology_body_type)header->funcode,
+            down_body->element[i]->guide[0]);
 
-        Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, Element_table[i].Addr,
-            downbody->element[i]->value, downbody->element[i]->guide[1] >> 3);
+        hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, element_table[i].addr,
+            down_body->element[i]->value, down_body->element[i]->guide[1] >> 3);
     }
 
-    kfree(Element_table);
+    kfree(element_table);
 
     return true;
 }
 
-static int Hydrology_BasicInfoRead(HydrologyBodyType Funcode)
+static int hydrology_basic_info_read(enum hydrology_body_type funcode)
 {
-    HydrologyDownHeader *header = g_Hydrology.downpacket->header;
-    HydrologyDownBody *downbody = (HydrologyDownBody *)g_Hydrology.downpacket->body;
-    HydrologyElementInfo *Element_table;
+    struct hydrology_down_header *header = g_hydrology.down_packet->header;
+    struct hydrology_down_body *down_body = (struct hydrology_down_body *)g_hydrology.down_packet->body;
+    struct hydrology_element_info *element_table;
     u8 i;
     int ret;
 
-    if (downbody->count != 0) {
-        Element_table =
-            (HydrologyElementInfo *)kmalloc(sizeof(HydrologyElementInfo) * downbody->count, __GFP_ZERO);
+    if (down_body->count != 0) {
+        element_table = kmalloc(sizeof(struct hydrology_element_info) * down_body->count, __GFP_ZERO);
 
-        if (Element_table == NULL) {
-            printk(KERN_DEBUG "Element_table malloc failed");
+        if (element_table == NULL) {
+            printk(KERN_DEBUG "element_table malloc failed");
             return false;
         }
     }
 
-    for (i = 0; i < downbody->count; i++) {
-        Hydrology_ReadSpecifiedElementInfo(&Element_table[i], (HydrologyBodyType)header->funcode,
-            downbody->element[i]->guide[0]);
+    for (i = 0; i < down_body->count; i++) {
+        hydrology_read_specified_element_info(&element_table[i], (enum hydrology_body_type)header->funcode,
+            down_body->element[i]->guide[0]);
     }
 
-    ret = HydrologyD_ProcessSend(Element_table, downbody->count,
-            HYDROLOGY_M4, Funcode);
+    ret = hydrology_device_process_send(element_table, down_body->count,
+            HYDROLOGY_M4, funcode);
 
-    kfree(Element_table);
+    kfree(element_table);
 
     return ret;
 }
 
-static int Hydrology_SetParameter(void)
+static int hydrology_set_parameter(void)
 {
-    HydrologyDownHeader *header = g_Hydrology.downpacket->header;
-    HydrologyDownBody *downbody = (HydrologyDownBody *)g_Hydrology.downpacket->body;
-    HydrologyElementInfo *Element_table;
+    struct hydrology_down_header *header = g_hydrology.down_packet->header;
+    struct hydrology_down_body *down_body = (struct hydrology_down_body *)g_hydrology.down_packet->body;
+    struct hydrology_element_info *element_table;
     u8 i;
 
-    if (downbody->count != 0) {
-        Element_table =
-            (HydrologyElementInfo *)kmalloc(sizeof(HydrologyElementInfo) * downbody->count, __GFP_ZERO);
+    if (down_body->count != 0) {
+        element_table = kmalloc(sizeof(struct hydrology_element_info) * down_body->count, __GFP_ZERO);
 
-        if (Element_table == NULL) {
-            printk(KERN_DEBUG "Element_table malloc failed");
+        if (element_table == NULL) {
+            printk(KERN_DEBUG "element_table malloc failed");
             return false;
         }
     }
 
-    for (i = 0; i < downbody->count; i++) {
-        Hydrology_ReadSpecifiedElementInfo(&Element_table[i], (HydrologyBodyType)header->funcode,
-            downbody->element[i]->guide[0]);
+    for (i = 0; i < down_body->count; i++) {
+        hydrology_read_specified_element_info(&element_table[i], (enum hydrology_body_type)header->funcode,
+            down_body->element[i]->guide[0]);
 
-        Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, Element_table[i].Addr,
-            downbody->element[i]->value, downbody->element[i]->guide[1] >> 3);
+        hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, element_table[i].addr,
+            down_body->element[i]->value, down_body->element[i]->guide[1] >> 3);
     }
 
-    kfree(Element_table);
+    kfree(element_table);
 
     return true;
 }
 
-static int Hydrology_ReadParameter(HydrologyBodyType Funcode)
+static int hydrology_read_parameter(enum hydrology_body_type funcode)
 {
-    HydrologyDownHeader *header = g_Hydrology.downpacket->header;
-    HydrologyDownBody *downbody = (HydrologyDownBody *)g_Hydrology.downpacket->body;
-    HydrologyElementInfo *Element_table;
+    struct hydrology_down_header *header = g_hydrology.down_packet->header;
+    struct hydrology_down_body *down_body = (struct hydrology_down_body *)g_hydrology.down_packet->body;
+    struct hydrology_element_info *element_table;
     u8 i;
     int ret;
 
-    if (downbody->count != 0) {
-        Element_table =
-            (HydrologyElementInfo *)kmalloc(sizeof(HydrologyElementInfo) * downbody->count, __GFP_ZERO);
+    if (down_body->count != 0) {
+        element_table = kmalloc(sizeof(struct hydrology_element_info) * down_body->count, __GFP_ZERO);
 
-        if (Element_table == NULL) {
-            printk(KERN_DEBUG "Element_table malloc failed");
+        if (element_table == NULL) {
+            printk(KERN_DEBUG "element_table malloc failed");
             return false;
         }
     }
 
-    for (i = 0; i < downbody->count; i++) {
-        Hydrology_ReadSpecifiedElementInfo(&Element_table[i], (HydrologyBodyType)header->funcode,
-            downbody->element[i]->guide[0]);
+    for (i = 0; i < down_body->count; i++) {
+        hydrology_read_specified_element_info(&element_table[i], (enum hydrology_body_type)header->funcode,
+            down_body->element[i]->guide[0]);
     }
 
-    ret = HydrologyD_ProcessSend(Element_table, downbody->count,
-            HYDROLOGY_M4, Funcode);
+    ret = hydrology_device_process_send(element_table, down_body->count,
+            HYDROLOGY_M4, funcode);
 
-    kfree(Element_table);
+    kfree(element_table);
 
     return ret;
 }
 
-static int Hydrology_SendWaterPumpMotorData(void)
+static int hydrology_send_water_pump_motor_data(void)
 {
-    HydrologyElementInfo Element_table[] = {
+    struct hydrology_element_info element_table[] = {
         HYDROLOGY_E_VTA,
         HYDROLOGY_E_VTB,
         HYDROLOGY_E_VTC,
@@ -223,29 +220,29 @@ static int Hydrology_SendWaterPumpMotorData(void)
         HYDROLOGY_E_VIC
     };
 
-    if (HydrologyD_ProcessSend(Element_table,
-            sizeof(Element_table) / sizeof(HydrologyElementInfo),
+    if (hydrology_device_process_send(element_table,
+            sizeof(element_table) / sizeof(struct hydrology_element_info),
             HYDROLOGY_M4, WaterPumpMotor) == false)
         return false;
 
     return true;
 }
 
-static int Hydrology_SendStatusData(void)
+static int hydrology_send_status_data(void)
 {
-    HydrologyElementInfo Element_table[] = {
+    struct hydrology_element_info element_table[] = {
         HYDROLOGY_E_ZT,
     };
 
-    if (HydrologyD_ProcessSend(Element_table,
-            sizeof(Element_table) / sizeof(HydrologyElementInfo),
+    if (hydrology_device_process_send(element_table,
+            sizeof(element_table) / sizeof(struct hydrology_element_info),
             HYDROLOGY_M4, Status) == false)
         return false;
 
     return true;
 }
 
-static int Hydrology_InitializeSolidStorage(void)
+static int hydrology_initialize_solid_storage(void)
 {
     int ret;
 
@@ -257,7 +254,7 @@ static int Hydrology_InitializeSolidStorage(void)
     return ret;
 }
 
-int HydrologyD_Reset(void)
+int hydrology_device_reset(void)
 {
     int ret;
     u8 temp[256];
@@ -268,34 +265,34 @@ int HydrologyD_Reset(void)
         for (j = 0; j < 200; j++)
             Data[j] = j + i * 200;
 
-        Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_PICTURE, i * 200, (u8 *)Data, 200);
+        hydrology_write_store_info(HYDROLOGY_D_FILE_PICTURE, i * 200, (u8 *)Data, 200);
     }
 
     for (i = 0; i < 2; i++) {
         for (j = 0; j < 200; j++)
             Data[j] = j + i * 200;
 
-        Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_RGZS, i * 200, (u8 *)Data, 200);
+        hydrology_write_store_info(HYDROLOGY_D_FILE_RGZS, i * 200, (u8 *)Data, 200);
     }
 
     temp[0] = 0x50;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_RTUTYPE, temp, 1);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_RTUTYPE, temp, 1);
     temp[0] = 0x01;
     temp[1] = 0x02;
     temp[2] = 0x03;
     temp[3] = 0x04;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_CENTER, temp, 4);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_CENTER, temp, 4);
     temp[0] = 0x00;
     temp[1] = 0x12;
     temp[2] = 0x34;
     temp[3] = 0x56;
     temp[4] = 0x78;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_REMOTE, temp, 5);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_REMOTE, temp, 5);
     temp[0] = 0x12;
     temp[1] = 0x34;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_PASSWORD, temp, 2);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_PASSWORD, temp, 2);
     temp[0] = 10;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_CENTER1_IP, temp, 1);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_CENTER1_IP, temp, 1);
     temp[0] = 0x02;
     temp[1] = 0x05;
     temp[2] = 0x80;
@@ -306,9 +303,9 @@ int HydrologyD_Reset(void)
     temp[7] = 0x00;
     temp[8] = 0x89;
     temp[9] = 0x86;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_CENTER1_IP, temp, 10);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_CENTER1_IP, temp, 10);
     temp[0] = 10;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_BACKUP1_IP, temp, 1);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_BACKUP1_IP, temp, 1);
     temp[0] = 0x02;
     temp[1] = 0x18;
     temp[2] = 0x30;
@@ -319,9 +316,9 @@ int HydrologyD_Reset(void)
     temp[7] = 0x00;
     temp[8] = 0x66;
     temp[9] = 0x66;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_BACKUP1_IP, temp, 10);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_BACKUP1_IP, temp, 10);
     temp[0] = 10;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_CENTER2_IP, temp, 1);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_CENTER2_IP, temp, 1);
     temp[0] = 0x02;
     temp[1] = 0x22;
     temp[2] = 0x21;
@@ -332,9 +329,9 @@ int HydrologyD_Reset(void)
     temp[7] = 0x00;
     temp[8] = 0x66;
     temp[9] = 0x66;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_CENTER2_IP, temp, 10);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_CENTER2_IP, temp, 10);
     temp[0] = 10;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_BACKUP2_IP, temp, 1);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_BACKUP2_IP, temp, 1);
     temp[0] = 0x02;
     temp[1] = 0x12;
     temp[2] = 0x00;
@@ -345,9 +342,9 @@ int HydrologyD_Reset(void)
     temp[7] = 0x00;
     temp[8] = 0x99;
     temp[9] = 0x99;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_BACKUP2_IP, temp, 10);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_BACKUP2_IP, temp, 10);
     temp[0] = 10;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_CENTER3_IP, temp, 1);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_CENTER3_IP, temp, 1);
     temp[0] = 0x02;
     temp[1] = 0x12;
     temp[2] = 0x00;
@@ -358,9 +355,9 @@ int HydrologyD_Reset(void)
     temp[7] = 0x00;
     temp[8] = 0x99;
     temp[9] = 0x99;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_CENTER3_IP, temp, 10);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_CENTER3_IP, temp, 10);
     temp[0] = 10;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_BACKUP3_IP, temp, 1);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_BACKUP3_IP, temp, 1);
     temp[0] = 0x02;
     temp[1] = 0x12;
     temp[2] = 0x00;
@@ -371,9 +368,9 @@ int HydrologyD_Reset(void)
     temp[7] = 0x00;
     temp[8] = 0x99;
     temp[9] = 0x99;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_BACKUP3_IP, temp, 10);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_BACKUP3_IP, temp, 10);
     temp[0] = 10;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_CENTER4_IP, temp, 1);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_CENTER4_IP, temp, 1);
     temp[0] = 0x02;
     temp[1] = 0x12;
     temp[2] = 0x00;
@@ -384,9 +381,9 @@ int HydrologyD_Reset(void)
     temp[7] = 0x00;
     temp[8] = 0x99;
     temp[9] = 0x99;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_CENTER4_IP, temp, 10);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_CENTER4_IP, temp, 10);
     temp[0] = 10;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_BACKUP4_IP, temp, 1);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_BACKUP4_IP, temp, 1);
     temp[0] = 0x02;
     temp[1] = 0x12;
     temp[2] = 0x00;
@@ -397,9 +394,9 @@ int HydrologyD_Reset(void)
     temp[7] = 0x00;
     temp[8] = 0x99;
     temp[9] = 0x99;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_BACKUP4_IP, temp, 10);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_BACKUP4_IP, temp, 10);
     temp[0] = 0x02;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_WORK_MODE, temp, 2);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_WORK_MODE, temp, 2);
     temp[0] = 0x80;
     temp[1] = 0x01;
     temp[2] = 0x06;
@@ -408,7 +405,7 @@ int HydrologyD_Reset(void)
     temp[5] = 0x00;
     temp[6] = 0x00;
     temp[7] = 0x00;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_ELEMENT_SELECT, temp, 8);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_ELEMENT_SELECT, temp, 8);
     temp[0] = 0x00;
     temp[1] = 0x00;
     temp[2] = 0x00;
@@ -421,9 +418,9 @@ int HydrologyD_Reset(void)
     temp[9] = 0x00;
     temp[10] = 0x00;
     temp[11] = 0x00;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_REPEATER_STATION, temp, 12);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_REPEATER_STATION, temp, 12);
     temp[0] = 12;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_DEVICE_ID, temp, 1);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_DEVICE_ID, temp, 1);
     temp[0] = '1';
     temp[1] = '1';
     temp[2] = '2';
@@ -436,49 +433,49 @@ int HydrologyD_Reset(void)
     temp[9] = '9';
     temp[10] = '0';
     temp[11] = '1';
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_DEVICE_ID, temp, 12);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_DEVICE_ID, temp, 12);
     temp[0] = 0x01;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_TI, temp, 1);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_TI, temp, 1);
     temp[0] = 0x05;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_AI, temp, 1);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_AI, temp, 1);
     temp[0] = 0x08;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_RBT, temp, 1);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_RBT, temp, 1);
     temp[0] = 0x03;
     temp[1] = 0x00;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_SI, temp, 2);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_SI, temp, 2);
     temp[0] = 0x05;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_WSI, temp, 1);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_WSI, temp, 1);
     temp[0] = 0x05;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_RR, temp, 1);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_RR, temp, 1);
     temp[0] = 0x01;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_WR, temp, 1);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_WR, temp, 1);
     temp[0] = 0x01;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_RAT, temp, 1);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_RAT, temp, 1);
     temp[0] = 0x01;
     temp[1] = 0x00;
     temp[2] = 0x00;
     temp[3] = 0x00;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_WB1, temp, 4);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_WB1, temp, 4);
     temp[0] = 0x01;
     temp[1] = 0x00;
     temp[2] = 0x00;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_WC1, temp, 3);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_WC1, temp, 3);
     temp[0] = 0x25;
     temp[1] = 0x01;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_WC1, temp, 2);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_WC1, temp, 2);
     temp[0] = 0x01;
     temp[1] = 0x00;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_AAT, temp, 2);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_AAT, temp, 2);
     temp[0] = 0x03;
     temp[1] = 0x00;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_ABT, temp, 2);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_ABT, temp, 2);
     temp[0] = strlen("*WHU-2020-V3.0");
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_SW_VERSION_LEN, temp, 1);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_SW_VERSION_LEN, temp, 1);
     memcpy(temp, "*WHU-2020-V3.0", strlen("*WHU-2020-V3.0"));
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_SW_VERSION, temp,
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_SW_VERSION, temp,
         strlen("*WHU-2020-V3.0"));
 
-    static HydrologyElementInfo Element_table[] = {
+    static struct hydrology_element_info element_table[] = {
         HYDROLOGY_E_TT,
         HYDROLOGY_E_ST,
         HYDROLOGY_E_RGZS,
@@ -782,205 +779,205 @@ int HydrologyD_Reset(void)
         HYDROLOGY_PD_NEWPASSWORD,
     };
 
-    ret = Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_INFO, 0, (u8 *)Element_table,
-            sizeof(Element_table));
+    ret = hydrology_write_store_info(HYDROLOGY_D_FILE_E_INFO, 0, (u8 *)element_table,
+            sizeof(element_table));
 
     return ret;
 }
 
-static int Hydrology_SetPassword(void)
+static int hydrology_set_password(void)
 {
-    HydrologyDownBody *downbody = (HydrologyDownBody *)g_Hydrology.downpacket->body;
+    struct hydrology_down_body *down_body = (struct hydrology_down_body *)g_hydrology.down_packet->body;
 
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_PASSWORD,
-        downbody->element[1]->value, downbody->element[1]->num);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_PASSWORD,
+        down_body->element[1]->value, down_body->element[1]->num);
 
     return true;
 }
 
-static int Hydrology_SetClock(void)
+static int hydrology_set_clock(void)
 {
-    HydrologyDownBody *downbody = (HydrologyDownBody *)g_Hydrology.downpacket->body;
+    struct hydrology_down_body *down_body = (struct hydrology_down_body *)g_hydrology.down_packet->body;
 
-    Hydrology_SetTime(downbody->sendtime);
+    hydrology_set_time(down_body->send_time);
 
     return true;
 }
 
-static int Hydrology_SetICCard(void)
+static int hydrology_set_iccard(void)
 {
-    HydrologyDownBody *downbody = (HydrologyDownBody *)g_Hydrology.downpacket->body;
+    struct hydrology_down_body *down_body = (struct hydrology_down_body *)g_hydrology.down_packet->body;
 
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_EA_ZT,
-        downbody->element[0]->value, downbody->element[0]->num);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_EA_ZT,
+        down_body->element[0]->value, down_body->element[0]->num);
 
     return true;
 }
 
-static int Hydrology_SetPump(void)
+static int hydrology_set_pump(void)
 {
-    HydrologyDownBody *downbody = (HydrologyDownBody *)g_Hydrology.downpacket->body;
+    struct hydrology_down_body *down_body = (struct hydrology_down_body *)g_hydrology.down_packet->body;
 
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_PUMP,
-        downbody->element[0]->value, downbody->element[0]->num);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_PUMP,
+        down_body->element[0]->value, down_body->element[0]->num);
 
     return true;
 }
 
-static int Hydrology_SetValve(void)
+static int hydrology_set_valve(void)
 {
-    HydrologyDownBody *downbody = (HydrologyDownBody *)g_Hydrology.downpacket->body;
+    struct hydrology_down_body *down_body = (struct hydrology_down_body *)g_hydrology.down_packet->body;
 
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_VALVE,
-        downbody->element[0]->value, downbody->element[0]->num);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_VALVE,
+        down_body->element[0]->value, down_body->element[0]->num);
 
     return true;
 }
 
-static int Hydrology_SetGate(void)
+static int hydrology_set_gate(void)
 {
     char gatesize;
-    HydrologyDownBody *downbody = (HydrologyDownBody *)g_Hydrology.downpacket->body;
+    struct hydrology_down_body *down_body = (struct hydrology_down_body *)g_hydrology.down_packet->body;
 
-    gatesize = downbody->element[0]->guide[0];
+    gatesize = down_body->element[0]->guide[0];
     gatesize = ((gatesize - 1) / 8 + 1) + 2 * gatesize + 1;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_GATE,
-        downbody->element[0]->value, downbody->element[0]->num);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_GATE,
+        down_body->element[0]->value, down_body->element[0]->num);
 
     return true;
 }
 
-static int Hydrology_SetWaterSetting(void)
+static int hydrology_set_watersetting(void)
 {
-    HydrologyDownBody *downbody = (HydrologyDownBody *)g_Hydrology.downpacket->body;
+    struct hydrology_down_body *down_body = (struct hydrology_down_body *)g_hydrology.down_packet->body;
 
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_WATERSETTING,
-        downbody->element[0]->value, downbody->element[0]->num);
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_WATERSETTING,
+        down_body->element[0]->value, down_body->element[0]->num);
 
     return true;
 }
 
-static int Hydrology_RecordERC(int index)
+static int hydrology_record_erc(int index)
 {
-    u16 ERC_Couter = 0;
+    u16 erc_cnt = 0;
     int addr = (index - 1) * 2;
-    u8 _temp_ERC_Couter[2];
+    u8 _temp_erc_cnt[2];
 
-    Hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_RECORD + addr,
-        _temp_ERC_Couter, 2);
-    ERC_Couter = (_temp_ERC_Couter[0] << 8) + _temp_ERC_Couter[1];
-    ERC_Couter++;
-    _temp_ERC_Couter[0] = ERC_Couter >> 8;
-    _temp_ERC_Couter[1] = ERC_Couter & 0x00FF;
-    Hydrology_WriteStoreInfo(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_RECORD + addr,
-        _temp_ERC_Couter, 2);
+    hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_RECORD + addr,
+        _temp_erc_cnt, 2);
+    erc_cnt = (_temp_erc_cnt[0] << 8) + _temp_erc_cnt[1];
+    erc_cnt++;
+    _temp_erc_cnt[0] = erc_cnt >> 8;
+    _temp_erc_cnt[1] = erc_cnt & 0x00FF;
+    hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_RECORD + addr,
+        _temp_erc_cnt, 2);
 
     return true;
 }
 
-static int Hydrology_SendPassword(void)
+static int hydrology_send_password(void)
 {
-    HydrologyElementInfo Element_table[] = {
+    struct hydrology_element_info element_table[] = {
         HYDROLOGY_B_PASSWORD,
     };
 
-    if (HydrologyD_ProcessSend(Element_table,
-            sizeof(Element_table) / sizeof(HydrologyElementInfo),
+    if (hydrology_device_process_send(element_table,
+            sizeof(element_table) / sizeof(struct hydrology_element_info),
             HYDROLOGY_M4, ChangePassword) == false)
         return false;
 
     return true;
 }
 
-static int Hydrology_SendICCard(void)
+static int hydrology_send_iccard(void)
 {
-    HydrologyElementInfo Element_table[] = {
+    struct hydrology_element_info element_table[] = {
         HYDROLOGY_E_ZT,
     };
 
-    if (HydrologyD_ProcessSend(Element_table,
-            sizeof(Element_table) / sizeof(HydrologyElementInfo),
+    if (hydrology_device_process_send(element_table,
+            sizeof(element_table) / sizeof(struct hydrology_element_info),
             HYDROLOGY_M4, SetICCard) == false)
         return false;
 
     return true;
 }
 
-static int Hydrology_SendPump(void)
+static int hydrology_send_pump(void)
 {
-    HydrologyElementInfo Element_table[] = {
+    struct hydrology_element_info element_table[] = {
         HYDROLOGY_PD_PUMP,
     };
 
-    if (HydrologyD_ProcessSend(Element_table,
-            sizeof(Element_table) / sizeof(HydrologyElementInfo),
+    if (hydrology_device_process_send(element_table,
+            sizeof(element_table) / sizeof(struct hydrology_element_info),
             HYDROLOGY_M4, Pump) == false)
         return false;
 
     return true;
 }
 
-static int Hydrology_SendValve(void)
+static int hydrology_send_valve(void)
 {
-    HydrologyElementInfo Element_table[] = {
+    struct hydrology_element_info element_table[] = {
         HYDROLOGY_PD_VALVE,
     };
 
-    if (HydrologyD_ProcessSend(Element_table,
-            sizeof(Element_table) / sizeof(HydrologyElementInfo),
+    if (hydrology_device_process_send(element_table,
+            sizeof(element_table) / sizeof(struct hydrology_element_info),
             HYDROLOGY_M4, Valve) == false)
         return false;
 
     return true;
 }
 
-static int Hydrology_SendGate(void)
+static int hydrology_send_gate(void)
 {
-    HydrologyElementInfo Element_table[] = {
+    struct hydrology_element_info element_table[] = {
         HYDROLOGY_PD_GATE,
     };
 
-    if (HydrologyD_ProcessSend(Element_table,
-            sizeof(Element_table) / sizeof(HydrologyElementInfo),
+    if (hydrology_device_process_send(element_table,
+            sizeof(element_table) / sizeof(struct hydrology_element_info),
             HYDROLOGY_M4, Gate) == false)
         return false;
 
     return true;
 }
 
-static int Hydrology_SendWaterSetting(void)
+static int hydrology_send_water_setting(void)
 {
-    HydrologyElementInfo Element_table[] = {
+    struct hydrology_element_info element_table[] = {
         HYDROLOGY_PD_WATERSETTING,
     };
 
-    if (HydrologyD_ProcessSend(Element_table,
-            sizeof(Element_table) / sizeof(HydrologyElementInfo),
+    if (hydrology_device_process_send(element_table,
+            sizeof(element_table) / sizeof(struct hydrology_element_info),
             HYDROLOGY_M4, WaterSetting) == false)
         return false;
 
     return true;
 }
 
-static int Hydrology_SendRecordERC(void)
+static int hydrology_send_record_erc(void)
 {
-    HydrologyElementInfo Element_table[] = {
+    struct hydrology_element_info element_table[] = {
         HYDROLOGY_PD_RECORD,
     };
 
-    if (HydrologyD_ProcessSend(Element_table,
-            sizeof(Element_table) / sizeof(HydrologyElementInfo),
+    if (hydrology_device_process_send(element_table,
+            sizeof(element_table) / sizeof(struct hydrology_element_info),
             HYDROLOGY_M4, Record) == false)
         return false;
 
     return true;
 }
 
-int Hydrology_ExecuteCommand(HydrologyBodyType Funcode)
+int hydrology_execute_command(enum hydrology_body_type funcode)
 {
     int ret = false;
 
-    switch (Funcode) {
+    switch (funcode) {
         case Test:
         case EvenPeriodInformation:
         case TimerReport:
@@ -991,7 +988,7 @@ int Hydrology_ExecuteCommand(HydrologyBodyType Funcode)
         case Realtime:
         case Period:
         case InquireArtificialNumber:
-        case SpecifiedElement:
+        case Specifiedelement:
         case ConfigurationRead:
         case ParameterRead:
         case WaterPumpMotor:
@@ -1002,52 +999,52 @@ int Hydrology_ExecuteCommand(HydrologyBodyType Funcode)
             break;
 
         case ConfigurationModification:
-            Hydrology_BasicInfoConfig();
+            hydrology_basic_info_config();
             break;
 
         case ParameterModification:
-            Hydrology_SetParameter();
-            Hydrology_RecordERC(ERC2);
+            hydrology_set_parameter();
+            hydrology_record_erc(ERC2);
             break;
 
         case InitializeSolidStorage:
-            Hydrology_InitializeSolidStorage();
-            Hydrology_RecordERC(ERC5);
-            HydrologyD_Reboot();
+            hydrology_initialize_solid_storage();
+            hydrology_record_erc(ERC5);
+            hydrology_device_reboot();
             break;
 
         case Reset:
-            HydrologyD_Reset();
-            HydrologyD_Reboot();
+            hydrology_device_reset();
+            hydrology_device_reboot();
             break;
 
         case ChangePassword:
-            Hydrology_SetPassword();
-            Hydrology_RecordERC(ERC5);
+            hydrology_set_password();
+            hydrology_record_erc(ERC5);
             break;
 
         case SetClock:
-            Hydrology_SetClock();
+            hydrology_set_clock();
             break;
 
         case SetICCard:
-            Hydrology_SetICCard();
+            hydrology_set_iccard();
             break;
 
         case Pump:
-            Hydrology_SetPump();
+            hydrology_set_pump();
             break;
 
         case Valve:
-            Hydrology_SetValve();
+            hydrology_set_valve();
             break;
 
         case Gate:
-            Hydrology_SetGate();
+            hydrology_set_gate();
             break;
 
         case WaterSetting:
-            Hydrology_SetWaterSetting();
+            hydrology_set_watersetting();
             break;
 
         default:
@@ -1057,11 +1054,11 @@ int Hydrology_ExecuteCommand(HydrologyBodyType Funcode)
     return ret;
 }
 
-int Hydrology_ResponseDownstream(HydrologyBodyType Funcode)
+int hydrology_response_downstream(enum hydrology_body_type funcode)
 {
     int ret = false;
 
-    switch (Funcode) {
+    switch (funcode) {
         case LinkMaintenance:
         case Test:
         case EvenPeriodInformation:
@@ -1073,101 +1070,101 @@ int Hydrology_ResponseDownstream(HydrologyBodyType Funcode)
             break;
 
         case Realtime:
-            Hydrology_SendRealtimeData();
+            hydrology_send_realtime_data();
             break;
 
         case Period:
-            Hydrology_SendPeriodData();
+            hydrology_send_period_data();
             break;
 
         case InquireArtificialNumber:
-            return HydrologyD_ProcessSend(NULL, 0, HYDROLOGY_M4, InquireArtificialNumber);
+            return hydrology_device_process_send(NULL, 0, HYDROLOGY_M4, InquireArtificialNumber);
 
-        case SpecifiedElement:
-            Hydrology_SendSpecifiedElement();
+        case Specifiedelement:
+            hydrology_send_specified_element();
             break;
 
         case ConfigurationModification:
-            Hydrology_BasicInfoRead(ConfigurationModification);
+            hydrology_basic_info_read(ConfigurationModification);
             break;
 
         case ConfigurationRead:
-            Hydrology_BasicInfoRead(ConfigurationRead);
+            hydrology_basic_info_read(ConfigurationRead);
             break;
 
         case ParameterModification:
-            Hydrology_ReadParameter(ParameterModification);
+            hydrology_read_parameter(ParameterModification);
             break;
 
         case ParameterRead:
-            Hydrology_ReadParameter(ParameterRead);
+            hydrology_read_parameter(ParameterRead);
             break;
 
         case WaterPumpMotor:
-            Hydrology_SendWaterPumpMotorData();
+            hydrology_send_water_pump_motor_data();
             break;
 
         case SoftwareVersion:
-            return HydrologyD_ProcessSend(NULL, 0, HYDROLOGY_M4, SoftwareVersion);
+            return hydrology_device_process_send(NULL, 0, HYDROLOGY_M4, SoftwareVersion);
 
         case Status:
-            Hydrology_SendStatusData();
+            hydrology_send_status_data();
             break;
 
         case InitializeSolidStorage:
-            return HydrologyD_ProcessSend(NULL, 0, HYDROLOGY_M4, InitializeSolidStorage);
+            return hydrology_device_process_send(NULL, 0, HYDROLOGY_M4, InitializeSolidStorage);
 
         case Reset:
-            return HydrologyD_ProcessSend(NULL, 0, HYDROLOGY_M4, Reset);
+            return hydrology_device_process_send(NULL, 0, HYDROLOGY_M4, Reset);
 
         case ChangePassword:
-            Hydrology_SendPassword();
+            hydrology_send_password();
             break;
 
         case SetClock:
-            return HydrologyD_ProcessSend(NULL, 0, HYDROLOGY_M4, SetClock);
+            return hydrology_device_process_send(NULL, 0, HYDROLOGY_M4, SetClock);
 
         case SetICCard:
-            Hydrology_SendICCard();
+            hydrology_send_iccard();
             break;
 
         case Pump:
-            Hydrology_SendPump();
+            hydrology_send_pump();
             break;
 
         case Valve:
-            Hydrology_SendValve();
+            hydrology_send_valve();
             break;
 
         case Gate:
-            Hydrology_SendGate();
+            hydrology_send_gate();
             break;
 
         case WaterSetting:
-            Hydrology_SendWaterSetting();
+            hydrology_send_water_setting();
             break;
 
         case Record:
-            Hydrology_SendRecordERC();
+            hydrology_send_record_erc();
             break;
 
         case Time:
-            return HydrologyD_ProcessSend(NULL, 0, HYDROLOGY_M4, Time);
+            return hydrology_device_process_send(NULL, 0, HYDROLOGY_M4, Time);
     }
 
     return ret;
 }
 
-int Hydrology_ResponseUpstream(HydrologyBodyType Funcode, u8 End)
+int hydrology_response_upstream(enum hydrology_body_type funcode, u8 End)
 {
     int ret = false;
 
-    switch (Funcode) {
+    switch (funcode) {
         case LinkMaintenance:
         case Realtime:
         case Period:
         case InquireArtificialNumber:
-        case SpecifiedElement:
+        case Specifiedelement:
         case ConfigurationModification:
         case ConfigurationRead:
         case ParameterModification:
@@ -1186,34 +1183,34 @@ int Hydrology_ResponseUpstream(HydrologyBodyType Funcode, u8 End)
             break;
 
         case Test:
-            return HydrologyH_ProcessSend(NULL, 0, HYDROLOGY_M2, Test, End);
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, Test, End);
 
         case EvenPeriodInformation:
-            return HydrologyH_ProcessSend(NULL, 0, HYDROLOGY_M2, EvenPeriodInformation, End);
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, EvenPeriodInformation, End);
 
         case TimerReport:
-            return HydrologyH_ProcessSend(NULL, 0, HYDROLOGY_M2, TimerReport, End);
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, TimerReport, End);
 
         case AddReport:
-            return HydrologyH_ProcessSend(NULL, 0, HYDROLOGY_M2, AddReport, End);
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, AddReport, End);
 
         case Hour:
-            return HydrologyH_ProcessSend(NULL, 0, HYDROLOGY_M2, Hour, End);
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, Hour, End);
 
         case ArtificialNumber:
-            return HydrologyH_ProcessSend(NULL, 0, HYDROLOGY_M2, ArtificialNumber, End);
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, ArtificialNumber, End);
 
         case Picture:
-            return HydrologyH_ProcessSend(NULL, 0, HYDROLOGY_M2, Picture, End);
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, Picture, End);
 
         case Pump:
-            return HydrologyH_ProcessSend(NULL, 0, HYDROLOGY_M2, Pump, End);
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, Pump, End);
 
         case Valve:
-            return HydrologyH_ProcessSend(NULL, 0, HYDROLOGY_M2, Valve, End);
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, Valve, End);
 
         case Gate:
-            return HydrologyH_ProcessSend(NULL, 0, HYDROLOGY_M2, Gate, End);
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, Gate, End);
     }
 
     return ret;

@@ -28,6 +28,7 @@ enum press_button_event {
 };
 
 struct button {
+    u32 unique_id;
     u16 ticks;
     u8  repeat : 4;
     u8  event : 4;
@@ -40,9 +41,9 @@ struct button {
     struct list_head list;
 };
 
-int button_add(struct button *button, u8(*pin_level)(void), u8 active_level,
-    button_callback cb);
-void button_drop(struct button *button);
+int button_add(u32 unique_id, u8(*pin_level)(void), u8 active_level,
+    button_callback callback);
+void button_drop(u32 unique_id);
 void button_ticks(void);
 
 

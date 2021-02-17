@@ -1,6 +1,10 @@
 #include "kinetis/switch.h"
+#include "kinetis/tim-task.h"
 
-static LIST_HEAD(head_handle);
+#include <linux/slab.h>
+#include <linux/errno.h>
+
+#include "string.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -10,13 +14,23 @@ static LIST_HEAD(head_handle);
   * @step 3:  Call function Switch_Ticks periodically for 5 ms.
   * @step 4:  Call function Multi_Switch_Test once in function main.
   */
+    
+static void switch_task_callback(void)
+{
+    switch_ticks();
+}
 
-#include "string.h"
+void switch_task_init(void)
+{
+    tim_task_add(5, true, switch_task_callback);
+}
 
-#define DEBUG
-#include "kinetis/idebug.h"
+void switch_task_exit(void)
+{
+    tim_task_drop(switch_task_callback);
+}
 
-#define Switch_printf    p_dbg
+/* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 //According to your need to modify the constants.
 #define TICKS_INTERVAL    20 //ms
@@ -24,141 +38,109 @@ static LIST_HEAD(head_handle);
 #define SHORT_TICKS       (300  / TICKS_INTERVAL)
 #define LONG_TICKS        (1000 / TICKS_INTERVAL)
 
-struct tim_task SwitchTask;
-
-void SwitchTask_Callback(void)
-{
-    Switch_Ticks();
-}
-
-void SwitchTask_Init(void)
-{
-    TimTask_Init(&SwitchTask, SwitchTask_Callback, 20, 20); //20ms loop
-    TimTask_Start(&SwitchTask);
-}
-
-/* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
-
-#define EVENT_CB(ev) if(handle->CB[ev]) handle->CB[ev]((Switch_TypeDef*)handle)
+static LIST_HEAD(switch_head);
 
 /**
-  * @brief  Initializes the Switch struct handle.
-  * @param  handle: the Switch handle strcut.
-  * @param  pin_level: read the pin of the connet Switch level.
-  * @param  ActiveLevel: pin pressed level.
+  * @brief  Initializes the switch struct _switch.
+  * @param  switch: the switch struct.
+  * @param  pin_level: read the pin of the connet switch level.
+  * @param  active_level: pin pressed level.
   * @retval None
   */
-void Switch_Init(struct Switch_TypeDef *handle, u8(*pin_level)(void), u8 ActiveLevel)
+int switch_add(u32 unique_id, u8(*pin_level)(void), u8 active_level,
+    switch_callback callback)
 {
-    memset(handle, 0, sizeof(struct Switch_TypeDef));
-    handle->Event = (u8)NONE_SWITCH;
-    handle->HALSwitchLevel = pin_level;
-    handle->SwitchLevel = handle->HALSwitchLevel();
-    handle->ActiveLevel = ActiveLevel;
+    struct _switch *_switch;
+    u32 i;
+
+    _switch = kmalloc(sizeof(*_switch), GFP_KERNEL);
+
+    if (!_switch)
+        return -ENOMEM;
+    
+    _switch->unique_id = unique_id;
+    _switch->event = (u8)NONE_SWITCH;
+    _switch->hal_switch_level = pin_level;
+    _switch->switch_level = _switch->hal_switch_level();
+    _switch->active_level = active_level;
+    for (i = 0; i < SWITCHEVENT_NBR; i++)
+        _switch->callback[i] = callback;
+    
+    list_add_tail(&_switch->list, &switch_head);
+
+    return 0;
 }
 
 /**
-  * @brief  Deinitializes the Switch struct handle.
-  * @param  handle: the Switch handle strcut.
+  * @brief  Deinitializes the switch struct _switch.
+  * @param  switch: the switch switch strcut.
   * @retval None
   */
-void Switch_Deinit(struct Switch_TypeDef *handle)
+void switch_drop(u32 unique_id)
 {
-    memset(handle, 0, sizeof(struct Switch_TypeDef));
+    struct _switch *_switch, *tmp;
+    
+    list_for_each_entry_safe(_switch, tmp, &switch_head, list) {
+        if (_switch->unique_id == unique_id) {
+            list_del(&_switch->list);
+            kfree(_switch);
+            break;
+        }
+    }
 }
 
 /**
-  * @brief  Attach the Switch event callback function.
-  * @param  handle: the Switch handle strcut.
-  * @param  event: trigger event type.
-  * @param  CB: callback function.
-  * @retval None
+  * @brief  Inquire the switch event happen.
+  * @param  switch: the switch switch strcut.
+  * @retval switch event.
   */
-void Switch_Attach(struct Switch_TypeDef *handle, SwitchEvent Event, SwitchCallback CB)
+static enum switch_event get_switch_event(struct _switch *_switch)
 {
-    handle->CB[Event] = CB;
+    return (enum switch_event)(_switch->event);
 }
 
-/**
-  * @brief  Detach the Switch event callback function.
-  * @param  handle: the Switch handle strcut.
-  * @param  event: trigger event type.
-  * @retval None
-  */
-void Switch_Detach(struct Switch_TypeDef *handle, enum press_button_event Event)
-{
-    handle->CB[Event] = NULL;
-}
-
-/**
-  * @brief  Inquire the Switch event happen.
-  * @param  handle: the Switch handle strcut.
-  * @retval Switch event.
-  */
-SwitchEvent Get_Switch_Event(struct Switch_TypeDef *handle)
-{
-    return (SwitchEvent)(handle->Event);
-}
-
-/**
-  * @brief  Start the Switch work, add the handle into work list.
-  * @param  handle: target handle strcut.
-  * @retval None
-  */
-void Switch_Start(struct Switch_TypeDef *handle)
-{
-    list_add(&handle->Entry, &head_handle);
-}
-
-/**
-  * @brief  Stop the Switch work, remove the handle off work list.
-  * @param  handle: target handle strcut.
-  * @retval None
-  */
-void Switch_Stop(struct Switch_TypeDef *handle)
-{
-    list_del(&handle->Entry);
-}
 
 /**
   * @brief  Switch driver core function, driver state machine.
-  * @param  handle: the Switch handle strcut.
+  * @param  switch: the Switch switch strcut.
   * @retval None
   */
-static void Switch_Handler(struct Switch_TypeDef *handle)
+static void switch_handler(struct _switch *_switch)
 {
-    u8 read_gpio_level = handle->HALSwitchLevel();
+    u8 read_gpio_level = _switch->hal_switch_level();
 
-    /*------------Switch debounce handle---------------*/
-    if (read_gpio_level != handle->SwitchLevel) {
+    /* Switch debounce switch */
+    if (read_gpio_level != _switch->switch_level) {
         //not equal to prev one
         //continue read 3 times same new level change
-        if (++(handle->DebounceCnt) >= DEBOUNCE_TICKS) {
-            handle->SwitchLevel = read_gpio_level;
-            handle->DebounceCnt = 0;
+        if (++(_switch->debounce_cnt) >= DEBOUNCE_TICKS) {
+            _switch->switch_level = read_gpio_level;
+            _switch->debounce_cnt = 0;
         }
     } else {
         // leved not change ,counter reset.
-        handle->DebounceCnt = 0;
+        _switch->debounce_cnt = 0;
     }
 
-    /*-----------------State machine-------------------*/
-    switch (handle->State) {
-        case 0:
-            if (handle->SwitchLevel == handle->ActiveLevel) {
-                handle->Event = (u8)SWITCH_DOWN;
-                EVENT_CB(SWITCH_DOWN);
-                handle->State  = 1;
+    /* State machine */
+    switch (_switch->state) {
+        case SWITCH_DOWN:
+            if (_switch->switch_level == _switch->active_level) {
+                _switch->event = (u8)SWITCH_DOWN;
+                if(_switch->callback[SWITCH_DOWN]) 
+                    _switch->callback[SWITCH_DOWN](_switch);
+                _switch->state  = 1;
             } else
-                handle->Event = (u8)NONE_SWITCH;
+                _switch->event = (u8)NONE_SWITCH;
 
             break;
 
-        case 1:
-            if (handle->SwitchLevel != handle->ActiveLevel) {
-                handle->Event = (u8)SWITCH_UP;
-                EVENT_CB(SWITCH_UP);
-                handle->State = 0;
+        case SWITCH_UP:
+            if (_switch->switch_level != _switch->active_level) {
+                _switch->event = (u8)SWITCH_UP;
+                if(_switch->callback[SWITCH_UP]) 
+                    _switch->callback[SWITCH_UP](_switch);
+                _switch->state = 0;
             }
 
             break;
@@ -170,82 +152,68 @@ static void Switch_Handler(struct Switch_TypeDef *handle)
   * @param  None.
   * @retval None
   */
-void Switch_Ticks(void)
+void switch_ticks(void)
 {
-    struct Switch_TypeDef *target;
+    struct _switch *_switch;
 
-    list_for_each_entry(target, &head_handle, Entry) {
-        Switch_Handler(target);
+    if (list_empty(&switch_head))
+        return;
+
+    list_for_each_entry(_switch, &switch_head, list) {
+        switch_handler(_switch);
     }
 }
 
 #ifdef DESIGN_VERIFICATION_SWITCH
 #include "kinetis/test-kinetis.h"
-#include "kinetis/timtask.h"
+#include "kinetis/tim-task.h"
+#include "kinetis/idebug.h"
 
-static struct Switch_TypeDef Switch_Test_Inst;
+#include "stm32f4xx_hal.h"
 
-static u8 Switch_Read_Pin(void)
+static u8 switch_read_pin(void)
 {
     return HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_0);
 }
 
-static void Switch_Callback(void *btn)
+static void switch_test_callback(void *_switch)
 {
-    u32 btn_event_val;
+    u32 switch_event_val;
 
-    btn_event_val = Get_Switch_Event((struct Switch_TypeDef *)btn);
+    switch_event_val = get_switch_event((struct _switch *)_switch);
 
-    switch (btn_event_val) {
+    switch (switch_event_val) {
         case SWITCH_DOWN:
-            Switch_printf("Switch press down");
+            printk("Switch press down");
             break;
 
         case SWITCH_UP:
-            Switch_printf("Switch press up");
+            printk("Switch press up");
             break;
     }
 }
 
-int Multi_Switch_Test(void)
+int t_switch_add(int argc, char **argv)
 {
-    SwitchTask_Init();
+    switch_task_init();
 
-    /* low level drive */
-    Switch_Init(&Switch_Test_Inst, Switch_Read_Pin, 0);
-    Switch_Attach(&Switch_Test_Inst, SWITCH_DOWN, Switch_Callback);
-    Switch_Attach(&Switch_Test_Inst, SWITCH_UP, Switch_Callback);
-    Switch_Start(&Switch_Test_Inst);
+    switch_add(1, switch_read_pin, 0, switch_test_callback);
 
-    return 0;
-}
-
-int t_Switch_Attach(int argc, char **argv)
-{
-    SwitchTask_Init();
-
-    /* low level drive */
-    Switch_Init(&Switch_Test_Inst, Switch_Read_Pin, 0);
-    Switch_Attach(&Switch_Test_Inst, SWITCH_DOWN, Switch_Callback);
-    Switch_Attach(&Switch_Test_Inst, SWITCH_UP, Switch_Callback);
-    Switch_Start(&Switch_Test_Inst);
-
-    Switch_printf("Switch test is running, please push the Switch.");
+    printk(KERN_DEBUG "Button test is running, please push the switch.");
 
     return PASS;
 }
 
-int t_Switch_Detach(int argc, char **argv)
+int t_switch_drop(int argc, char **argv)
 {
-    SwitchTask_Deinit();
+    switch_task_exit();
 
-    /* low level drive */
-    Switch_Deinit(&Switch_Test_Inst, Switch_Read_Pin, 0);
-    Switch_Detach(&Switch_Test_Inst, SWITCH_DOWN, Switch_Callback);
-    Switch_Detach(&Switch_Test_Inst, SWITCH_UP, Switch_Callback);
-    Switch_Stop(&Switch_Test_Inst);
+    if (list_empty(&switch_head))
+        return PASS;
+    
+    switch_drop(1);
 
-    Switch_printf("Switch test is over");
+    printk(KERN_DEBUG "Button test is over");
 
     return PASS;
 }

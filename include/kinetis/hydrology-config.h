@@ -16,15 +16,15 @@ extern "C" {
 
 #define HYDROLOGY_FILE_PATH             "0:/Hydrology/"
 
-#define HYDROLOGY_D_FILE_E_DATA         "HydrologyD_Element_Data.txt"
-#define HYDROLOGY_D_FILE_E_INFO         "HydrologyD_Element_Info.txt"
-#define HYDROLOGY_D_FILE_PICTURE        "HydrologyD_PIC.jpg"
-#define HYDROLOGY_D_FILE_RGZS           "HydrologyD_RGZS.txt"
+#define HYDROLOGY_D_FILE_E_DATA         "hydrology_device_element_Data.txt"
+#define HYDROLOGY_D_FILE_E_INFO         "hydrology_device_element_Info.txt"
+#define HYDROLOGY_D_FILE_PICTURE        "hydrology_device_PIC.jpg"
+#define HYDROLOGY_D_FILE_RGZS           "hydrology_device_RGZS.txt"
 #define HYDROLOGY_D_PIC_REVSPACE        4096
 #define HYDROLOGY_D_RGZS_REVSPACE       512
 
-#define HYDROLOGY_H_FILE_E_DATA         "HydrologyH_Element_Data.txt"
-#define HYDROLOGY_H_FILE_E_INFO         "HydrologyH_Element_Info.txt"
+#define HYDROLOGY_H_FILE_E_DATA         "hydrology_host_element_Data.txt"
+#define HYDROLOGY_H_FILE_E_INFO         "hydrology_host_element_Info.txt"
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

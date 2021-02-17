@@ -10,9 +10,9 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include "kinetis/core_common.h"
 
-void RS485_Master_Send(u8 Dev_addr, u8 Fun_code, u16 Reg_addr, u8 Len);
+void RS485_Master_Send(u8 Dev_addr, u8 Fun_code, u16 Reg_addr, u8 length);
 
-int RS485_Master_Receive(u8 *pData, u16 *Len);
+int RS485_Master_Receive(u8 *pdata, u16 *length);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

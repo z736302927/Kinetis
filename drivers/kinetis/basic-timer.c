@@ -132,6 +132,9 @@ void basic_timer_resume(void)
 #ifdef DESIGN_VERIFICATION_BASICTIMER
 #include "kinetis/test-kinetis.h"
 #include "kinetis/idebug.h"
+
+#include <linux/printk.h>
+
 #include "stdlib.h"
 
 int t_basic_timer_get_tick(int argc, char **argv)

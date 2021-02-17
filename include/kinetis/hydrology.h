@@ -1,8 +1,7 @@
 #ifndef __MHYDROLOGY_H
 #define __MHYDROLOGY_H
 
-#include "stdint.h"
-#include "kinetis/slist.h"
+#include <linux/types.h>
 
 #define ELEMENT_COUNT                   298
 
@@ -37,14 +36,14 @@
 #define NAK                             0x15
 #define ESC                             0x1B
 
-typedef enum tagHydrologyMode {
+enum hydrology_mode {
     HYDROLOGY_M1,
     HYDROLOGY_M2,
     HYDROLOGY_M3,
     HYDROLOGY_M4,
-} HydrologyMode;
+};
 
-typedef enum tagHydrologyRTUType {
+enum hydrology_rtu_type {
     Rainfall = 0x50,
     RiverCourse = 0x48,
     Reservoir = 0x4B,
@@ -56,9 +55,9 @@ typedef enum tagHydrologyRTUType {
     WaterQuality = 0x51,
     WaterIntake = 0x49,
     Outfall = 0x4F,
-} HydrologyRTUType;
+};
 
-typedef enum tagHydrologyBodyType {
+enum hydrology_body_type {
     LinkMaintenance = 0x2F,               //遥测站链路维持报
     Test,                                 //遥测站测试报
     EvenPeriodInformation,                //均匀时段水文信息报
@@ -70,7 +69,7 @@ typedef enum tagHydrologyBodyType {
     Realtime,                             //中心站查询遥测站实时数据
     Period,                               //中心站查询遥测站时段数据
     InquireArtificialNumber,              //中心站查询遥测站人工置数
-    SpecifiedElement,                     //中心站查询遥测站指定要素实时数据
+    Specifiedelement,                     //中心站查询遥测站指定要素实时数据
     ConfigurationModification = 0x40,     //遥测站配置修改
     ConfigurationRead,                    //遥测站配置读取
     ParameterModification,                //中心站修改遥测站运行参数
@@ -89,125 +88,125 @@ typedef enum tagHydrologyBodyType {
     WaterSetting,                         //中心站设置遥测站水量定值控制命令响应
     Record,                               //中心站查询遥测站事件记录
     Time,                                 //中心站查询遥测站时钟
-} HydrologyBodyType;
-
-typedef enum tagHydrologyMsgSrcType {
-    MsgFormServer,
-    MsgFormClient
-} HydrologyMsgSrcType;
+};
+    
+enum hydrology_msg_src_type {
+    MSG_FORM_SERVER,
+    MSG_FORM_CLIENT
+};
 
 //#pragma pack(1)
 
-typedef struct tagHydrologyElementInfo {
+struct hydrology_element_info {
     u8 ID;
     u8 D;
     u8 d;
-    u32 Addr;
-} HydrologyElementInfo;
+    u32 addr;
+};
 
-typedef struct tagHydrologyElement {
+struct hydrology_element {
     u8 guide[2];
     u8 *value;
     u32 num;
-} HydrologyElement;
+};
 
 //遥测站上行报文报头结构
-typedef struct tagHydrologyUpHeader {
-    u8 framestart[2];
-    u8 centeraddr;
-    u8 remoteaddr[5];
+struct hydrology_up_header {
+    u8 frame_start[2];
+    u8 center_addr;
+    u8 remote_addr[5];
     u8 password[2];
     u8 funcode;
     u8 dir_len[2];
-    u8 paketstart;
+    u8 paket_start;
     u8 count_seq[3];
     u8 len;
-} HydrologyUpHeader;
+};
 
 //遥测站下行报文报头结构
-typedef struct tagHydrologyDownHeader {
-    u8 framestart[2];
-    u8 remoteaddr[5];
-    u8 centeraddr;
+struct hydrology_down_header {
+    u8 frame_start[2];
+    u8 remote_addr[5];
+    u8 center_addr;
     u8 password[2];
     u8 funcode;
     u8 dir_len[2];
-    u8 paketstart;
+    u8 paket_start;
     u8 count_seq[3];
     u8 len;
-} HydrologyDownHeader;
+};
 
 //遥测站上行报文正文结构
-typedef struct tagHydrologyUpBody {
-    u8 streamid[2];
-    u8 sendtime[6];
-    u8 rtuaddrid[2];
-    u8 rtuaddr[5];
-    u8 rtutype;
+struct hydrology_up_body {
+    u8 stream_id[2];
+    u8 send_time[6];
+    u8 rtu_addr_id[2];
+    u8 rtu_addr[5];
+    u8 rtu_type;
     u8 observationtimeid[2];
-    u8 observationtime[5];
+    u8 observation_time[5];
     u16 count;
-    HydrologyElement **element;
+    struct hydrology_element **element;
     u16 len;
-} HydrologyUpBody;
+};
 
 //遥测站下行报文正文结构
-typedef struct tagHydrologyDownBody {
-    u8 streamid[2];
-    u8 sendtime[6];
-    u8 rtuaddrid[2];
-    u8 rtuaddr[5];
+struct hydrology_down_body {
+    u8 stream_id[2];
+    u8 send_time[6];
+    u8 rtu_addr_id[2];
+    u8 rtu_addr[5];
     u16 count;
-    HydrologyElement **element;
+    struct hydrology_element **element;
     u16 len;
-} HydrologyDownBody;
+};
 
-typedef struct tagHydrologyPacket {
+struct hydrology_packet {
     void *header;
     void *body;
     u8 end;
     u16 crc16;
     u8 *buffer;
     u16 len;
-} HydrologyPacket;
+};
 
-typedef struct tagHydrology {
-    HydrologyPacket *uppacket;
-    HydrologyPacket *downpacket;
+struct hydrology {
+    struct hydrology_packet *up_packet;
+    struct hydrology_packet *down_packet;
     unsigned source: 1;
-} Hydrology;
+};
 
 //#pragma pack()
 
-int Hydrology_read_file_size(char *filename, u32 *Size);
-int Hydrology_ReadStoreInfo(char *filename, long addr, u8 *data, int len);
-int Hydrology_WriteStoreInfo(char *filename, long addr, u8 *data, int len);
-void Hydrology_ReadTime(u8 *time);
-void Hydrology_SetTime(u8 *t_time);
-int Hydrology_OpenPort(void);
-int Hydrology_ClosePort(void);
-int Hydrology_PortTransmmitData(u8 *pData, u16 Len);
-int Hydrology_PortReceiveData(u8 **ppData, u16 *pLen, u32 Timeout);
-void Hydrology_ReadObservationTime(HydrologyElementInfo *Element, u8 *observationtime);
-void Hydrology_SetObservationTime(HydrologyElementInfo *Element);
-void Hydrology_GetGuideID(u8 *value, u8 D, u8 d);
-int Hydrology_ConvertToHexElement(double input, int D, int d, u8 *out);
-int Hydrology_MallocElement(u8 element, u8 D, u8 d,
-    HydrologyElement *ele);
-void Hydrology_GetStreamID(u8 *streamid);
-int HydrologyD_ProcessSend(HydrologyElementInfo *Element_table, u8 Count,
-    HydrologyMode Mode, HydrologyBodyType Funcode);
-int Hydrology_ReadSpecifiedElementInfo(HydrologyElementInfo *Element,
-    HydrologyBodyType Funcode, u16 Index);
-int HydrologyH_ProcessSend(HydrologyElementInfo *Element_table, u8 Count,
-    HydrologyMode Mode, HydrologyBodyType Funcode, u8 End);
-int HydrologyD_Process(HydrologyElementInfo *Element_table, u8 Count,
-    HydrologyMode Mode, HydrologyBodyType Funcode);
-void Hydrology_DisableLinkPacket(void);
-void Hydrology_EnableLinkPacket(void);
-void Hydrology_DisconnectLink(void);
-int HydrologyD_Reboot(void);
+int hydrology_read_file_size(char *filename, u32 *Size);
+int hydrology_read_store_info(char *filename, long addr, u8 *data, int len);
+int hydrology_write_store_info(char *filename, long addr, u8 *data, int len);
+void hydrology_get_time(u8 *time);
+void hydrology_set_time(u8 *time);
+int hydrology_open_port(void);
+int hydrology_close_port(void);
+int hydrology_port_transmmit(u8 *pdata, u16 length);
+int hydrology_port_receive(u8 **ppdata, u16 *plength, u32 Timeout);
+void hydrology_get_observation_time(struct hydrology_element_info *element, u8 *observation_time);
+void hydrology_set_observation_time(struct hydrology_element_info *element);
+void hydrology_get_guide_id(u8 *value, u8 D, u8 d);
+int hydrology_convert_to_hex_element(double input, int D, int d, u8 *out);
+int hydrology_malloc_element(u8 guide, u8 D, u8 d,
+    struct hydrology_element *element);
+void hydrology_get_stream_id(u8 *stream_id);
+int hydrology_device_process_send(struct hydrology_element_info *element_table, u8 cnt,
+    enum hydrology_mode mode, enum hydrology_body_type funcode);
+int hydrology_read_specified_element_info(struct hydrology_element_info *element,
+    enum hydrology_body_type funcode, u16 index);
+int hydrology_host_process_send(struct hydrology_element_info *element_table, u8 cnt,
+    enum hydrology_mode mode, enum hydrology_body_type funcode, u8 end);
+int hydrology_device_process(struct hydrology_element_info *element_table, u8 cnt,
+    enum hydrology_mode mode, enum hydrology_body_type funcode);
+void hydrology_disable_link_packet(void);
+void hydrology_enable_link_packet(void);
+void hydrology_disconnect_link(void);
+int hydrology_device_reboot(void);
 
-extern Hydrology g_Hydrology;
+extern struct hydrology g_hydrology;
 
 #endif

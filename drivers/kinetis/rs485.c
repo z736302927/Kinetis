@@ -15,7 +15,7 @@
 #include "stdbool.h"
 #include "stdio.h"
 #include "usart.h"
-#include "kinetis/serialport.h"
+#include "kinetis/serial-port.h"
 #include "kinetis/crc.h"
 #include <linux/gfp.h>
 
@@ -27,12 +27,12 @@
 
 #define RS485_BUFFER_SIZE      128
 
-void RS485_Port_Send(u8 *pData, u16 Len)
+void RS485_Port_Send(u8 *pdata, u16 length)
 {
-    HAL_UART_Transmit_IT(&huart1, pData, Len);
+    HAL_UART_Transmit_IT(&huart1, pdata, length);
 }
 
-void RS485_Port_Receive(u8 *pData, u16 *Len)
+void RS485_Port_Receive(u8 *pdata, u16 *length)
 {
     u32 begintime;
     u32 currenttime;
@@ -41,10 +41,10 @@ void RS485_Port_Receive(u8 *pData, u16 *Len)
     begintime = basic_timer_get_ms();
 
     while (1) {
-        SerialPort_Receive(&SerialPort_3, pData, Len);
+        serial_port_Receive(&serial_port_3, pdata, length);
 
-        if (SerialPort_ReadRxState() == 1) {
-            SerialPort_SetRxState(0);
+        if (serial_port_ReadRxState() == 1) {
+            serial_port_SetRxState(0);
             break;
         } else {
             currenttime = basic_timer_get_ms();
@@ -61,7 +61,7 @@ void RS485_Port_Receive(u8 *pData, u16 *Len)
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-void RS485_Master_Send(u8 Dev_addr, u8 Fun_code, u16 Reg_addr, u8 Len)
+void RS485_Master_Send(u8 Dev_addr, u8 Fun_code, u16 Reg_addr, u8 length)
 {
     u8 cmd[8];
     u16 crc = 0;
@@ -70,15 +70,15 @@ void RS485_Master_Send(u8 Dev_addr, u8 Fun_code, u16 Reg_addr, u8 Len)
     cmd[1] = Fun_code;
     cmd[2] = Reg_addr >> 8;
     cmd[3] = Reg_addr % 256;
-    cmd[4] = Len >> 8;
-    cmd[5] = Len % 256;
+    cmd[4] = length >> 8;
+    cmd[5] = length % 256;
     crc = CRC16_Calculate((char *)cmd, 6);
     cmd[6] = crc % 256;
     cmd[7] = crc >> 8;
     RS485_Port_Send(cmd, 8);
 }
 
-int RS485_Master_Receive(u8 *pData, u16 *Len)
+int RS485_Master_Receive(u8 *pdata, u16 *length)
 {
     int retValue = false;
     u8 Data[128];
@@ -91,15 +91,15 @@ int RS485_Master_Receive(u8 *pData, u16 *Len)
 
     if (Data[2] != 0) {
         if (CRC16_Check((char *)Data, 5 + Data[2]) == true) {
-            pData = (u8 *)kmalloc(Data[2], __GFP_ZERO);
+            pdata = (u8 *)kmalloc(Data[2], __GFP_ZERO);
 
-            if (pData == NULL) {
+            if (pdata == NULL) {
                 printk(KERN_DEBUG "Data to memory malloc failed");
                 RS485_error;
                 retValue = false;
             } else {
-                memcpy(pData, &Data[3], Data[2]);
-                *Len = Data[2];
+                memcpy(pdata, &Data[3], Data[2]);
+                *length = Data[2];
                 retValue = true;
             }
         } else {

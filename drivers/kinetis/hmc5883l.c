@@ -10,7 +10,7 @@
   * @step 5:
   */
 
-#include "iic_soft/iic_soft.h"
+#include "kinetis/iic_soft.h"
 
 #define DEBUG
 #include "kinetis/idebug.h"
@@ -29,24 +29,24 @@ void hmc5883l_Delayms(u32 ticks)
     mdelay(ticks);
 }
 
-void hmc5883l_PortTransmmit(u8 Addr, u8 Data)
+void hmc5883l_port_transmmit(u8 addr, u8 Data)
 {
-    IIC_Soft_WriteSingleByteWithAddr(HMC5883L_ADDR, Addr, Data);
+    IIC_Soft_WriteSingleByteWithAddr(HMC5883L_ADDR, addr, Data);
 }
 
-void hmc5883l_PortReceive(u8 Addr, u8 *pData)
+void hmc5883l_port_receive(u8 addr, u8 *pdata)
 {
-    IIC_Soft_ReadSingleByteWithAddr(HMC5883L_ADDR, Addr, pData);
+    IIC_Soft_ReadSingleByteWithAddr(HMC5883L_ADDR, addr, pdata);
 }
 
-void hmc5883l_port_multi_transmmit(u8 Addr, u8 *pData, u32 Length)
+void hmc5883l_port_multi_transmmit(u8 addr, u8 *pdata, u32 Length)
 {
-    IIC_Soft_WriteMultiByteWithAddr(HMC5883L_ADDR, Addr, pData, Length);
+    IIC_Soft_WriteMultiByteWithAddr(HMC5883L_ADDR, addr, pdata, Length);
 }
 
-void hmc5883l_port_multi_receive(u8 Addr, u8 *pData, u32 Length)
+void hmc5883l_port_multi_receive(u8 addr, u8 *pdata, u32 Length)
 {
-    IIC_Soft_ReadMultiByteWithAddr(HMC5883L_ADDR, Addr, pData, Length);
+    IIC_Soft_ReadMultiByteWithAddr(HMC5883L_ADDR, addr, pdata, Length);
 }
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
@@ -69,105 +69,105 @@ void hmc5883l_ClearCRA7(void)
 {
     u8 TmpReg = 0;
 
-    hmc5883l_PortReceive(CRA, &TmpReg);
+    hmc5883l_port_receive(CRA, &TmpReg);
 
     TmpReg &= ~(0x01 << 7);
 
-    hmc5883l_PortTransmmit(CRA, TmpReg);
+    hmc5883l_port_transmmit(CRA, TmpReg);
 }
 
 void hmc5883l_SelectSamplesAveraged(u8 Data)
 {
     u8 TmpReg = 0;
 
-    hmc5883l_PortReceive(CRA, &TmpReg);
+    hmc5883l_port_receive(CRA, &TmpReg);
 
     Data &= 0x03;
     TmpReg &= ~(0x03 << 5);
     TmpReg |= (Data << 5);
 
-    hmc5883l_PortTransmmit(CRA, TmpReg);
+    hmc5883l_port_transmmit(CRA, TmpReg);
 }
 
 void hmc5883l_DataOutputRate(u8 Data)
 {
     u8 TmpReg = 0;
 
-    hmc5883l_PortReceive(CRA, &TmpReg);
+    hmc5883l_port_receive(CRA, &TmpReg);
 
     Data &= 0x07;
     TmpReg &= ~(0x07 << 2);
     TmpReg |= (Data << 2);
 
-    hmc5883l_PortTransmmit(CRA, TmpReg);
+    hmc5883l_port_transmmit(CRA, TmpReg);
 }
 
 void hmc5883l_MeasurementConfiguration(u8 Data)
 {
     u8 TmpReg = 0;
 
-    hmc5883l_PortReceive(CRA, &TmpReg);
+    hmc5883l_port_receive(CRA, &TmpReg);
 
     Data &= 0x03;
     TmpReg &= ~(0x03 << 0);
     TmpReg |= (Data << 0);
 
-    hmc5883l_PortTransmmit(CRA, TmpReg);
+    hmc5883l_port_transmmit(CRA, TmpReg);
 }
 
 void hmc5883l_GainConfiguration(u8 Data)
 {
     u8 TmpReg = 0;
 
-    hmc5883l_PortReceive(CRB, &TmpReg);
+    hmc5883l_port_receive(CRB, &TmpReg);
 
     Data &= 0x07;
     TmpReg &= ~(0x07 << 5);
     TmpReg |= (Data << 5);
 
-    hmc5883l_PortTransmmit(CRB, TmpReg);
+    hmc5883l_port_transmmit(CRB, TmpReg);
 }
 
 void hmc5883l_ClearMR7(void)
 {
     u8 TmpReg = 0;
 
-    hmc5883l_PortReceive(MR, &TmpReg);
+    hmc5883l_port_receive(MR, &TmpReg);
 
     TmpReg &= ~(0x01 << 7);
 
-    hmc5883l_PortTransmmit(MR, TmpReg);
+    hmc5883l_port_transmmit(MR, TmpReg);
 }
 
 void hmc5883l_ModeSelect(u8 Data)
 {
     u8 TmpReg = 0;
 
-    hmc5883l_PortReceive(MR, &TmpReg);
+    hmc5883l_port_receive(MR, &TmpReg);
 
     Data &= 0x03;
     TmpReg &= ~(0x03 << 0);
     TmpReg |= (Data << 0);
 
-    hmc5883l_PortTransmmit(MR, TmpReg);
+    hmc5883l_port_transmmit(MR, TmpReg);
 }
 
-void hmc5883l_MagneticMeasurements(u16 *pData)
+void hmc5883l_MagneticMeasurements(u16 *pdata)
 {
     u8 TmpVal[6];
 
     hmc5883l_port_multi_receive(DXRA, TmpVal, 6);
 
-    pData[0] = (TmpVal[0] << 8) | TmpVal[1];
-    pData[1] = (TmpVal[2] << 8) | TmpVal[3];
-    pData[2] = (TmpVal[4] << 8) | TmpVal[5];
+    pdata[0] = (TmpVal[0] << 8) | TmpVal[1];
+    pdata[1] = (TmpVal[2] << 8) | TmpVal[3];
+    pdata[2] = (TmpVal[4] << 8) | TmpVal[5];
 }
 
 u8 hmc5883l_DataLock(void)
 {
     u8 TmpReg = 0;
 
-    hmc5883l_PortReceive(SR, &TmpReg);
+    hmc5883l_port_receive(SR, &TmpReg);
 
     if (TmpReg & 0x02)
         return 1;
@@ -179,7 +179,7 @@ u8 hmc5883l_DataReady(void)
 {
     u8 TmpReg = 0;
 
-    hmc5883l_PortReceive(SR, &TmpReg);
+    hmc5883l_port_receive(SR, &TmpReg);
 
     if (TmpReg & 0x01)
         return 1;
@@ -187,15 +187,15 @@ u8 hmc5883l_DataReady(void)
         return 0;
 }
 
-void hmc5883l_Identification(u8 *pData)
+void hmc5883l_Identification(u8 *pdata)
 {
-    hmc5883l_port_multi_receive(IRA, pData, 3);
+    hmc5883l_port_multi_receive(IRA, pdata, 3);
 }
 
 #ifdef DESIGN_VERIFICATION_HMC5883L
 #include "kinetis/test-kinetis.h"
 
-int t_hmc5883l_BasicInfo(int argc, char **argv)
+int t_hmc5883l_basic_info(int argc, char **argv)
 {
     u8 Data = 0;
 
@@ -263,7 +263,7 @@ int t_hmc5883l_Selftest(int argc, char **argv)
     u32 Timeout = 1000;
 
     hmc5883l_EnterPowerdownMode();
-    hmc5883l_SelfTestControl(true);
+    hmc5883l_selftestControl(true);
     hmc5883l_EnterSelftestMode();
 
     do {
@@ -281,7 +281,7 @@ int t_hmc5883l_Selftest(int argc, char **argv)
 //  Timeout_WaitMSDone(&hmc5883l_DR_Flag, true, 1000);
 
     hmc5883l_MagneticMeasurements(Magnetic);
-    hmc5883l_SelfTestControl(false);
+    hmc5883l_selftestControl(false);
     printk(KERN_DEBUG "hmc5883l Selftest Magnetic Data %x, %x, %x", Magnetic[0], Magnetic[1], Magnetic[2]);
 
     if (Magnetic[0] <= AK8975_TBD && Magnetic[1] <= AK8975_TBD && Magnetic[2] >= AK8975_TBD)

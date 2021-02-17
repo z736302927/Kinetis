@@ -9,36 +9,36 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include "kinetis/core_common.h"
-#include "peripheral/serialport.h"
+#include "kinetis/serial-port.h"
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-typedef enum {
+enum at_cmd_property {
     AT_NONE,
     AT_TEST,
     AT_READ,
     AT_SET,
     AT_EXCUTE
-} AT_CommandProperty;
+};
 
-typedef struct _GeneralCommand_TypeDef {
-    char *AT_Command;
-    char *pArgument;
-    char *pExpectRes;
-    AT_CommandProperty Property;
-    u8 ErrorRepetition;
-    u8 CurrentRepetition;
-    u8 ErrorFlag;
-    u8 TimeoutFlag;
-    u16 WaitTime;
-    u16 Interval;
-    char *Delimiter;
+struct general_cmd {
+    char *at_cmd;
+    char *argu;
+    char *expect_res;
+    enum at_cmd_property property;
+    u8 error_repetition;
+    u8 current_repetition;
+    u8 error_flag;
+    u8 timeout_flag;
+    u16 wait_time;
+    u16 interval;
+    char *delimiter;
     char **argv;
     u16 argc;
-    SerialPort_TypeDef *SerialPort;
-} GeneralCommand_TypeDef;
+    struct serial_port *serial_port;
+};
 
-void General_ProcessCommand(GeneralCommand_TypeDef *Command);
+void general_process_cmd(struct general_cmd *cmd);
 
 
 #ifdef __cplusplus

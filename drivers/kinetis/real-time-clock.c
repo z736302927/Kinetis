@@ -1,4 +1,8 @@
-#include "kinetis/rtc.h"
+#include "kinetis/real-time-clock.h"
+#include "kinetis/ds3231.h"
+#include "kinetis/idebug.h"
+
+#include "stdio.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -11,9 +15,6 @@
   */
 
 #include "rtc.h"
-#include "kinetis/ds3231.h"
-#include "stdio.h"
-#include "kinetis/idebug.h"
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -26,7 +27,7 @@
   * @brief  Writes a data in a specified RTC Backup data register.
   * @retval None
   */
-void RTC_BKUPWrite(void)
+void rtc_backup_reg_write(void)
 {
 #ifdef USING_CHIP_RTC
     /*##-3- Writes a data in a RTC Backup data Register1 #####################*/
@@ -38,11 +39,11 @@ void RTC_BKUPWrite(void)
   * @brief  Read a data in a specified RTC Backup data register.
   * @retval None
   */
-void RTC_BKUPRead(u32 *Data)
+void rtc_backup_reg_read(u32 *tmp)
 {
 #ifdef USING_CHIP_RTC
     /*##-3- Read a data in a RTC Backup data Register1 #######################*/
-    *Data = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1);
+    *tmp = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1);
 #endif
 }
 
@@ -51,8 +52,8 @@ void RTC_BKUPRead(u32 *Data)
   * @param  None
   * @retval None
   */
-void RTC_CalendarConfig(u8 Year, u8 Month, u8 Date,
-    u8 Hours, u8 Minutes, u8 Seconds, u8 WeekDay, u8 Format)
+void rtc_calendar_config(u8 year, u8 month, u8 date,
+    u8 hours, u8 minutes, u8 seconds, u8 weekday, u8 format)
 {
 #ifdef USING_CHIP_RTC
     RTC_DateTypeDef sdate;
@@ -60,55 +61,55 @@ void RTC_CalendarConfig(u8 Year, u8 Month, u8 Date,
 
     /*##-1- Configure the Date ###############################################*/
     /* Set Date: Wednesday May 1th 2019 */
-    if (Format == KRTC_FORMAT_BIN)
+    if (format == KRTC_FORMAT_BIN)
         HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BIN);
     else
         HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BCD);
 
-    sdate.Year = Year;
-    sdate.Month = Month;
-    sdate.Date = Date;
+    sdate.Year = year;
+    sdate.Month = month;
+    sdate.Date = date;
 
-    if (WeekDay != 0)
-        sdate.WeekDay = WeekDay;
+    if (weekday != 0)
+        sdate.WeekDay = weekday;
 
-    if (Format == KRTC_FORMAT_BIN)
+    if (format == KRTC_FORMAT_BIN)
         HAL_RTC_SetDate(&hrtc, &sdate, RTC_FORMAT_BIN);
     else
         HAL_RTC_SetDate(&hrtc, &sdate, RTC_FORMAT_BCD);
 
     /*##-2- Configure the Time ###############################################*/
     /* Set Time: 00:00:00 */
-    if (Format == KRTC_FORMAT_BIN)
+    if (format == KRTC_FORMAT_BIN)
         HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BIN);
     else
         HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BCD);
 
-    stime.Hours = Hours;
-    stime.Minutes = Minutes;
-    stime.Seconds = Seconds;
+    stime.Hours = hours;
+    stime.Minutes = minutes;
+    stime.Seconds = seconds;
     stime.TimeFormat = RTC_HOURFORMAT12_AM;
     stime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE ;
     stime.StoreOperation = RTC_STOREOPERATION_RESET;
 
-    if (Format == KRTC_FORMAT_BIN)
+    if (format == KRTC_FORMAT_BIN)
         HAL_RTC_SetTime(&hrtc, &stime, RTC_FORMAT_BIN);
     else
         HAL_RTC_SetTime(&hrtc, &stime, RTC_FORMAT_BCD);
 
     /*##-3- Writes a data in a RTC Backup data Register1 #####################*/
-    RTC_BKUPWrite();
+    rtc_backup_reg_write();
 #endif
 
 #ifdef USING_DS3231
     char time[13];
 
-    snprintf(time, sizeof(time), "%02d%02d%02d%02d%02d%02d", Year, Month, Date,
-        Hours, Minutes, Seconds);
+    snprintf(time, sizeof(time), "%02d%02d%02d%02d%02d%02d", year, month, date,
+        hours, minutes, seconds);
     ds3231_SetTimeWithString(time);
 
-    if (WeekDay != 0)
-        ds3231_SetWeek(WeekDay);
+    if (weekday != 0)
+        ds3231_SetWeek(weekday);
 
 #endif
 }
@@ -119,35 +120,35 @@ void RTC_CalendarConfig(u8 Year, u8 Month, u8 Date,
   * @param  showdate : pointer to buffer
   * @retval None
   */
-void RTC_CalendarShow(u8 *Year, u8 *Month, u8 *Date,
-    u8 *Hours, u8 *Minutes, u8 *Seconds, u8 *WeekDay, u8 Format)
+void rtc_calendar_show(u8 *year, u8 *month, u8 *date,
+    u8 *hours, u8 *minutes, u8 *seconds, u8 *weekday, u8 format)
 {
 #ifdef USING_CHIP_RTC
     RTC_DateTypeDef sdate;
     RTC_TimeTypeDef stime;
 
     /* Get the RTC current Date */
-    if (Format == KRTC_FORMAT_BIN)
+    if (format == KRTC_FORMAT_BIN)
         HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BIN);
     else
         HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BCD);
 
-    *Year = sdate.Year;
-    *Month = sdate.Month;
-    *Date = sdate.Date;
+    *year = sdate.Year;
+    *month = sdate.Month;
+    *date = sdate.Date;
 
-    if (WeekDay != NULL)
-        *WeekDay = sdate.WeekDay;
+    if (weekday != NULL)
+        *weekday = sdate.WeekDay;
 
     /* Get the RTC current Time */
-    if (Format == KRTC_FORMAT_BIN)
+    if (format == KRTC_FORMAT_BIN)
         HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BIN);
     else
         HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BCD);
 
-    *Hours = stime.Hours;
-    *Minutes = stime.Minutes;
-    *Seconds = stime.Seconds;
+    *hours = stime.Hours;
+    *minutes = stime.Minutes;
+    *seconds = stime.Seconds;
 #endif
 
 #ifdef USING_DS3231
@@ -159,13 +160,13 @@ void RTC_CalendarShow(u8 *Year, u8 *Month, u8 *Date,
         ds3231_ReadTime(time, DS3231_FORMAT_BCD);
 
     ds3231_ReadWeek(&week);
-    *Year = time[5];
-    *Month = time[4];
-    *Date = time[3];
-    *WeekDay = week;
-    *Hours = time[2];
-    *Minutes = time[1];
-    *Seconds = time[0];
+    *year = time[5];
+    *month = time[4];
+    *date = time[3];
+    *weekday = week;
+    *hours = time[2];
+    *minutes = time[1];
+    *seconds = time[0];
 #endif
 }
 
@@ -174,7 +175,7 @@ void RTC_CalendarShow(u8 *Year, u8 *Month, u8 *Date,
   * @param  None
   * @retval None
   */
-void RTC_SetTimeFormat(u8 Data)
+void rtc_set_time_format(u8 tmp)
 {
 #ifdef USING_CHIP_RTC
 
@@ -190,7 +191,7 @@ void RTC_SetTimeFormat(u8 Data)
   * @param  None
   * @retval None
   */
-u8 RTC_GetTimeFormat(void)
+u8 rtc_get_time_format(void)
 {
 #ifdef USING_CHIP_RTC
 
@@ -199,66 +200,72 @@ u8 RTC_GetTimeFormat(void)
 #ifdef USING_DS3231
 
 #endif
+    return 0;
 }
 
 #ifdef DESIGN_VERIFICATION_RTC
 #include "kinetis/test-kinetis.h"
 #include "kinetis/random-gene.h"
+
+#include <linux/printk.h>
+
 #include "stdlib.h"
 
-int t_RTC_SetClock(int argc, char **argv)
+int t_rtc_set_clock(int argc, char **argv)
 {
-    u8 Year, Month, Date;
-    u8 Hours, Minutes, Seconds, WeekDay;
-    char Time[25];
+    u8 year, month, date;
+    u8 hours, minutes, seconds, weekday;
+    char time[25];
 
-    Year = random_get8bit() % 100;
-    Month = random_get8bit() % 12;
-    Date = random_get8bit() % 28;
-    Hours = random_get8bit() % 24;
-    Minutes = random_get8bit() % 60;
-    Seconds = random_get8bit() % 60;
-    WeekDay = random_get8bit() % 7;
+    year = random_get8bit() % 100;
+    month = random_get8bit() % 12;
+    date = random_get8bit() % 28;
+    hours = random_get8bit() % 24;
+    minutes = random_get8bit() % 60;
+    seconds = random_get8bit() % 60;
+    weekday = random_get8bit() % 7;
 
     if (argc > 1)
-        Year = strtoul(argv[1], &argv[1], 10);
+        year = strtoul(argv[1], &argv[1], 10);
 
     if (argc > 2)
-        Month = strtoul(argv[2], &argv[2], 10);
+        month = strtoul(argv[2], &argv[2], 10);
 
     if (argc > 3)
-        Date = strtoul(argv[3], &argv[3], 10);
+        date = strtoul(argv[3], &argv[3], 10);
 
     if (argc > 4)
-        Hours = strtoul(argv[4], &argv[4], 10);
+        hours = strtoul(argv[4], &argv[4], 10);
 
     if (argc > 5)
-        Minutes = strtoul(argv[5], &argv[5], 10);
+        minutes = strtoul(argv[5], &argv[5], 10);
 
     if (argc > 6)
-        Seconds = strtoul(argv[6], &argv[6], 10);
+        seconds = strtoul(argv[6], &argv[6], 10);
 
     if (argc > 7)
-        WeekDay = strtoul(argv[7], &argv[7], 10);
+        weekday = strtoul(argv[7], &argv[7], 10);
 
-    snprintf(Time, sizeof(Time), "20%02d/%02d/%02d/% 02d:%02d:%02d", Year, Month, Date,
-        Hours, Minutes, Seconds);
-    printk(KERN_DEBUG "Set clock is %s", Time);
-    RTC_CalendarConfig(Year, Month, Date, Hours, Minutes, Seconds, WeekDay, KRTC_FORMAT_BIN);
+    snprintf(time, sizeof(time), "20%02d/%02d/%02d/% 02d:%02d:%02d",
+    year, month, date,hours, minutes, seconds);
+    printk(KERN_DEBUG "Set clock is %s", time);
+    rtc_calendar_config(year, month, date,
+        hours, minutes, seconds, weekday, KRTC_FORMAT_BIN);
 
     return PASS;
 }
 
-int t_RTC_GetClock(int argc, char **argv)
+int t_rtc_get_clock(int argc, char **argv)
 {
-    u8 Year, Month, Date;
-    u8 Hours, Minutes, Seconds, WeekDay;
-    char Time[25];
+    u8 year, month, date;
+    u8 hours, minutes, seconds, weekday;
+    char time[25];
 
-    RTC_CalendarShow(&Year, &Month, &Date, &Hours, &Minutes, &Seconds, &WeekDay, KRTC_FORMAT_BIN);
-    snprintf(Time, sizeof(Time), "20%02d/%02d/%02d/% 02d:%02d:%02d", Year, Month, Date,
-        Hours, Minutes, Seconds);
-    printk(KERN_DEBUG "Get clock is %s", Time);
+    rtc_calendar_show(&year, &month, &date,
+        &hours, &minutes, &seconds, &weekday, KRTC_FORMAT_BIN);
+    snprintf(time, sizeof(time), "20%02d/%02d/%02d/% 02d:%02d:%02d",
+        year, month, date,hours, minutes, seconds);
+    printk(KERN_DEBUG "Get clock is %s", time);
 
     return PASS;
 }

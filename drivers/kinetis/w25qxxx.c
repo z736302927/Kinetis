@@ -1393,12 +1393,20 @@ void w25qxxx_read_info(u8 w25qxxx)
 static u8 tx_buffer[32767];
 static u8 rx_buffer[32767];
 
-void t_w25qxxx_loopback(u8 w25qxxx)
-{
+int t_w25qxxx_loopback(int argc, char **argv)
+{   
+    u8 w25qxxx = W25Q128;
     u32 tmp_rng = 0;
     u16 i, length = 0;
     u32 test_addr = 0;
 
+    if (argc > 1) {
+        if (!strcmp(argv[1], "w25q128"))
+            w25qxxx = W25Q128;
+        else if (!strcmp(argv[1], "w25q256"))
+            w25qxxx = W25Q256;
+    }
+    
     tmp_rng = random_get32bit();
     length = tmp_rng & 0x7FFF;
     printk(KERN_DEBUG "length = %d.", length);
@@ -1443,11 +1451,13 @@ void t_w25qxxx_loopback(u8 w25qxxx)
                 i, rx_buffer[i]);
             printk(KERN_DEBUG
                 "Data writes and reads do not match, TEST FAILED !");
-            return ;
+            return -EPIPE;
         }
     }
 
     printk(KERN_DEBUG "w25qxxx read and write TEST PASSED !");
+    
+    return 0;
 }
 
 #endif

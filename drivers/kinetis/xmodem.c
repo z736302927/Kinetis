@@ -37,17 +37,17 @@ void xmodem_SendReceiveRequest(u8 Data)
 
 }
 
-void xmodem_SendPacket(u8 *pData, u32 Length)
+void xmodem_SendPacket(u8 *pdata, u32 Length)
 {
 
 }
 
-void xmodem_ReceivePacket(u8 *pData, u32 Length)
+void xmodem_ReceivePacket(u8 *pdata, u32 Length)
 {
 
 }
 
-void xmodem_ProcessDataBlock(u8 *pData, u32 Length)
+void xmodem_ProcessDataBlock(u8 *pdata, u32 Length)
 {
 
 }
@@ -57,7 +57,7 @@ u32 xmodem_GetTransferLength(void)
 
 }
 
-void xmodem_GetTransferData(u8 *pData, u16 Length)
+void xmodem_GetTransferData(u8 *pdata, u16 Length)
 {
 
 }
@@ -77,13 +77,13 @@ u8 *g_xmodemBuffer = NULL;
 u32 g_CurrentPacketNumber = 0;
 u32 g_TotalPacketNumber = 0;
 
-u32 xmodem_CheckSUM8(void *pData, u32 Length)
+u32 xmodem_CheckSUM8(void *pdata, u32 Length)
 {
     u8 Index = 0;
     u32 CheckSUM = 0;
-    u8 *pTmp = (u8 *)pData;
+    u8 *pTmp = (u8 *)pdata;
 
-    if ((pData == NULL) || (Length == 0))
+    if ((pdata == NULL) || (Length == 0))
         return CheckSUM;
 
     while (Length > 1) {
@@ -113,10 +113,10 @@ void xmodem_AssemblePacket(void)
     xmodem_SendPacket(g_xmodemBuffer, BLOCK_SIZE1 + 4);
 }
 
-void xmodem_ProcessSendPacket(void)
+void xmodem_process_sendPacket(void)
 {
     g_CurrentPacketNumber++;
-    xmodem_AssemblePacket(pData);
+    xmodem_AssemblePacket(pdata);
 }
 
 void xmodem_ResendErrorPacket(void)
@@ -130,22 +130,22 @@ void xmodem_ClearSendStatus(void)
     g_TotalPacketNumber = 0;
 }
 
-void xmodem_ProcessReceivePacket(u8 *pData, u32 Length)
+void xmodem_ProcessReceivePacket(u8 *pdata, u32 Length)
 {
-    switch (pData[0]) {
+    switch (pdata[0]) {
         case SOH:
-            if (xmodem_CheckSUM8(pData, BLOCK_SIZE1 + 4) == 0) {
+            if (xmodem_CheckSUM8(pdata, BLOCK_SIZE1 + 4) == 0) {
                 xmodem_SendReceiveRequest(ACK);
-                xmodem_ProcessDataBlock(&pData[3], BLOCK_SIZE1);
+                xmodem_ProcessDataBlock(&pdata[3], BLOCK_SIZE1);
             } else
                 xmodem_SendReceiveRequest(NAK);
 
             break;
 
         case STX:
-            if (xmodem_CheckSUM8(pData, BLOCK_SIZE1 + 4) == 0) {
+            if (xmodem_CheckSUM8(pdata, BLOCK_SIZE1 + 4) == 0) {
                 xmodem_SendReceiveRequest(ACK);
-                xmodem_ProcessDataBlock(&pData[3], BLOCK_SIZE2);
+                xmodem_ProcessDataBlock(&pdata[3], BLOCK_SIZE2);
             } else
                 xmodem_SendReceiveRequest(NAK);
 
@@ -157,13 +157,13 @@ void xmodem_ProcessReceivePacket(u8 *pData, u32 Length)
 
         case ACK:
             if (g_CurrentPacketNumber != g_TotalPacketNumber)
-                xmodem_ProcessSendPacket();
+                xmodem_process_sendPacket();
 
             break;
 
         case NAK:
             if (g_CurrentPacketNumber == 0)
-                xmodem_ProcessSendPacket();
+                xmodem_process_sendPacket();
             else
                 xmodem_ResendErrorPacket();
 

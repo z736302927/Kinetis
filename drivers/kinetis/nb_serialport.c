@@ -1,4 +1,4 @@
-#include "kinetis/nb_serialport.h"
+#include "kinetis/nb_serial-port.h"
 #include "kinetis/nb_bc95.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
@@ -14,7 +14,7 @@
 #include "usart.h"
 #include "string.h"
 #include "stdlib.h"
-#include "kinetis/serialport.h"
+#include "kinetis/serial-port.h"
 
 #define DEBUG
 #include "kinetis/idebug.h"
@@ -28,7 +28,7 @@ void NB_IOT_UART_RxBuffer_FindTail(void);
 void NB_IOT_UART_Extract_ValidData(void);
 
 NB_RxCallback  NB_InterRxCallback = NULL;
-SerialPort_TypeDef NB_IOT_UART1;
+struct serial_port NB_IOT_UART1;
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {

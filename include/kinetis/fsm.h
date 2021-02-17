@@ -15,24 +15,24 @@ extern "C" {
 #define FSM_STATES              15
 #define FSM_CONDITIONS          3
 
-typedef int State;
-typedef int Condition;
+typedef int fsm_state;
+typedef int fsm_condition;
 
-typedef struct _SM_VAR {
+struct sm_var {
     int _repeats;
-    Condition _condition;
-} SM_VAR;
+    fsm_condition _condition;
+};
 
-typedef struct {
-    State current;
-} StateMachine, *pStateMachine;
+struct state_machine {
+    fsm_state current;
+};
 
-typedef int (*ActionType)(pStateMachine machine, SM_VAR *sm_var);
+typedef int (*action_type)(struct state_machine *machine, struct sm_var *sm_var);
 
-typedef struct {
-    State next;
-    ActionType action;
-} Transition, *pTransition;
+struct transition {
+    fsm_state next;
+    action_type action;
+};
 
 enum SState {
     sNB_NONE,
@@ -59,8 +59,9 @@ enum CCondition {
 };
 
 
-void FSM_Init(void);
-State FSM_Step(pStateMachine machine, SM_VAR *sm_var, pTransition **table);
+void fsm_init(void);
+fsm_state fsm_step(struct state_machine * machine, struct sm_var *sm_var,
+    struct transition **table);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

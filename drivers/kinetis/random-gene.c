@@ -1,8 +1,5 @@
 #include "kinetis/random-gene.h"
 
-#include "stdlib.h"
-#include "string.h"
-
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /**
@@ -104,7 +101,7 @@ void random_get_array(void *pdata, u32 length, u8 bits)
 #include <linux/gfp.h>
 #include <linux/printk.h>
 
-#include "stdio.h"
+#include "stdlib.h"
 
 int t_random_number(int argc, char **argv)
 {
