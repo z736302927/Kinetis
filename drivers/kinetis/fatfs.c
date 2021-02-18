@@ -454,7 +454,7 @@ int fatfs_diskio(
             return 4;
         }
 
-        printk(KERN_DEBUG " Number of sectors on the drive %u is %lu.", pdrv, sz_drv);
+        printk(KERN_DEBUG " Number of sectors on the drive %u is %u.", pdrv, sz_drv);
 
 #if FF_MAX_SS != FF_MIN_SS
         printk(KERN_DEBUG "**** Get sector size ****");
@@ -485,7 +485,7 @@ int fatfs_diskio(
             printk(KERN_DEBUG " - failed.");
 
         if (dr == RES_OK || sz_eblk >= 2)
-            printk(KERN_DEBUG " Size of the erase block is %lu sectors.", sz_eblk);
+            printk(KERN_DEBUG " Size of the erase block is %u sectors.", sz_eblk);
         else
             printk(KERN_DEBUG " Size of the erase block is unknown.");
 
@@ -496,7 +496,7 @@ int fatfs_diskio(
         for (n = 0, fatfs_diskio_pseudo(pns); n < sz_sect; n++)
             pbuff[n] = (BYTE)fatfs_diskio_pseudo(0);
 
-        printk(KERN_DEBUG " disk_write(%u, 0x%X, %lu, 1)", pdrv, (UINT)pbuff, lba);
+        printk(KERN_DEBUG " disk_write(%u, 0x%X, %u, 1)", pdrv, (UINT)pbuff, lba);
         dr = disk_write(pdrv, pbuff, lba, 1);
 
         if (dr == RES_OK)
@@ -517,7 +517,7 @@ int fatfs_diskio(
         }
 
         memset(pbuff, 0, sz_sect);
-        printk(KERN_DEBUG " disk_read(%u, 0x%X, %lu, 1)", pdrv, (UINT)pbuff, lba);
+        printk(KERN_DEBUG " disk_read(%u, 0x%X, %u, 1)", pdrv, (UINT)pbuff, lba);
         dr = disk_read(pdrv, pbuff, lba, 1);
 
         if (dr == RES_OK)
@@ -551,7 +551,7 @@ int fatfs_diskio(
             for (n = 0, fatfs_diskio_pseudo(pns); n < (UINT)(sz_sect * ns); n++)
                 pbuff[n] = (BYTE)fatfs_diskio_pseudo(0);
 
-            printk(KERN_DEBUG " disk_write(%u, 0x%X, %lu, %u)", pdrv, (UINT)pbuff, lba, ns);
+            printk(KERN_DEBUG " disk_write(%u, 0x%X, %u, %u)", pdrv, (UINT)pbuff, lba, ns);
             dr = disk_write(pdrv, pbuff, lba, ns);
 
             if (dr == RES_OK)
@@ -572,7 +572,7 @@ int fatfs_diskio(
             }
 
             memset(pbuff, 0, sz_sect * ns);
-            printk(KERN_DEBUG " disk_read(%u, 0x%X, %lu, %u)", pdrv, (UINT)pbuff, lba, ns);
+            printk(KERN_DEBUG " disk_read(%u, 0x%X, %u, %u)", pdrv, (UINT)pbuff, lba, ns);
             dr = disk_read(pdrv, pbuff, lba, ns);
 
             if (dr == RES_OK)
@@ -603,7 +603,7 @@ int fatfs_diskio(
         for (n = 0, fatfs_diskio_pseudo(pns); n < sz_sect; n++)
             pbuff[n + 3] = (BYTE)fatfs_diskio_pseudo(0);
 
-        printk(KERN_DEBUG " disk_write(%u, 0x%X, %lu, 1)", pdrv, (UINT)(pbuff + 3), lba);
+        printk(KERN_DEBUG " disk_write(%u, 0x%X, %u, 1)", pdrv, (UINT)(pbuff + 3), lba);
         dr = disk_write(pdrv, pbuff + 3, lba, 1);
 
         if (dr == RES_OK)
@@ -624,7 +624,7 @@ int fatfs_diskio(
         }
 
         memset(pbuff + 5, 0, sz_sect);
-        printk(KERN_DEBUG " disk_read(%u, 0x%X, %lu, 1)", pdrv, (UINT)(pbuff + 5), lba);
+        printk(KERN_DEBUG " disk_read(%u, 0x%X, %u, 1)", pdrv, (UINT)(pbuff + 5), lba);
         dr = disk_read(pdrv, pbuff + 5, lba, 1);
 
         if (dr == RES_OK)
@@ -656,7 +656,7 @@ int fatfs_diskio(
             for (n = 0, fatfs_diskio_pseudo(pns); n < (UINT)(sz_sect * 2); n++)
                 pbuff[n] = (BYTE)fatfs_diskio_pseudo(0);
 
-            printk(KERN_DEBUG " disk_write(%u, 0x%X, %lu, 1)", pdrv, (UINT)pbuff, lba);
+            printk(KERN_DEBUG " disk_write(%u, 0x%X, %u, 1)", pdrv, (UINT)pbuff, lba);
             dr = disk_write(pdrv, pbuff, lba, 1);
 
             if (dr == RES_OK)
@@ -666,7 +666,7 @@ int fatfs_diskio(
                 return 19;
             }
 
-            printk(KERN_DEBUG " disk_write(%u, 0x%X, %lu, 1)", pdrv, (UINT)(pbuff + sz_sect), lba2);
+            printk(KERN_DEBUG " disk_write(%u, 0x%X, %u, 1)", pdrv, (UINT)(pbuff + sz_sect), lba2);
             dr = disk_write(pdrv, pbuff + sz_sect, lba2, 1);
 
             if (dr == RES_OK)
@@ -687,7 +687,7 @@ int fatfs_diskio(
             }
 
             memset(pbuff, 0, sz_sect * 2);
-            printk(KERN_DEBUG " disk_read(%u, 0x%X, %lu, 1)", pdrv, (UINT)pbuff, lba);
+            printk(KERN_DEBUG " disk_read(%u, 0x%X, %u, 1)", pdrv, (UINT)pbuff, lba);
             dr = disk_read(pdrv, pbuff, lba, 1);
 
             if (dr == RES_OK)
@@ -697,7 +697,7 @@ int fatfs_diskio(
                 return 22;
             }
 
-            printk(KERN_DEBUG " disk_read(%u, 0x%X, %lu, 1)", pdrv, (UINT)(pbuff + sz_sect), lba2);
+            printk(KERN_DEBUG " disk_read(%u, 0x%X, %u, 1)", pdrv, (UINT)(pbuff + sz_sect), lba2);
             dr = disk_read(pdrv, pbuff + sz_sect, lba2, 1);
 
             if (dr == RES_OK)
@@ -805,7 +805,7 @@ int fatfs_raw_speed(
     ss = FF_MAX_SS;
 #endif
 
-    printk(KERN_DEBUG "Starting raw write test at sector %lu in %u bytes of data chunks...", lba, sz_buff);
+    printk(KERN_DEBUG "Starting raw write test at sector %u in %u bytes of data chunks...", lba, sz_buff);
     tmr = basic_timer_get_timer_cnt();
 
     for (ofs = 0; ofs < len / ss; ofs += sz_buff / ss) {
@@ -821,9 +821,9 @@ int fatfs_raw_speed(
     }
 
     tmr = basic_timer_get_timer_cnt() - tmr;
-    printk(KERN_DEBUG "%lu bytes written and it took %lu timer ticks.", len, tmr);
+    printk(KERN_DEBUG "%u bytes written and it took %u timer ticks.", len, tmr);
 
-    printk(KERN_DEBUG "Starting raw read test at sector %lu in %u bytes of data chunks...", lba, sz_buff);
+    printk(KERN_DEBUG "Starting raw read test at sector %u in %u bytes of data chunks...", lba, sz_buff);
     tmr = basic_timer_get_timer_cnt();
 
     for (ofs = 0; ofs < len / ss; ofs += sz_buff / ss) {
@@ -834,7 +834,7 @@ int fatfs_raw_speed(
     }
 
     tmr = basic_timer_get_timer_cnt() - tmr;
-    printk(KERN_DEBUG "%lu bytes read and it took %lu timer ticks.", len, tmr);
+    printk(KERN_DEBUG "%u bytes read and it took %u timer ticks.", len, tmr);
     printk(KERN_DEBUG "Test completed.");
 
     return true;
@@ -953,8 +953,8 @@ int t_fatfs_file_check(int argc, char **argv)
     res = f_stat("TestDir/testdir.txt", &finfo);
 
     if (res == FR_OK) {
-        printk(KERN_DEBUG "¡°testdir.txt¡±File information£º");
-        printk(KERN_DEBUG "The file size: %lud(B)", finfo.fsize);
+        printk(KERN_DEBUG "testdir.txt File information");
+        printk(KERN_DEBUG "The file size: %ud(B)", finfo.fsize);
         printk(KERN_DEBUG "The time stamp: %u/%02u/%02u, %02u:%02u",
             (finfo.fdate >> 9) + 1980, finfo.fdate >> 5 & 15, finfo.fdate & 31, finfo.ftime >> 11, finfo.ftime >> 5 & 63);
         printk(KERN_DEBUG "attribute: %c%c%c%c%c",

@@ -29,7 +29,7 @@ int t_ak8975_fuse_rom_access(int argc, char **argv);
 #ifdef DESIGN_VERIFICATION_AT24CXX
 int t_at24cxx_loopback(int argc, char **argv);
 int t_at24cxx_current_addr_read(int argc, char **argv);
-int t_current_random_read(int argc, char **argv);
+int t_at24cxx_current_random_read(int argc, char **argv);
 int t_at24cxx_sequential_read(int argc, char **argv);
 int t_at24cxx_loopback_speed(int argc, char **argv);
 #endif
@@ -168,7 +168,7 @@ struct test_case_typedef kinetis_case_table[] = {
 #ifdef DESIGN_VERIFICATION_AT24CXX
     {"at24cxx.lb", t_at24cxx_loopback},
     {"at24cxx.current_addr_read", t_at24cxx_current_addr_read},
-    {"at24cxx.random_read", t_current_random_read},
+    {"at24cxx.random_read", t_at24cxx_current_random_read},
     {"at24cxx.seq_read", t_at24cxx_sequential_read},
     {"at24cxx.lb_speed", t_at24cxx_loopback_speed},
 #endif

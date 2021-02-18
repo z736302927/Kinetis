@@ -255,7 +255,7 @@ int t_at24cxx_current_addr_read(int argc, char **argv)
     return PASS;
 }
 
-int t_current_random_read(int argc, char **argv)
+int t_at24cxx_current_random_read(int argc, char **argv)
 {
     u16 length = 0;
     u32 test_addr = 0;
@@ -301,7 +301,7 @@ int t_at24cxx_loopback_speed(int argc, char **argv)
     at24cxx_write_data(0, tx_buffer, AT24CXX_VOLUME);
 
     time_stamp = basic_timer_get_timer_cnt() - time_stamp;
-    printk(KERN_DEBUG "%u bytes written and it took %luus.",
+    printk(KERN_DEBUG "%u bytes written and it took %uus.",
         AT24CXX_VOLUME, time_stamp);
 
     printk(KERN_DEBUG "Starting at24cxx raw read test");
@@ -310,7 +310,7 @@ int t_at24cxx_loopback_speed(int argc, char **argv)
     at24cxx_read_data(0, rx_buffer, AT24CXX_VOLUME);
 
     time_stamp = basic_timer_get_timer_cnt() - time_stamp;
-    printk(KERN_DEBUG "%u bytes read and it took %luus.",
+    printk(KERN_DEBUG "%u bytes read and it took %uus.",
         AT24CXX_VOLUME, time_stamp);
     printk(KERN_DEBUG "Test completed.");
 

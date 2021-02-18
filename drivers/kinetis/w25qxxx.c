@@ -33,7 +33,7 @@ static inline void w25qxxx_port_transmmit(u8 w25qxxx, u8 tmp)
             break;
 
         case W25Q256:
-            HAL_SPI_Transmit(&hspi5, &tmp, 1, 1000);
+            HAL_SPI_Transmit(&hspi2, &tmp, 1, 1000);
             break;
 
         default:
@@ -51,7 +51,7 @@ static inline u8 w25qxxx_port_receive(u8 w25qxxx)
             break;
 
         case W25Q256:
-            HAL_SPI_Receive(&hspi5, &tmp, 1, 1000);
+            HAL_SPI_Receive(&hspi2, &tmp, 1, 1000);
             break;
 
         default:
@@ -70,7 +70,7 @@ static inline void w25qxxx_port_multi_transmmit(u8 w25qxxx,
             break;
 
         case W25Q256:
-            HAL_SPI_Transmit(&hspi5, pdata, length, 1000);
+            HAL_SPI_Transmit(&hspi2, pdata, length, 1000);
             break;
 
         default:
@@ -87,7 +87,7 @@ static inline void w25qxxx_port_multi_receive(u8 w25qxxx,
             break;
 
         case W25Q256:
-            HAL_SPI_Receive(&hspi5, pdata, length, 1000);
+            HAL_SPI_Receive(&hspi2, pdata, length, 1000);
             break;
 
         default:

@@ -61,14 +61,14 @@ static inline u16 tlc5971_port_receive(void)
 static inline void tlc5971_port_multi_transmmit(u16 *pdata, u32 Length)
 {
 //  HAL_SPI_Transmit(&hspi5, pdata, Length, 1000);
-    while (HAL_SPI_GetState(&hspi5) != HAL_SPI_STATE_READY) {
+    while (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
     }
 }
 
 static inline void tlc5971_port_multi_receive(u16 *pdata, u32 Length)
 {
 //  HAL_SPI_Receive(&hspi5, pdata, Length, 1000);
-    while (HAL_SPI_GetState(&hspi5) != HAL_SPI_STATE_READY) {
+    while (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
     }
 }
 

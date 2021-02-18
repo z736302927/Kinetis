@@ -152,13 +152,13 @@ int t_basic_timer_get_tick(int argc, char **argv)
         times3 = strtoul(argv[3], &argv[3], 10);
 
     for (i = 0; i < times1; i++)
-        printk(KERN_DEBUG "Current absolute second = %lu", basic_timer_get_ss());
+        printk(KERN_DEBUG "Current absolute second = %u", basic_timer_get_ss());
 
     for (i = 0; i < times2; i++)
         printk(KERN_DEBUG "Current absolute millisecond = %llu", basic_timer_get_ms());
 
     for (i = 0; i < times3; i++)
-        printk(KERN_DEBUG "Current absolute microsecond = %lu", basic_timer_get_timer_cnt());
+        printk(KERN_DEBUG "Current absolute microsecond = %u", basic_timer_get_timer_cnt());
 
     return PASS;
 }
