@@ -137,21 +137,23 @@ int printk(const char *fmt, ...)
     return text_len;
 }
 
-void kinetis_dump_buffer(void *Buffer, int Size)
+void kinetis_dump_buffer8(void *buffer, int size, int column)
 {
-    int i;
-    printk("[%5d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt());
+    u32 i;    
 
-    for (i = 0; i < Size; i++) {
-        if ((i % 32 == 0) && (i != 0)) {
-            printk("\r\n");
-            printk("[%5d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt());
-        }
+    for (i = 0; i < size; i++) {
+        if (i && !(i % column))
+            pr_cont("\n\r");
 
-        printk("%02X ", ((u8 *)Buffer)[i]);
+        if (!(i % column))
+            pr_cont("Data[%4d~%4d]: ",
+                i,
+                i + column > size ? size - 1 : i + column - 1);
+
+        pr_cont(KERN_DEBUG "0x%02x, ", (u8)(buffer + i));
     }
 
-    printk("\r\n");
+    pr_cont("\n\r");
 }
 
 

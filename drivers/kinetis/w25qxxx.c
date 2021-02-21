@@ -680,6 +680,18 @@ void w25q256_exit_4byte_addr_mode(u8 w25qxxx)
 void w25qxxx_read_data(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 {
     u8 sub_addr[4];
+    u32 remain = 0;
+
+    if (w25qxxx == W25Q128)
+        remain = w25q128_max_addr - addr + 1;
+    else if (w25qxxx == W25Q256)
+        remain = w25q256_max_addr - addr + 1;
+
+    if (remain < length) {
+        printk(KERN_ERR
+            "There is not enough space left to read the specified length.");
+        return ;
+    }
 
     if (w25qxxx == W25Q256)
         sub_addr[0] = (addr & 0xFF000000) >> 24;
@@ -982,12 +994,12 @@ void w25qxxx_write_data(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
     u32 remain = 0;
 
     if (w25qxxx == W25Q128)
-        remain = w25q128_max_addr - addr;
+        remain = w25q128_max_addr - addr + 1;
     else if (w25qxxx == W25Q256)
-        remain = w25q256_max_addr - addr;
+        remain = w25q256_max_addr - addr + 1;
 
     if (remain < length) {
-        printk(KERN_DEBUG
+        printk(KERN_ERR
             "There is not enough space left to write the specified length.");
         return ;
     }
@@ -1374,12 +1386,12 @@ void w25qxxx_read_info(u8 w25qxxx)
     u8 jedec_id[3];
     u8 unique_id[8];
 
-    printk(KERN_DEBUG "w25qxxx is 0x%02X.", w25qxxx);
+    printk(KERN_DEBUG "w25qxxx is %#02X.\n", w25qxxx);
     w25qxxx_read_jedec_id(w25qxxx, jedec_id);
-    printk(KERN_DEBUG "JEDEC ID is 0x%02X%02X%02X",
+    printk(KERN_DEBUG "JEDEC ID is %#02X%02X%02X",
         jedec_id[0], jedec_id[1], jedec_id[2]);
     w25qxxx_read_manufacturer_device_id(w25qxxx, &manufacturer_id, &device_id);
-    printk(KERN_DEBUG "Manufacturer ID is 0x%02X, Device ID is 0x%02X.",
+    printk(KERN_DEBUG "Manufacturer ID is %#02X, Device ID is %#02X.",
         manufacturer_id, device_id);
     w25qxxx_read_unique_id(w25qxxx, unique_id);
     printk(KERN_DEBUG "Unique ID is %02X%02X%02X%02X%02X%02X%02X%02X",
@@ -1430,7 +1442,7 @@ int t_w25qxxx_loopback(int argc, char **argv)
             break;
     }
 
-    printk(KERN_DEBUG "test addr: 0x%08x.", test_addr);
+    printk(KERN_DEBUG "test addr: %#08x.", test_addr);
 
     for (i = 0; i < length; i += 4) {
         tmp_rng = random_get32bit();
@@ -1446,7 +1458,7 @@ int t_w25qxxx_loopback(int argc, char **argv)
 
     for (i = 0; i < length; i++) {
         if (tx_buffer[i] != rx_buffer[i]) {
-            printk(KERN_DEBUG "tx[%d]: 0x%02x, rx[%d]: 0x%02x",
+            printk(KERN_DEBUG "tx[%d]: %#02x, rx[%d]: %#02x",
                 i, tx_buffer[i],
                 i, rx_buffer[i]);
             printk(KERN_DEBUG

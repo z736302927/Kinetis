@@ -21,8 +21,8 @@
 //#define IIC_SOFT_PIN_SDA     GPIO_PIN_3
 //#define IIC_SOFT_PORT_SCL    GPIOH
 //#define IIC_SOFT_PORT_SDA    GPIOI
-#define IIC_SOFT_PIN_SCL     GPIO_PIN_13
-#define IIC_SOFT_PIN_SDA     GPIO_PIN_14
+#define IIC_SOFT_PIN_SCL     GPIO_PIN_8
+#define IIC_SOFT_PIN_SDA     GPIO_PIN_9
 #define IIC_SOFT_PORT_SCL    GPIOB
 #define IIC_SOFT_PORT_SDA    GPIOB
 
@@ -36,7 +36,7 @@
 #define SDA_H           HAL_GPIO_WritePin(IIC_SOFT_PORT_SDA, IIC_SOFT_PIN_SDA, GPIO_PIN_SET)//IIC_SOFT_PORT_SDA->BSRR = (u32)IIC_SOFT_PIN_SDA
 #define SDA_L           HAL_GPIO_WritePin(IIC_SOFT_PORT_SDA, IIC_SOFT_PIN_SDA, GPIO_PIN_RESET)//IIC_SOFT_PORT_SDA->BRR  = (u32)IIC_SOFT_PIN_SDA
 
-#define SDA_NUM         14
+#define SDA_NUM         9
 //#define SDA_IN          IIC_SOFT_PORT_SDA->CRL &= ~((u32)0xF << (SDA_NUM << 2));IIC_SOFT_PORT_SDA->CRL |= (u32)0x8 << (SDA_NUM << 2)
 //#define SDA_OUT         IIC_SOFT_PORT_SDA->CRL &= ~((u32)0xF << (SDA_NUM << 2));IIC_SOFT_PORT_SDA->CRL |= (u32)0x6 << (SDA_NUM << 2)
 #define SDA_IN          IIC_SOFT_PORT_SDA->MODER &= ~(3 << SDA_NUM * 2);IIC_SOFT_PORT_SDA->MODER |= 0 << SDA_NUM * 2
@@ -45,7 +45,7 @@
 
 #define ADDRESS_16      1
 #define ADDRESS_8       0
-#define ADDRESS_MODE    ADDRESS_16
+#define ADDRESS_MODE    ADDRESS_8
 
 static bool iic_soft_write_byte_with_addr(u8 slave_addr, u16 reg, u8 tmp);
 static bool iic_soft_read_byte_with_addr(u8 slave_addr, u16 reg, u8 *tmp);

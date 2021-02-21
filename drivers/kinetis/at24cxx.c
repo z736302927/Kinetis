@@ -116,13 +116,9 @@ static void at24cxx_multi_page_write(u32 addr, u8 *pdata, u16 length)
 
 void at24cxx_write_data(u8 addr, u8 *pdata, u32 length)
 {
-    u32 remain = 0;
-
-    remain = AT24CXX_MAX_ADDR - addr;
-
-    if (remain < length) {
-        printk(KERN_DEBUG
-            "There is not enough space left to write the specified length.");
+    if (addr + length > AT24CXX_VOLUME) {
+        printk(KERN_ERR
+            "There is not enough space left to write the specified length.\n");
         return ;
     }
 
@@ -145,13 +141,9 @@ void at24cxx_current_addr_read(u8 *pdata)
 
 static void current_random_read(u8 addr, u8 *pdata, u32 length)
 {
-    u32 remain = 0;
-
-    remain = AT24CXX_MAX_ADDR - addr;
-
-    if (remain < length) {
-        printk(KERN_DEBUG
-            "There is not enough space left to read the specified length.");
+    if (addr + length > AT24CXX_VOLUME) {
+        printk(KERN_ERR
+            "There is not enough space left to read the specified length.\n");
         return ;
     }
 
@@ -214,12 +206,12 @@ int t_at24cxx_loopback(int argc, char **argv)
 
         test_addr = random_get8bit();
 
-        if (length >= (AT24CXX_MAX_ADDR - test_addr + 1))
-            length = AT24CXX_MAX_ADDR - test_addr + 1;
+        if (test_addr + length > AT24CXX_VOLUME)
+            length = AT24CXX_VOLUME - test_addr;
 
         memset(tx_buffer, 0, length);
         memset(rx_buffer, 0, length);
-        printk(KERN_DEBUG "test_addr: 0x%02X, length = %d.",
+        printk(KERN_DEBUG "test_addr@%#02x, length: %d.\n",
             test_addr, length);
 
         for (i = 0; i < length; i++)
@@ -231,16 +223,16 @@ int t_at24cxx_loopback(int argc, char **argv)
         for (i = 0; i < length; i++) {
             if (tx_buffer[i] != rx_buffer[i]) {
                 printk(KERN_DEBUG
-                    "tx[%d] = 0x%02X, rx[%d] = 0x%02X",
+                    "tx[%d]: %#02x, rx[%d]: %#02x\n",
                     i, tx_buffer[i], i, rx_buffer[i]);
-                printk(KERN_DEBUG
-                    "Data writes and reads do not match, TEST FAILED !");
+                printk(KERN_ERR
+                    "Data writes and reads do not match, TEST FAILED!\n");
                 return FAIL;
             }
         }
     }
 
-    printk(KERN_DEBUG "at24cxx Read and write TEST PASSED !");
+    printk(KERN_DEBUG "at24cxx Read and write TEST PASSED!\n");
 
     return PASS;
 }
@@ -250,7 +242,7 @@ int t_at24cxx_current_addr_read(int argc, char **argv)
     u8 tmp = 0;
 
     at24cxx_current_addr_read(&tmp);
-    printk(KERN_DEBUG "at24cxx current address data %d", tmp);
+    printk(KERN_DEBUG "at24cxx current address data %d.\n", tmp);
 
     return PASS;
 }
@@ -259,20 +251,24 @@ int t_at24cxx_current_random_read(int argc, char **argv)
 {
     u16 length = 0;
     u32 test_addr = 0;
-    u16 times = 128;
+    u16 round = 128;
     u16 i = 0;
 
     if (argc > 1)
-        times = strtoul(argv[1], &argv[1], 10);
+        round = strtoul(argv[1], &argv[1], 10);
 
-    test_addr = random_get8bit();
-    length = random_get8bit() % (AT24CXX_MAX_ADDR - test_addr);
-    current_random_read(test_addr, &rx_buffer[test_addr], length);
-    printk(KERN_DEBUG "at24cxx Random Read %u", times);
+    printk(KERN_DEBUG "at24cxx random read %u round.\n", round);
+    
+    for (i = 0; i < round; i++) {
+        test_addr = random_get8bit();
+        length = random_get8bit() % (AT24CXX_VOLUME - test_addr);
+        current_random_read(test_addr, &rx_buffer[test_addr], length);
+        
+        printk(KERN_DEBUG "round[%4u], read addr@%#08x, length: %u.\n",
+            i, test_addr, length);
 
-    for (i = 0; i < length; i++)
-        printk(KERN_DEBUG "Data[%d] = %d",
-            i, rx_buffer[test_addr + i]);
+        kinetis_dump_buffer8(&rx_buffer[test_addr], length, 8);
+    }
 
     return PASS;
 }
@@ -282,7 +278,7 @@ int t_at24cxx_sequential_read(int argc, char **argv)
     u8 tmp = 0;
 
     at24cxx_sequential_read(&tmp, 1);
-    printk(KERN_DEBUG "at24cxx Sequential Read data %d", tmp);
+    printk(KERN_DEBUG "at24cxx Sequential Read data %d.\n", tmp);
 
     return PASS;
 }
@@ -292,7 +288,7 @@ int t_at24cxx_loopback_speed(int argc, char **argv)
     u32 time_stamp = 0;
     u16 i = 0;
 
-    printk(KERN_DEBUG "Starting at24cxx raw write test");
+    printk(KERN_DEBUG "Starting at24cxx raw write test.\n");
     time_stamp = basic_timer_get_timer_cnt();
 
     for (i = 0; i < AT24CXX_VOLUME; i++)
@@ -301,18 +297,18 @@ int t_at24cxx_loopback_speed(int argc, char **argv)
     at24cxx_write_data(0, tx_buffer, AT24CXX_VOLUME);
 
     time_stamp = basic_timer_get_timer_cnt() - time_stamp;
-    printk(KERN_DEBUG "%u bytes written and it took %uus.",
+    printk(KERN_DEBUG "%u bytes written and it took %uus.\n",
         AT24CXX_VOLUME, time_stamp);
 
-    printk(KERN_DEBUG "Starting at24cxx raw read test");
+    printk(KERN_DEBUG "Starting at24cxx raw read test.\n");
     time_stamp = basic_timer_get_timer_cnt();
 
     at24cxx_read_data(0, rx_buffer, AT24CXX_VOLUME);
 
     time_stamp = basic_timer_get_timer_cnt() - time_stamp;
-    printk(KERN_DEBUG "%u bytes read and it took %uus.",
+    printk(KERN_DEBUG "%u bytes read and it took %uus.\n",
         AT24CXX_VOLUME, time_stamp);
-    printk(KERN_DEBUG "Test completed.");
+    printk(KERN_DEBUG "Test completed.\n");
 
     return PASS;
 }

@@ -23,7 +23,7 @@ extern "C" {
 #define KERN_DEFAULT	3
 #endif
 
-void kinetis_dump_buffer(void *Buffer, int Size);
+void kinetis_dump_buffer8(void *buffer, int size, int column);
 
 #define ERR_PRINT_TIME  printk("[%05d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt())
 #define DBG_PRINT_TIME  printk("[%05d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt())

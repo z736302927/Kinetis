@@ -209,7 +209,7 @@ int hydrology_port_transmmit(u8 *pdata, u16 length)
 {
     struct serial_port hydrology_port;
 
-    kinetis_dump_buffer(pdata, length);
+    kinetis_dump_buffer8(pdata, length, 8);
     printk(KERN_DEBUG " ");
 
     hydrology_open_port();
@@ -256,7 +256,7 @@ int hydrology_port_receive(u8 **ppdata, u16 *plength, u32 Timeout)
 
             for (;;) {
                 if (serial_port_receive(&hydrology_port) == true) {
-                    kinetis_dump_buffer(hydrology_port.rx_buffer, hydrology_port.rx_buffer_size);
+                    kinetis_dump_buffer8(hydrology_port.rx_buffer, hydrology_port.rx_buffer_size, 8);
                     *ppdata = (u8 *)hydrology_port.rx_buffer;
                     *plength = hydrology_port.rx_buffer_size;
                     serial_port_close(&hydrology_port);

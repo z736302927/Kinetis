@@ -1,3 +1,10 @@
+
+at24cxx.lb
+at24cxx.current_addr_read 10
+at24cxx.random_read 10
+at24cxx.seq_read
+at24cxx.lb_speed
+
 /* 绝对时钟测试 */
 basictimer.GetTick
 
