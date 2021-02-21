@@ -453,14 +453,14 @@ void w25qxxx_write_tb(u8 w25qxxx, u8 tmp)
 
 void w25qxxx_write_bp(u8 w25qxxx, u8 tmp)
 {
-  u8 reg = 0;
+    u8 reg = 0;
 
-  reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
+    reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-  __assign_bit(7, (unsigned long *)&reg, tmp);
+    __assign_bit(7, (unsigned long *)&reg, tmp);
 
-  w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
-  w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER1, reg);
+    w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+    w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER1, reg);
 }
 
 void w25qxxx_write_cmp(u8 w25qxxx, u8 tmp)
@@ -477,14 +477,14 @@ void w25qxxx_write_cmp(u8 w25qxxx, u8 tmp)
 
 void w25qxxx_write_lb(u8 w25qxxx, u8 tmp)
 {
-  u8 reg = 0;
+    u8 reg = 0;
 
-  reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
-  
-  __assign_bit(7, (unsigned long *)&reg, tmp);
+    reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-  w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
-  w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
+    __assign_bit(7, (unsigned long *)&reg, tmp);
+
+    w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+    w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
 }
 
 void w25qxxx_write_qe(u8 w25qxxx, u8 tmp)
@@ -787,7 +787,7 @@ static int w25qxxx_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
     w25qxxx_cs_high(w25qxxx);
 
     ret = readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-            busy == 0, 0, 30000000);
+            busy == 0, 1, 30000000);
 
     if (ret)
         printk(KERN_ERR "Programing page is timeout.");
@@ -1018,7 +1018,7 @@ void w25qxxx_sector_erase(u8 w25qxxx, u32 addr)
     w25qxxx_cs_high(w25qxxx);
 
     readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-        busy == 0, 0, 30000000);
+        busy == 0, 1, 30000000);
 }
 
 void w25qxxx_block_erase_with_32kb(u8 w25qxxx, u32 addr)
@@ -1044,7 +1044,7 @@ void w25qxxx_block_erase_with_32kb(u8 w25qxxx, u32 addr)
     w25qxxx_cs_high(w25qxxx);
 
     readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-        busy == 0, 0, 30000000);
+        busy == 0, 1, 30000000);
 }
 
 void w25qxxx_block_erase_with_64kb(u8 w25qxxx, u32 addr)
@@ -1070,7 +1070,7 @@ void w25qxxx_block_erase_with_64kb(u8 w25qxxx, u32 addr)
     w25qxxx_cs_high(w25qxxx);
 
     readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-        busy == 0, 0, 30000000);
+        busy == 0, 1, 30000000);
 }
 
 void sw25qxxx_chip_erase(u8 w25qxxx)
@@ -1081,7 +1081,7 @@ void sw25qxxx_chip_erase(u8 w25qxxx)
     w25qxxx_transmmit_cmd(w25qxxx, CHIP_ERASE);
 
     readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-        busy == 0, 0, 30000000);
+        busy == 0, 1, 30000000);
 }
 
 void w25qxxx_erase_program_suspend(u8 w25qxxx)
@@ -1202,7 +1202,7 @@ void w25qxxx_erase_security_regs(u8 w25qxxx, u8 addr)
     w25qxxx_cs_high(w25qxxx);
 
     readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-        busy == 0, 0, 30000000);
+        busy == 0, 1, 30000000);
 }
 
 //void w25qxxx_program_security_regs(u8 w25qxxx, u32 regNum, u32 Byteaddr, u8 *pdata, u16 length)
@@ -1394,7 +1394,7 @@ static u8 tx_buffer[32767];
 static u8 rx_buffer[32767];
 
 int t_w25qxxx_loopback(int argc, char **argv)
-{   
+{
     u8 w25qxxx = W25Q128;
     u32 tmp_rng = 0;
     u16 i, length = 0;
@@ -1406,7 +1406,7 @@ int t_w25qxxx_loopback(int argc, char **argv)
         else if (!strcmp(argv[1], "w25q256"))
             w25qxxx = W25Q256;
     }
-    
+
     tmp_rng = random_get32bit();
     length = tmp_rng & 0x7FFF;
     printk(KERN_DEBUG "length = %d.", length);
@@ -1456,7 +1456,7 @@ int t_w25qxxx_loopback(int argc, char **argv)
     }
 
     printk(KERN_DEBUG "w25qxxx read and write TEST PASSED !");
-    
+
     return 0;
 }
 

@@ -41,7 +41,7 @@ int tim_task_add(u32 interval, bool auto_load, void(*callback)())
     tim_task->callback = callback;
     tim_task->timeout = basic_timer_get_ms() + interval;
     tim_task->auto_load = auto_load;
-    
+
     list_add_tail(&tim_task->list, &tim_task_head);
 
     return 0;
@@ -113,8 +113,8 @@ int t_tim_task_add(int argc, char **argv)
     time_stamp = basic_timer_get_ms();
 
     tim_task_add(1000, false, tim_task_callback); //1s loop
-    
-    readl_poll_timeout_atomic(&tim_task_flag, val, val == true, 0, 2000);
+
+    readl_poll_timeout_atomic(&tim_task_flag, val, val == true, 1, 2000);
 
     time_stamp = basic_timer_get_ms() - time_stamp;
     printk(KERN_DEBUG "tim_task elapse time = %u ms.", time_stamp);

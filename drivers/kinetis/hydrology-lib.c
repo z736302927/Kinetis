@@ -171,7 +171,7 @@ void hydrology_disable_link_packet(void)
 
 void hydrology_enable_link_packet(void)
 {
-    tim_task_add(40 * 1000, true, link_packet); 
+    tim_task_add(40 * 1000, true, link_packet);
 }
 
 void hydrology_disconnect_link(void)
@@ -358,10 +358,14 @@ int hydrology_device_setup(void)
 
 int hydrology_device_reboot(void)
 {
+    static bool status = false;
     int ret;
 
-    hydrology_device_shundown();
+    if (status == true)
+        hydrology_device_shundown();
+
     ret = hydrology_device_setup();
+    status = true;
 
     return ret;
 }

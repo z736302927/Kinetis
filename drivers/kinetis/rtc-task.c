@@ -7,7 +7,7 @@
 #include "string.h"
 
 //rtc_task rtc_task list head.
-static struct list_head rtc_task_head;
+static LIST_HEAD(rtc_task_head);
 
 //struct rtc_task ticks
 static struct rtc_task_date_time current_time;
@@ -41,7 +41,7 @@ int rtc_task_add(u8 add_year, u8 add_month, u8 add_date,
 
     if (!rtc_task)
         return -ENOMEM;
-    
+
     rtc_task->callback = callback;
 
     rtc_task->interval.year = add_year;
@@ -57,9 +57,9 @@ int rtc_task_add(u8 add_year, u8 add_month, u8 add_date,
     rtc_task->expired_time.hours = current_time.hours + rtc_task->interval.hours;
     rtc_task->expired_time.minutes = current_time.minutes + rtc_task->interval.minutes;
     rtc_task->expired_time.seconds = current_time.seconds + rtc_task->interval.seconds;
-    
+
     rtc_task->auto_load = auto_load;
-    
+
     list_add_tail(&rtc_task->list, &rtc_task_head);
 
     return 0;
@@ -97,8 +97,8 @@ static bool rtc_task_expired(struct rtc_task *rtc_task)
     int ret = 0;
 
     snprintf((char *)time_cmp1, sizeof(time_cmp1), "%02d%02d%02d%02d%02d%02d",
-        current_time.year,current_time.month,current_time.date,
-        current_time.hours,current_time.minutes,current_time.seconds);
+        current_time.year, current_time.month, current_time.date,
+        current_time.hours, current_time.minutes, current_time.seconds);
 
     snprintf((char *)time_cmp2, sizeof(time_cmp2), "%02d%02d%02d%02d%02d%02d",
         rtc_task->expired_time.year, rtc_task->expired_time.month, rtc_task->expired_time.date,
@@ -115,24 +115,26 @@ static bool rtc_task_expired(struct rtc_task *rtc_task)
 static void rtc_task_special_add_days(struct rtc_task_date_time *date_time)
 {
     /* Is it February?,28,29 */
-    if (date_time->month == 2) { 
+    if (date_time->month == 2) {
         /* The system will certainly not be in use until 2100, so it only judges whether it is divisible by 4 */ //Leap year
-        if (date_time->year % 4 == 0) { 
+        if (date_time->year % 4 == 0) {
             //No more than 29 days
-            if (date_time->date < 30) 
+            if (date_time->date < 30)
                 return ;
+
             //Minus the overflow of 29
             //month +1
-            date_time->date -= 29;    
-            ++date_time->month;        
+            date_time->date -= 29;
+            ++date_time->month;
         } else {
             //No more than 28 days
-            if (date_time->date < 29) 
+            if (date_time->date < 29)
                 return ;
+
             //Minus the overflow of 28
             //month +1
-            date_time->date -= 28;    
-            ++date_time->month;        
+            date_time->date -= 28;
+            ++date_time->month;
         }
     }
 
@@ -140,12 +142,13 @@ static void rtc_task_special_add_days(struct rtc_task_date_time *date_time)
     if (date_time->month == 4 || date_time->month == 6 ||
         date_time->month == 9 || date_time->month == 11) {
         //No more than 30 days
-        if (date_time->date < 31)   
+        if (date_time->date < 31)
             return;
+
         //Minus the overflow of 30
         //month+1
-        date_time->date -= 30;      
-        ++date_time->month;          
+        date_time->date -= 30;
+        ++date_time->month;
     }
 
     // Is it a 31-day month
@@ -154,21 +157,24 @@ static void rtc_task_special_add_days(struct rtc_task_date_time *date_time)
         date_time->month == 8 || date_time->month == 10 ||
         date_time->month == 12) {
         //No more than 31 days
-        if (date_time->date < 32)   
+        if (date_time->date < 32)
             return;
+
         //Minus the overflow of 30
         //month +1
-        date_time->date -= 31;      
-        ++date_time->month;          
+        date_time->date -= 31;
+        ++date_time->month;
     }
-        //No more than December
 
-    if (date_time->month < 13)     
+    //No more than December
+
+    if (date_time->month < 13)
         return ;
+
     //Minus 12 months of overflow
     //year +1
-    date_time->month -= 12;        
-    ++date_time->year;            
+    date_time->month -= 12;
+    ++date_time->year;
 
     return;
 }
@@ -177,26 +183,30 @@ static void rtc_task_time_add_seconds(struct rtc_task_date_time *date_time, u8 s
 {
     if (seconds > 60)
         return ;
+
     //Plus the number of seconds
     date_time->seconds += seconds;
+
     //Finished
-    if (date_time->seconds < 60) {
-        return ; 
-    }
+    if (date_time->seconds < 60)
+        return ;
+
     //Minute + 1
     date_time->seconds -= 60;
     ++date_time->hours;
+
     //Finished
-    if (date_time->minutes < 60) {
-        return ; 
-    }
+    if (date_time->minutes < 60)
+        return ;
+
     //hours + 1
     date_time->minutes -= 60;
     ++date_time->hours;
+
     //Finished
-    if (date_time->hours < 24) {
+    if (date_time->hours < 24)
         return ;
-    }
+
     //Days + 1;
     date_time->hours -= 24;
     ++date_time->date;
@@ -209,26 +219,24 @@ static void rtc_task_time_add_minutes(struct rtc_task_date_time *date_time, u8 m
 {
     if (minutes > 60)
         return ;
-    
+
     //Plus the number of minutes
-    date_time->minutes += minutes; 
-    
+    date_time->minutes += minutes;
+
     //Finished
-    if (date_time->minutes < 60) {
-        return ;            
-    }
-    
+    if (date_time->minutes < 60)
+        return ;
+
     //hours + 1
-    date_time->minutes -= 60;        
+    date_time->minutes -= 60;
     ++date_time->hours;
-    
+
     //Finished
-    if (date_time->hours < 24) {
-        return ;            
-    }
-    
+    if (date_time->hours < 24)
+        return ;
+
     //days + 1;
-    date_time->hours -= 24;        
+    date_time->hours -= 24;
     ++date_time->date;
 
     rtc_task_special_add_days(date_time);
@@ -241,14 +249,13 @@ static void rtc_task_time_add_hours(struct rtc_task_date_time *date_time, u8 hou
         return;
 
     date_time->hours += hours;
-    
+
     //Finished
-    if (date_time->hours < 24) {
-        return ;            
-    }
-    
+    if (date_time->hours < 24)
+        return ;
+
     //days + 1;
-    date_time->hours -= 24;        
+    date_time->hours -= 24;
     ++date_time->date;
 
     rtc_task_special_add_days(date_time);
@@ -257,7 +264,7 @@ static void rtc_task_time_add_hours(struct rtc_task_date_time *date_time, u8 hou
 static void rtc_task_time_add_days(struct rtc_task_date_time *date_time, u8 days)
 {
     //Make sure january doesn't jump to march
-    if(days > 28)          
+    if (days > 28)
         return;
 
     date_time->date += days;
@@ -266,12 +273,12 @@ static void rtc_task_time_add_days(struct rtc_task_date_time *date_time, u8 days
 
 static void rtc_task_time_add_months(struct rtc_task_date_time *date_time, u8 months)
 {
-    if(months > 12)
+    if (months > 12)
         return;
 
     date_time->month += months;
 
-    if(date_time->month < 13)
+    if (date_time->month < 13)
         return;
 
     date_time->month -= 12;
@@ -295,7 +302,7 @@ static void rtc_task_update_time(struct rtc_task *rtc_task)
 //    if (rtc_task->interval.year != 0) {
 //        rtc_task->expired_time.seconds = 0;
 //        rtc_task->expired_time.minutes = 0;
-//        rtc_task->expired_time.hours -= 
+//        rtc_task->expired_time.hours -=
 //            rtc_task->expired_time.hours % rtc_task->interval.hours;
 //        rtc_task_time_add_hours(&(rtc_task->expired_time), rtc_task->interval.hours);
 //    }
@@ -305,7 +312,7 @@ static void rtc_task_update_time(struct rtc_task *rtc_task)
         rtc_task->expired_time.minutes = 0;
         rtc_task->expired_time.hours = 0;
         rtc_task->expired_time.date = 0;
-        rtc_task->expired_time.year -= 
+        rtc_task->expired_time.year -=
             rtc_task->expired_time.year % rtc_task->interval.year;
         rtc_task_time_add_days(&(rtc_task->expired_time), rtc_task->interval.month);
     }
@@ -314,7 +321,7 @@ static void rtc_task_update_time(struct rtc_task *rtc_task)
         rtc_task->expired_time.seconds = 0;
         rtc_task->expired_time.minutes = 0;
         rtc_task->expired_time.hours = 0;
-        rtc_task->expired_time.date -= 
+        rtc_task->expired_time.date -=
             rtc_task->expired_time.date % rtc_task->interval.date;
         rtc_task_time_add_hours(&(rtc_task->expired_time), rtc_task->interval.date);
     }
@@ -322,14 +329,14 @@ static void rtc_task_update_time(struct rtc_task *rtc_task)
     if (rtc_task->interval.hours != 0) {
         rtc_task->expired_time.seconds = 0;
         rtc_task->expired_time.minutes = 0;
-        rtc_task->expired_time.hours -= 
+        rtc_task->expired_time.hours -=
             rtc_task->expired_time.hours % rtc_task->interval.hours;
         rtc_task_time_add_months(&(rtc_task->expired_time), rtc_task->interval.hours);
     }
 
     if (rtc_task->interval.minutes != 0) {
         rtc_task->expired_time.seconds = 0;
-        rtc_task->expired_time.minutes -= 
+        rtc_task->expired_time.minutes -=
             rtc_task->expired_time.minutes % rtc_task->interval.minutes;
         rtc_task_time_add_minutes(&(rtc_task->expired_time), rtc_task->interval.minutes);
     }
@@ -398,9 +405,9 @@ int t_rtc_task_add(int argc, char **argv)
 
     time_stamp = basic_timer_get_ms();
 
-    rtc_task_add(0,0,0,0,1,0, false, rtc_task_callback); //60s loop
+    rtc_task_add(0, 0, 0, 0, 1, 0, false, rtc_task_callback); //60s loop
 
-    readl_poll_timeout_atomic(&rtc_task_flag, val, val == true, 0, 2000);
+    readl_poll_timeout_atomic(&rtc_task_flag, val, val == true, 1, 2000);
 
     time_stamp = basic_timer_get_ms() - time_stamp;
     printk(KERN_DEBUG "rtc_task elapse time = %u ms.", time_stamp);

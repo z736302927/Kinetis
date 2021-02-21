@@ -25,18 +25,18 @@ extern "C" {
 
 void kinetis_dump_buffer(void *Buffer, int Size);
 
-#define ERR_PRINT_TIME  printf("[%05d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt())
-#define DBG_PRINT_TIME  printf("[%05d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt())
-#define kinetis_info(...)     do{if(!(KERN_DEFAULT >= KERN_INFO))break;DBG_PRINT_TIME;printf(__VA_ARGS__); printf("\r\n");}while(0)
-#define kinetis_err(...)      do{if(!(KERN_DEFAULT >= KERN_ERR))break;DBG_PRINT_TIME;printf(__VA_ARGS__); printf("\r\n");}while(0)
-#define kinetis_dbg_track     do{if(!(KERN_DEFAULT >= KERN_DEBUG))break;DBG_PRINT_TIME;printf("%s,%d",  __FUNCTION__, __LINE__ ); printf("\r\n");}while(0)
-#define kinetis_dbg(...)      do{if(!(KERN_DEFAULT >= KERN_DEBUG))break;DBG_PRINT_TIME;printf(__VA_ARGS__); printf("\r\n");}while(0)
-#define kinetis_dbg_enter     do{if(!(KERN_DEFAULT >= KERN_DEBUG))break;DBG_PRINT_TIME;printf("enter %s\n", __FUNCTION__); printf("\r\n");}while(0)
-#define kinetis_dbg_exit      do{if(!(KERN_DEFAULT >= KERN_DEBUG))break;DBG_PRINT_TIME;printf("exit %s\n", __FUNCTION__); printf("\r\n");}while(0)
-#define kinetis_dbg_status    do{if(!(KERN_DEFAULT >= KERN_DEBUG))break;DBG_PRINT_TIME;printf("status %d\n", status); printf("\r\n");}while(0)
-#define kinetis_err_miss      do{if(!(KERN_DEFAULT >= KERN_ERR))break;ERR_PRINT_TIME;printf("%s miss\n", __FUNCTION__); printf("\r\n");}while(0)
-#define kinetis_err_mem       do{if(!(KERN_DEFAULT >= KERN_ERR))break;ERR_PRINT_TIME;printf("%s mem err\n", __FUNCTION__); printf("\r\n");}while(0)
-#define kinetis_err_fun       do{if(!(KERN_DEFAULT >= KERN_ERR))break;ERR_PRINT_TIME;printf("%s err in %d\n", __FUNCTION__, __LINE__); printf("\r\n");}while(0)
+#define ERR_PRINT_TIME  printk("[%05d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt())
+#define DBG_PRINT_TIME  printk("[%05d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt())
+#define kinetis_info(...)     do{if(!(KERN_DEFAULT >= KERN_INFO))break;DBG_PRINT_TIME;printk(__VA_ARGS__); printk("\r\n");}while(0)
+#define kinetis_err(...)      do{if(!(KERN_DEFAULT >= KERN_ERR))break;DBG_PRINT_TIME;printk(__VA_ARGS__); printk("\r\n");}while(0)
+#define kinetis_dbg_track     do{if(!(KERN_DEFAULT >= KERN_DEBUG))break;DBG_PRINT_TIME;printk("%s,%d",  __FUNCTION__, __LINE__ ); printk("\r\n");}while(0)
+#define kinetis_dbg(...)      do{if(!(KERN_DEFAULT >= KERN_DEBUG))break;DBG_PRINT_TIME;printk(__VA_ARGS__); printk("\r\n");}while(0)
+#define kinetis_dbg_enter     do{if(!(KERN_DEFAULT >= KERN_DEBUG))break;DBG_PRINT_TIME;printk("enter %s\n", __FUNCTION__); printk("\r\n");}while(0)
+#define kinetis_dbg_exit      do{if(!(KERN_DEFAULT >= KERN_DEBUG))break;DBG_PRINT_TIME;printk("exit %s\n", __FUNCTION__); printk("\r\n");}while(0)
+#define kinetis_dbg_status    do{if(!(KERN_DEFAULT >= KERN_DEBUG))break;DBG_PRINT_TIME;printk("status %d\n", status); printk("\r\n");}while(0)
+#define kinetis_err_miss      do{if(!(KERN_DEFAULT >= KERN_ERR))break;ERR_PRINT_TIME;printk("%s miss\n", __FUNCTION__); printk("\r\n");}while(0)
+#define kinetis_err_mem       do{if(!(KERN_DEFAULT >= KERN_ERR))break;ERR_PRINT_TIME;printk("%s mem err\n", __FUNCTION__); printk("\r\n");}while(0)
+#define kinetis_err_fun       do{if(!(KERN_DEFAULT >= KERN_ERR))break;ERR_PRINT_TIME;printk("%s err in %d\n", __FUNCTION__, __LINE__); printk("\r\n");}while(0)
 #define kinetis_assert(x)     do{if(!(x)){ kinetis_err( "%s:%d assert failed\r\n", __FILE__, __LINE__);while(1);}} while(0)
 
 

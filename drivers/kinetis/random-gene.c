@@ -144,7 +144,7 @@ int t_random_array(int argc, char **argv)
         printk(KERN_DEBUG "%u", pdata[i]);
 
         if ((i % 4) == 0)
-            printf("\n");
+            printk("\n");
     }
 
     return PASS;

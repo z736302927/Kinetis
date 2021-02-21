@@ -5,6 +5,7 @@
 
 #include <linux/gfp.h>
 #include <linux/types.h>
+#include <linux/printk.h>
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -34,7 +35,7 @@ static inline u8 shell_port_receive(void)
     if (*shell_cur_pos & 0xFF00)
         tmp = 0xFF;
     else {
-        tmp = (u8) *shell_cur_pos;
+        tmp = (u8) * shell_cur_pos;
         *shell_cur_pos = 0xFFFF;
 
         if (shell_cur_pos == &shell_buffer[127])
@@ -83,13 +84,13 @@ int shell_get_user_input(char *cur_pos)
             if (length != 0) {
                 cur_pos--;
                 length--;
-                printf("\b \b");
+                printk("\b \b");
             }
         } else {
             *cur_pos = input;
             cur_pos++;
             length++;
-            printf("%c", input);
+            printk("%c", input);
         }
     }
 
@@ -100,8 +101,8 @@ int shell_get_user_input(char *cur_pos)
     else
         *cur_pos = '\0';
 
-    printf("\r\n");
-
+    pr_cont("\n");
+    
     return true;
 }
 

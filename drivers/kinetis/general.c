@@ -83,14 +83,13 @@ static void general_receive_cmd(struct general_cmd *cmd)
 {
     bool arrived;
     int ret;
-    
+
     ret = readx_poll_timeout_atomic(serial_port_receive, cmd->serial_port,
-        arrived, arrived == true,
-        0, cmd->wait_time);
-    
-    if (ret) {
+            arrived, arrived == true,
+            1, cmd->wait_time);
+
+    if (ret)
         cmd->timeout_flag = true;
-    }
 
     serial_port_close(cmd->serial_port);
 }

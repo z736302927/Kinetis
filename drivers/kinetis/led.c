@@ -43,14 +43,17 @@ static inline void led_set_status(struct led *led, enum led_status status)
         case ON:
             HAL_GPIO_WritePin(led->group, led->num, GPIO_PIN_SET);
             break;
+
         case OFF:
             HAL_GPIO_WritePin(led->group, led->num, GPIO_PIN_RESET);
             break;
+
         case TOGGLE:
             HAL_GPIO_TogglePin(led->group, led->num);
             break;
 
-        default:;
+        default:
+            ;
     }
 }
 
@@ -75,9 +78,9 @@ int led_add(u32 unique_id, enum led_color color, void *group, u32 num)
     led->group = group;
     led->num = color;
     led_init(led);
-    
+
     list_add_tail(&led->list, &led_head);
-    
+
     return 0;
 }
 
@@ -89,7 +92,7 @@ int led_add(u32 unique_id, enum led_color color, void *group, u32 num)
 void led_drop(u32 unique_id)
 {
     struct led *led, *tmp;
-    
+
     list_for_each_entry_safe(led, tmp, &led_head, list) {
         if (led->unique_id == unique_id) {
             list_del(&led->list);
@@ -108,7 +111,7 @@ void led_drop(u32 unique_id)
 void led_operation(u32 unique_id, enum led_status status)
 {
     struct led *led;
-    
+
     list_for_each_entry(led, &led_head, list) {
         if (led->unique_id == unique_id) {
             led_set_status(led, status);
@@ -131,8 +134,8 @@ static void led_task_callback(void)
 
 int t_led_add(int argc, char **argv)
 {
-    tim_task_add(1000, true, led_task_callback); 
-    
+    tim_task_add(1000, true, led_task_callback);
+
     led_add(1, RED, GPIOC, GPIO_PIN_6);
     led_add(2, RED, GPIOC, GPIO_PIN_7);
     led_add(3, RED, GPIOC, GPIO_PIN_8);
@@ -144,7 +147,7 @@ int t_led_add(int argc, char **argv)
 int t_led_drop(int argc, char **argv)
 {
     tim_task_drop(led_task_callback);
-    
+
     led_drop(1);
     led_drop(2);
     led_drop(3);

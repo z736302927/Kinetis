@@ -18,7 +18,7 @@
   * @step 4:  .
   * @step 5:
   */
-    
+
 #ifdef DESIGN_VERIFICATION_AK8975
 int t_ak8975_basic_info(int argc, char **argv);
 int t_ak8975_magnetic(int argc, char **argv);
@@ -158,7 +158,7 @@ struct test_case_typedef {
 };
 
 struct test_case_typedef kinetis_case_table[] = {
-    
+
 #ifdef DESIGN_VERIFICATION_AK8975
     {"ak8975.basicinfo", t_ak8975_basic_info},
     {"ak8975.magnetic", t_ak8975_magnetic},
@@ -342,7 +342,7 @@ int parse_test_all_case(char *cmd)
 
     do {
         argv[argc] = strsep(&cmd, " ");
-        printk(KERN_DEBUG "[%d] %s", argc, argv[argc]);
+        printk(KERN_DEBUG "[%d] %s\n", argc, argv[argc]);
         argc++;
     } while (cmd);
 
@@ -359,26 +359,26 @@ void k_test_case_schedule(void)
 {
     char *buffer;
     int ret;
-    
+
     buffer = kmalloc(128, __GFP_ZERO);
 
     while (1) {
         if (shell_get_user_input(buffer) == true) {
             if (buffer[0] == '\r')
-                printf("/ # ");
+                printk("/ # ");
             else if (buffer[0] == 27)
                 break;
             else {
                 ret = parse_test_all_case(buffer);
 
                 if (ret == PASS)
-                    printk(KERN_DEBUG "TEST PASS");
+                    printk(KERN_DEBUG "TEST PASS\n");
                 else if (ret == FAIL)
-                    printk(KERN_DEBUG "TEST FAIL");
+                    printk(KERN_DEBUG "TEST FAIL\n");
                 else
-                    printk(KERN_DEBUG "TEST NOT EXSIST");
+                    printk(KERN_DEBUG "TEST NOT EXSIST\n");
 
-                printf("\r\n/ # ");
+                printk("/ # ");
             }
         }
     }

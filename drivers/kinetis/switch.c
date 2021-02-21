@@ -14,7 +14,7 @@
   * @step 3:  Call function Switch_Ticks periodically for 5 ms.
   * @step 4:  Call function Multi_Switch_Test once in function main.
   */
-    
+
 static void switch_task_callback(void)
 {
     switch_ticks();
@@ -57,15 +57,16 @@ int switch_add(u32 unique_id, u8(*pin_level)(void), u8 active_level,
 
     if (!_switch)
         return -ENOMEM;
-    
+
     _switch->unique_id = unique_id;
     _switch->event = (u8)NONE_SWITCH;
     _switch->hal_switch_level = pin_level;
     _switch->switch_level = _switch->hal_switch_level();
     _switch->active_level = active_level;
+
     for (i = 0; i < SWITCHEVENT_NBR; i++)
         _switch->callback[i] = callback;
-    
+
     list_add_tail(&_switch->list, &switch_head);
 
     return 0;
@@ -79,7 +80,7 @@ int switch_add(u32 unique_id, u8(*pin_level)(void), u8 active_level,
 void switch_drop(u32 unique_id)
 {
     struct _switch *_switch, *tmp;
-    
+
     list_for_each_entry_safe(_switch, tmp, &switch_head, list) {
         if (_switch->unique_id == unique_id) {
             list_del(&_switch->list);
@@ -127,8 +128,10 @@ static void switch_handler(struct _switch *_switch)
         case SWITCH_DOWN:
             if (_switch->switch_level == _switch->active_level) {
                 _switch->event = (u8)SWITCH_DOWN;
-                if(_switch->callback[SWITCH_DOWN]) 
+
+                if (_switch->callback[SWITCH_DOWN])
                     _switch->callback[SWITCH_DOWN](_switch);
+
                 _switch->state  = 1;
             } else
                 _switch->event = (u8)NONE_SWITCH;
@@ -138,8 +141,10 @@ static void switch_handler(struct _switch *_switch)
         case SWITCH_UP:
             if (_switch->switch_level != _switch->active_level) {
                 _switch->event = (u8)SWITCH_UP;
-                if(_switch->callback[SWITCH_UP]) 
+
+                if (_switch->callback[SWITCH_UP])
                     _switch->callback[SWITCH_UP](_switch);
+
                 _switch->state = 0;
             }
 
@@ -210,7 +215,7 @@ int t_switch_drop(int argc, char **argv)
 
     if (list_empty(&switch_head))
         return PASS;
-    
+
     switch_drop(1);
 
     printk(KERN_DEBUG "Button test is over");

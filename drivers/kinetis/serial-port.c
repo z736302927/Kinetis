@@ -36,7 +36,7 @@ int serial_port_get_rx_state(void)
 void serial_port_get_rx_data(u16 data)
 {
     struct serial_port *serial_port;
-    
+
     serial_port->tmp_buffer[serialport_index] = data;
     serialport_index++;
 
@@ -189,7 +189,7 @@ static void extract_valid_data(struct serial_port *serial_port)
 
     if (serial_port->rx_tail > serial_port->rx_head) {
         serial_port->rx_buffer_size = serial_port->rx_tail - serial_port->rx_head;
-        
+
         serial_port->rx_buffer = kmalloc(serial_port->rx_buffer_size, __GFP_ZERO);
 
         if (serial_port->rx_buffer == NULL)
@@ -201,9 +201,9 @@ static void extract_valid_data(struct serial_port *serial_port)
         memset(&serial_port->tmp_buffer[serial_port->rx_head],
             0xFF, serial_port->rx_buffer_size * sizeof(u16));
     } else if (serial_port->rx_tail < serial_port->rx_head) {
-        serial_port->rx_buffer_size = 
+        serial_port->rx_buffer_size =
             serial_port->tmp_buffer_size - serial_port->rx_head + serial_port->rx_tail;
-        
+
         serial_port->rx_buffer = kmalloc(serial_port->rx_buffer_size, __GFP_ZERO);
 
         if (serial_port->rx_buffer == NULL)
@@ -235,7 +235,7 @@ u8 serial_port_receive(struct serial_port *serial_port)
     u8 tmp_tail = serial_port->rx_tail;
     u8 wait_rx_done = 0;
     u16 size;
-    
+
     find_tail(serial_port);
 
     if (serial_port->rx_head != serial_port->rx_tail) {
@@ -291,7 +291,7 @@ int t_serial_port_shell(int argc, char **argv)
     struct serial_port serial_port;
     char *word = "\r";
     int ret = FAIL;
-    
+
     memset(&serial_port, 0, sizeof(struct serial_port));
     serial_port.port_nbr = 1;
     serial_port.tx_buffer_size = 128;
@@ -305,7 +305,7 @@ int t_serial_port_shell(int argc, char **argv)
     while (1) {
         if (serial_port_receive(&serial_port) == true) {
             if (serial_port.rx_buffer[0] == '\r')
-                printf("\r\n/ # ");
+                printk("\r\n/ # ");
             else if (serial_port.rx_buffer[0] == 27)
                 break;
             else {
@@ -314,7 +314,7 @@ int t_serial_port_shell(int argc, char **argv)
                 else
                     ret = FAIL;
 
-                printf("\r\n/ # ");
+                printk("\r\n/ # ");
             }
 
             kfree(serial_port.rx_buffer);
@@ -323,7 +323,7 @@ int t_serial_port_shell(int argc, char **argv)
 
     serial_port_close(&serial_port);
     kfree(serial_port.end_char);
-    
+
     return ret;
 }
 

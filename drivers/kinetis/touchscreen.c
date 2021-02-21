@@ -230,7 +230,7 @@ u8 TP_Scan(u8 mode)
 //            TP_X_Coordinates[i] = 800-(((u16)buf[3] << 8) + buf[2]);
 //            TP_Y_Coordinates[i] = ((u16)buf[1] << 8) + buf[0];
 //          }
-                    //printf("x[%d]:%d,y[%d]:%d\r\n",i,TP_X_Coordinates[i],i,TP_Y_Coordinates[i]);
+                    //printk("x[%d]:%d,y[%d]:%d\r\n",i,TP_X_Coordinates[i],i,TP_Y_Coordinates[i]);
                 }
             }
 

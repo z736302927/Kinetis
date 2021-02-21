@@ -99,21 +99,20 @@ void hydrology_task_init(void)
 {
     u8 interval;
 
-    tim_task_add(60 * 1000, true, measure_temperature_humidit); 
-    tim_task_add(40 * 1000, true, link_packet); 
+    tim_task_add(60 * 1000, true, measure_temperature_humidit);
+    tim_task_add(40 * 1000, true, link_packet);
 
-    rtc_task_add(0,0,0,0,1,0, true, test_packet);
+    rtc_task_add(0, 0, 0, 0, 1, 0, true, test_packet);
 
     hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_TI, &interval, 1);
-    rtc_task_add(0,0,0,0,interval,0, true, timer_report_packet);
+    rtc_task_add(0, 0, 0, 0, interval, 0, true, timer_report_packet);
 
     hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_AI, &interval, 1);
 
-    if (interval != 0) {
-        rtc_task_add(0,0,0,0,interval,0, true, add_report_packet);
-    }
+    if (interval != 0)
+        rtc_task_add(0, 0, 0, 0, interval, 0, true, add_report_packet);
 
-    rtc_task_add(0,0,0,1,0,0, true, hour_packet);
+    rtc_task_add(0, 0, 0, 1, 0, 0, true, hour_packet);
 }
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

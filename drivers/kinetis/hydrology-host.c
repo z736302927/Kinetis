@@ -1949,7 +1949,7 @@ int hydrology_host_print_up_packet(void)
                 printk(KERN_INFO "element[%u].value: ", i);
 
                 for (j = 0; j < upbody->element[i]->num; ++j)
-                    printf("%02X", upbody->element[i]->value[j]);
+                    printk("%02X", upbody->element[i]->value[j]);
             }
 
             break;

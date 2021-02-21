@@ -247,7 +247,7 @@ int t_rtc_set_clock(int argc, char **argv)
         weekday = strtoul(argv[7], &argv[7], 10);
 
     snprintf(time, sizeof(time), "20%02d/%02d/%02d/% 02d:%02d:%02d",
-    year, month, date,hours, minutes, seconds);
+        year, month, date, hours, minutes, seconds);
     printk(KERN_DEBUG "Set clock is %s", time);
     rtc_calendar_config(year, month, date,
         hours, minutes, seconds, weekday, KRTC_FORMAT_BIN);
@@ -264,7 +264,7 @@ int t_rtc_get_clock(int argc, char **argv)
     rtc_calendar_show(&year, &month, &date,
         &hours, &minutes, &seconds, &weekday, KRTC_FORMAT_BIN);
     snprintf(time, sizeof(time), "20%02d/%02d/%02d/% 02d:%02d:%02d",
-        year, month, date,hours, minutes, seconds);
+        year, month, date, hours, minutes, seconds);
     printk(KERN_DEBUG "Get clock is %s", time);
 
     return PASS;

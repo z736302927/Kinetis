@@ -1,4 +1,5 @@
-#include "sht20/sht20.h"
+#include "kinetis/sht20.h"
+#include "kinetis/iic_soft.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -10,81 +11,98 @@
   * @step 5:
   */
 
-#include "i2c_soft/i2c_soft.h"
+#define SHT20_ADDR                    0x40
 
-extern I2C_HandleTypeDef hi2c2;
-
-void SHT20_Init(void)
+static inline void sht20_port_transmmit(u8 addr, u8 tmp)
 {
-
+    iic_port_transmmit(IIC_1, SHT20_ADDR, addr, tmp);
 }
 
-u16 SHT20_ReadTemp(void)
+static inline void sht20_port_receive(u8 addr, u8 *pdata)
 {
-    u16 temp = 0;
-    u8 tmpdata[3] = {0, 0, 0};
-    u8 tmpcmd = 0xE3;
-
-//  if(IIC_Read_nByte(SHT20_IIC_ADDR, SHT20_MEASURE_TEMP_CMD, tmpdata, 3) != 0)
-//    return 0;
-    HAL_I2C_Master_Transmit(&hi2c2, 0x80, &tmpcmd, 1, 100);
-    HAL_I2C_Master_Receive(&hi2c2, 0x81, tmpdata, 3, 100);
-
-    temp = tmpdata[0];
-    temp <<= 8;
-    temp += (tmpdata[1] & 0xFC);
-
-    return temp;
+    iic_port_receive(IIC_1, SHT20_ADDR, addr, pdata);
 }
 
-u16 SHT20_ReadRH(void)
+static inline void sht20_port_multi_transmmit(u8 addr, u8 *pdata, u32 length)
 {
-    u16 rh = 0;
-    u8 tmpdata[3] = {0, 0, 0};
-    u8 tmpcmd = 0xE5;
-
-//  if(IIC_Read_nByte(SHT20_IIC_ADDR, SHT20_MEASURE_RH_CMD, tmpdata, 3) != 0)
-//    return 0;
-    HAL_I2C_Master_Transmit(&hi2c2, 0x80, &tmpcmd, 1, 100);
-    HAL_I2C_Master_Receive(&hi2c2, 0x81, tmpdata, 3, 100);
-
-    rh = tmpdata[0];
-    rh <<= 8;
-    rh += (tmpdata[1] & 0xF0);
-
-    return rh;
+    iic_port_multi_transmmit(IIC_1, SHT20_ADDR, addr, pdata, length);
 }
 
-void SHT20_SoftReset(void)
+static inline void sht20_port_multi_receive(u8 addr, u8 *pdata, u32 length)
 {
-    IIC_Write_1Byte(SHT20_IIC_ADDR, SHT20_SOFT_RESET_CMD, 0);
-}
-
-float SHT20_Convert(u16 value, u8 isTemp)
-{
-    float tmp = 0.0;
-
-    if (isTemp)
-        tmp = -46.85 + (175.72 * value) / (1 << 16);
-    else
-        tmp = -6 + (125.0 * value) / (1 << 16);
-
-    return tmp;
-}
-
-void SHT20_Read_TempAndRH(float *Temperature, float *Humidit)
-{
-    u16 temp = 0;
-    u16 rh = 0;
-
-    temp = SHT20_ReadTemp();
-    rh = SHT20_ReadRH();
-
-    *Temperature = SHT20_Convert(temp, 1);
-    *Humidit = SHT20_Convert(rh, 0);
+    iic_port_multi_receive(IIC_1, SHT20_ADDR, addr, pdata, length);
 }
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
+
+//#define SHT20_MEASURE_TEMP_CMD      0xE3
+//#define SHT20_MEASURE_RH_CMD        0xE5
+//#define SHT20_SOFT_RESET_CMD        0xFE
+
+//void sht20_init(void)
+//{
+
+//}
+
+//u16 sht20_read_temperature(void)
+//{
+//    u16 temperature = 0;
+//    u8 tmp[3] = {0, 0, 0};
+
+//    sht20_port_transmmit(SHT20_MEASURE_TEMP_CMD, );
+//    sht20_port_multi_receive(, tmp, 3);
+
+//    temperature = tmp[0];
+//    temperature <<= 8;
+//    temperature += (tmp[1] & 0xFC);
+
+//    return temperature;
+//}
+
+//u16 sht20_read_rh(void)
+//{
+//    u16 rh = 0;
+//    u8 tmp[3] = {0, 0, 0};
+
+//    sht20_port_transmmit(SHT20_MEASURE_RH_CMD, );
+//    sht20_port_multi_receive(, tmp, 3);
+
+//    rh = tmp[0];
+//    rh <<= 8;
+//    rh += (tmp[1] & 0xF0);
+
+//    return rh;
+//}
+
+//void sht20_soft_reset(void)
+//{
+//    sht20_port_transmmit(SHT20_SOFT_RESET_CMD, );
+//}
+
+//static float sht20_convert(u16 value, u8 isTemp)
+//{
+//    float tmp = 0.0;
+
+//    if (isTemp)
+//        tmp = -46.85 + (175.72 * value) / (1 << 16);
+//    else
+//        tmp = -6 + (125.0 * value) / (1 << 16);
+
+//    return tmp;
+//}
+
+//void sht20_read_temp_and_rh(float *temperature, float *humidit)
+//{
+//    u16 temp = 0;
+//    u16 rh = 0;
+
+//    temp = sht20_read_temperature();
+//    rh = sht20_read_rh();
+
+//    *temperature = sht20_convert(temp, 1);
+//    *humidit = sht20_convert(rh, 0);
+//}
+
 #ifdef DESIGN_VERIFICATION_SHT20
-{"test", fuction},
+
 #endif

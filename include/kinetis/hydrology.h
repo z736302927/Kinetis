@@ -89,7 +89,7 @@ enum hydrology_body_type {
     Record,                               //中心站查询遥测站事件记录
     Time,                                 //中心站查询遥测站时钟
 };
-    
+
 enum hydrology_msg_src_type {
     MSG_FORM_SERVER,
     MSG_FORM_CLIENT

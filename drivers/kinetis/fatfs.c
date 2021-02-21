@@ -8,10 +8,10 @@
 #include "fs/fatfs/drivers/flash_diskio.h"
 
 #include <linux/printk.h>
+#include <linux/errno.h>
 
 #include <stdio.h>
 #include <string.h>
-#include <stdbool.h>
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -23,18 +23,18 @@
   * @step 5:
   */
 /* File system object for  disk logical drive */
-static FATFS disk_fatfs;  
+static FATFS disk_fatfs;
 /* File object */
-static FIL my_file;       
+static FIL my_file;
 /*  disk logical drive path */
-static char disk_path[4]; 
+static char disk_path[4];
 /* a work buffer for the f_mkfs() */
-static uint8_t work_buffer[FF_MAX_SS]; 
+static uint8_t work_buffer[FF_MAX_SS];
 
-void fatfs_init(void)
+int fatfs_init(void)
 {
     int ret;
-    
+
     /*## FatFS: Link the SD driver ###########################*/
     ret = FATFS_LinkDriver(&flash_disk_driver, disk_path);
 
@@ -48,19 +48,16 @@ void fatfs_init(void)
             res = f_mkfs((const TCHAR *)disk_path, 0, work_buffer, sizeof(work_buffer));
 
             if (res != FR_OK) {
-                printk(KERN_ERR " ");
                 printf_fatfs_err(res);
-
-                while (1)
-                    ;
+                return -ENOSYS;
             }
         }
     } else {
-        printk(KERN_ERR " ");
-
-        while (1)
-            ;
+        printk(KERN_ERR "Failed to link low level driver.");
+        return -ENOSYS;
     }
+    
+    return 0;
 }
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -68,80 +65,80 @@ void printf_fatfs_err(FRESULT fresult)
 {
     switch (fresult) {
         case FR_OK:                   //(0)
-            printk(KERN_DEBUG "Operation successful.");
+            printk(KERN_DEBUG "Operation successful.\n");
             break;
 
         case FR_DISK_ERR:             //(1)
-            printk(KERN_DEBUG "Hardware input/output driver error.");
+            printk(KERN_DEBUG "Hardware input/output driver error.\n");
             break;
 
         case FR_INT_ERR:              //(2)
-            printk(KERN_DEBUG "Assertion error.");
+            printk(KERN_DEBUG "Assertion error.\n");
             break;
 
         case FR_NOT_READY:            //(3)
-            printk(KERN_DEBUG "The physical device doesn't work.");
+            printk(KERN_DEBUG "The physical device doesn't work.\n");
             break;
 
         case FR_NO_FILE:              //(4)
-            printk(KERN_DEBUG "Unable to locate file.");
+            printk(KERN_DEBUG "Unable to locate file.\n");
             break;
 
         case FR_NO_PATH:              //(5)
-            printk(KERN_DEBUG "Unable to find path.");
+            printk(KERN_DEBUG "Unable to find path.\n");
             break;
 
         case FR_INVALID_NAME:         //(6)
-            printk(KERN_DEBUG "Invalid path name.");
+            printk(KERN_DEBUG "Invalid path name.\n");
             break;
 
         case FR_DENIED:               //(7)
         case FR_EXIST:                //(8)
-            printk(KERN_DEBUG "Access denied.");
+            printk(KERN_DEBUG "Access denied.\n");
             break;
 
         case FR_INVALID_OBJECT:       //(9)
-            printk(KERN_DEBUG "Invalid file or path.");
+            printk(KERN_DEBUG "Invalid file or path.\n");
             break;
 
         case FR_WRITE_PROTECTED:      //(10)
-            printk(KERN_DEBUG "Logical device write protection.");
+            printk(KERN_DEBUG "Logical device write protection.\n");
             break;
 
         case FR_INVALID_DRIVE:        //(11)
-            printk(KERN_DEBUG "Invalid logic device.");
+            printk(KERN_DEBUG "Invalid logic device.\n");
             break;
 
         case FR_NOT_ENABLED:          //(12)
-            printk(KERN_DEBUG "Invalid workspace.");
+            printk(KERN_DEBUG "Invalid workspace.\n");
             break;
 
         case FR_NO_FILESYSTEM:        //(13)
-            printk(KERN_DEBUG "Invalid file system.");
+            printk(KERN_DEBUG "Invalid file system.\n");
             break;
 
         case FR_MKFS_ABORTED:         //(14)
-            printk(KERN_DEBUG "The f_mkfs function failed because of a function parameter problem.");
+            printk(KERN_DEBUG "The f_mkfs function failed because of a function parameter problem.\n");
             break;
 
         case FR_TIMEOUT:              //(15)
-            printk(KERN_DEBUG "The operation timed out.");
+            printk(KERN_DEBUG "The operation timed out.\n");
             break;
 
         case FR_LOCKED:               //(16)
-            printk(KERN_DEBUG "The file is protected.");
+            printk(KERN_DEBUG "The file is protected.\n");
             break;
 
         case FR_NOT_ENOUGH_CORE:      //(17)
-            printk(KERN_DEBUG "Long filename support failed to get heap space.");
+            printk(KERN_DEBUG "Long filename support failed to get heap space.\n");
             break;
 
         case FR_TOO_MANY_OPEN_FILES:  //(18)
-            printk(KERN_DEBUG "Too many files open.");
+            printk(KERN_DEBUG "Too many files open.\n");
             break;
 
         case FR_INVALID_PARAMETER:    // (19)
-            printk(KERN_DEBUG "Invalid parameter.");
+            printk(KERN_DEBUG "Invalid parameter.\n");
             break;
 
         default:
@@ -157,7 +154,7 @@ FRESULT fatfs_miscellaneous(void)
     FRESULT res;
     DIR my_dir;
     /* File read buffer */
-    uint8_t rtext[100];                                  
+    uint8_t rtext[100];
     int32_t byteswritten = 0;
     uint32_t bytesread = 0;
 
@@ -169,7 +166,7 @@ FRESULT fatfs_miscellaneous(void)
     fre_sect = fre_clust * pfs->csize;
     /* Print information (4096 bytes/sector) */
     printk(KERN_DEBUG "Total equipment space:%6u MB.\r\nAvailable space: %6u MB.",
-    tot_sect * 4 / 1024, fre_sect * 4 / 1024);
+        tot_sect * 4 / 1024, fre_sect * 4 / 1024);
 
     printk(KERN_DEBUG "File location and formatting write function test");
     res = f_open(&my_file, "FatFs.txt", FA_OPEN_EXISTING | FA_WRITE | FA_READ);
@@ -181,14 +178,14 @@ FRESULT fatfs_miscellaneous(void)
         if (res == FR_OK) {
             /* Format write, parameter format similar to printf function. */
             byteswritten = f_printf(&my_file,
-            "add a new line to the original file.");
+                    "add a new line to the original file.");
 
             if (byteswritten == EOF)
                 printk(KERN_ERR " ");
 
             byteswritten = f_printf(&my_file,
-            "Total equipment space:%6lu MB.\r\nAvailable space: %6lu MB.",
-            tot_sect * 4 / 1024, fre_sect * 4 / 1024);
+                    "Total equipment space:%6lu MB.\r\nAvailable space: %6lu MB.",
+                    tot_sect * 4 / 1024, fre_sect * 4 / 1024);
 
             if (byteswritten == EOF)
                 printk(KERN_ERR " ");
@@ -224,7 +221,7 @@ FRESULT fatfs_miscellaneous(void)
         }
     } else {
         printk(KERN_DEBUG "Failed to open file: %d", res);
-        printk(KERN_DEBUG 
+        printk(KERN_DEBUG
             "You may need to run the FatFs migration and read and write test project again.");
     }
 
@@ -528,8 +525,8 @@ int fatfs_diskio(
         }
 
         for (n = 0, fatfs_diskio_pseudo(pns);
-        n < sz_sect && pbuff[n] == (BYTE)fatfs_diskio_pseudo(0);
-        n++) ;
+            n < sz_sect && pbuff[n] == (BYTE)fatfs_diskio_pseudo(0);
+            n++) ;
 
         if (n == sz_sect)
             printk(KERN_DEBUG " Read data matched.");
@@ -583,8 +580,8 @@ int fatfs_diskio(
             }
 
             for (n = 0, fatfs_diskio_pseudo(pns);
-            n < (UINT)(sz_sect * ns) && pbuff[n] == (BYTE)fatfs_diskio_pseudo(0);
-            n++) ;
+                n < (UINT)(sz_sect * ns) && pbuff[n] == (BYTE)fatfs_diskio_pseudo(0);
+                n++) ;
 
             if (n == (UINT)(sz_sect * ns))
                 printk(KERN_DEBUG " Read data matched.");
@@ -635,8 +632,8 @@ int fatfs_diskio(
         }
 
         for (n = 0, fatfs_diskio_pseudo(pns);
-        n < sz_sect && pbuff[n + 5] == (BYTE)fatfs_diskio_pseudo(0);
-        n++) ;
+            n < sz_sect && pbuff[n + 5] == (BYTE)fatfs_diskio_pseudo(0);
+            n++) ;
 
         if (n == sz_sect)
             printk(KERN_DEBUG " Read data matched.");
@@ -708,8 +705,8 @@ int fatfs_diskio(
             }
 
             for (n = 0, fatfs_diskio_pseudo(pns);
-            pbuff[n] == (BYTE)fatfs_diskio_pseudo(0) && n < (UINT)(sz_sect * 2);
-            n++) ;
+                pbuff[n] == (BYTE)fatfs_diskio_pseudo(0) && n < (UINT)(sz_sect * 2);
+                n++) ;
 
             if (n == (UINT)(sz_sect * 2))
                 printk(KERN_DEBUG " Read data matched.");
@@ -1075,10 +1072,10 @@ int t_fatfs_expend(int argc, char **argv)
     dr = disk_write(fs.pdrv, work_buffer, org, 1024);   /* Write 512KiB from top of the file */
 
     f_close(&fil);
-    
+
     if (dr != RES_OK)
         return FAIL;
-    
+
     return PASS;
 }
 

@@ -29,7 +29,7 @@ struct _switch {
     u8  debounce_cnt : 3;
     u8  active_level : 1;
     u8  switch_level : 1;
-    u8 (*hal_switch_level)(void);
+    u8(*hal_switch_level)(void);
     switch_callback callback[SWITCHEVENT_NBR];
     struct list_head list;
 };

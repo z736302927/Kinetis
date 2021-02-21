@@ -135,20 +135,20 @@ void ak8975_enter_single_measurement_mode(void)
 void ak8975_enter_selftest_mode(void)
 {
     u8 tmp[2];
-    
+
     tmp[0] = SELF_TEST & 0xFF;
     tmp[1] = SELF_TEST >> 8;
-    
+
     ak8975_port_multi_transmmit(CNTL1, tmp, 2);
 }
 
 void ak8975_enter_fuse_rom_access_mode(void)
 {
     u8 tmp[2];
-    
+
     tmp[0] = FUSE_ROM_ACCESS & 0xFF;
     tmp[1] = FUSE_ROM_ACCESS >> 8;
-    
+
     ak8975_port_multi_transmmit(CNTL1, tmp, 2);
 }
 
@@ -301,7 +301,7 @@ u8 ak8975_magnetic_adjusted_measurements(u16 *pdata)
     pdata[0] = raw_data[0] * ((ak8975_asa_values[0] - 128) / 256 + 1);
     pdata[1] = raw_data[1] * ((ak8975_asa_values[1] - 128) / 256 + 1);
     pdata[2] = raw_data[2] * ((ak8975_asa_values[2] - 128) / 256 + 1);
-    
+
     return true;
 }
 

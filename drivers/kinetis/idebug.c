@@ -4,6 +4,7 @@
 #include <linux/types.h>
 #include <linux/printk.h>
 #include <linux/errno.h>
+#include <linux/string.h>
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -17,20 +18,21 @@
 
 #include "usart.h"
 
-#ifdef __GNUC__
-/* With GCC, small printf (option LD Linker->Libraries->Small printf
-   set to 'Yes') calls __io_putchar() */
-#define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
-#else
-#define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
-#endif /* __GNUC__ */
+//#ifdef __GNUC__
+///* With GCC, small printf (option LD Linker->Libraries->Small printf
+//   set to 'Yes') calls __io_putchar() */
+//#define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
+//#else
+//#define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
+//#endif /* __GNUC__ */
 
 /**
   * @brief  Retargets the C library printf function to the USART.
   * @param  None
   * @retval None
   */
-PUTCHAR_PROTOTYPE {
+int fputc(int ch, FILE *f)
+{
     /* Place your implementation of fputc here */
     /* e.g. write a character to the USART3 and Loop until the end of transmission */
     HAL_UART_Transmit(&huart1, (u8 *)&ch, 1, 0xFFFF);
@@ -41,8 +43,8 @@ PUTCHAR_PROTOTYPE {
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 enum log_flags {
-	LOG_NEWLINE	= 2,	/* text ended with a newline */
-	LOG_CONT	= 8,	/* text is a fragment of a continuation line */
+    LOG_NEWLINE	= 2,	/* text ended with a newline */
+    LOG_CONT	= 8,	/* text is a fragment of a continuation line */
 };
 
 #ifdef CONFIG_PRINTK_CALLER
@@ -57,31 +59,37 @@ enum log_flags {
 
 int printk(const char *fmt, ...)
 {
-	static char textbuf[LOG_LINE_MAX];
-	char *text = textbuf;
-	size_t text_len;
-	int lflags = 0;
+    static char time[32];
+    size_t pre_len = 0;
+    static char textbuf[LOG_LINE_MAX];
+    char *text = textbuf;
+    size_t text_len;
+    int lflags = 0;
     va_list args;
-	int level = LOGLEVEL_DEFAULT, kern_level;
+    int level = LOGLEVEL_DEFAULT, kern_level;
     
     va_start(args, fmt);
-    text_len = vsprintf(textbuf, fmt, args);
+    text_len = vsnprintf(textbuf, LOG_LINE_MAX - 2, fmt, args);
     va_end(args);
-    
-	/* mark and strip a trailing newline */
-	if (text_len && text[text_len-1] == '\n') {
-		text_len--;
-		lflags |= LOG_NEWLINE;
-	}
-		
+
+    /* mark and strip a trailing newline */
+    if (text_len && text[text_len - 1] == '\n') {
+        text_len--;
+        lflags |= LOG_NEWLINE;
+    }
+
     while ((kern_level = printk_get_level(text)) != 0) {
         switch (kern_level) {
-        case '0' ... '7':
-            if (level == LOGLEVEL_DEFAULT)
-                level = kern_level - '0';
-            break;
-        case 'c':	/* KERN_CONT */
-            lflags |= LOG_CONT;
+            case '0' ... '7':
+                if (level == LOGLEVEL_DEFAULT)
+                    level = kern_level - '0';
+
+                break;
+
+            case 'c':	/* KERN_CONT */
+                lflags |= LOG_CONT;
+                lflags &= ~LOG_NEWLINE;
+                text_len++;
         }
 
         text_len -= 2;
@@ -90,22 +98,18 @@ int printk(const char *fmt, ...)
 
     if (level > LOGLEVEL_DEFAULT)
         return -EINVAL;
-    
-    if (!(lflags & LOG_NEWLINE))
-        printf("[%5d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt());
 
     switch (level) {
         case LOGLEVEL_DEFAULT:
             break;
+
         case LOGLEVEL_EMERG:
         case LOGLEVEL_ALERT:
         case LOGLEVEL_CRIT:
         case LOGLEVEL_ERR:
-            printf("%s err in %d\n", __FUNCTION__, __LINE__);
             break;
 
         case LOGLEVEL_WARNING:
-            printf("%s warning in %d\n", __FUNCTION__, __LINE__);
             break;
 
         case LOGLEVEL_NOTICE:
@@ -113,9 +117,22 @@ int printk(const char *fmt, ...)
         case LOGLEVEL_DEBUG:
             break;
     }
-		
+    
+    if (lflags & LOG_NEWLINE) {
+        snprintf(time, sizeof(time), "[%5d.%06d] ",
+            basic_timer_get_ss(), basic_timer_get_timer_cnt());
+        pre_len = strlen(time);
+        
+        memmove(text + pre_len, text, text_len);
+        memmove(text, time, pre_len);
+        text_len += pre_len;
+        
+        text[text_len] = '\n';
+        text[text_len + 1] = '\r';
+        text_len += 2;
+    }
+    
     HAL_UART_Transmit(&huart1, (u8 *)text, text_len, 0xFFFF);
-    printf("\r\n");
     
     return text_len;
 }
@@ -123,18 +140,18 @@ int printk(const char *fmt, ...)
 void kinetis_dump_buffer(void *Buffer, int Size)
 {
     int i;
-    printf("[%5d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt());
+    printk("[%5d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt());
 
     for (i = 0; i < Size; i++) {
         if ((i % 32 == 0) && (i != 0)) {
-            printf("\r\n");
-            printf("[%5d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt());
+            printk("\r\n");
+            printk("[%5d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt());
         }
 
-        printf("%02X ", ((u8 *)Buffer)[i]);
+        printk("%02X ", ((u8 *)Buffer)[i]);
     }
 
-    printf("\r\n");
+    printk("\r\n");
 }
 
 

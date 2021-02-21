@@ -57,15 +57,16 @@ int button_add(u32 unique_id, u8(*pin_level)(void), u8 active_level,
 
     if (!button)
         return -ENOMEM;
-    
+
     button->unique_id = unique_id;
     button->event = (u8)NONE_PRESS;
     button->hal_button_level = pin_level;
     button->button_level = button->hal_button_level();
     button->active_level = active_level;
+
     for (i = 0; i < PRESSEVENT_NBR; i++)
         button->callback[i] = callback;
-    
+
     list_add_tail(&button->list, &button_head);
 
     return 0;
@@ -79,7 +80,7 @@ int button_add(u32 unique_id, u8(*pin_level)(void), u8 active_level,
 void button_drop(u32 unique_id)
 {
     struct button *button, *tmp;
-    
+
     list_for_each_entry_safe(button, tmp, &button_head, list) {
         if (button->unique_id == unique_id) {
             list_del(&button->list);
@@ -130,8 +131,10 @@ static void button_handler(struct button *button)
         case PRESS_DOWN:
             if (button->button_level == button->active_level) {
                 button->event = (u8)PRESS_DOWN;
-                if(button->callback[PRESS_DOWN]) 
+
+                if (button->callback[PRESS_DOWN])
                     button->callback[PRESS_DOWN](button);
+
                 button->ticks  = 0;
                 button->repeat = 1;
                 button->state  = 1;
@@ -143,15 +146,19 @@ static void button_handler(struct button *button)
         case PRESS_UP:
             if (button->button_level != button->active_level) {
                 button->event = (u8)PRESS_UP;
-                if(button->callback[PRESS_UP]) 
+
+                if (button->callback[PRESS_UP])
                     button->callback[PRESS_UP](button);
+
                 button->ticks = 0;
                 button->state = 2;
 
             } else if (button->ticks > LONG_TICKS) {
                 button->event = (u8)LONG_RRESS_START;
-                if(button->callback[LONG_RRESS_START]) 
+
+                if (button->callback[LONG_RRESS_START])
                     button->callback[LONG_RRESS_START](button);
+
                 button->state = 5;
             }
 
@@ -160,24 +167,30 @@ static void button_handler(struct button *button)
         case PRESS_REPEAT:
             if (button->button_level == button->active_level) {
                 button->event = (u8)PRESS_DOWN;
-                if(button->callback[PRESS_DOWN]) 
+
+                if (button->callback[PRESS_DOWN])
                     button->callback[PRESS_DOWN](button);
+
                 button->repeat++;
 
                 button->event = (u8)PRESS_REPEAT;
-                if(button->callback[PRESS_REPEAT]) 
+
+                if (button->callback[PRESS_REPEAT])
                     button->callback[PRESS_REPEAT](button);
+
                 button->ticks = 0;
                 button->state = 3;
 
             } else if (button->ticks > SHORT_TICKS) {
                 if (button->repeat == 1) {
                     button->event = (u8)SINGLE_CLICK;
-                    if(button->callback[SINGLE_CLICK]) 
+
+                    if (button->callback[SINGLE_CLICK])
                         button->callback[SINGLE_CLICK](button);
                 } else if (button->repeat == 2) {
                     button->event = (u8)DOUBLE_CLICK;
-                    if(button->callback[DOUBLE_CLICK]) 
+
+                    if (button->callback[DOUBLE_CLICK])
                         button->callback[DOUBLE_CLICK](button);
                 }
 
@@ -189,7 +202,8 @@ static void button_handler(struct button *button)
         case SINGLE_CLICK:
             if (button->button_level != button->active_level) {
                 button->event = (u8)PRESS_UP;
-                if(button->callback[PRESS_UP]) 
+
+                if (button->callback[PRESS_UP])
                     button->callback[PRESS_UP](button);
 
                 if (button->ticks < SHORT_TICKS) {
@@ -204,11 +218,13 @@ static void button_handler(struct button *button)
         case LONG_RRESS_START:
             if (button->button_level == button->active_level) {
                 button->event = (u8)LONG_PRESS_HOLD;
-                if(button->callback[LONG_PRESS_HOLD]) 
+
+                if (button->callback[LONG_PRESS_HOLD])
                     button->callback[LONG_PRESS_HOLD](button);
             } else {
                 button->event = (u8)PRESS_UP;
-                if(button->callback[PRESS_UP]) 
+
+                if (button->callback[PRESS_UP])
                     button->callback[PRESS_UP](button);
 
                 button->state = 0;
@@ -229,9 +245,9 @@ void button_ticks(void)
 
     if (list_empty(&button_head))
         return;
-    
+
     list_for_each_entry(button, &button_head, list)
-        button_handler(button);
+    button_handler(button);
 }
 
 #ifdef DESIGN_VERIFICATION_BUTTON
@@ -301,7 +317,7 @@ int t_button_drop(int argc, char **argv)
 
     if (list_empty(&button_head))
         return PASS;
-    
+
     button_drop(1);
 
     printk(KERN_DEBUG "Button test is over");

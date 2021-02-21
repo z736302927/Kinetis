@@ -20,13 +20,12 @@
 
 #ifdef DELAY_USING_HARDWARE
 
-struct delay_para
-{
-	u32 input_clock;
-	u32 unit;
-	u32 prescaler;
-	u16 period;
-	u8 flag;
+struct delay_para {
+    u32 input_clock;
+    u32 unit;
+    u32 prescaler;
+    u16 period;
+    u8 flag;
 };
 
 struct delay_para delay_priv_val;

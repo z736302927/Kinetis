@@ -36,7 +36,7 @@ struct button {
     u8  debounce_cnt : 3;
     u8  active_level : 1;
     u8  button_level : 1;
-    u8 (*hal_button_level)(void);
+    u8(*hal_button_level)(void);
     button_callback callback[PRESSEVENT_NBR];
     struct list_head list;
 };

@@ -11,10 +11,10 @@
   * @step 5:  Finally, HydrologyTask_Init is called in the main function.
   */
 
-fsm_state fsm_step(struct state_machine * machine, struct sm_var *sm_var, struct transition **table)
+fsm_state fsm_step(struct state_machine *machine, struct sm_var *sm_var, struct transition **table)
 {
     if (sm_var->_repeats < 2) {
-        struct transition * t = &table[machine->current][sm_var->_condition];
+        struct transition *t = &table[machine->current][sm_var->_condition];
         (*(t->action))(machine, sm_var);
 
         if (machine->current == t->next)
@@ -25,7 +25,7 @@ fsm_state fsm_step(struct state_machine * machine, struct sm_var *sm_var, struct
         machine->current = t->next;
     } else {
         sm_var->_condition = cERROR_REPEATS_L3;
-        struct transition * t = &table[machine->current][sm_var->_condition];
+        struct transition *t = &table[machine->current][sm_var->_condition];
         (*(t->action))(machine, sm_var);
 
         sm_var->_repeats = 0;
@@ -46,17 +46,17 @@ fsm_state fsm_step(struct state_machine * machine, struct sm_var *sm_var, struct
 #ifdef DESIGN_VERIFICATION_FSM
 #include "kinetis/test-kinetis.h"
 
-extern int FSM_NB_None(struct state_machine * machine, struct sm_var *sm_var);
-extern int FSM_NB_Init(struct state_machine * machine, struct sm_var *sm_var);
-extern int FSM_NB_GetSign(struct state_machine * machine, struct sm_var *sm_var);
-extern int FSM_NB_GetModuleInfo(struct state_machine * machine, struct sm_var *sm_var);
-extern int FSM_NB_CreateUDP(struct state_machine * machine, struct sm_var *sm_var);
-extern int FSM_NB_CloseUDP(struct state_machine * machine, struct sm_var *sm_var);
-extern int FSM_NB_UDPRegister(struct state_machine * machine, struct sm_var *sm_var);
-extern int FSM_NB_UDPSendData(struct state_machine * machine, struct sm_var *sm_var);
-extern int FSM_NB_WaitReceiveData(struct state_machine * machine, struct sm_var *sm_var);
-extern int FSM_NB_Reset(struct state_machine * machine, struct sm_var *sm_var);
-extern int FSM_NB_End(struct state_machine * machine, struct sm_var *sm_var);
+extern int FSM_NB_None(struct state_machine *machine, struct sm_var *sm_var);
+extern int FSM_NB_Init(struct state_machine *machine, struct sm_var *sm_var);
+extern int FSM_NB_GetSign(struct state_machine *machine, struct sm_var *sm_var);
+extern int FSM_NB_GetModuleInfo(struct state_machine *machine, struct sm_var *sm_var);
+extern int FSM_NB_CreateUDP(struct state_machine *machine, struct sm_var *sm_var);
+extern int FSM_NB_CloseUDP(struct state_machine *machine, struct sm_var *sm_var);
+extern int FSM_NB_UDPRegister(struct state_machine *machine, struct sm_var *sm_var);
+extern int FSM_NB_UDPSendData(struct state_machine *machine, struct sm_var *sm_var);
+extern int FSM_NB_WaitReceiveData(struct state_machine *machine, struct sm_var *sm_var);
+extern int FSM_NB_Reset(struct state_machine *machine, struct sm_var *sm_var);
+extern int FSM_NB_End(struct state_machine *machine, struct sm_var *sm_var);
 
 struct transition NB_Fail2Reset = {
     sNB_RESET,

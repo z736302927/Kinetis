@@ -619,7 +619,7 @@ int t_ds3231_set_alarm1(int argc, char **argv)
             ds3231_set_alarm1(tmp, 0,
                 ALARM_MASK_1 | ALARM_MASK_2 | ALARM_MASK_3 | ALARM_MASK_4);
             delta = basic_timer_get_ss();
-            readb_poll_timeout_atomic(&alarm1_flag, flag, flag == true, 0, 2000);
+            readb_poll_timeout_atomic(&alarm1_flag, flag, flag == true, 1, 2000);
             delta = basic_timer_get_ss() - delta;
             ds3231_clear_alarm1_flag();
 
@@ -701,14 +701,14 @@ int t_ds3231_set_alarm1(int argc, char **argv)
                 ds3231_clear_alarm1_flag();
 
                 if (time[3] == 0 && time[4] == 0 && time[5] == 0 && time[6] == 0)
-                ret = PASS;
-            else
-                ret = FAIL;
+                    ret = PASS;
+                else
+                    ret = FAIL;
             }
 
             break;
     }
-    
+
     return ret;
 }
 
@@ -748,7 +748,7 @@ int t_ds3231_set_alarm2(int argc, char **argv)
             ds3231_set_alarm2(tmp, 0,
                 ALARM_MASK_1 | ALARM_MASK_2 | ALARM_MASK_3 | ALARM_MASK_4);
             delta = basic_timer_get_ss();
-            readb_poll_timeout_atomic(&alarm2_flag, flag, flag == true, 0, 2000);
+            readb_poll_timeout_atomic(&alarm2_flag, flag, flag == true, 1, 2000);
             delta = basic_timer_get_ss() - delta;
             ds3231_clear_alarm2_flag();
 
@@ -776,7 +776,7 @@ int t_ds3231_set_alarm2(int argc, char **argv)
         case 0x0C:
             tmp[0] = 0;
             tmp[1] = 0;
-            ds3231_set_alarm2(tmp, 0,ALARM_MASK_1 | ALARM_MASK_2);
+            ds3231_set_alarm2(tmp, 0, ALARM_MASK_1 | ALARM_MASK_2);
             ds3231_get_time(time, DS3231_FORMAT_BIN);
             ds3231_clear_alarm2_flag();
 
@@ -791,7 +791,7 @@ int t_ds3231_set_alarm2(int argc, char **argv)
             tmp[0] = 0;
             tmp[1] = 0;
             tmp[2] = 0;
-            ds3231_set_alarm2(tmp, 0,ALARM_MASK_1);
+            ds3231_set_alarm2(tmp, 0, ALARM_MASK_1);
             ds3231_get_time(time, DS3231_FORMAT_BIN);
             ds3231_clear_alarm2_flag();
 
@@ -821,7 +821,7 @@ int t_ds3231_set_alarm2(int argc, char **argv)
                 tmp[1] = 0;
                 tmp[2] = 0;
                 tmp[3] = 0;
-                ds3231_set_alarm2(tmp, 0,0);
+                ds3231_set_alarm2(tmp, 0, 0);
                 ds3231_get_time(time, DS3231_FORMAT_BIN);
                 ds3231_clear_alarm2_flag();
 

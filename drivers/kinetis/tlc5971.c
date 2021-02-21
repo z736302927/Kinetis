@@ -105,7 +105,7 @@ struct tlc5971 g_tcl5971[TLC5971_NUM];
 void tlc5971_init(void)
 {
     u32 i;
-    
+
     for (i = 0; i < TLC5971_NUM; i++) {
         /* Constant-current output enable bit in FC data (0 = output control enabled, 1 = blank). */
         g_tcl5971[i].blank = 0;

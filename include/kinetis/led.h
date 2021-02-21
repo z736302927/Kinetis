@@ -18,7 +18,7 @@ enum led_color {
     GREEN,
     BLUE
 };
-    
+
 enum led_status {
     ON,
     OFF,

@@ -19,14 +19,14 @@ typedef struct {
 
 typedef struct {
     void (*Init)(u16);
-    u16 (*ReadID)(u16);
+    u16(*ReadID)(u16);
     void (*Reset)(u16);
     void (*Start)(u16);
-    u8 (*DetectTouch)(u16);
+    u8(*DetectTouch)(u16);
     void (*GetXY)(u16, u16 *, u16 *);
     void (*EnableIT)(u16);
     void (*ClearIT)(u16);
-    u8 (*GetITStatus)(u16);
+    u8(*GetITStatus)(u16);
     void (*DisableIT)(u16);
 } TS_DrvTypeDef;
 
