@@ -14,10 +14,10 @@ extern "C" {
 #include "kinetis/core_common.h"
 
 void at24cxx_byte_write(u8 addr, u8 tmp);
-void at24cxx_write_data(u8 addr, u8 *tmp, u32 length);
-void at24cxx_current_addr_read(u8 *tmp);
-void at24cxx_read_data(u8 addr, u8 *tmp, u32 length);
-void at24cxx_sequential_read(u8 *tmp, u32 length);
+int at24cxx_write_data(u8 addr, u8 *tmp, u32 length);
+int at24cxx_current_addr_read(u8 *tmp);
+int at24cxx_read_data(u8 addr, u8 *tmp, u32 length);
+int at24cxx_sequential_read(u8 *tmp, u32 length);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

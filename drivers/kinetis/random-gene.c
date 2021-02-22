@@ -38,15 +38,15 @@ u16 random_get16bit(void)
 
 u32 random_get32bit(void)
 {
-    return random_get_int() % 0xFFFFFFFF;
+    return random_get_int();
 }
 
 u64 random_get64bit(void)
 {
     u64 tmp;
 
-    tmp = random_get_int() % 0xFFFFFFFF;
-    tmp |= ((u64)random_get_int() % 0xFFFFFFFF) << 32;
+    tmp = random_get_int();
+    tmp |= ((u64)random_get_int()) << 32;
 
     return tmp;
 }
@@ -77,7 +77,7 @@ void random_get_array(void *pdata, u32 length, u8 bits)
             data_32bits = pdata;
 
             for (i = 0; i < length; ++i)
-                data_32bits[i] = random_get_int() % 0xFFFFFFFF;
+                data_32bits[i] = random_get_int();
 
             break;
 
@@ -85,8 +85,8 @@ void random_get_array(void *pdata, u32 length, u8 bits)
             data_64bits = pdata;
 
             for (i = 0; i < length; ++i) {
-                data_64bits[i] = random_get_int() % 0xFFFFFFFF;
-                data_64bits[i] |= ((u64)random_get_int() % 0xFFFFFFFF) << 32;
+                data_64bits[i] = random_get_int();
+                data_64bits[i] |= ((u64)random_get_int()) << 32;
             }
 
             break;

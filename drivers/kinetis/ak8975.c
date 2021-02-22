@@ -48,7 +48,7 @@ static inline void ak8975_csb_high(void)
 static inline void ak8975_port_transmmit(u8 addr, u8 tmp)
 {
 #ifdef AK8975_USING_IIC
-    iic_port_transmmit(IIC_1, AK8975_ADDR, addr, tmp);
+    iic_port_transmmit(IIC_SW_1, AK8975_ADDR, addr, tmp);
 #else
     ak8975_csb_low();
     HAL_SPI_Transmit(&hspi1, (addr << 1) | 0, 1, 1000);
@@ -60,7 +60,7 @@ static inline void ak8975_port_transmmit(u8 addr, u8 tmp)
 static inline void ak8975_port_receive(u8 addr, u8 *pdata)
 {
 #ifdef AK8975_USING_IIC
-    iic_port_receive(IIC_1, AK8975_ADDR, addr, pdata);
+    iic_port_receive(IIC_SW_1, AK8975_ADDR, addr, pdata);
 #else
     ak8975_csb_low();
     HAL_SPI_Transmit(&hspi1, (addr << 1) | 1, 1, 1000);
@@ -72,7 +72,7 @@ static inline void ak8975_port_receive(u8 addr, u8 *pdata)
 static inline void ak8975_port_multi_transmmit(u8 addr, u8 *pdata, u32 length)
 {
 #ifdef AK8975_USING_IIC
-    iic_port_multi_transmmit(IIC_1, AK8975_ADDR, addr, pdata, length);
+    iic_port_multi_transmmit(IIC_SW_1, AK8975_ADDR, addr, pdata, length);
 #else
     ak8975_csb_low();
     HAL_SPI_Transmit(&hspi1, (addr << 1) | 0, 1, 1000);
@@ -84,7 +84,7 @@ static inline void ak8975_port_multi_transmmit(u8 addr, u8 *pdata, u32 length)
 static inline void ak8975_port_multi_receive(u8 addr, u8 *pdata, u32 length)
 {
 #ifdef AK8975_USING_IIC
-    iic_port_multi_receive(IIC_1, AK8975_ADDR, addr, pdata, length);
+    iic_port_multi_receive(IIC_SW_1, AK8975_ADDR, addr, pdata, length);
 #else
     ak8975_csb_low();
     HAL_SPI_Transmit(&hspi1, (addr << 1) | 1, 1, 1000);

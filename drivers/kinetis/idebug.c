@@ -150,7 +150,7 @@ void kinetis_dump_buffer8(void *buffer, int size, int column)
                 i,
                 i + column > size ? size - 1 : i + column - 1);
 
-        pr_cont(KERN_DEBUG "0x%02x, ", (u8)(buffer + i));
+        pr_cont(KERN_DEBUG "0x%02x, ", *((u8 *)(buffer + i)));
     }
 
     pr_cont("\n\r");

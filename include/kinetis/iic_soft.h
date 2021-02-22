@@ -11,16 +11,17 @@ extern "C" {
 
 #include <linux/types.h>
 
-#define IIC_1                           1
-#define IIC_2                           2
-#define IIC_3                           3
+#define IIC_SW_1                        1
+#define IIC_SW_2                        2
+#define IIC_HW_1                        3
+#define IIC_HW_2                        4
 
 void iic_soft_init(void);
-int iic_soft_start(void);
-void iic_soft_stop(void);
-int iic_soft_wait_ack(void);
-void iic_soft_send_byte(u8 tmp);
-u8 iic_soft_read_byte(u8 ack);
+int iic_soft_start(u8 iic);
+void iic_soft_stop(u8 iic);
+int iic_soft_wait_ack(u8 iic);
+void iic_soft_send_byte(u8 iic, u8 tmp);
+u8 iic_soft_read_byte(u8 iic, u8 ack);
 void iic_port_transmmit(u8 iic, u8 slave_addr, u16 reg, u8 tmp);
 void iic_port_receive(u8 iic, u8 slave_addr, u16 reg, u8 *tmp);
 void iic_port_multi_transmmit(u8 iic, u8 slave_addr, u16 reg,

@@ -689,7 +689,7 @@ void w25qxxx_read_data(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 
     if (remain < length) {
         printk(KERN_ERR
-            "There is not enough space left to read the specified length.");
+            "There is not enough space left to read the specified length.\n");
         return ;
     }
 
@@ -777,8 +777,10 @@ static int w25qxxx_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
     u8 busy;
     int ret;
 
-    if (length == 0)
-        printk(KERN_ERR "Programing page failed.");
+    if (length == 0) {
+        printk(KERN_ERR "Programing page length is 0.\n");
+        return -EINVAL;
+    }
 
     if (w25qxxx == W25Q256)
         sub_addr[0] = (addr & 0xFF000000) >> 24;
@@ -802,7 +804,7 @@ static int w25qxxx_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
             busy == 0, 1, 30000000);
 
     if (ret)
-        printk(KERN_ERR "Programing page is timeout.");
+        printk(KERN_ERR "Programing page is timeout.\n");
 
     return 0;
 }
@@ -1000,7 +1002,7 @@ void w25qxxx_write_data(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
 
     if (remain < length) {
         printk(KERN_ERR
-            "There is not enough space left to write the specified length.");
+            "There is not enough space left to write the specified length.\n");
         return ;
     }
 
@@ -1388,13 +1390,13 @@ void w25qxxx_read_info(u8 w25qxxx)
 
     printk(KERN_DEBUG "w25qxxx is %#02X.\n", w25qxxx);
     w25qxxx_read_jedec_id(w25qxxx, jedec_id);
-    printk(KERN_DEBUG "JEDEC ID is %#02X%02X%02X",
+    printk(KERN_DEBUG "JEDEC ID is %#02X%02X%02X\n",
         jedec_id[0], jedec_id[1], jedec_id[2]);
     w25qxxx_read_manufacturer_device_id(w25qxxx, &manufacturer_id, &device_id);
-    printk(KERN_DEBUG "Manufacturer ID is %#02X, Device ID is %#02X.",
+    printk(KERN_DEBUG "Manufacturer ID is %#02X, Device ID is %#02X.\n",
         manufacturer_id, device_id);
     w25qxxx_read_unique_id(w25qxxx, unique_id);
-    printk(KERN_DEBUG "Unique ID is %02X%02X%02X%02X%02X%02X%02X%02X",
+    printk(KERN_DEBUG "Unique ID is %02X%02X%02X%02X%02X%02X%02X%02X\n",
         unique_id[0], unique_id[1], unique_id[2], unique_id[3],
         unique_id[4], unique_id[5], unique_id[6], unique_id[7]);
 }
@@ -1421,8 +1423,7 @@ int t_w25qxxx_loopback(int argc, char **argv)
 
     tmp_rng = random_get32bit();
     length = tmp_rng & 0x7FFF;
-    printk(KERN_DEBUG "length = %d.", length);
-
+    
     memset(tx_buffer, 0, length);
     memset(rx_buffer, 0, length);
 
@@ -1442,32 +1443,34 @@ int t_w25qxxx_loopback(int argc, char **argv)
             break;
     }
 
-    printk(KERN_DEBUG "test addr: %#08x.", test_addr);
+    printk(KERN_DEBUG "test addr: %#08x, length = %d.\n",
+        test_addr, length);
 
     for (i = 0; i < length; i += 4) {
         tmp_rng = random_get32bit();
-        tx_buffer[i + 3] = (tmp_rng & 0xFF000000) >> 24;;
-        tx_buffer[i + 2] = (tmp_rng & 0x00FF0000) >> 16;
-        tx_buffer[i + 1] = (tmp_rng & 0x0000FF00) >> 8;
-        tx_buffer[i + 0] = (tmp_rng & 0x000000FF);
         memcpy(&tx_buffer[i], &tmp_rng, sizeof(tmp_rng));
     }
 
     w25qxxx_write_data(w25qxxx, test_addr, tx_buffer, length);
     w25qxxx_read_data(w25qxxx, test_addr, rx_buffer, length);
 
+    printk(KERN_DEBUG "w25qxxx tx buffer: \n");
+    kinetis_dump_buffer8(tx_buffer, 128, 16);
+    printk(KERN_DEBUG "w25qxxx rx buffer: \n");
+    kinetis_dump_buffer8(rx_buffer, 128, 16);
+    
     for (i = 0; i < length; i++) {
         if (tx_buffer[i] != rx_buffer[i]) {
-            printk(KERN_DEBUG "tx[%d]: %#02x, rx[%d]: %#02x",
+            printk(KERN_ERR "tx[%d]: %#02x, rx[%d]: %#02x\n",
                 i, tx_buffer[i],
                 i, rx_buffer[i]);
-            printk(KERN_DEBUG
-                "Data writes and reads do not match, TEST FAILED !");
+            printk(KERN_ERR
+                "Data writes and reads do not match, TEST FAILED !\n");
             return -EPIPE;
         }
     }
 
-    printk(KERN_DEBUG "w25qxxx read and write TEST PASSED !");
+    printk(KERN_DEBUG "w25qxxx read and write TEST PASSED !\n");
 
     return 0;
 }

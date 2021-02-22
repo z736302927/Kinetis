@@ -4,7 +4,9 @@
 #include "kinetis/delay.h"
 
 #include <linux/printk.h>
+#include <linux/errno.h>
 
+#define AT24CXX_IIC                     IIC_HW_1
 #define AT24CXX_ADDR                    0x50
 #define PAGE_SIZE                       8
 #define AT24CXX_MAX_ADDR                255
@@ -22,12 +24,12 @@
 
 static inline void at24cxx_port_multi_transmmit(u8 addr, u8 *pdata, u32 length)
 {
-    iic_port_multi_transmmit(IIC_1, AT24CXX_ADDR, addr, pdata, length);
+    iic_port_multi_transmmit(AT24CXX_IIC, AT24CXX_ADDR, addr, pdata, length);
 }
 
 static inline void at24cxx_port_multi_receive(u8 addr, u8 *pdata, u32 length)
 {
-    iic_port_multi_receive(IIC_1, AT24CXX_ADDR, addr, pdata, length);
+    iic_port_multi_receive(AT24CXX_IIC, AT24CXX_ADDR, addr, pdata, length);
 }
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -114,68 +116,76 @@ static void at24cxx_multi_page_write(u32 addr, u8 *pdata, u16 length)
     }
 }
 
-void at24cxx_write_data(u8 addr, u8 *pdata, u32 length)
+int at24cxx_write_data(u8 addr, u8 *pdata, u32 length)
 {
     if (addr + length > AT24CXX_VOLUME) {
         printk(KERN_ERR
             "There is not enough space left to write the specified length.\n");
-        return ;
+        return -EINVAL;
     }
 
     at24cxx_multi_page_write(addr, pdata, length);
+
+    return 0;
 }
 
-void at24cxx_current_addr_read(u8 *pdata)
+int at24cxx_current_addr_read(u8 *pdata)
 {
-    iic_soft_start();
-    iic_soft_send_byte((AT24CXX_ADDR << 1) | 0x01);
+    iic_soft_start(AT24CXX_IIC);
+    iic_soft_send_byte(AT24CXX_IIC, (AT24CXX_ADDR << 1) | 0x01);
 
-    if (iic_soft_wait_ack()) {
-        iic_soft_stop();
-        return ;
+    if (iic_soft_wait_ack(AT24CXX_IIC)) {
+        iic_soft_stop(AT24CXX_IIC);
+        return -EPIPE;
     }
 
-    *pdata = iic_soft_read_byte(0);
-    iic_soft_stop();
+    *pdata = iic_soft_read_byte(AT24CXX_IIC, 0);
+    iic_soft_stop(AT24CXX_IIC);
+
+    return 0;
 }
 
-static void current_random_read(u8 addr, u8 *pdata, u32 length)
+static int current_random_read(u8 addr, u8 *pdata, u32 length)
 {
     if (addr + length > AT24CXX_VOLUME) {
         printk(KERN_ERR
             "There is not enough space left to read the specified length.\n");
-        return ;
+        return -EINVAL;
     }
 
     at24cxx_port_multi_receive(addr, pdata, length);
+
+    return 0;
 }
 
-void at24cxx_read_data(u8 addr, u8 *pdata, u32 length)
+int at24cxx_read_data(u8 addr, u8 *pdata, u32 length)
 {
-    current_random_read(addr, pdata, length);
+    return current_random_read(addr, pdata, length);
 }
 
-void at24cxx_sequential_read(u8 *pdata, u32 length)
+int at24cxx_sequential_read(u8 *pdata, u32 length)
 {
-    iic_soft_start();
-    iic_soft_send_byte((AT24CXX_ADDR << 1) | 0x01);
+    iic_soft_start(AT24CXX_IIC);
+    iic_soft_send_byte(AT24CXX_IIC, (AT24CXX_ADDR << 1) | 0x01);
 
-    if (iic_soft_wait_ack()) {
-        iic_soft_stop();
-        return ;
+    if (iic_soft_wait_ack(AT24CXX_IIC)) {
+        iic_soft_stop(AT24CXX_IIC);
+        return -EPIPE;
     }
 
     while (length) {
         if (length == 1)
-            *pdata = iic_soft_read_byte(0);
+            *pdata = iic_soft_read_byte(AT24CXX_IIC, 0);
         else
-            *pdata = iic_soft_read_byte(1);
+            *pdata = iic_soft_read_byte(AT24CXX_IIC, 1);
 
         pdata++;
         length--;
     }
 
-    iic_soft_stop();
+    iic_soft_stop(AT24CXX_IIC);
+
+    return 0;
 }
 
 #ifdef DESIGN_VERIFICATION_AT24CXX
@@ -194,6 +204,7 @@ int t_at24cxx_loopback(int argc, char **argv)
     u32 test_addr = 0;
     u16 times = 128;
     u16 i = 0, j = 0;
+    int ret;
 
     if (argc > 1)
         times = strtoul(argv[1], &argv[1], 10);
@@ -217,8 +228,15 @@ int t_at24cxx_loopback(int argc, char **argv)
         for (i = 0; i < length; i++)
             tx_buffer[i] = random_get8bit();
 
-        at24cxx_write_data(test_addr, tx_buffer, length);
-        at24cxx_read_data(test_addr, rx_buffer, length);
+        ret = at24cxx_write_data(test_addr, tx_buffer, length);
+
+        if (ret)
+            return FAIL;
+
+        ret = at24cxx_read_data(test_addr, rx_buffer, length);
+
+        if (ret)
+            return FAIL;
 
         for (i = 0; i < length; i++) {
             if (tx_buffer[i] != rx_buffer[i]) {
@@ -240,8 +258,13 @@ int t_at24cxx_loopback(int argc, char **argv)
 int t_at24cxx_current_addr_read(int argc, char **argv)
 {
     u8 tmp = 0;
+    int ret;
 
-    at24cxx_current_addr_read(&tmp);
+    ret = at24cxx_current_addr_read(&tmp);
+
+    if (ret)
+        return FAIL;
+
     printk(KERN_DEBUG "at24cxx current address data %d.\n", tmp);
 
     return PASS;
@@ -253,6 +276,7 @@ int t_at24cxx_current_random_read(int argc, char **argv)
     u32 test_addr = 0;
     u16 round = 128;
     u16 i = 0;
+    int ret;
 
     if (argc > 1)
         round = strtoul(argv[1], &argv[1], 10);
@@ -262,8 +286,13 @@ int t_at24cxx_current_random_read(int argc, char **argv)
     for (i = 0; i < round; i++) {
         test_addr = random_get8bit();
         length = random_get8bit() % (AT24CXX_VOLUME - test_addr);
-        current_random_read(test_addr, &rx_buffer[test_addr], length);
+        memset(&rx_buffer[test_addr], 0, length);
         
+        ret = current_random_read(test_addr, &rx_buffer[test_addr], length);
+
+        if (ret)
+            return FAIL;
+
         printk(KERN_DEBUG "round[%4u], read addr@%#08x, length: %u.\n",
             i, test_addr, length);
 
@@ -276,8 +305,13 @@ int t_at24cxx_current_random_read(int argc, char **argv)
 int t_at24cxx_sequential_read(int argc, char **argv)
 {
     u8 tmp = 0;
+    int ret;
 
-    at24cxx_sequential_read(&tmp, 1);
+    ret = at24cxx_sequential_read(&tmp, 1);
+
+    if (ret)
+        return FAIL;
+
     printk(KERN_DEBUG "at24cxx Sequential Read data %d.\n", tmp);
 
     return PASS;
@@ -287,25 +321,32 @@ int t_at24cxx_loopback_speed(int argc, char **argv)
 {
     u32 time_stamp = 0;
     u16 i = 0;
+    int ret;
 
     printk(KERN_DEBUG "Starting at24cxx raw write test.\n");
-    time_stamp = basic_timer_get_timer_cnt();
+    time_stamp = basic_timer_get_us();
 
     for (i = 0; i < AT24CXX_VOLUME; i++)
         tx_buffer[i] = random_get8bit();
 
-    at24cxx_write_data(0, tx_buffer, AT24CXX_VOLUME);
+    ret = at24cxx_write_data(0, tx_buffer, AT24CXX_VOLUME);
 
-    time_stamp = basic_timer_get_timer_cnt() - time_stamp;
+    if (ret)
+        return FAIL;
+
+    time_stamp = basic_timer_get_us() - time_stamp;
     printk(KERN_DEBUG "%u bytes written and it took %uus.\n",
         AT24CXX_VOLUME, time_stamp);
 
     printk(KERN_DEBUG "Starting at24cxx raw read test.\n");
-    time_stamp = basic_timer_get_timer_cnt();
+    time_stamp = basic_timer_get_us();
 
-    at24cxx_read_data(0, rx_buffer, AT24CXX_VOLUME);
+    ret = at24cxx_read_data(0, rx_buffer, AT24CXX_VOLUME);
 
-    time_stamp = basic_timer_get_timer_cnt() - time_stamp;
+    if (ret)
+        return FAIL;
+
+    time_stamp = basic_timer_get_us() - time_stamp;
     printk(KERN_DEBUG "%u bytes read and it took %uus.\n",
         AT24CXX_VOLUME, time_stamp);
     printk(KERN_DEBUG "Test completed.\n");

@@ -20,22 +20,22 @@
 
 static inline void icm20602_port_transmmit(u8 addr, u8 tmp)
 {
-    iic_port_transmmit(IIC_1, ICM20602_ADDR, addr, tmp);
+    iic_port_transmmit(IIC_SW_1, ICM20602_ADDR, addr, tmp);
 }
 
 static inline void icm20602_port_receive(u8 addr, u8 *pdata)
 {
-    iic_port_receive(IIC_1, ICM20602_ADDR, addr, pdata);
+    iic_port_receive(IIC_SW_1, ICM20602_ADDR, addr, pdata);
 }
 
 static inline void icm20602_port_multi_transmmit(u8 addr, u8 *pdata, u32 Length)
 {
-    iic_port_multi_transmmit(IIC_1, ICM20602_ADDR, addr, pdata, Length);
+    iic_port_multi_transmmit(IIC_SW_1, ICM20602_ADDR, addr, pdata, Length);
 }
 
 static inline void icm20602_port_multi_receive(u8 addr, u8 *pdata, u32 Length)
 {
-    iic_port_multi_receive(IIC_1, ICM20602_ADDR, addr, pdata, Length);
+    iic_port_multi_receive(IIC_SW_1, ICM20602_ADDR, addr, pdata, Length);
 }
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
