@@ -202,14 +202,14 @@ int t_at24cxx_loopback(int argc, char **argv)
 {
     u16 length = 0;
     u32 test_addr = 0;
-    u16 times = 128;
+    u16 round = 8;
     u16 i = 0, j = 0;
     int ret;
 
     if (argc > 1)
-        times = strtoul(argv[1], &argv[1], 10);
+        round = strtoul(argv[1], &argv[1], 10);
 
-    for (j = 0; j < times; j++) {
+    for (j = 0; j < round; j++) {
         length = random_get8bit();
 
         if (length <= 0)
@@ -222,11 +222,10 @@ int t_at24cxx_loopback(int argc, char **argv)
 
         memset(tx_buffer, 0, length);
         memset(rx_buffer, 0, length);
-        printk(KERN_DEBUG "test_addr@%#02x, length: %d.\n",
+        printk(KERN_DEBUG "test addr@0x%08x, length: %d.\n",
             test_addr, length);
 
-        for (i = 0; i < length; i++)
-            tx_buffer[i] = random_get8bit();
+        random_get_array(tx_buffer, length, RNG_8BITS);
 
         ret = at24cxx_write_data(test_addr, tx_buffer, length);
 
@@ -274,7 +273,7 @@ int t_at24cxx_current_random_read(int argc, char **argv)
 {
     u16 length = 0;
     u32 test_addr = 0;
-    u16 round = 128;
+    u16 round = 8;
     u16 i = 0;
     int ret;
 
@@ -286,14 +285,13 @@ int t_at24cxx_current_random_read(int argc, char **argv)
     for (i = 0; i < round; i++) {
         test_addr = random_get8bit();
         length = random_get8bit() % (AT24CXX_VOLUME - test_addr);
-        memset(&rx_buffer[test_addr], 0, length);
         
         ret = current_random_read(test_addr, &rx_buffer[test_addr], length);
 
         if (ret)
             return FAIL;
 
-        printk(KERN_DEBUG "round[%4u], read addr@%#08x, length: %u.\n",
+        printk(KERN_DEBUG "round[%4u], read addr@0x%08x, length: %u.\n",
             i, test_addr, length);
 
         kinetis_dump_buffer8(&rx_buffer[test_addr], length, 8);
@@ -326,8 +324,7 @@ int t_at24cxx_loopback_speed(int argc, char **argv)
     printk(KERN_DEBUG "Starting at24cxx raw write test.\n");
     time_stamp = basic_timer_get_us();
 
-    for (i = 0; i < AT24CXX_VOLUME; i++)
-        tx_buffer[i] = random_get8bit();
+    random_get_array(tx_buffer, AT24CXX_VOLUME, RNG_8BITS);
 
     ret = at24cxx_write_data(0, tx_buffer, AT24CXX_VOLUME);
 

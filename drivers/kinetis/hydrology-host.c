@@ -373,21 +373,21 @@ int hydrology_host_init_send(u8 cnt, enum hydrology_body_type funcode)
     g_hydrology.down_packet = kmalloc(sizeof(struct hydrology_packet), __GFP_ZERO);
 
     if (g_hydrology.down_packet == NULL) {
-        printk(KERN_DEBUG "g_hydrology.down_packet malloc failed");
+        printk(KERN_DEBUG "g_hydrology.down_packet malloc failed\n");
         return false;
     }
 
     g_hydrology.down_packet->header = kmalloc(sizeof(struct hydrology_down_header), __GFP_ZERO);
 
     if (g_hydrology.down_packet->header == NULL) {
-        printk(KERN_DEBUG "g_hydrology.down_packet->header malloc failed");
+        printk(KERN_DEBUG "g_hydrology.down_packet->header malloc failed\n");
         return false;
     }
 
     g_hydrology.down_packet->body = kmalloc(sizeof(struct hydrology_down_body), __GFP_ZERO);
 
     if (g_hydrology.down_packet->body == NULL) {
-        printk(KERN_DEBUG "g_hydrology.down_packet->body malloc failed");
+        printk(KERN_DEBUG "g_hydrology.down_packet->body malloc failed\n");
         return false;
     }
 
@@ -438,7 +438,7 @@ int hydrology_host_init_send(u8 cnt, enum hydrology_body_type funcode)
         down_body->element = kmalloc(sizeof(struct hydrology_element *) * down_body->count, __GFP_ZERO);
 
         if (down_body->element == NULL) {
-            printk(KERN_DEBUG "down_body->element malloc failed");
+            printk(KERN_DEBUG "down_body->element malloc failed\n");
             return false;
         }
     }
@@ -447,7 +447,7 @@ int hydrology_host_init_send(u8 cnt, enum hydrology_body_type funcode)
         down_body->element[i] = kmalloc(sizeof(struct hydrology_element), __GFP_ZERO);
 
         if (down_body->element[i] == NULL) {
-            printk(KERN_DEBUG "down_body->element[%d] malloc failed", i);
+            printk(KERN_DEBUG "down_body->element[%d] malloc failed\n", i);
             return false;
         }
     }
@@ -503,21 +503,21 @@ int hydrology_host_init_receieve()
     g_hydrology.up_packet = kmalloc(sizeof(struct hydrology_packet), __GFP_ZERO);
 
     if (g_hydrology.up_packet == NULL) {
-        printk(KERN_DEBUG "g_hydrology.up_packet malloc failed");
+        printk(KERN_DEBUG "g_hydrology.up_packet malloc failed\n");
         return false;
     }
 
     g_hydrology.up_packet->header = kmalloc(sizeof(struct hydrology_up_header), __GFP_ZERO);
 
     if (g_hydrology.up_packet->header == NULL) {
-        printk(KERN_DEBUG "g_hydrology.up_packet->header malloc failed");
+        printk(KERN_DEBUG "g_hydrology.up_packet->header malloc failed\n");
         return false;
     }
 
     g_hydrology.up_packet->body = kmalloc(sizeof(struct hydrology_up_body), __GFP_ZERO);
 
     if (g_hydrology.up_packet->body == NULL) {
-        printk(KERN_DEBUG "g_hydrology.up_packet->body malloc failed");
+        printk(KERN_DEBUG "g_hydrology.up_packet->body malloc failed\n");
         return false;
     }
 
@@ -726,7 +726,7 @@ static int hydrology_host_make_down_body(struct hydrology_element_info *element_
                 down_body->element[0]->value = kmalloc(down_body->element[0]->num, __GFP_ZERO);
 
                 if (NULL == down_body->element[0]->value) {
-                    printk(KERN_DEBUG "down_body->element[0]->value malloc failed");
+                    printk(KERN_DEBUG "down_body->element[0]->value malloc failed\n");
                     return false;
                 }
 
@@ -750,7 +750,7 @@ static int hydrology_host_make_down_body(struct hydrology_element_info *element_
                 down_body->element[0]->value = kmalloc(down_body->element[0]->num, __GFP_ZERO);
 
                 if (NULL == down_body->element[0]->value) {
-                    printk(KERN_DEBUG "down_body->element[0]->value malloc failed");
+                    printk(KERN_DEBUG "down_body->element[0]->value malloc failed\n");
                     return false;
                 }
 
@@ -779,7 +779,7 @@ static int hydrology_host_make_down_body(struct hydrology_element_info *element_
                 down_body->element[0]->value = kmalloc(down_body->element[0]->num, __GFP_ZERO);
 
                 if (NULL == down_body->element[0]->value) {
-                    printk(KERN_DEBUG "down_body->element[0]->value malloc failed");
+                    printk(KERN_DEBUG "down_body->element[0]->value malloc failed\n");
                     return false;
                 }
 
@@ -800,7 +800,7 @@ static int hydrology_host_make_down_body(struct hydrology_element_info *element_
             down_body->element[0]->value = kmalloc(down_body->element[0]->num, __GFP_ZERO);
 
             if (NULL == down_body->element[0]->value) {
-                printk(KERN_DEBUG "down_body->element[0]->value malloc failed");
+                printk(KERN_DEBUG "down_body->element[0]->value malloc failed\n");
                 return false;
             }
 
@@ -829,7 +829,7 @@ static int hydrology_host_make_down_tail_and_send(enum hydrology_mode mode,
     g_hydrology.down_packet->buffer = kmalloc(buffer_size, __GFP_ZERO);
 
     if (g_hydrology.down_packet->buffer == NULL) {
-        printk(KERN_DEBUG "g_hydrology.down_packet->buffer malloc failed");
+        printk(KERN_DEBUG "g_hydrology.down_packet->buffer malloc failed\n");
         return false;
     }
 
@@ -972,7 +972,7 @@ static int hydrology_host_make_err_down_tail_and_send(enum hydrology_mode mode,
     g_hydrology.down_packet->buffer = kmalloc(buffer_size, __GFP_ZERO);
 
     if (g_hydrology.down_packet->buffer == NULL) {
-        printk(KERN_DEBUG "g_hydrology.down_packet->buffer malloc failed");
+        printk(KERN_DEBUG "g_hydrology.down_packet->buffer malloc failed\n");
         return false;
     }
 
@@ -1131,25 +1131,25 @@ static int hydrology_host_check_up_packet(u8 *input, int inputlen)
     inputCrc = (input[inputlen - 2] << 8) | input[inputlen - 1];
 
     if (crcRet != inputCrc) {
-        printk(KERN_DEBUG "Device crc(0x%04x) != Host crc(0x%04x)",
+        printk(KERN_DEBUG "Device crc(0x%04x) != Host crc(0x%04x)\n",
             inputCrc, crcRet);
-        printk(KERN_DEBUG "CRC check failed !");
+        printk(KERN_DEBUG "CRC check failed !\n");
         return false;
     }
 
     if ((input[0] != SOH) || (input[1] != SOH)) {
-        printk(KERN_DEBUG "Device Frame head(0x%02x, 0x%02x) != Host Frame head(0x%02x, 0x%02x)",
+        printk(KERN_DEBUG "Device Frame head(0x%02x, 0x%02x) != Host Frame head(0x%02x, 0x%02x)\n",
             input[0], input[1], SOH, SOH);
-        printk(KERN_DEBUG "Frame head check failed !");
+        printk(KERN_DEBUG "Frame head check failed !\n");
         return false;
     }
 
     bodylen = (input[11] & 0x0F) * 256 + input[12];
 
     if (bodylen != (inputlen - 17)) {
-        printk(KERN_DEBUG "Device length(0x%x) != Host length(0x%x)",
+        printk(KERN_DEBUG "Device length(0x%x) != Host length(0x%x)\n",
             bodylen, inputlen - 17);
-        printk(KERN_DEBUG "Hydrolog length check failed !");
+        printk(KERN_DEBUG "Hydrolog length check failed !\n");
         return false;
     }
 
@@ -1161,7 +1161,7 @@ static int hydrology_host_make_up_header(u8 *input, int inputlen, int *position,
     struct hydrology_up_header *header = (struct hydrology_up_header *)g_hydrology.up_packet->header;
 
     if (hydrology_host_check_up_packet(input, inputlen) != true) {
-        printk(KERN_DEBUG "Hydrology check fail !");
+        printk(KERN_DEBUG "Hydrology check fail !\n");
         return false;
     }
 
@@ -1357,7 +1357,7 @@ static int hydrology_host_make_up_body(u8 *input, int len, int position,
         upbody->element = kmalloc(sizeof(struct hydrology_element *) * upbody->count, __GFP_ZERO);
 
         if (upbody->element == NULL) {
-            printk(KERN_DEBUG "upbody->element malloc failed");
+            printk(KERN_DEBUG "upbody->element malloc failed\n");
             return false;
         }
     }
@@ -1366,7 +1366,7 @@ static int hydrology_host_make_up_body(u8 *input, int len, int position,
         upbody->element[i] = kmalloc(sizeof(struct hydrology_element), __GFP_ZERO);
 
         if (upbody->element[i] == NULL) {
-            printk(KERN_DEBUG "upbody->element[%d] malloc failed", i);
+            printk(KERN_DEBUG "upbody->element[%d] malloc failed\n", i);
             return false;
         }
     }
@@ -1400,7 +1400,7 @@ static int hydrology_host_make_up_body(u8 *input, int len, int position,
                 upbody->element[i]->value = kmalloc(upbody->element[i]->num, __GFP_ZERO);
 
                 if (NULL == upbody->element[i]->value) {
-                    printk(KERN_DEBUG "upbody->element[%d]->value malloc failed", i);
+                    printk(KERN_DEBUG "upbody->element[%d]->value malloc failed\n", i);
                     return false;
                 }
 
@@ -1423,7 +1423,7 @@ static int hydrology_host_make_up_body(u8 *input, int len, int position,
                 upbody->element[i]->value = kmalloc(upbody->element[i]->num, __GFP_ZERO);
 
                 if (NULL == upbody->element[i]->value) {
-                    printk(KERN_DEBUG "upbody->element[%d]->value malloc failed", i);
+                    printk(KERN_DEBUG "upbody->element[%d]->value malloc failed\n", i);
                     return false;
                 }
 
@@ -1457,7 +1457,7 @@ static int hydrology_host_make_up_body(u8 *input, int len, int position,
             upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
             if (NULL == upbody->element[0]->value) {
-                printk(KERN_DEBUG "upbody->element[0]->value malloc failed");
+                printk(KERN_DEBUG "upbody->element[0]->value malloc failed\n");
                 return false;
             }
 
@@ -1477,7 +1477,7 @@ static int hydrology_host_make_up_body(u8 *input, int len, int position,
             upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
             if (NULL == upbody->element[0]->value) {
-                printk(KERN_DEBUG "upbody->element[0]->value malloc failed");
+                printk(KERN_DEBUG "upbody->element[0]->value malloc failed\n");
                 return false;
             }
 
@@ -1506,7 +1506,7 @@ static int hydrology_host_make_up_body(u8 *input, int len, int position,
             upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
             if (NULL == upbody->element[0]->value) {
-                printk(KERN_DEBUG "upbody->element[0]->value malloc failed");
+                printk(KERN_DEBUG "upbody->element[0]->value malloc failed\n");
                 return false;
             }
 
@@ -1521,7 +1521,7 @@ static int hydrology_host_make_up_body(u8 *input, int len, int position,
             upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
             if (NULL == upbody->element[0]->value) {
-                printk(KERN_DEBUG "upbody->element[0]->value malloc failed");
+                printk(KERN_DEBUG "upbody->element[0]->value malloc failed\n");
                 return false;
             }
 
@@ -1536,7 +1536,7 @@ static int hydrology_host_make_up_body(u8 *input, int len, int position,
             upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
             if (NULL == upbody->element[0]->value) {
-                printk(KERN_DEBUG "upbody->element[0]->value malloc failed");
+                printk(KERN_DEBUG "upbody->element[0]->value malloc failed\n");
                 return false;
             }
 
@@ -1739,29 +1739,29 @@ int hydrology_host_print_up_packet(void)
     u16 record_val;
     char *version;
 
-    printk(KERN_INFO "Center Address@%02X", header->center_addr);
-    printk(KERN_INFO "Remote Address@%02X%02X%02X%02X%02X",
+    printk(KERN_INFO "Center Address@%02X\n", header->center_addr);
+    printk(KERN_INFO "Remote Address@%02X%02X%02X%02X%02X\n",
         header->remote_addr[0], header->remote_addr[1], header->remote_addr[2],
         header->remote_addr[3], header->remote_addr[4]);
-    printk(KERN_INFO "Password: %02X%02X",
+    printk(KERN_INFO "Password: %02X%02X\n",
         header->password[0], header->password[1]);
     memset(type, 0, sizeof(type));
     hydrology_host_get_packet_type_string((enum hydrology_body_type)header->funcode, type);
-    printk(KERN_INFO "Packet type: %s", type);
+    printk(KERN_INFO "Packet type: %s\n", type);
 
     if (header->dir_len[0] & 0x80)
-        printk(KERN_INFO "Downstream packet");
+        printk(KERN_INFO "Downstream packet\n");
     else
-        printk(KERN_INFO "Upstream packet");
+        printk(KERN_INFO "Upstream packet\n");
 
     total = (header->count_seq[0] << 4) + (header->count_seq[1] >> 4);
     current = (header->count_seq[1] & 0x0F) + header->count_seq[2];
-    printk(KERN_INFO "Total packet number: %u", total);
-    printk(KERN_INFO "Current packet number: %u", current);
+    printk(KERN_INFO "Total packet number: %u\n", total);
+    printk(KERN_INFO "Current packet number: %u\n", current);
 
     stream_id = (upbody->stream_id[0] << 8) + upbody->stream_id[1];
-    printk(KERN_INFO "Stream ID: %u", stream_id);
-    printk(KERN_INFO "Packet send time: 20%02X/%02X/%02X %02X:%02X:%02X",
+    printk(KERN_INFO "Stream ID: %u\n", stream_id);
+    printk(KERN_INFO "Packet send time: 20%02X/%02X/%02X %02X:%02X:%02X\n",
         upbody->send_time[0], upbody->send_time[1], upbody->send_time[2],
         upbody->send_time[3], upbody->send_time[4], upbody->send_time[5]);
 
@@ -1787,22 +1787,22 @@ int hydrology_host_print_up_packet(void)
         case WaterSetting:
         case Record:
         case Time:
-            printk(KERN_INFO "RTU Address@%02X%02X%02X%02X%02X",
+            printk(KERN_INFO "RTU Address@%02X%02X%02X%02X%02X\n",
                 upbody->rtu_addr[0], upbody->rtu_addr[1], upbody->rtu_addr[2],
                 upbody->rtu_addr[3], upbody->rtu_addr[4]);
             break;
 
         default:
-            printk(KERN_INFO "RTU Address@%02X%02X%02X%02X%02X",
+            printk(KERN_INFO "RTU Address@%02X%02X%02X%02X%02X\n",
                 upbody->rtu_addr[0], upbody->rtu_addr[1], upbody->rtu_addr[2],
                 upbody->rtu_addr[3], upbody->rtu_addr[4]);
             memset(type, 0, sizeof(type));
             hydrology_host_get_rtu_type_string((enum hydrology_rtu_type)upbody->rtu_type, type);
-            printk(KERN_INFO "RTU type: %s", type);
-            printk(KERN_INFO "element sample time: 20%02X/%02X/%02X %02X:%02X",
+            printk(KERN_INFO "RTU type: %s\n", type);
+            printk(KERN_INFO "element sample time: 20%02X/%02X/%02X %02X:%02X\n",
                 upbody->observation_time[0], upbody->observation_time[1], upbody->observation_time[2],
                 upbody->observation_time[3], upbody->observation_time[4]);
-            printk(KERN_INFO "element count: %u", upbody->count);
+            printk(KERN_INFO "element count: %u\n", upbody->count);
             break;
     }
 
@@ -1810,7 +1810,7 @@ int hydrology_host_print_up_packet(void)
         element_table = kmalloc(sizeof(struct hydrology_element_info) * upbody->count, __GFP_ZERO);
 
         if (element_table == NULL) {
-            printk(KERN_DEBUG "element_table malloc failed");
+            printk(KERN_DEBUG "element_table malloc failed\n");
             return false;
         }
     }
@@ -1834,20 +1834,20 @@ int hydrology_host_print_up_packet(void)
             pbuffer = kmalloc(sizeof(*pbuffer), __GFP_ZERO);
 
             if (NULL == pbuffer) {
-                printk(KERN_DEBUG "pbuffer malloc failed");
+                printk(KERN_DEBUG "pbuffer malloc failed\n");
                 return false;
             }
 
             for (i = 0; i < upbody->count; ++i) {
                 hydrology_read_specified_element_info(&element_table[i], (enum hydrology_body_type)header->funcode,
                     upbody->element[i]->guide[0]);
-                printk(KERN_INFO "element[%u].ID: %02X, D: %u, d: %u, addr@%08X",
+                printk(KERN_INFO "element[%u].ID: %02X, D: %u, d: %u, addr@%08X\n",
                     i, element_table[i].ID, element_table[i].D, element_table[i].d, element_table[i].addr);
 
                 *pbuffer = kmalloc(upbody->element[i]->num, __GFP_ZERO);
 
                 if (NULL == *pbuffer) {
-                    printk(KERN_DEBUG "*pbuffer malloc failed");
+                    printk(KERN_DEBUG "*pbuffer malloc failed\n");
                     return false;
                 }
 
@@ -1858,7 +1858,7 @@ int hydrology_host_print_up_packet(void)
                 for (j = 0; j < element_table[i].d; ++j)
                     value /= 10;
 
-                printk(KERN_INFO "element[%u].value: %f", i, value);
+                printk(KERN_INFO "element[%u].value: %f\n", i, value);
             }
 
             kfree(pbuffer);
@@ -1868,24 +1868,24 @@ int hydrology_host_print_up_packet(void)
         case EvenPeriodInformation:
             hydrology_read_specified_element_info(&element_table[0], (enum hydrology_body_type)header->funcode,
                 upbody->element[0]->guide[0]);
-            printk(KERN_INFO "element[0].ID: %02X, D: %u, d: %u, addr@%08X",
+            printk(KERN_INFO "element[0].ID: %02X, D: %u, d: %u, addr@%08X\n",
                 element_table[0].ID, element_table[0].D, element_table[0].d, element_table[0].addr);
-            printk(KERN_INFO "Time step: %u:%u:%u",
+            printk(KERN_INFO "Time step: %u:%u:%u\n",
                 upbody->element[0]->value[0], upbody->element[0]->value[1], upbody->element[0]->value[2]);
 
             for (i = 1; i < upbody->count; ++i) {
                 hydrology_read_specified_element_info(&element_table[i], (enum hydrology_body_type)header->funcode,
                     upbody->element[i]->guide[0]);
-                printk(KERN_INFO "element[%u].ID: %02X, D: %u, d: %u, addr@%08X",
+                printk(KERN_INFO "element[%u].ID: %02X, D: %u, d: %u, addr@%08X\n",
                     i, element_table[i].ID, element_table[i].D, element_table[i].d, element_table[i].addr);
 
-                printk(KERN_INFO "element[%u].value: ", i);
+                printk(KERN_INFO "element[%u].value: \n", i);
 
                 for (j = 0, k = 0; j < 12; ++j, k += 2) {
                     if (upbody->element[i]->num == 12)
-                        printk(KERN_INFO "[%u]%02X", j, upbody->element[i]->value[j]);
+                        printk(KERN_INFO "[%u]%02X\n", j, upbody->element[i]->value[j]);
                     else
-                        printk(KERN_INFO "[%u]%02X%02X", j,
+                        printk(KERN_INFO "[%u]%02X%02X\n", j,
                             upbody->element[i]->value[k], upbody->element[i]->value[k + 1]);
                 }
             }
@@ -1896,16 +1896,16 @@ int hydrology_host_print_up_packet(void)
             for (i = 0; i < upbody->count; ++i) {
                 hydrology_read_specified_element_info(&element_table[i], (enum hydrology_body_type)header->funcode,
                     upbody->element[i]->guide[0]);
-                printk(KERN_INFO "element[%u].ID: %02X, D: %u, d: %u, addr@%08X",
+                printk(KERN_INFO "element[%u].ID: %02X, D: %u, d: %u, addr@%08X\n",
                     i, element_table[i].ID, element_table[i].D, element_table[i].d, element_table[i].addr);
 
-                printk(KERN_INFO "element[%u].value: ", i);
+                printk(KERN_INFO "element[%u].value: \n", i);
 
                 for (j = 0; j < 12; ++j, k += 2) {
                     if (upbody->element[i]->num == 12)
-                        printk(KERN_INFO "[%u]%02X", j, upbody->element[i]->value[j]);
+                        printk(KERN_INFO "[%u]%02X\n", j, upbody->element[i]->value[j]);
                     else
-                        printk(KERN_INFO "[%u]%02X%02X", j,
+                        printk(KERN_INFO "[%u]%02X%02X\n", j,
                             upbody->element[i]->value[k], upbody->element[i]->value[k + 1]);
                 }
             }
@@ -1918,21 +1918,21 @@ int hydrology_host_print_up_packet(void)
             break;
 
         case Period:
-            printk(KERN_INFO "Time step: %u:%u:%u",
+            printk(KERN_INFO "Time step: %u:%u:%u\n",
                 upbody->element[0]->value[0], upbody->element[0]->value[1], upbody->element[0]->value[2]);
 
             hydrology_read_specified_element_info(&element_table[1], (enum hydrology_body_type)header->funcode,
                 upbody->element[1]->guide[0]);
-            printk(KERN_INFO "element[1].ID: %02X, D: %u, d: %u, addr@%08X",
+            printk(KERN_INFO "element[1].ID: %02X, D: %u, d: %u, addr@%08X\n",
                 element_table[1].ID, element_table[1].D, element_table[1].d, element_table[1].addr);
 
-            printk(KERN_INFO "element[1].value: ");
+            printk(KERN_INFO "element[1].value: \n");
 
             for (j = 0; j < 12; ++j, k += 2) {
                 if (upbody->element[1]->num == 12)
-                    printk(KERN_INFO "[%u]%02X", j, upbody->element[1]->value[j]);
+                    printk(KERN_INFO "[%u]%02X\n", j, upbody->element[1]->value[j]);
                 else
-                    printk(KERN_INFO "[%u]%02X%02X", j,
+                    printk(KERN_INFO "[%u]%02X%02X\n", j,
                         upbody->element[1]->value[k], upbody->element[1]->value[k + 1]);
             }
 
@@ -1943,13 +1943,13 @@ int hydrology_host_print_up_packet(void)
             for (i = 0; i < upbody->count; ++i) {
                 hydrology_read_specified_element_info(&element_table[i], (enum hydrology_body_type)header->funcode,
                     upbody->element[i]->guide[0]);
-                printk(KERN_INFO "element[%u].ID: %02X, D: %u, d: %u, addr@%08X",
+                printk(KERN_INFO "element[%u].ID: %02X, D: %u, d: %u, addr@%08X\n",
                     i, element_table[i].ID, element_table[i].D, element_table[i].d, element_table[i].addr);
 
-                printk(KERN_INFO "element[%u].value: ", i);
+                printk(KERN_INFO "element[%u].value: \n", i);
 
                 for (j = 0; j < upbody->element[i]->num; ++j)
-                    printk("%02X", upbody->element[i]->value[j]);
+                    printk("%02X\n", upbody->element[i]->value[j]);
             }
 
             break;
@@ -1957,7 +1957,7 @@ int hydrology_host_print_up_packet(void)
         case SoftwareVersion:
             version = kmalloc(upbody->element[0]->num + 1, __GFP_ZERO);
             memcpy(version, upbody->element[0]->value, upbody->element[0]->num);
-            printk(KERN_INFO "Software version: %s", version);
+            printk(KERN_INFO "Software version: %s\n", version);
             kfree(version);
             break;
 
@@ -1965,113 +1965,113 @@ int hydrology_host_print_up_packet(void)
         case SetICCard:
             hydrology_read_specified_element_info(&element_table[0], (enum hydrology_body_type)header->funcode,
                 upbody->element[0]->guide[0]);
-            printk(KERN_INFO "element[0].ID: %02X, D: %u, d: %u, addr@%08X",
+            printk(KERN_INFO "element[0].ID: %02X, D: %u, d: %u, addr@%08X\n",
                 element_table[0].ID, element_table[0].D, element_table[0].d, element_table[0].addr);
 
             status_val = *((u32 *)upbody->element[0]->value);
 
             if (status_val & 0x0001)
-                printk(KERN_INFO "BIT[0]: 1, AC charging status: Power off");
+                printk(KERN_INFO "BIT[0]: 1, AC charging status: Power off\n");
             else
-                printk(KERN_INFO "BIT[0]: 0, AC charging status: Normal");
+                printk(KERN_INFO "BIT[0]: 0, AC charging status: Normal\n");
 
             if (status_val & 0x0002)
-                printk(KERN_INFO "BIT[1]: 1, Battery voltage status: Low power");
+                printk(KERN_INFO "BIT[1]: 1, Battery voltage status: Low power\n");
             else
-                printk(KERN_INFO "BIT[1]: 0, Battery voltage status: Normal");
+                printk(KERN_INFO "BIT[1]: 0, Battery voltage status: Normal\n");
 
             if (status_val & 0x0004)
-                printk(KERN_INFO "BIT[2]: 1, Water level over limit alarm status: Alert");
+                printk(KERN_INFO "BIT[2]: 1, Water level over limit alarm status: Alert\n");
             else
-                printk(KERN_INFO "BIT[2]: 0, Water level over limit alarm status: Normal");
+                printk(KERN_INFO "BIT[2]: 0, Water level over limit alarm status: Normal\n");
 
             if (status_val & 0x0008)
-                printk(KERN_INFO "BIT[3]: 1, Flow overrun alarm status: Alert");
+                printk(KERN_INFO "BIT[3]: 1, Flow overrun alarm status: Alert\n");
             else
-                printk(KERN_INFO "BIT[3]: 0, Flow overrun alarm status: Normal");
+                printk(KERN_INFO "BIT[3]: 0, Flow overrun alarm status: Normal\n");
 
             if (status_val & 0x0010)
-                printk(KERN_INFO "BIT[4]: 1, Water quality limit alarm status: Alert");
+                printk(KERN_INFO "BIT[4]: 1, Water quality limit alarm status: Alert\n");
             else
-                printk(KERN_INFO "BIT[4]: 0, Water quality limit alarm status: Normal");
+                printk(KERN_INFO "BIT[4]: 0, Water quality limit alarm status: Normal\n");
 
             if (status_val & 0x0020)
-                printk(KERN_INFO "BIT[5]: 1, Flow meter status: Broken");
+                printk(KERN_INFO "BIT[5]: 1, Flow meter status: Broken\n");
             else
-                printk(KERN_INFO "BIT[5]: 0, Flow meter status: Normal");
+                printk(KERN_INFO "BIT[5]: 0, Flow meter status: Normal\n");
 
             if (status_val & 0x0040)
-                printk(KERN_INFO "BIT[6]: 1, Water level meter status: Broken");
+                printk(KERN_INFO "BIT[6]: 1, Water level meter status: Broken\n");
             else
-                printk(KERN_INFO "BIT[6]: 0, Water level meter status: Normal");
+                printk(KERN_INFO "BIT[6]: 0, Water level meter status: Normal\n");
 
             if (status_val & 0x0080)
-                printk(KERN_INFO "BIT[7]: 1, Terminal box door status: Shut off");
+                printk(KERN_INFO "BIT[7]: 1, Terminal box door status: Shut off\n");
             else
-                printk(KERN_INFO "BIT[7]: 0, Terminal box door status: Power on");
+                printk(KERN_INFO "BIT[7]: 0, Terminal box door status: Power on\n");
 
             if (status_val & 0x0100)
-                printk(KERN_INFO "BIT[8]: 1, Memory status: Abnormal");
+                printk(KERN_INFO "BIT[8]: 1, Memory status: Abnormal\n");
             else
-                printk(KERN_INFO "BIT[8]: 0, Memory status: Normal");
+                printk(KERN_INFO "BIT[8]: 0, Memory status: Normal\n");
 
             if (status_val & 0x0200)
-                printk(KERN_INFO "BIT[9]: 1, IC card function is effective: IC Card normal");
+                printk(KERN_INFO "BIT[9]: 1, IC card function is effective: IC Card normal\n");
             else
-                printk(KERN_INFO "BIT[9]: 0, IC card function is effective: Shut off");
+                printk(KERN_INFO "BIT[9]: 0, IC card function is effective: Shut off\n");
 
             if (status_val & 0x0400)
-                printk(KERN_INFO "BIT[10]: 1, Working state of water pump: Water pump power off");
+                printk(KERN_INFO "BIT[10]: 1, Working state of water pump: Water pump power off\n");
             else
-                printk(KERN_INFO "BIT[10]: 0, Working state of water pump: Water pump power on");
+                printk(KERN_INFO "BIT[10]: 0, Working state of water pump: Water pump power on\n");
 
             if (status_val & 0x0800)
-                printk(KERN_INFO "BIT[11]: 1, Remaining water alarm: Water yield overlimit");
+                printk(KERN_INFO "BIT[11]: 1, Remaining water alarm: Water yield overlimit\n");
             else
-                printk(KERN_INFO "BIT[11]: 0, Remaining water alarm: Water yield normal");
+                printk(KERN_INFO "BIT[11]: 0, Remaining water alarm: Water yield normal\n");
 
             break;
 
         case ChangePassword:
             hydrology_read_specified_element_info(&element_table[0], (enum hydrology_body_type)header->funcode,
                 upbody->element[0]->guide[0]);
-            printk(KERN_INFO "element[0].ID: %02X, D: %u, d: %u, addr@%08X",
+            printk(KERN_INFO "element[0].ID: %02X, D: %u, d: %u, addr@%08X\n",
                 element_table[0].ID, element_table[0].D, element_table[0].d, element_table[0].addr);
-            printk(KERN_INFO "New password: %02X%02X",
+            printk(KERN_INFO "New password: %02X%02X\n",
                 upbody->element[0]->value[0], upbody->element[0]->value[1]);
 
             break;
 
         case Pump:
-            printk(KERN_INFO "Total count: %u", upbody->element[0]->guide[0] * 8);
+            printk(KERN_INFO "Total count: %u\n", upbody->element[0]->guide[0] * 8);
 
             for (i = 0; i < upbody->element[0]->guide[0]; ++i) {
                 for (j = 0; j < 8; ++j) {
                     if (upbody->element[0]->value[i] & (1 << j))
-                        printk(KERN_INFO "Pump[%u]: Open", i * 8 + j);
+                        printk(KERN_INFO "Pump[%u]: Open\n", i * 8 + j);
                     else
-                        printk(KERN_INFO "Pump[%u]: Close", i * 8 + j);
+                        printk(KERN_INFO "Pump[%u]: Close\n", i * 8 + j);
                 }
             }
 
             break;
 
         case Valve:
-            printk(KERN_INFO "Total count: %u", upbody->element[0]->guide[0] * 8);
+            printk(KERN_INFO "Total count: %u\n", upbody->element[0]->guide[0] * 8);
 
             for (i = 0; i < upbody->element[0]->guide[0]; ++i) {
                 for (j = 0; j < 8; ++j) {
                     if (upbody->element[0]->value[i] & (1 << j))
-                        printk(KERN_INFO "Valve[%u]: Open", i * 8 + j);
+                        printk(KERN_INFO "Valve[%u]: Open\n", i * 8 + j);
                     else
-                        printk(KERN_INFO "Valve[%u]: Close", i * 8 + j);
+                        printk(KERN_INFO "Valve[%u]: Close\n", i * 8 + j);
                 }
             }
 
             break;
 
         case Gate:
-            printk(KERN_INFO "Total count: %u", upbody->element[0]->guide[0]);
+            printk(KERN_INFO "Total count: %u\n", upbody->element[0]->guide[0]);
 
             if (upbody->element[0]->guide[0] % 8 == 0)
                 cnt = upbody->element[0]->guide[0] / 8;
@@ -2084,9 +2084,9 @@ int hydrology_host_print_up_packet(void)
                         break;
 
                     if (upbody->element[0]->value[i] & (1 << j))
-                        printk(KERN_INFO "Gate[%u]: Open", k);
+                        printk(KERN_INFO "Gate[%u]: Open\n", k);
                     else
-                        printk(KERN_INFO "Gate[%u]: Close", k);
+                        printk(KERN_INFO "Gate[%u]: Close\n", k);
                 }
             }
 
@@ -2094,49 +2094,49 @@ int hydrology_host_print_up_packet(void)
 
         case WaterSetting:
             if (upbody->element[0]->value[0])
-                printk(KERN_INFO "Water value: Enter");
+                printk(KERN_INFO "Water value: Enter\n");
             else
-                printk(KERN_INFO "Water value: Exit");
+                printk(KERN_INFO "Water value: Exit\n");
 
             break;
 
         case Record:
             record_val = (upbody->element[0]->value[0] << 8) + upbody->element[0]->value[1];
-            printk(KERN_INFO "ERC1: Historical data initialization record: %u", record_val);
+            printk(KERN_INFO "ERC1: Historical data initialization record: %u\n", record_val);
             record_val = (upbody->element[0]->value[2] << 8) + upbody->element[0]->value[3];
-            printk(KERN_INFO "ERC2: Parameter change record: %u", record_val);
+            printk(KERN_INFO "ERC2: Parameter change record: %u\n", record_val);
             record_val = (upbody->element[0]->value[4] << 8) + upbody->element[0]->value[5];
-            printk(KERN_INFO "ERC3: State quantity displacement record: %u", record_val);
+            printk(KERN_INFO "ERC3: State quantity displacement record: %u\n", record_val);
             record_val = (upbody->element[0]->value[6] << 8) + upbody->element[0]->value[7];
-            printk(KERN_INFO "ERC4: Sensor and instrument fault record: %u", record_val);
+            printk(KERN_INFO "ERC4: Sensor and instrument fault record: %u\n", record_val);
             record_val = (upbody->element[0]->value[8] << 8) + upbody->element[0]->value[9];
-            printk(KERN_INFO "ERC5: Password modification record: %u", record_val);
+            printk(KERN_INFO "ERC5: Password modification record: %u\n", record_val);
             record_val = (upbody->element[0]->value[10] << 8) + upbody->element[0]->value[11];
-            printk(KERN_INFO "ERC6: Terminal fault record: %u", record_val);
+            printk(KERN_INFO "ERC6: Terminal fault record: %u\n", record_val);
             record_val = (upbody->element[0]->value[12] << 8) + upbody->element[0]->value[13];
-            printk(KERN_INFO "ERC7: AC power loss record: %u", record_val);
+            printk(KERN_INFO "ERC7: AC power loss record: %u\n", record_val);
             record_val = (upbody->element[0]->value[14] << 8) + upbody->element[0]->value[15];
-            printk(KERN_INFO "ERC8: Low battery voltage alarm record: %u", record_val);
+            printk(KERN_INFO "ERC8: Low battery voltage alarm record: %u\n", record_val);
             record_val = (upbody->element[0]->value[16] << 8) + upbody->element[0]->value[17];
-            printk(KERN_INFO "ERC9: Illegal opening record of terminal box: %u", record_val);
+            printk(KERN_INFO "ERC9: Illegal opening record of terminal box: %u\n", record_val);
             record_val = (upbody->element[0]->value[18] << 8) + upbody->element[0]->value[19];
-            printk(KERN_INFO "ERC10: Water pump fault record: %u", record_val);
+            printk(KERN_INFO "ERC10: Water pump fault record: %u\n", record_val);
             record_val = (upbody->element[0]->value[20] << 8) + upbody->element[0]->value[21];
-            printk(KERN_INFO "ERC11: The remaining water volume exceeds the limit alarm record: %u", record_val);
+            printk(KERN_INFO "ERC11: The remaining water volume exceeds the limit alarm record: %u\n", record_val);
             record_val = (upbody->element[0]->value[22] << 8) + upbody->element[0]->value[23];
-            printk(KERN_INFO "ERC12: Water level over-limit alarm record: %u", record_val);
+            printk(KERN_INFO "ERC12: Water level over-limit alarm record: %u\n", record_val);
             record_val = (upbody->element[0]->value[24] << 8) + upbody->element[0]->value[25];
-            printk(KERN_INFO "ERC13: Water pressure limit alarm record: %u", record_val);
+            printk(KERN_INFO "ERC13: Water pressure limit alarm record: %u\n", record_val);
             record_val = (upbody->element[0]->value[26] << 8) + upbody->element[0]->value[27];
-            printk(KERN_INFO "ERC14: Water quality parameter exceeding limit alarm record: %u", record_val);
+            printk(KERN_INFO "ERC14: Water quality parameter exceeding limit alarm record: %u\n", record_val);
             record_val = (upbody->element[0]->value[28] << 8) + upbody->element[0]->value[29];
-            printk(KERN_INFO "ERC15: Data error record: %u", record_val);
+            printk(KERN_INFO "ERC15: Data error record: %u\n", record_val);
             record_val = (upbody->element[0]->value[30] << 8) + upbody->element[0]->value[31];
-            printk(KERN_INFO "ERC16: Message record: %u", record_val);
+            printk(KERN_INFO "ERC16: Message record: %u\n", record_val);
             record_val = (upbody->element[0]->value[32] << 8) + upbody->element[0]->value[33];
-            printk(KERN_INFO "ERC17: Receive message record: %u", record_val);
+            printk(KERN_INFO "ERC17: Receive message record: %u\n", record_val);
             record_val = (upbody->element[0]->value[34] << 8) + upbody->element[0]->value[35];
-            printk(KERN_INFO "ERC18: Send message error record: %u", record_val);
+            printk(KERN_INFO "ERC18: Send message error record: %u\n", record_val);
             record_val = (upbody->element[0]->value[36] << 8) + upbody->element[0]->value[37];
             break;
     }
@@ -2167,7 +2167,7 @@ int hydrology_host_process_receieve(u8 *input, int inputlen, enum hydrology_mode
 
     switch (g_hydrology.up_packet->end) {
         case ETX:
-            printk(KERN_DEBUG "[ETX]Wait disconnecting...");
+            printk(KERN_DEBUG "[ETX]Wait disconnecting...\n");
             hydrology_disable_link_packet();
 
             switch (mode) {
@@ -2184,7 +2184,7 @@ int hydrology_host_process_receieve(u8 *input, int inputlen, enum hydrology_mode
             break;
 
         case ETB:
-            printk(KERN_DEBUG "[ETB]Stay connecting...");
+            printk(KERN_DEBUG "[ETB]Stay connecting...\n");
             hydrology_enable_link_packet();
 
             switch (mode) {
@@ -2201,11 +2201,11 @@ int hydrology_host_process_receieve(u8 *input, int inputlen, enum hydrology_mode
             break;
 
         default:
-            printk(KERN_ERR "Unknown end packet identifier");
+            printk(KERN_ERR "Unknown end packet identifier\n");
             break;
     }
 
-    printk(KERN_ERR " ");
+    printk(KERN_ERR " \n");
 
     hydrology_host_exit_receieve();
 
@@ -2216,17 +2216,17 @@ void hydrology_host_process_end_identifier(u8 End)
 {
     switch (End) {
         case ETX:
-            printk(KERN_DEBUG "[ETX]Wait disconnecting...");
+            printk(KERN_DEBUG "[ETX]Wait disconnecting...\n");
             hydrology_disable_link_packet();
             break;
 
         case ETB:
-            printk(KERN_DEBUG "[ETB]Stay connecting...");
+            printk(KERN_DEBUG "[ETB]Stay connecting...\n");
             hydrology_enable_link_packet();
             break;
 
         default:
-            printk(KERN_ERR "Unknown end packet identifier");
+            printk(KERN_ERR "Unknown end packet identifier\n");
             break;
     }
 }
@@ -2256,23 +2256,23 @@ int hydrology_host_process_m3_err_packet(struct hydrology_element_info *element_
         if (hydrology_host_process_receieve(*ppdata, length, HYDROLOGY_M3) == true) {
             switch (ppdata[0][length - 3]) {
                 case EOT:
-                    printk(KERN_DEBUG "[EOT]Link is disconnecting");
+                    printk(KERN_DEBUG "[EOT]Link is disconnecting\n");
                     hydrology_disconnect_link();
                     break;
 
                 case ESC:
-                    printk(KERN_DEBUG "[ESC]Transfer is over, keep on live within 10 minutes");
+                    printk(KERN_DEBUG "[ESC]Transfer is over, keep on live within 10 minutes\n");
                     hydrology_enable_link_packet();
                     break;
 
                 default:
-                    printk(KERN_ERR "Unknown end packet identifier");
+                    printk(KERN_ERR "Unknown end packet identifier\n");
                     break;
             }
         } else
             return false;
     } else {
-        printk(KERN_DEBUG "Receive data timeout, retry times %d.",
+        printk(KERN_DEBUG "Receive data timeout, retry times %d.\n",
             cerr);
 
         if (cerr >= 3) {
@@ -2295,7 +2295,7 @@ int hydrology_host_process_m1m2(enum hydrology_mode mode)
         if (hydrology_port_receive(ppdata, &length, HYDROLOGY_H_PORT_TIMEOUT) == true)
             hydrology_host_process_receieve(*ppdata, length, mode);
         else {
-            printk(KERN_DEBUG "[Warning]Port is going to be closed.");
+            printk(KERN_DEBUG "[Warning]Port is going to be closed.\n");
             return false;
         }
     }
@@ -2322,14 +2322,14 @@ int hydrology_host_process_m3(void)
 
             packet_cnt++;
         } else {
-            printk(KERN_DEBUG "Receive data timeout.");
+            printk(KERN_DEBUG "Receive data timeout.\n");
             return false;
         }
     } while (ppdata[0][length - 3] == ETB);
 
     for (i = 0; i < packet_cnt; i++) {
         if (bit_map[i / 32] & (1 << (i % 32))) {
-            printk(KERN_DEBUG "Packet %u error, request device to resend", i);
+            printk(KERN_DEBUG "Packet %u error, request device to resend\n", i);
             hydrology_host_process_m3_err_packet(NULL, 0, (enum hydrology_body_type)ppdata[0][10], cerr, i + 1);
         }
     }
@@ -2353,7 +2353,7 @@ int hydrology_host_process_m4(struct hydrology_element_info *element_table, u8 c
             else
                 return false;
         } else {
-            printk(KERN_DEBUG "Receive data timeout.");
+            printk(KERN_DEBUG "Receive data timeout.\n");
             return false;
         }
     } while (ppdata[0][length - 3] == ETB);
@@ -2422,7 +2422,7 @@ int t_hydrology_host_random_element(enum hydrology_mode mode, enum hydrology_bod
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
             if (element_table == NULL) {
-                printk(KERN_DEBUG "element_table malloc failed");
+                printk(KERN_DEBUG "element_table malloc failed\n");
                 return false;
             }
 
@@ -2444,7 +2444,7 @@ int t_hydrology_host_random_element(enum hydrology_mode mode, enum hydrology_bod
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
             if (element_table == NULL) {
-                printk(KERN_DEBUG "element_table malloc failed");
+                printk(KERN_DEBUG "element_table malloc failed\n");
                 return false;
             }
 
@@ -2477,7 +2477,7 @@ int t_hydrology_host_random_element(enum hydrology_mode mode, enum hydrology_bod
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
             if (element_table == NULL) {
-                printk(KERN_DEBUG "element_table malloc failed");
+                printk(KERN_DEBUG "element_table malloc failed\n");
                 return false;
             }
 
@@ -2510,7 +2510,7 @@ int t_hydrology_host_random_element(enum hydrology_mode mode, enum hydrology_bod
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
             if (element_table == NULL) {
-                printk(KERN_DEBUG "element_table malloc failed");
+                printk(KERN_DEBUG "element_table malloc failed\n");
                 return false;
             }
 
@@ -2539,7 +2539,7 @@ int t_hydrology_host_random_element(enum hydrology_mode mode, enum hydrology_bod
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
             if (element_table == NULL) {
-                printk(KERN_DEBUG "element_table malloc failed");
+                printk(KERN_DEBUG "element_table malloc failed\n");
                 return false;
             }
 
@@ -2555,7 +2555,7 @@ int t_hydrology_host_random_element(enum hydrology_mode mode, enum hydrology_bod
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
             if (element_table == NULL) {
-                printk(KERN_DEBUG "element_table malloc failed");
+                printk(KERN_DEBUG "element_table malloc failed\n");
                 return false;
             }
 
@@ -2571,7 +2571,7 @@ int t_hydrology_host_random_element(enum hydrology_mode mode, enum hydrology_bod
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
             if (element_table == NULL) {
-                printk(KERN_DEBUG "element_table malloc failed");
+                printk(KERN_DEBUG "element_table malloc failed\n");
                 return false;
             }
 
@@ -2587,7 +2587,7 @@ int t_hydrology_host_random_element(enum hydrology_mode mode, enum hydrology_bod
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
             if (element_table == NULL) {
-                printk(KERN_DEBUG "element_table malloc failed");
+                printk(KERN_DEBUG "element_table malloc failed\n");
                 return false;
             }
 

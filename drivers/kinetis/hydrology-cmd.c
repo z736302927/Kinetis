@@ -73,7 +73,7 @@ static int hydrology_send_specified_element(void)
         element_table = kmalloc(sizeof(struct hydrology_element_info) * down_body->count, __GFP_ZERO);
 
         if (element_table == NULL) {
-            printk(KERN_DEBUG "element_table malloc failed");
+            printk(KERN_DEBUG "element_table malloc failed\n");
             return false;
         }
     }
@@ -102,7 +102,7 @@ static int hydrology_basic_info_config(void)
         element_table = kmalloc(sizeof(struct hydrology_element_info) * down_body->count, __GFP_ZERO);
 
         if (element_table == NULL) {
-            printk(KERN_DEBUG "element_table malloc failed");
+            printk(KERN_DEBUG "element_table malloc failed\n");
             return false;
         }
     }
@@ -132,7 +132,7 @@ static int hydrology_basic_info_read(enum hydrology_body_type funcode)
         element_table = kmalloc(sizeof(struct hydrology_element_info) * down_body->count, __GFP_ZERO);
 
         if (element_table == NULL) {
-            printk(KERN_DEBUG "element_table malloc failed");
+            printk(KERN_DEBUG "element_table malloc failed\n");
             return false;
         }
     }
@@ -161,7 +161,7 @@ static int hydrology_set_parameter(void)
         element_table = kmalloc(sizeof(struct hydrology_element_info) * down_body->count, __GFP_ZERO);
 
         if (element_table == NULL) {
-            printk(KERN_DEBUG "element_table malloc failed");
+            printk(KERN_DEBUG "element_table malloc failed\n");
             return false;
         }
     }
@@ -191,7 +191,7 @@ static int hydrology_read_parameter(enum hydrology_body_type funcode)
         element_table = kmalloc(sizeof(struct hydrology_element_info) * down_body->count, __GFP_ZERO);
 
         if (element_table == NULL) {
-            printk(KERN_DEBUG "element_table malloc failed");
+            printk(KERN_DEBUG "element_table malloc failed\n");
             return false;
         }
     }

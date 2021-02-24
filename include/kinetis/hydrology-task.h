@@ -11,7 +11,7 @@ extern "C" {
 #include "kinetis/core_common.h"
 
 void hydrology_task_exit(void);
-void hydrology_task_init(void);
+int hydrology_task_init(void);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

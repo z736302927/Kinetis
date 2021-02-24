@@ -1,27 +1,63 @@
 
-at24cxx.lb
-at24cxx.current_addr_read
-at24cxx.random_read 1
-at24cxx.seq_read
-at24cxx.lb_speed
+/*ak8975测试*/
+ak8975.basic-info
+ak8975.magnetic
+ak8975.selftest
+ak8975.fuse-rom-access
 
-w25qxxx.loopback
+/*at24cxx测试*/
+at24cxx.loopback
+at24cxx.current-addr-read
+at24cxx.random-read1
+at24cxx.seq-read
+at24cxx.lb-speed
 
-/* 绝对时钟测试 */
+/*ds3231测试*/
+ds3231.set-clock
+ds3231.get-clock
+ds3231.set-alarm1
+ds3231.set-alarm2
+ds3231.square-wave
+ds3231.32khz-wave
+ds3231.get-temprature"
+
+/*w25qxxx测试*/
+w25qxxx.loopbackw25q1281
+w25qxxx.infow25q128
+w25qxxx.erasew25q128
+
+/*文件系统测试*/
+fatfs.operatemount
+fatfs.operatemkfs
+fatfs.operate
+fatfs.loopback
+fatfs.miscellaneous
+fatfs.file-check
+fatfs.scan-files
+fatfs.append
+fatfs.delete-node
+fatfs.expend
+fatfs.diskio
+fatfs.contiguous-file"
+fatfs.raw-speed
+
+/*测试Device端M1模式下一些自报报文*/
+hydrology.init
+hydrology.testdevicem1
+
+/*绝对时钟测试*/
 basictimer.GetTick
 
-/* 延时函数测试 */
+/*延时函数测试*/
 delay.Delay
 
-/* 内存读写测试 */
+/*内存读写测试*/
 memory.Test
 
-/* 随机数测试 */
+/*随机数测试*/
 random.Number
 random.Array
 
-/* 获取时钟 */
+/*获取时钟*/
 rtc.GetClock
 
-/* 测试Device端 M1模式下一些自报报文 */
-hydrology.Test Device M1

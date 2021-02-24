@@ -32,21 +32,21 @@ int hydrology_device_init_send(u8 cnt, enum hydrology_body_type funcode)
     g_hydrology.up_packet = kmalloc(sizeof(struct hydrology_packet), __GFP_ZERO);
 
     if (g_hydrology.up_packet == NULL) {
-        printk(KERN_DEBUG "g_hydrology.up_packet malloc failed");
+        printk(KERN_DEBUG "g_hydrology.up_packet malloc failed\n");
         return false;
     }
 
     g_hydrology.up_packet->header = kmalloc(sizeof(struct hydrology_up_header), __GFP_ZERO);
 
     if (g_hydrology.up_packet->header == NULL) {
-        printk(KERN_DEBUG "g_hydrology.up_packet->header malloc failed");
+        printk(KERN_DEBUG "g_hydrology.up_packet->header malloc failed\n");
         return false;
     }
 
     g_hydrology.up_packet->body = kmalloc(sizeof(struct hydrology_up_body), __GFP_ZERO);
 
     if (g_hydrology.up_packet->body == NULL) {
-        printk(KERN_DEBUG "g_hydrology.up_packet->body malloc failed");
+        printk(KERN_DEBUG "g_hydrology.up_packet->body malloc failed\n");
         return false;
     }
 
@@ -97,7 +97,7 @@ int hydrology_device_init_send(u8 cnt, enum hydrology_body_type funcode)
         upbody->element = kmalloc(sizeof(struct hydrology_element *) * upbody->count, __GFP_ZERO);
 
         if (upbody->element == NULL) {
-            printk(KERN_DEBUG "upbody->element malloc failed");
+            printk(KERN_DEBUG "upbody->element malloc failed\n");
             return false;
         }
     }
@@ -106,7 +106,7 @@ int hydrology_device_init_send(u8 cnt, enum hydrology_body_type funcode)
         upbody->element[i] = kmalloc(sizeof(struct hydrology_element), __GFP_ZERO);
 
         if (upbody->element[i] == NULL) {
-            printk(KERN_DEBUG "upbody->element[%d] malloc failed", i);
+            printk(KERN_DEBUG "upbody->element[%d] malloc failed\n", i);
             return false;
         }
     }
@@ -162,21 +162,21 @@ int hydrology_device_init_receieve()
     g_hydrology.down_packet = kmalloc(sizeof(struct hydrology_packet), __GFP_ZERO);
 
     if (g_hydrology.down_packet == NULL) {
-        printk(KERN_DEBUG "g_hydrology.down_packet malloc failed");
+        printk(KERN_DEBUG "g_hydrology.down_packet malloc failed\n");
         return false;
     }
 
     g_hydrology.down_packet->header = kmalloc(sizeof(struct hydrology_down_header), __GFP_ZERO);
 
     if (g_hydrology.down_packet->header == NULL) {
-        printk(KERN_DEBUG "g_hydrology.down_packet->header malloc failed");
+        printk(KERN_DEBUG "g_hydrology.down_packet->header malloc failed\n");
         return false;
     }
 
     g_hydrology.down_packet->body = kmalloc(sizeof(struct hydrology_down_body), __GFP_ZERO);
 
     if (g_hydrology.down_packet->body == NULL) {
-        printk(KERN_DEBUG "g_hydrology.down_packet->body malloc failed");
+        printk(KERN_DEBUG "g_hydrology.down_packet->body malloc failed\n");
         return false;
     }
 
@@ -419,7 +419,7 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
             upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
             if (NULL == upbody->element[0]->value) {
-                printk(KERN_DEBUG "upbody->element[0]->value malloc failed");
+                printk(KERN_DEBUG "upbody->element[0]->value malloc failed\n");
                 return false;
             }
 
@@ -484,7 +484,7 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
             upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
             if (NULL == upbody->element[0]->value) {
-                printk(KERN_DEBUG "upbody->element[0]->value malloc failed");
+                printk(KERN_DEBUG "upbody->element[0]->value malloc failed\n");
                 return false;
             }
 
@@ -510,7 +510,7 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
             upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
             if (NULL == upbody->element[0]->value) {
-                printk(KERN_DEBUG "upbody->element[0]->value malloc failed");
+                printk(KERN_DEBUG "upbody->element[0]->value malloc failed\n");
                 return false;
             }
 
@@ -541,7 +541,7 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
             upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
             if (NULL == upbody->element[0]->value) {
-                printk(KERN_DEBUG "upbody->element[0]->value malloc failed");
+                printk(KERN_DEBUG "upbody->element[0]->value malloc failed\n");
                 return false;
             }
 
@@ -566,7 +566,7 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
             upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
             if (NULL == upbody->element[0]->value) {
-                printk(KERN_DEBUG "upbody->element[0]->value malloc failed");
+                printk(KERN_DEBUG "upbody->element[0]->value malloc failed\n");
                 return false;
             }
 
@@ -591,7 +591,7 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
             upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
             if (NULL == upbody->element[0]->value) {
-                printk(KERN_DEBUG "upbody->element[0]->value malloc failed");
+                printk(KERN_DEBUG "upbody->element[0]->value malloc failed\n");
                 return false;
             }
 
@@ -681,7 +681,7 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
         g_hydrology.up_packet->buffer = kmalloc(buffer_size, __GFP_ZERO);
 
         if (g_hydrology.up_packet->buffer == NULL) {
-            printk(KERN_DEBUG "g_hydrology.up_packet->buffer malloc failed");
+            printk(KERN_DEBUG "g_hydrology.up_packet->buffer malloc failed\n");
             return false;
         }
 
@@ -850,15 +850,15 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
         if (hydrology_port_transmmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len) == false)
             return false;
     } else {
-        printk(KERN_DEBUG "[warnning]upbody->len(%d) > HYDROLOGY_BODY_MAX_LEN(%d)",
+        printk(KERN_DEBUG "[warnning]upbody->len(%d) > HYDROLOGY_BODY_MAX_LEN(%d)\n",
             upbody->len, HYDROLOGY_BODY_MAX_LEN);
-        printk(KERN_DEBUG "It will execute split transfer.");
+        printk(KERN_DEBUG "It will execute split transfer.\n");
 
         buffer_size = header->len + HYDROLOGY_BODY_MAX_LEN + 3;
         g_hydrology.up_packet->buffer = kmalloc(buffer_size, __GFP_ZERO);
 
         if (g_hydrology.up_packet->buffer == NULL) {
-            printk(KERN_DEBUG "g_hydrology.up_packet->buffer malloc failed");
+            printk(KERN_DEBUG "g_hydrology.up_packet->buffer malloc failed\n");
             return false;
         }
 
@@ -867,7 +867,7 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
         body_buffer = kmalloc(upbody->len, __GFP_ZERO);
 
         if (body_buffer == NULL) {
-            printk(KERN_DEBUG "body_buffer malloc failed");
+            printk(KERN_DEBUG "body_buffer malloc failed\n");
             return false;
         }
 
@@ -1172,13 +1172,13 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
     struct hydrology_up_body *upbody = (struct hydrology_up_body *)g_hydrology.up_packet->body;
 
     seq = (downheader->count_seq[1] & 0xFF) + downheader->count_seq[2];
-    printk(KERN_DEBUG "[warnning]Packet %u isn't recevied, ready to resend", seq);
+    printk(KERN_DEBUG "[warnning]Packet %u isn't recevied, ready to resend\n", seq);
 
     buffer_size = upheader->len + HYDROLOGY_BODY_MAX_LEN + 3;
     g_hydrology.up_packet->buffer = kmalloc(buffer_size, __GFP_ZERO);
 
     if (g_hydrology.up_packet->buffer == NULL) {
-        printk(KERN_DEBUG "g_hydrology.up_packet->buffer malloc failed");
+        printk(KERN_DEBUG "g_hydrology.up_packet->buffer malloc failed\n");
         return false;
     }
 
@@ -1187,7 +1187,7 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
     body_buffer = kmalloc(upbody->len, __GFP_ZERO);
 
     if (body_buffer == NULL) {
-        printk(KERN_DEBUG "body_buffer malloc failed");
+        printk(KERN_DEBUG "body_buffer malloc failed\n");
         return false;
     }
 
@@ -1480,25 +1480,25 @@ static int hydrology_device_check_down_packet(u8 *input, int inputlen)
     inputCrc = (input[inputlen - 2] << 8) | input[inputlen - 1];
 
     if (crcRet != inputCrc) {
-        printk(KERN_DEBUG "Device crc(0x%04x) != Host crc(0x%04x)",
+        printk(KERN_DEBUG "Device crc(0x%04x) != Host crc(0x%04x)\n",
             inputCrc, crcRet);
-        printk(KERN_DEBUG "CRC check failed !");
+        printk(KERN_DEBUG "CRC check failed !\n");
         return false;
     }
 
     if ((input[0] != SOH) || (input[1] != SOH)) {
-        printk(KERN_DEBUG "Device Frame head(0x%02x, 0x%02x) != Host Frame head(0x%02x, 0x%02x)",
+        printk(KERN_DEBUG "Device Frame head(0x%02x, 0x%02x) != Host Frame head(0x%02x, 0x%02x)\n",
             input[0], input[1], SOH, SOH);
-        printk(KERN_DEBUG "Frame head check failed !");
+        printk(KERN_DEBUG "Frame head check failed !\n");
         return false;
     }
 
     bodylen = (input[11] & 0x0F) * 256 + input[12];
 
     if (bodylen != (inputlen - 17)) {
-        printk(KERN_DEBUG "Device length(0x%x) != Host length(0x%x)",
+        printk(KERN_DEBUG "Device length(0x%x) != Host length(0x%x)\n",
             bodylen, inputlen - 17);
-        printk(KERN_DEBUG "Hydrolog length check failed !");
+        printk(KERN_DEBUG "Hydrolog length check failed !\n");
         return false;
     }
 
@@ -1510,7 +1510,7 @@ static int hydrology_device_make_down_header(u8 *input, int inputlen, int *posit
     struct hydrology_down_header *header = (struct hydrology_down_header *)g_hydrology.down_packet->header;
 
     if (hydrology_device_check_down_packet(input, inputlen) != true) {
-        printk(KERN_DEBUG "Hydrology check fail !");
+        printk(KERN_DEBUG "Hydrology check fail !\n");
         return false;
     }
 
@@ -1667,7 +1667,7 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
         down_body->element = kmalloc(sizeof(struct hydrology_element *) * down_body->count, __GFP_ZERO);
 
         if (down_body->element == NULL) {
-            printk(KERN_DEBUG "down_body->element malloc failed");
+            printk(KERN_DEBUG "down_body->element malloc failed\n");
             return false;
         }
     }
@@ -1676,7 +1676,7 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
         down_body->element[i] = kmalloc(sizeof(struct hydrology_element), __GFP_ZERO);
 
         if (down_body->element[i] == NULL) {
-            printk(KERN_DEBUG "down_body->element[%d] malloc failed", i);
+            printk(KERN_DEBUG "down_body->element[%d] malloc failed\n", i);
             return false;
         }
     }
@@ -1711,7 +1711,7 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
                     down_body->element[i]->value = kmalloc(down_body->element[i]->num, __GFP_ZERO);
 
                     if (NULL == down_body->element[i]->value) {
-                        printk(KERN_DEBUG "down_body->element[0]->value malloc failed");
+                        printk(KERN_DEBUG "down_body->element[0]->value malloc failed\n");
                         return false;
                     }
 
@@ -1749,7 +1749,7 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
                 down_body->element[i]->value = kmalloc(down_body->element[i]->num, __GFP_ZERO);
 
                 if (NULL == down_body->element[i]->value) {
-                    printk(KERN_DEBUG "down_body->element[%d]->value malloc failed", i);
+                    printk(KERN_DEBUG "down_body->element[%d]->value malloc failed\n", i);
                     return false;
                 }
 
@@ -1776,7 +1776,7 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
             down_body->element[0]->value = kmalloc(down_body->element[0]->num, __GFP_ZERO);
 
             if (NULL == down_body->element[0]->value) {
-                printk(KERN_DEBUG "down_body->element[%d]->value malloc failed", 0);
+                printk(KERN_DEBUG "down_body->element[%d]->value malloc failed\n", 0);
                 return false;
             }
 
@@ -1793,7 +1793,7 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
             down_body->element[0]->value = kmalloc(down_body->element[0]->num, __GFP_ZERO);
 
             if (NULL == down_body->element[0]->value) {
-                printk(KERN_DEBUG "down_body->element[%d]->value malloc failed", 0);
+                printk(KERN_DEBUG "down_body->element[%d]->value malloc failed\n", 0);
                 return false;
             }
 
@@ -1808,7 +1808,7 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
             down_body->element[0]->value = kmalloc(down_body->element[0]->num, __GFP_ZERO);
 
             if (NULL == down_body->element[0]->value) {
-                printk(KERN_DEBUG "down_body->element[0]->value malloc failed");
+                printk(KERN_DEBUG "down_body->element[0]->value malloc failed\n");
                 return false;
             }
 
@@ -1888,23 +1888,23 @@ int hydrology_device_process_m3_err_packet(struct hydrology_element_info *elemen
         if (hydrology_device_process_receieve(*ppdata, length, HYDROLOGY_M3) == true) {
             switch (ppdata[0][length - 3]) {
                 case EOT:
-                    printk(KERN_DEBUG "[EOT]Link is disconnecting");
+                    printk(KERN_DEBUG "[EOT]Link is disconnecting\n");
                     hydrology_disconnect_link();
                     break;
 
                 case ESC:
-                    printk(KERN_DEBUG "[ESC]Transfer is over, keep on live within 10 minutes");
+                    printk(KERN_DEBUG "[ESC]Transfer is over, keep on live within 10 minutes\n");
                     hydrology_enable_link_packet();
                     break;
 
                 default:
-                    printk(KERN_ERR "Unknown end packet identifier");
+                    printk(KERN_ERR "Unknown end packet identifier\n");
                     break;
             }
         } else
             return false;
     } else {
-        printk(KERN_DEBUG "Receive data timeout, retry times %d.",
+        printk(KERN_DEBUG "Receive data timeout, retry times %d.\n",
             cerr);
 
         if (cerr >= 3) {
@@ -1926,40 +1926,40 @@ int hydrology_device_process_end_identifier(struct hydrology_element_info *eleme
 
     switch (End) {
         case ETX:
-            printk(KERN_DEBUG "[ETX]Wait disconnecting...");
+            printk(KERN_DEBUG "[ETX]Wait disconnecting...\n");
             hydrology_disable_link_packet();
             break;
 
         case ETB:
-            printk(KERN_DEBUG "[ETB]Stay connecting...");
+            printk(KERN_DEBUG "[ETB]Stay connecting...\n");
             hydrology_enable_link_packet();
             break;
 
         case ENQ:
-            printk(KERN_DEBUG "[ENQ]Query packet");
+            printk(KERN_DEBUG "[ENQ]Query packet\n");
             break;
 
         case EOT:
-            printk(KERN_DEBUG "[EOT]Link is disconnecting");
+            printk(KERN_DEBUG "[EOT]Link is disconnecting\n");
             hydrology_disconnect_link();
             break;
 
         case ACK:
-            printk(KERN_DEBUG "[ACK]There will be another packets in the next transfer");
+            printk(KERN_DEBUG "[ACK]There will be another packets in the next transfer\n");
             break;
 
         case NAK:
-            printk(KERN_DEBUG "[NAK]Error packet, resend");
+            printk(KERN_DEBUG "[NAK]Error packet, resend\n");
             ret = hydrology_device_process_m3_err_packet(element_table, cnt, HYDROLOGY_M3, funcode, cerr);
             break;
 
         case ESC:
-            printk(KERN_DEBUG "[ESC]Transfer is over, keep on live within 10 minutes");
+            printk(KERN_DEBUG "[ESC]Transfer is over, keep on live within 10 minutes\n");
             hydrology_enable_link_packet();
             break;
 
         default:
-            printk(KERN_ERR "Unknown end packet identifier");
+            printk(KERN_ERR "Unknown end packet identifier\n");
             break;
     }
 
@@ -1989,7 +1989,7 @@ int hydrology_device_process_m2(struct hydrology_element_info *element_table, u8
         else
             return false;
     } else {
-        printk(KERN_DEBUG "Receive data timeout, retry times %d.",
+        printk(KERN_DEBUG "Receive data timeout, retry times %d.\n",
             cerr);
 
         if (cerr >= 3) {
@@ -2018,7 +2018,7 @@ int hydrology_device_process_m3(struct hydrology_element_info *element_table, u8
         else
             return false;
     } else {
-        printk(KERN_DEBUG "Receive data timeout.");
+        printk(KERN_DEBUG "Receive data timeout.\n");
         return false;
     }
 
@@ -2034,7 +2034,7 @@ int hydrology_device_process_m4(void)
         if (hydrology_port_receive(ppdata, &length, HYDROLOGY_D_PORT_TIMEOUT) == true)
             hydrology_device_process_receieve(*ppdata, length, HYDROLOGY_M4);
         else {
-            printk(KERN_DEBUG "[Warning]Device Port is going to be closed.");
+            printk(KERN_DEBUG "[Warning]Device Port is going to be closed.\n");
             return false;
         }
     }
@@ -2096,7 +2096,7 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
             if (element_table == NULL) {
-                printk(KERN_DEBUG "element_table malloc failed");
+                printk(KERN_DEBUG "element_table malloc failed\n");
                 return false;
             }
 
@@ -2129,7 +2129,7 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
             if (element_table == NULL) {
-                printk(KERN_DEBUG "element_table malloc failed");
+                printk(KERN_DEBUG "element_table malloc failed\n");
                 return false;
             }
 
@@ -2149,7 +2149,7 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
             if (element_table == NULL) {
-                printk(KERN_DEBUG "element_table malloc failed");
+                printk(KERN_DEBUG "element_table malloc failed\n");
                 return false;
             }
 
@@ -2172,7 +2172,7 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
             if (element_table == NULL) {
-                printk(KERN_DEBUG "element_table malloc failed");
+                printk(KERN_DEBUG "element_table malloc failed\n");
                 return false;
             }
 
@@ -2205,7 +2205,7 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
             if (element_table == NULL) {
-                printk(KERN_DEBUG "element_table malloc failed");
+                printk(KERN_DEBUG "element_table malloc failed\n");
                 return false;
             }
 
@@ -2233,7 +2233,7 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
             if (element_table == NULL) {
-                printk(KERN_DEBUG "element_table malloc failed");
+                printk(KERN_DEBUG "element_table malloc failed\n");
                 return false;
             }
 
@@ -2255,7 +2255,7 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
             if (element_table == NULL) {
-                printk(KERN_DEBUG "element_table malloc failed");
+                printk(KERN_DEBUG "element_table malloc failed\n");
                 return false;
             }
 
@@ -2271,7 +2271,7 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
             if (element_table == NULL) {
-                printk(KERN_DEBUG "element_table malloc failed");
+                printk(KERN_DEBUG "element_table malloc failed\n");
                 return false;
             }
 

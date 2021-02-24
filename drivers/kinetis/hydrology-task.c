@@ -39,7 +39,7 @@ static void measure_temperature_humidit(void)
 
 void link_packet(void)
 {
-    printk(KERN_DEBUG "Send packet, function code = LinkMaintenance");
+    printk(KERN_DEBUG "Send packet, function code = LinkMaintenance\n");
     hydrology_device_process(NULL, 0, HYDROLOGY_M1, LinkMaintenance);
 }
 
@@ -66,23 +66,23 @@ static void test_packet(void)
             Elment.value);
     }
 
-    printk(KERN_DEBUG "Send packet, function code = Test");
+    printk(KERN_DEBUG "Send packet, function code = Test\n");
     hydrology_device_process(element_table, 1, HYDROLOGY_M1, Test);
 }
 
 static void timer_report_packet(void)
 {
-    printk(KERN_DEBUG "Send packet, function code = TimerReport");
+    printk(KERN_DEBUG "Send packet, function code = TimerReport\n");
 }
 
 static void add_report_packet(void)
 {
-    printk(KERN_DEBUG "Send packet, function code = AddReport");
+    printk(KERN_DEBUG "Send packet, function code = AddReport\n");
 }
 
 static void hour_packet(void)
 {
-    printk(KERN_DEBUG "Send packet, function code = Hour");
+    printk(KERN_DEBUG "Send packet, function code = Hour\n");
 }
 
 void hydrology_task_exit(void)
@@ -95,7 +95,7 @@ void hydrology_task_exit(void)
     rtc_task_drop(hour_packet);
 }
 
-void hydrology_task_init(void)
+int hydrology_task_init(void)
 {
     u8 interval;
 
@@ -113,6 +113,8 @@ void hydrology_task_init(void)
         rtc_task_add(0, 0, 0, 0, interval, 0, true, add_report_packet);
 
     rtc_task_add(0, 0, 0, 1, 0, 0, true, hour_packet);
+    
+    return 0;
 }
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

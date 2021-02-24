@@ -146,7 +146,7 @@ void kinetis_dump_buffer8(void *buffer, int size, int column)
             pr_cont("\n\r");
 
         if (!(i % column))
-            pr_cont("Data[%4d~%4d]: ",
+            pr_cont("Buffer[%4d~%4d]: ",
                 i,
                 i + column > size ? size - 1 : i + column - 1);
 
@@ -155,10 +155,3 @@ void kinetis_dump_buffer8(void *buffer, int size, int column)
 
     pr_cont("\n\r");
 }
-
-
-
-
-
-
-

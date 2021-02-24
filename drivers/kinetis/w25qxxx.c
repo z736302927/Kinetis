@@ -838,11 +838,10 @@ static int w25qxxx_multi_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 lengt
             }
 
             /* If you have more than one page of data, write it down*/
-            w25qxxx_page_program(w25qxxx, addr, pdata, num_of_single);
+            if (num_of_single != 0)
+                w25qxxx_page_program(w25qxxx, addr, pdata, num_of_single);
         }
-    }
-    /* If the addr is not aligned with _PAGE_SIZE */
-    else {
+    } else { /* If the addr is not aligned with _PAGE_SIZE */
         /* length < _PAGE_SIZE */
         if (num_of_page == 0) {
             /* The remaining count positions on the current page are smaller than num_of_single */
@@ -1404,6 +1403,40 @@ void w25qxxx_read_info(u8 w25qxxx)
 #ifdef DESIGN_VERIFICATION_W25QXXX
 #include "kinetis/test-kinetis.h"
 
+int t_w25qxxx_chip_erase(int argc, char **argv)
+{
+    u8 w25qxxx = W25Q128;
+
+    if (argc > 1) {
+        if (!strcmp(argv[1], "w25q128"))
+            w25qxxx = W25Q128;
+        else if (!strcmp(argv[1], "w25q256"))
+            w25qxxx = W25Q256;
+    }
+    
+    printk(KERN_DEBUG "Erasing is doing, 30 seconds will cost.\n");
+    
+    sw25qxxx_chip_erase(w25qxxx);
+    
+    return PASS;
+}
+
+int t_w25qxxx_read_info(int argc, char **argv)
+{
+    u8 w25qxxx = W25Q128;
+
+    if (argc > 1) {
+        if (!strcmp(argv[1], "w25q128"))
+            w25qxxx = W25Q128;
+        else if (!strcmp(argv[1], "w25q256"))
+            w25qxxx = W25Q256;
+    }
+    
+    w25qxxx_read_info(w25qxxx);
+    
+    return PASS;
+}
+
 static u8 tx_buffer[32767];
 static u8 rx_buffer[32767];
 
@@ -1411,7 +1444,8 @@ int t_w25qxxx_loopback(int argc, char **argv)
 {
     u8 w25qxxx = W25Q128;
     u32 tmp_rng = 0;
-    u16 i, length = 0;
+    u16 i, j, length = 0;
+    u16 round = 8;
     u32 test_addr = 0;
 
     if (argc > 1) {
@@ -1421,58 +1455,59 @@ int t_w25qxxx_loopback(int argc, char **argv)
             w25qxxx = W25Q256;
     }
 
-    tmp_rng = random_get32bit();
-    length = tmp_rng & 0x7FFF;
-    
-    memset(tx_buffer, 0, length);
-    memset(rx_buffer, 0, length);
+    if (argc > 2)
+        round = strtoul(argv[2], &argv[2], 10);
 
-    tmp_rng = random_get32bit();
-
-    switch (w25qxxx) {
-        case W25Q128:
-            test_addr = tmp_rng & 0xFFFFFF;
-            break;
-
-        case W25Q256:
-            test_addr = tmp_rng & 0x1FFFFFF;
-            break;
-
-        default:
-            test_addr = 0;
-            break;
-    }
-
-    printk(KERN_DEBUG "test addr: %#08x, length = %d.\n",
-        test_addr, length);
-
-    for (i = 0; i < length; i += 4) {
+    for (j = 0; j < round; j++) {
         tmp_rng = random_get32bit();
-        memcpy(&tx_buffer[i], &tmp_rng, sizeof(tmp_rng));
-    }
+        length = tmp_rng & 0x7FFF;
+        
+        memset(tx_buffer, 0, length);
+        memset(rx_buffer, 0, length);
 
-    w25qxxx_write_data(w25qxxx, test_addr, tx_buffer, length);
-    w25qxxx_read_data(w25qxxx, test_addr, rx_buffer, length);
+        tmp_rng = random_get32bit();
 
-    printk(KERN_DEBUG "w25qxxx tx buffer: \n");
-    kinetis_dump_buffer8(tx_buffer, 128, 16);
-    printk(KERN_DEBUG "w25qxxx rx buffer: \n");
-    kinetis_dump_buffer8(rx_buffer, 128, 16);
-    
-    for (i = 0; i < length; i++) {
-        if (tx_buffer[i] != rx_buffer[i]) {
-            printk(KERN_ERR "tx[%d]: %#02x, rx[%d]: %#02x\n",
-                i, tx_buffer[i],
-                i, rx_buffer[i]);
-            printk(KERN_ERR
-                "Data writes and reads do not match, TEST FAILED !\n");
-            return -EPIPE;
+        switch (w25qxxx) {
+            case W25Q128:
+                test_addr = tmp_rng & 0xFFFFFF;
+                break;
+
+            case W25Q256:
+                test_addr = tmp_rng & 0x1FFFFFF;
+                break;
+
+            default:
+                test_addr = 0;
+                break;
         }
-    }
+        printk(KERN_DEBUG "round[%4u], test addr@0x%08x, length = %d.\n",
+            j, test_addr, length);
+
+        random_get_array(tx_buffer, length, RNG_8BITS);
+
+        w25qxxx_write_data(w25qxxx, test_addr, tx_buffer, length);
+        w25qxxx_read_data(w25qxxx, test_addr, rx_buffer, length);
+
+        printk(KERN_DEBUG "w25qxxx tx buffer: \n");
+        kinetis_dump_buffer8(tx_buffer, 128, 16);
+        printk(KERN_DEBUG "w25qxxx rx buffer: \n");
+        kinetis_dump_buffer8(rx_buffer, 128, 16);
+        
+        for (i = 0; i < length; i++) {
+            if (tx_buffer[i] != rx_buffer[i]) {
+                printk(KERN_ERR "tx[%d]: %#02x, rx[%d]: %#02x\n",
+                    i, tx_buffer[i],
+                    i, rx_buffer[i]);
+                printk(KERN_ERR
+                    "Data writes and reads do not match, TEST FAILED !\n");
+                return -EPIPE;
+            }
+        }
+    }   
 
     printk(KERN_DEBUG "w25qxxx read and write TEST PASSED !\n");
 
-    return 0;
+    return PASS;
 }
 
 #endif

@@ -25,7 +25,7 @@
 /* File system object for  disk logical drive */
 static FATFS disk_fatfs;
 /* File object */
-static FIL my_file;
+static FIL test_file;
 /*  disk logical drive path */
 static char disk_path[4];
 /* a work buffer for the f_mkfs() */
@@ -53,10 +53,10 @@ int fatfs_init(void)
             }
         }
     } else {
-        printk(KERN_ERR "Failed to link low level driver.");
+        printk(KERN_ERR "Failed to link low level driver.\n");
         return -ENOSYS;
     }
-    
+
     return 0;
 }
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
@@ -89,7 +89,7 @@ void printf_fatfs_err(FRESULT fresult)
             break;
 
         case FR_INVALID_NAME:         //(6)
-            printk(KERN_DEBUG "Invalid path name.\n");
+            printk(KERN_DEBUG "Invalid path name, May be not set the FF_USE_LFN feature.\n");
             break;
 
         case FR_DENIED:               //(7)
@@ -158,50 +158,50 @@ FRESULT fatfs_miscellaneous(void)
     int32_t byteswritten = 0;
     uint32_t bytesread = 0;
 
-    printk(KERN_DEBUG "Device information acquisition.");
+    printk(KERN_DEBUG "Device information acquisition.\n");
     /* Gets device information and empty cluster size. */
     res = f_getfree("1:", &fre_clust, &pfs);
     /* The total number of sectors and the number of empty sectors are calculated. */
     tot_sect = (pfs->n_fatent - 2) * pfs->csize;
     fre_sect = fre_clust * pfs->csize;
     /* Print information (4096 bytes/sector) */
-    printk(KERN_DEBUG "Total equipment space:%6u MB.\r\nAvailable space: %6u MB.",
+    printk(KERN_DEBUG "Total equipment space:%6u MB.\r\nAvailable space: %6u MB.\n",
         tot_sect * 4 / 1024, fre_sect * 4 / 1024);
 
-    printk(KERN_DEBUG "File location and formatting write function test");
-    res = f_open(&my_file, "FatFs.txt", FA_OPEN_EXISTING | FA_WRITE | FA_READ);
+    printk(KERN_DEBUG "File location and formatting write function test\n");
+    res = f_open(&test_file, "FatFs.txt", FA_OPEN_EXISTING | FA_WRITE | FA_READ);
 
     if (res == FR_OK) {
         /* File location */
-        res = f_lseek(&my_file, f_size(&my_file) - 1);
+        res = f_lseek(&test_file, f_size(&test_file) - 1);
 
         if (res == FR_OK) {
             /* Format write, parameter format similar to printf function. */
-            byteswritten = f_printf(&my_file,
+            byteswritten = f_printf(&test_file,
                     "add a new line to the original file.");
 
             if (byteswritten == EOF)
-                printk(KERN_ERR " ");
+                printk(KERN_ERR " \n");
 
-            byteswritten = f_printf(&my_file,
-                    "Total equipment space:%6lu MB.\r\nAvailable space: %6lu MB.",
+            byteswritten = f_printf(&test_file,
+                    "Total equipment space:%6lu MB.\r\nAvailable space: %6lu MB.\n",
                     tot_sect * 4 / 1024, fre_sect * 4 / 1024);
 
             if (byteswritten == EOF)
-                printk(KERN_ERR " ");
+                printk(KERN_ERR " \n");
 
             /* The file is positioned at the start of the file. */
-            res = f_lseek(&my_file, 0);
+            res = f_lseek(&test_file, 0);
             /* Read all contents of the file into the cache. */
-            res = f_read(&my_file, rtext, f_size(&my_file), &bytesread);
+            res = f_read(&test_file, rtext, f_size(&test_file), &bytesread);
 
             if (res == FR_OK)
-                printk(KERN_DEBUG "The file content: %s", rtext);
+                printk(KERN_DEBUG "The file content: %s\n", rtext);
         }
 
-        f_close(&my_file);
+        f_close(&test_file);
 
-        printk(KERN_DEBUG "Directory creation and rename function test");
+        printk(KERN_DEBUG "Directory creation and rename function test\n");
         /* Try opening a directory. */
         res = f_opendir(&my_dir, "TestDir");
 
@@ -220,9 +220,9 @@ FRESULT fatfs_miscellaneous(void)
             res = f_rename("FatFs.txt", "TestDir/testdir.txt");
         }
     } else {
-        printk(KERN_DEBUG "Failed to open file: %d", res);
+        printk(KERN_DEBUG "Failed to open file: %d\n", res);
         printk(KERN_DEBUG
-            "You may need to run the FatFs migration and read and write test project again.");
+            "You may need to run the FatFs migration and read and write test project again.\n");
     }
 
     return res;
@@ -273,7 +273,7 @@ FRESULT fatfs_scan_files(char *path)
                 if (res != FR_OK)
                     break;
             } else {
-                printk(KERN_DEBUG "%s/%s", path, fn);                //Output file name
+                printk(KERN_DEBUG "%s/%s\n", path, fn);                //Output file name
                 /* Here you can extract the file path for a particular format. */
             }
         }
@@ -415,112 +415,112 @@ int fatfs_diskio(
     DRESULT dr;
 
 
-    printk(KERN_DEBUG "test_diskio(%u, %u, 0x%08X, 0x%08X)", pdrv, ncyc, (UINT)buff, sz_buff);
+    printk(KERN_DEBUG "test_diskio(%u, %u, 0x%08X, 0x%08X)\n", pdrv, ncyc, (UINT)buff, sz_buff);
 
     if (sz_buff < FF_MAX_SS + 8) {
-        printk(KERN_DEBUG "Insufficient work area to run the program.");
+        printk(KERN_DEBUG "Insufficient work area to run the program.\n");
         return 1;
     }
 
     for (cc = 1; cc <= ncyc; cc++) {
-        printk(KERN_DEBUG "**** Test cycle %u of %u start ****", cc, ncyc);
+        printk(KERN_DEBUG "**** Test cycle %u of %u start ****\n", cc, ncyc);
 
-        printk(KERN_DEBUG " disk_initalize(%u)", pdrv);
+        printk(KERN_DEBUG " disk_initalize(%u)\n", pdrv);
         ds = disk_initialize(pdrv);
 
         if (ds & STA_NOINIT) {
-            printk(KERN_DEBUG " - failed.");
+            printk(KERN_DEBUG " - failed.\n");
             return 2;
         } else
-            printk(KERN_DEBUG " - ok.");
+            printk(KERN_DEBUG " - ok.\n");
 
-        printk(KERN_DEBUG "**** Get drive size ****");
-        printk(KERN_DEBUG " disk_ioctl(%u, GET_SECTOR_COUNT, 0x%08X)", pdrv, (UINT)&sz_drv);
+        printk(KERN_DEBUG "**** Get drive size ****\n");
+        printk(KERN_DEBUG " disk_ioctl(%u, GET_SECTOR_COUNT, 0x%08X)\n", pdrv, (UINT)&sz_drv);
         sz_drv = 0;
         dr = disk_ioctl(pdrv, GET_SECTOR_COUNT, &sz_drv);
 
         if (dr == RES_OK)
-            printk(KERN_DEBUG " - ok.");
+            printk(KERN_DEBUG " - ok.\n");
         else {
-            printk(KERN_DEBUG " - failed.");
+            printk(KERN_DEBUG " - failed.\n");
             return 3;
         }
 
         if (sz_drv < 128) {
-            printk(KERN_DEBUG "Failed: Insufficient drive size to test.");
+            printk(KERN_DEBUG "Failed: Insufficient drive size to test.\n");
             return 4;
         }
 
-        printk(KERN_DEBUG " Number of sectors on the drive %u is %u.", pdrv, sz_drv);
+        printk(KERN_DEBUG " Number of sectors on the drive %u is %u.\n", pdrv, sz_drv);
 
 #if FF_MAX_SS != FF_MIN_SS
-        printk(KERN_DEBUG "**** Get sector size ****");
-        printk(KERN_DEBUG " disk_ioctl(%u, GET_SECTOR_SIZE, 0x%X)", pdrv, (UINT)&sz_sect);
+        printk(KERN_DEBUG "**** Get sector size ****\n");
+        printk(KERN_DEBUG " disk_ioctl(%u, GET_SECTOR_SIZE, 0x%X)\n", pdrv, (UINT)&sz_sect);
         sz_sect = 0;
         dr = disk_ioctl(pdrv, GET_SECTOR_SIZE, &sz_sect);
 
         if (dr == RES_OK)
-            printk(KERN_DEBUG " - ok.");
+            printk(KERN_DEBUG " - ok.\n");
         else {
-            printk(KERN_DEBUG " - failed.");
+            printk(KERN_DEBUG " - failed.\n");
             return 5;
         }
 
-        printk(KERN_DEBUG " Size of sector is %u bytes.", sz_sect);
+        printk(KERN_DEBUG " Size of sector is %u bytes.\n", sz_sect);
 #else
         sz_sect = FF_MAX_SS;
 #endif
 
-        printk(KERN_DEBUG "**** Get block size ****");
-        printk(KERN_DEBUG " disk_ioctl(%u, GET_BLOCK_SIZE, 0x%X)", pdrv, (UINT)&sz_eblk);
+        printk(KERN_DEBUG "**** Get block size ****\n");
+        printk(KERN_DEBUG " disk_ioctl(%u, GET_BLOCK_SIZE, 0x%X)\n", pdrv, (UINT)&sz_eblk);
         sz_eblk = 0;
         dr = disk_ioctl(pdrv, GET_BLOCK_SIZE, &sz_eblk);
 
         if (dr == RES_OK)
-            printk(KERN_DEBUG " - ok.");
+            printk(KERN_DEBUG " - ok.\n");
         else
-            printk(KERN_DEBUG " - failed.");
+            printk(KERN_DEBUG " - failed.\n");
 
         if (dr == RES_OK || sz_eblk >= 2)
-            printk(KERN_DEBUG " Size of the erase block is %u sectors.", sz_eblk);
+            printk(KERN_DEBUG " Size of the erase block is %u sectors.\n", sz_eblk);
         else
-            printk(KERN_DEBUG " Size of the erase block is unknown.");
+            printk(KERN_DEBUG " Size of the erase block is unknown.\n");
 
         /* Single sector write test */
-        printk(KERN_DEBUG "**** Single sector write test ****");
+        printk(KERN_DEBUG "**** Single sector write test ****\n");
         lba = 0;
 
         for (n = 0, fatfs_diskio_pseudo(pns); n < sz_sect; n++)
             pbuff[n] = (BYTE)fatfs_diskio_pseudo(0);
 
-        printk(KERN_DEBUG " disk_write(%u, 0x%X, %u, 1)", pdrv, (UINT)pbuff, lba);
+        printk(KERN_DEBUG " disk_write(%u, 0x%X, %u, 1)\n", pdrv, (UINT)pbuff, lba);
         dr = disk_write(pdrv, pbuff, lba, 1);
 
         if (dr == RES_OK)
-            printk(KERN_DEBUG " - ok.");
+            printk(KERN_DEBUG " - ok.\n");
         else {
-            printk(KERN_DEBUG " - failed.");
+            printk(KERN_DEBUG " - failed.\n");
             return 6;
         }
 
-        printk(KERN_DEBUG " disk_ioctl(%u, CTRL_SYNC, NULL)", pdrv);
+        printk(KERN_DEBUG " disk_ioctl(%u, CTRL_SYNC, NULL)\n", pdrv);
         dr = disk_ioctl(pdrv, CTRL_SYNC, 0);
 
         if (dr == RES_OK)
-            printk(KERN_DEBUG " - ok.");
+            printk(KERN_DEBUG " - ok.\n");
         else {
-            printk(KERN_DEBUG " - failed.");
+            printk(KERN_DEBUG " - failed.\n");
             return 7;
         }
 
         memset(pbuff, 0, sz_sect);
-        printk(KERN_DEBUG " disk_read(%u, 0x%X, %u, 1)", pdrv, (UINT)pbuff, lba);
+        printk(KERN_DEBUG " disk_read(%u, 0x%X, %u, 1)\n", pdrv, (UINT)pbuff, lba);
         dr = disk_read(pdrv, pbuff, lba, 1);
 
         if (dr == RES_OK)
-            printk(KERN_DEBUG " - ok.");
+            printk(KERN_DEBUG " - ok.\n");
         else {
-            printk(KERN_DEBUG " - failed.");
+            printk(KERN_DEBUG " - failed.\n");
             return 8;
         }
 
@@ -529,15 +529,15 @@ int fatfs_diskio(
             n++) ;
 
         if (n == sz_sect)
-            printk(KERN_DEBUG " Read data matched.");
+            printk(KERN_DEBUG " Read data matched.\n");
         else {
-            printk(KERN_DEBUG " Read data differs from the data written.");
+            printk(KERN_DEBUG " Read data differs from the data written.\n");
             return 10;
         }
 
         pns++;
 
-        printk(KERN_DEBUG "**** Multiple sector write test ****");
+        printk(KERN_DEBUG "**** Multiple sector write test ****\n");
         lba = 5;
         ns = sz_buff / sz_sect;
 
@@ -548,34 +548,34 @@ int fatfs_diskio(
             for (n = 0, fatfs_diskio_pseudo(pns); n < (UINT)(sz_sect * ns); n++)
                 pbuff[n] = (BYTE)fatfs_diskio_pseudo(0);
 
-            printk(KERN_DEBUG " disk_write(%u, 0x%X, %u, %u)", pdrv, (UINT)pbuff, lba, ns);
+            printk(KERN_DEBUG " disk_write(%u, 0x%X, %u, %u)\n", pdrv, (UINT)pbuff, lba, ns);
             dr = disk_write(pdrv, pbuff, lba, ns);
 
             if (dr == RES_OK)
-                printk(KERN_DEBUG " - ok.");
+                printk(KERN_DEBUG " - ok.\n");
             else {
-                printk(KERN_DEBUG " - failed.");
+                printk(KERN_DEBUG " - failed.\n");
                 return 11;
             }
 
-            printk(KERN_DEBUG " disk_ioctl(%u, CTRL_SYNC, NULL)", pdrv);
+            printk(KERN_DEBUG " disk_ioctl(%u, CTRL_SYNC, NULL)\n", pdrv);
             dr = disk_ioctl(pdrv, CTRL_SYNC, 0);
 
             if (dr == RES_OK)
-                printk(KERN_DEBUG " - ok.");
+                printk(KERN_DEBUG " - ok.\n");
             else {
-                printk(KERN_DEBUG " - failed.");
+                printk(KERN_DEBUG " - failed.\n");
                 return 12;
             }
 
             memset(pbuff, 0, sz_sect * ns);
-            printk(KERN_DEBUG " disk_read(%u, 0x%X, %u, %u)", pdrv, (UINT)pbuff, lba, ns);
+            printk(KERN_DEBUG " disk_read(%u, 0x%X, %u, %u)\n", pdrv, (UINT)pbuff, lba, ns);
             dr = disk_read(pdrv, pbuff, lba, ns);
 
             if (dr == RES_OK)
-                printk(KERN_DEBUG " - ok.");
+                printk(KERN_DEBUG " - ok.\n");
             else {
-                printk(KERN_DEBUG " - failed.");
+                printk(KERN_DEBUG " - failed.\n");
                 return 13;
             }
 
@@ -584,50 +584,50 @@ int fatfs_diskio(
                 n++) ;
 
             if (n == (UINT)(sz_sect * ns))
-                printk(KERN_DEBUG " Read data matched.");
+                printk(KERN_DEBUG " Read data matched.\n");
             else {
-                printk(KERN_DEBUG " Read data differs from the data written.");
+                printk(KERN_DEBUG " Read data differs from the data written.\n");
                 return 14;
             }
         } else
-            printk(KERN_DEBUG " Test skipped.");
+            printk(KERN_DEBUG " Test skipped.\n");
 
         pns++;
 
-        printk(KERN_DEBUG "**** Single sector write test (unaligned buffer address) ****");
+        printk(KERN_DEBUG "**** Single sector write test (unaligned buffer address) ****\n");
         lba = 5;
 
         for (n = 0, fatfs_diskio_pseudo(pns); n < sz_sect; n++)
             pbuff[n + 3] = (BYTE)fatfs_diskio_pseudo(0);
 
-        printk(KERN_DEBUG " disk_write(%u, 0x%X, %u, 1)", pdrv, (UINT)(pbuff + 3), lba);
+        printk(KERN_DEBUG " disk_write(%u, 0x%X, %u, 1)\n", pdrv, (UINT)(pbuff + 3), lba);
         dr = disk_write(pdrv, pbuff + 3, lba, 1);
 
         if (dr == RES_OK)
-            printk(KERN_DEBUG " - ok.");
+            printk(KERN_DEBUG " - ok.\n");
         else {
-            printk(KERN_DEBUG " - failed.");
+            printk(KERN_DEBUG " - failed.\n");
             return 15;
         }
 
-        printk(KERN_DEBUG " disk_ioctl(%u, CTRL_SYNC, NULL)", pdrv);
+        printk(KERN_DEBUG " disk_ioctl(%u, CTRL_SYNC, NULL)\n", pdrv);
         dr = disk_ioctl(pdrv, CTRL_SYNC, 0);
 
         if (dr == RES_OK)
-            printk(KERN_DEBUG " - ok.");
+            printk(KERN_DEBUG " - ok.\n");
         else {
-            printk(KERN_DEBUG " - failed.");
+            printk(KERN_DEBUG " - failed.\n");
             return 16;
         }
 
         memset(pbuff + 5, 0, sz_sect);
-        printk(KERN_DEBUG " disk_read(%u, 0x%X, %u, 1)", pdrv, (UINT)(pbuff + 5), lba);
+        printk(KERN_DEBUG " disk_read(%u, 0x%X, %u, 1)\n", pdrv, (UINT)(pbuff + 5), lba);
         dr = disk_read(pdrv, pbuff + 5, lba, 1);
 
         if (dr == RES_OK)
-            printk(KERN_DEBUG " - ok.");
+            printk(KERN_DEBUG " - ok.\n");
         else {
-            printk(KERN_DEBUG " - failed.");
+            printk(KERN_DEBUG " - failed.\n");
             return 17;
         }
 
@@ -636,15 +636,15 @@ int fatfs_diskio(
             n++) ;
 
         if (n == sz_sect)
-            printk(KERN_DEBUG " Read data matched.");
+            printk(KERN_DEBUG " Read data matched.\n");
         else {
-            printk(KERN_DEBUG " Read data differs from the data written.");
+            printk(KERN_DEBUG " Read data differs from the data written.\n");
             return 18;
         }
 
         pns++;
 
-        printk(KERN_DEBUG "**** 4GB barrier test ****");
+        printk(KERN_DEBUG "**** 4GB barrier test ****\n");
 
         if (sz_drv >= 128 + 0x80000000 / (sz_sect / 2)) {
             lba = 6;
@@ -653,54 +653,54 @@ int fatfs_diskio(
             for (n = 0, fatfs_diskio_pseudo(pns); n < (UINT)(sz_sect * 2); n++)
                 pbuff[n] = (BYTE)fatfs_diskio_pseudo(0);
 
-            printk(KERN_DEBUG " disk_write(%u, 0x%X, %u, 1)", pdrv, (UINT)pbuff, lba);
+            printk(KERN_DEBUG " disk_write(%u, 0x%X, %u, 1)\n", pdrv, (UINT)pbuff, lba);
             dr = disk_write(pdrv, pbuff, lba, 1);
 
             if (dr == RES_OK)
-                printk(KERN_DEBUG " - ok.");
+                printk(KERN_DEBUG " - ok.\n");
             else {
-                printk(KERN_DEBUG " - failed.");
+                printk(KERN_DEBUG " - failed.\n");
                 return 19;
             }
 
-            printk(KERN_DEBUG " disk_write(%u, 0x%X, %u, 1)", pdrv, (UINT)(pbuff + sz_sect), lba2);
+            printk(KERN_DEBUG " disk_write(%u, 0x%X, %u, 1)\n", pdrv, (UINT)(pbuff + sz_sect), lba2);
             dr = disk_write(pdrv, pbuff + sz_sect, lba2, 1);
 
             if (dr == RES_OK)
-                printk(KERN_DEBUG " - ok.");
+                printk(KERN_DEBUG " - ok.\n");
             else {
-                printk(KERN_DEBUG " - failed.");
+                printk(KERN_DEBUG " - failed.\n");
                 return 20;
             }
 
-            printk(KERN_DEBUG " disk_ioctl(%u, CTRL_SYNC, NULL)", pdrv);
+            printk(KERN_DEBUG " disk_ioctl(%u, CTRL_SYNC, NULL)\n", pdrv);
             dr = disk_ioctl(pdrv, CTRL_SYNC, 0);
 
             if (dr == RES_OK)
-                printk(KERN_DEBUG " - ok.");
+                printk(KERN_DEBUG " - ok.\n");
             else {
-                printk(KERN_DEBUG " - failed.");
+                printk(KERN_DEBUG " - failed.\n");
                 return 21;
             }
 
             memset(pbuff, 0, sz_sect * 2);
-            printk(KERN_DEBUG " disk_read(%u, 0x%X, %u, 1)", pdrv, (UINT)pbuff, lba);
+            printk(KERN_DEBUG " disk_read(%u, 0x%X, %u, 1)\n", pdrv, (UINT)pbuff, lba);
             dr = disk_read(pdrv, pbuff, lba, 1);
 
             if (dr == RES_OK)
-                printk(KERN_DEBUG " - ok.");
+                printk(KERN_DEBUG " - ok.\n");
             else {
-                printk(KERN_DEBUG " - failed.");
+                printk(KERN_DEBUG " - failed.\n");
                 return 22;
             }
 
-            printk(KERN_DEBUG " disk_read(%u, 0x%X, %u, 1)", pdrv, (UINT)(pbuff + sz_sect), lba2);
+            printk(KERN_DEBUG " disk_read(%u, 0x%X, %u, 1)\n", pdrv, (UINT)(pbuff + sz_sect), lba2);
             dr = disk_read(pdrv, pbuff + sz_sect, lba2, 1);
 
             if (dr == RES_OK)
-                printk(KERN_DEBUG " - ok.");
+                printk(KERN_DEBUG " - ok.\n");
             else {
-                printk(KERN_DEBUG " - failed.");
+                printk(KERN_DEBUG " - failed.\n");
                 return 23;
             }
 
@@ -709,17 +709,17 @@ int fatfs_diskio(
                 n++) ;
 
             if (n == (UINT)(sz_sect * 2))
-                printk(KERN_DEBUG " Read data matched.");
+                printk(KERN_DEBUG " Read data matched.\n");
             else {
-                printk(KERN_DEBUG " Read data differs from the data written.");
+                printk(KERN_DEBUG " Read data differs from the data written.\n");
                 return 24;
             }
         } else
-            printk(KERN_DEBUG " Test skipped.");
+            printk(KERN_DEBUG " Test skipped.\n");
 
         pns++;
 
-        printk(KERN_DEBUG "**** Test cycle %u of %u completed ****", cc, ncyc);
+        printk(KERN_DEBUG "**** Test cycle %u of %u completed ****\n", cc, ncyc);
     }
 
     return 0;
@@ -739,7 +739,8 @@ FRESULT fatfs_contiguous_file(
     FRESULT fr;
 
     *cont = 0;
-    fr = f_lseek(fp, 0);            /* Validates and prepares the file */
+    /* Validates and prepares the file */
+    fr = f_lseek(fp, 0);
 
     if (fr != FR_OK)
         return fr;
@@ -752,26 +753,29 @@ FRESULT fatfs_contiguous_file(
     fsz = fp->obj.objsize;
 
     if (fsz > 0) {
-        clst = fp->obj.sclust - 1;  /* A cluster leading the first cluster for first test */
+        /* A cluster leading the first cluster for first test */
+        clst = fp->obj.sclust - 1;
 
         while (fsz) {
             step = (fsz >= clsz) ? clsz : (DWORD)fsz;
-            fr = f_lseek(fp, f_tell(fp) + step);    /* Advances file pointer a cluster */
+            /* Advances file pointer a cluster */
+            fr = f_lseek(fp, f_tell(fp) + step);
 
             if (fr != FR_OK)
                 return fr;
 
-            if (clst + 1 != fp->clust) {
-                break;  /* Is not the cluster next to previous one? */
-            }
+            /* Is not the cluster next to previous one? */
+            if (clst + 1 != fp->clust)
+                break;
 
             clst = fp->clust;
-            fsz -= step;          /* Get current cluster for next test */
+            /* Get current cluster for next test */
+            fsz -= step;
         }
 
-        if (fsz == 0) {
-            *cont = 1;  /* All done without fail? */
-        }
+        /* All done without fail? */
+        if (fsz == 0)
+            *cont = 1;
     }
 
     return FR_OK;
@@ -794,51 +798,74 @@ int fatfs_raw_speed(
 #if FF_MIN_SS != FF_MAX_SS
 
     if (disk_ioctl(pdrv, GET_SECTOR_SIZE, &ss) != RES_OK) {
-        printk(KERN_DEBUG "disk_ioctl() failed.");
-        return false;
+        printk(KERN_DEBUG "disk_ioctl() failed.\n");
+        return -EINVAL;
     }
 
 #else
     ss = FF_MAX_SS;
 #endif
 
-    printk(KERN_DEBUG "Starting raw write test at sector %u in %u bytes of data chunks...", lba, sz_buff);
-    tmr = basic_timer_get_timer_cnt();
+    printk(KERN_DEBUG "Starting raw write test at sector %u "
+        "in %u bytes of data chunks...\n", lba, sz_buff);
+    tmr = basic_timer_get_us();
 
     for (ofs = 0; ofs < len / ss; ofs += sz_buff / ss) {
         if (disk_write(pdrv, buff, lba + ofs, sz_buff / ss) != RES_OK) {
-            printk(KERN_DEBUG "disk_write() failed.");
-            return false;
+            printk(KERN_DEBUG "disk_write() failed.\n");
+            return -EINVAL;
         }
     }
 
     if (disk_ioctl(pdrv, CTRL_SYNC, 0) != RES_OK) {
-        printk(KERN_DEBUG "disk_ioctl() failed.");
-        return false;
+        printk(KERN_DEBUG "disk_ioctl() failed.\n");
+        return -EINVAL;
     }
 
-    tmr = basic_timer_get_timer_cnt() - tmr;
-    printk(KERN_DEBUG "%u bytes written and it took %u timer ticks.", len, tmr);
+    tmr = basic_timer_get_us() - tmr;
+    printk(KERN_DEBUG "%u bytes written and it took %u us (%.3f)B/s.\n",
+        len, tmr, (float)len * 1000 / tmr);
 
-    printk(KERN_DEBUG "Starting raw read test at sector %u in %u bytes of data chunks...", lba, sz_buff);
-    tmr = basic_timer_get_timer_cnt();
+    printk(KERN_DEBUG "Starting raw read test at sector %u "
+        "in %u bytes of data chunks...\n", lba, sz_buff);
+    tmr = basic_timer_get_us();
 
     for (ofs = 0; ofs < len / ss; ofs += sz_buff / ss) {
         if (disk_read(pdrv, buff, lba + ofs, sz_buff / ss) != RES_OK) {
-            printk(KERN_DEBUG "disk_read() failed.");
-            return false;
+            printk(KERN_DEBUG "disk_read() failed.\n");
+            return -EINVAL;
         }
     }
 
-    tmr = basic_timer_get_timer_cnt() - tmr;
-    printk(KERN_DEBUG "%u bytes read and it took %u timer ticks.", len, tmr);
-    printk(KERN_DEBUG "Test completed.");
+    tmr = basic_timer_get_us() - tmr;
+    printk(KERN_DEBUG "%u bytes read and it took %u us (%.3f)B/s.\n",
+        len, tmr, (float)len * 1000 / tmr);
+    printk(KERN_DEBUG "Test completed.\n");
 
-    return true;
+    return 0;
 }
 
 #ifdef DESIGN_VERIFICATION_FATFS
 #include "kinetis/test-kinetis.h"
+
+int t_fatfs_operate(int argc, char **argv)
+{
+    int ret;
+
+    if (argc > 1) {
+        if (!strcmp(argv[1], "mount"))
+            ret = f_mount(&disk_fatfs, (TCHAR const *)disk_path, 0);
+        else if (!strcmp(argv[1], "mkfs"))
+            ret = f_mkfs((const TCHAR *)disk_path, 0, work_buffer, sizeof(work_buffer));
+    }
+
+    if (ret) {
+        printf_fatfs_err(ret);
+        return FAIL;
+    }
+
+    return PASS;
+}
 
 int t_fatfs_loopback(int argc, char **argv)
 {
@@ -873,38 +900,38 @@ int t_fatfs_loopback(int argc, char **argv)
                 printf_fatfs_err(res);
             } else {
                 /*##-4- Create and Open a new text file object with write access #####*/
-                res = f_open(&my_file, "STM32.TXT", FA_CREATE_ALWAYS | FA_WRITE);
+                res = f_open(&test_file, "STM32.TXT", FA_CREATE_ALWAYS | FA_WRITE);
 
                 if (res != FR_OK) {
                     /* 'STM32.TXT' file Open for write Error */
                     printf_fatfs_err(res);
                 } else {
                     /*##-5- Write data to the text file ################################*/
-                    res = f_write(&my_file, wtext, sizeof(wtext), (void *)&byteswritten);
+                    res = f_write(&test_file, wtext, sizeof(wtext), (void *)&byteswritten);
 
                     if ((byteswritten == 0) || (res != FR_OK)) {
                         /* 'STM32.TXT' file Write or EOF Error */
                         printf_fatfs_err(res);
                     } else {
                         /*##-6- Close the open text file #################################*/
-                        f_close(&my_file);
+                        f_close(&test_file);
 
                         /*##-7- Open the text file object with read access ###############*/
-                        res = f_open(&my_file, "STM32.TXT", FA_READ);
+                        res = f_open(&test_file, "STM32.TXT", FA_READ);
 
                         if (res != FR_OK) {
                             /* 'STM32.TXT' file Open for read Error */
                             printf_fatfs_err(res);
                         } else {
                             /*##-8- Read data from the text file ###########################*/
-                            res = f_read(&my_file, rtext, sizeof(rtext), (void *)&bytesread);
+                            res = f_read(&test_file, rtext, sizeof(rtext), (void *)&bytesread);
 
                             if ((bytesread == 0) || (res != FR_OK)) {
                                 /* 'STM32.TXT' file Read or EOF Error */
                                 printf_fatfs_err(res);
                             } else {
                                 /*##-9- Close the open text file #############################*/
-                                f_close(&my_file);
+                                f_close(&test_file);
 
                                 /*##-10- Compare read data with the expected data ############*/
                                 if ((bytesread != byteswritten)) {
@@ -912,7 +939,7 @@ int t_fatfs_loopback(int argc, char **argv)
                                     printf_fatfs_err(res);
                                 } else {
                                     /* Success of the demo: no error occurrence */
-                                    printk(KERN_DEBUG "FatFs TEST PASS");
+                                    printk(KERN_DEBUG "FatFs TEST PASS\n");
                                 }
                             }
                         }
@@ -950,11 +977,11 @@ int t_fatfs_file_check(int argc, char **argv)
     res = f_stat("TestDir/testdir.txt", &finfo);
 
     if (res == FR_OK) {
-        printk(KERN_DEBUG "testdir.txt File information");
-        printk(KERN_DEBUG "The file size: %ud(B)", finfo.fsize);
-        printk(KERN_DEBUG "The time stamp: %u/%02u/%02u, %02u:%02u",
+        printk(KERN_DEBUG "testdir.txt File information\n");
+        printk(KERN_DEBUG "The file size: %ud(B)\n", finfo.fsize);
+        printk(KERN_DEBUG "The time stamp: %u/%02u/%02u, %02u:%02u\n",
             (finfo.fdate >> 9) + 1980, finfo.fdate >> 5 & 15, finfo.fdate & 31, finfo.ftime >> 11, finfo.ftime >> 5 & 63);
-        printk(KERN_DEBUG "attribute: %c%c%c%c%c",
+        printk(KERN_DEBUG "attribute: %c%c%c%c%c\n",
             (finfo.fattrib & AM_DIR) ? 'D' : '-',      // Directory
             (finfo.fattrib & AM_RDO) ? 'R' : '-',      // A read-only file
             (finfo.fattrib & AM_HID) ? 'H' : '-',      // Hidden files
@@ -970,7 +997,7 @@ int t_fatfs_scan_files(int argc, char **argv)
 {
     FRESULT res;
 
-    printk(KERN_DEBUG "Document scanning test.");
+    printk(KERN_DEBUG "Document scanning test.\n");
     strcpy(disk_path, "1:");
     fatfs_scan_files(disk_path);
 
@@ -1063,7 +1090,7 @@ int t_fatfs_expend(int argc, char **argv)
     org = f_expand(&fil, 0x10000000, 1);
 
     if (!org) {
-        printk(KERN_DEBUG "Function failed due to any error or insufficient contiguous area.");
+        printk(KERN_DEBUG "Function failed due to any error or insufficient contiguous area.\n");
         f_close(&fil);
         return FAIL;
     }
@@ -1088,46 +1115,39 @@ int t_fatfs_diskio(int argc, char **argv)
     rc = fatfs_diskio(0, 3, buff, sizeof buff);
 
     if (rc) {
-        printk(KERN_DEBUG "Sorry the function/compatibility test failed. (rc=%d)\nFatFs will not work with this disk driver.", rc);
+        printk(KERN_DEBUG "Sorry the function/compatibility test failed. (rc=%d)\nFatFs will not work with this disk driver.\n", rc);
         return FAIL;
     } else {
-        printk(KERN_DEBUG "Congratulations! The disk driver works well.");
+        printk(KERN_DEBUG "Congratulations! The disk driver works well.\n");
         return PASS;
     }
 }
 
 int t_fatfs_contiguous_file(int argc, char **argv)
 {
-    int rc;
-    DWORD buff[FF_MAX_SS];  /* Working buffer (4 sector in size) */
-
+    int ret;
+    int cont;
     /* Check function/compatibility of the physical drive #0 */
-    rc = fatfs_diskio(0, 3, buff, sizeof buff);
+    ret = fatfs_contiguous_file(&test_file, &cont);
 
-    if (rc) {
-        printk(KERN_DEBUG "Sorry the function/compatibility test failed. (rc=%d)\nFatFs will not work with this disk driver.", rc);
+    if (ret)
         return FAIL;
-    } else {
-        printk(KERN_DEBUG "Congratulations! The disk driver works well.");
+    else
         return PASS;
-    }
 }
 
 int t_fatfs_raw_speed(int argc, char **argv)
 {
-    int rc;
-    DWORD buff[FF_MAX_SS];  /* Working buffer (4 sector in size) */
+    int ret;
+    DWORD buff[FF_MAX_SS * 2];  /* Working buffer (4 sector in size) */
 
     /* Check function/compatibility of the physical drive #0 */
-    rc = fatfs_diskio(0, 3, buff, sizeof buff);
+    ret = fatfs_raw_speed(0, 0, 2 * sizeof(buff), buff, sizeof(buff));
 
-    if (rc) {
-        printk(KERN_DEBUG "Sorry the function/compatibility test failed. (rc=%d)\nFatFs will not work with this disk driver.", rc);
+    if (ret)
         return FAIL;
-    } else {
-        printk(KERN_DEBUG "Congratulations! The disk driver works well.");
+    else
         return PASS;
-    }
 }
 
 #endif

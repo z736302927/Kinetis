@@ -16,6 +16,7 @@
 
 #include <linux/slab.h>
 #include <linux/crc16.h>
+#include <linux/errno.h>
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -43,12 +44,13 @@ int hydrology_read_file_size(char *file_name, u32 *Size)
         *Size = file.obj.objsize;
     else {
         printf_fatfs_err(res);
-        printk(KERN_DEBUG "Read the size of %s failed.", file_name);
-        return false;
+        printk(KERN_DEBUG "Read the size of %s failed.\n", file_name);
+        return -EINVAL;
     }
 
     f_close(&file);
-    return true;
+    
+    return 0;
 }
 
 int hydrology_read_store_info(char *file_name, long addr, u8 *pdata, int len)
@@ -67,15 +69,16 @@ int hydrology_read_store_info(char *file_name, long addr, u8 *pdata, int len)
         res = f_read(&file, pdata, len, (void *)&bytes_read);
 
         if (res != FR_OK)
-            return false;
+            return -EFAULT;
     } else {
         printf_fatfs_err(res);
-        printk(KERN_DEBUG "Read %s failed.", file_name);
-        return false;
+        printk(KERN_DEBUG "Read %s failed.\n", file_name);
+        return -EINVAL;
     }
 
     f_close(&file);
-    return true;
+    
+    return 0;
 }
 
 int hydrology_write_store_info(char *file_name, long addr, u8 *pdata, int len)
@@ -95,59 +98,58 @@ int hydrology_write_store_info(char *file_name, long addr, u8 *pdata, int len)
         res = f_write(&file, pdata, len, (void *)&bytes_written);
 
         if (res != FR_OK)
-            return false;
+            return -EFAULT;
 
         res = f_close(&file);
 
         if (res != FR_OK)
-            return false;
+            return -EFAULT;
     } else if (res == FR_NO_FILE || res == FR_NO_PATH) {
         memset(buffer, 0, sizeof(buffer));
         snprintf(buffer, strlen(HYDROLOGY_FILE_PATH), "%s", HYDROLOGY_FILE_PATH);
         /* Try opening a directory. */
         res = f_opendir(&dir, buffer);
-
-        if (res != FR_OK) {
-            /* Failure to open directory, create directory. */
+        
+        /* Failure to open directory, create directory. */
+        if (res != FR_OK)
             res = f_mkdir(buffer);
-        }
 
         if (res != FR_OK)
-            return false;
+            return -EFAULT;
 
         memset(buffer, 0, sizeof(buffer));
         snprintf(buffer, sizeof(buffer), "%s%s", HYDROLOGY_FILE_PATH, file_name);
         res = f_open(&file, buffer, FA_CREATE_NEW | FA_WRITE);
 
         if (res != FR_OK)
-            return false;
+            return -EFAULT;
 
         res = f_lseek(&file, addr);
 
         if (res != FR_OK)
-            return false;
+            return -EFAULT;
 
         res = f_write(&file, pdata, len, (void *)&bytes_written);
 
         if (res != FR_OK)
-            return false;
+            return -EFAULT;
 
         res = f_close(&file);
 
         if (res != FR_OK)
-            return false;
+            return -EFAULT;
 
         res = f_closedir(&dir);
 
         if (res != FR_OK)
-            return false;
+            return -EFAULT;
     } else {
         printf_fatfs_err(res);
-        printk(KERN_DEBUG "Write %s failed.", file_name);
-        return false;
+        printk(KERN_DEBUG "Write %s failed.\n", file_name);
+        return -EINVAL;
     }
 
-    return true;
+    return 0;
 }
 
 void hydrology_get_time(u8 *time)
@@ -209,8 +211,8 @@ int hydrology_port_transmmit(u8 *pdata, u16 length)
 {
     struct serial_port hydrology_port;
 
-    kinetis_dump_buffer8(pdata, length, 8);
-    printk(KERN_DEBUG " ");
+    kinetis_dump_buffer8(pdata, length, 16);
+    printk(KERN_DEBUG " \n");
 
     hydrology_open_port();
 
@@ -268,7 +270,7 @@ int hydrology_port_receive(u8 **ppdata, u16 *plength, u32 Timeout)
                         basic_timer_get_ss() + (DELAY_TIMER_UNIT - Refer);
 
                     if (Delta > Timeout) {
-                        printk(KERN_DEBUG "[warning]Receive data timeout.");
+                        printk(KERN_DEBUG "[warning]Receive data timeout.\n");
                         serial_port_close(&hydrology_port);
                         ret = false;
                         break;
@@ -298,8 +300,8 @@ u32 hydrology_get_flash_size(void)
     tot_sect = (pfs->n_fatent - 2) * pfs->csize;
     fre_sect = fre_clust * pfs->csize;
     /* Print information (4096 bytes/sector) */
-    printk(KERN_DEBUG "Total equipment space: %u MB.", tot_sect * 4 / 1024);
-    printk(KERN_DEBUG "Available space: %u MB.", fre_sect * 4 / 1024);
+    printk(KERN_DEBUG "Total equipment space: %u MB.\n", tot_sect * 4 / 1024);
+    printk(KERN_DEBUG "Available space: %u MB.\n", fre_sect * 4 / 1024);
 
     return fre_sect * 4 * 1024;
 }
@@ -322,20 +324,20 @@ int hydrology_resource_init(void)
     min_size += HYDROLOGY_D_RGZS_REVSPACE;
 
     if (min_size >= flash_size) {
-        printk(KERN_ERR "ERR Current flash size is %.2f KB", (float)flash_size / 1024);
-        printk(KERN_ERR "ERR Flash size minimum requirement %.2f KB", (float)min_size / 1024);
-        return false;
+        printk(KERN_ERR "ERR Current flash size is %.2f KB\n", (float)flash_size / 1024);
+        printk(KERN_ERR "ERR Flash size minimum requirement %.2f KB\n", (float)min_size / 1024);
+        return -ENOMEM;
     }
 
     ret = hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_INIT_MARK,
             &Data, 1);
 
-    if (ret == false) {
-        printk(KERN_DEBUG "It is first time to use device");
-        printk(KERN_DEBUG "Writing to flash");
+    if (ret) {
+        printk(KERN_DEBUG "It is first time to use hydrology device\n");
+        printk(KERN_DEBUG "Writing to flash\n");
         hydrology_device_reset();
         hydrology_host_reset();
-        printk(KERN_DEBUG "Writing to flash has completed");
+        printk(KERN_DEBUG "Wrote to flash.\n");
     }
 
     return true;
@@ -350,7 +352,11 @@ int hydrology_device_setup(void)
 {
     int ret;
 
-    hydrology_task_init();
+    ret = hydrology_task_init();
+
+    if (ret)
+        return ret;
+
     ret = hydrology_resource_init();
 
     return ret;
@@ -562,7 +568,7 @@ int hydrology_malloc_element(u8 guide, u8 D, u8 d,
         element->value = (u8 *)kmalloc(D / 2, __GFP_ZERO);
 
         if (element->value == NULL) {
-            printk(KERN_DEBUG "element->value malloc failed");
+            printk(KERN_DEBUG "element->value malloc failed\n");
             return false;
         }
 
@@ -571,7 +577,7 @@ int hydrology_malloc_element(u8 guide, u8 D, u8 d,
         element->value = (u8 *)kmalloc((D + 1) / 2, __GFP_ZERO);
 
         if (element->value == NULL) {
-            printk(KERN_DEBUG "element->value malloc failed");
+            printk(KERN_DEBUG "element->value malloc failed\n");
             return false;
         }
 
@@ -661,7 +667,7 @@ int hydrology_malloc_element(u8 guide, u8 D, u8 d,
 
 //            if(g_hydrology.epi == NULL)
 //            {
-//    printk(KERN_DEBUG "g_hydrology.epi malloc failed", i);
+//    printk(KERN_DEBUG "g_hydrology.epi malloc failed\n", i);
 //                return false;
 //            }
 
@@ -735,7 +741,7 @@ int hydrology_malloc_element(u8 guide, u8 D, u8 d,
 ////
 ////            if(upbody->element[i]->value == NULL)
 ////            {
-////    printk(KERN_DEBUG "upbody->element[%d]->value malloc failed", i);
+////    printk(KERN_DEBUG "upbody->element[%d]->value malloc failed\n", i);
 ////                return false;
 ////            }
 ////            else
@@ -751,7 +757,7 @@ int hydrology_malloc_element(u8 guide, u8 D, u8 d,
 
 //            if(upbody->element[i]->value == NULL)
 //            {
-//    printk(KERN_DEBUG "upbody->element[%d]->value malloc failed", i);
+//    printk(KERN_DEBUG "upbody->element[%d]->value malloc failed\n", i);
 //                return false;
 //            }
 //            else
@@ -911,31 +917,43 @@ int t_hydrology_device_m3(void);
 int t_hydrology_device_m4(void);
 int t_hydrology_host_m4(void);
 
+int t_hydrology_init(int argc, char **argv)
+{
+    int ret;
+
+    ret = hydrology_device_reboot();
+
+    if (ret)
+        return FAIL;
+
+    return PASS;
+}
+
 int t_hydrology(int argc, char **argv)
 {
     int ret = false;
-    u8 Host = false;
+    u8 host = false;
     enum hydrology_mode mode = HYDROLOGY_M1;
 
     if (argc > 1) {
-        if (!strcmp(argv[1], "Host"))
-            Host = true;
-        else if (!strcmp(argv[1], "Device"))
-            Host = false;
+        if (!strcmp(argv[1], "host"))
+            host = true;
+        else if (!strcmp(argv[1], "device"))
+            host = false;
     }
 
     if (argc > 2) {
-        if (!strcmp(argv[2], "M1"))
+        if (!strcmp(argv[2], "m1"))
             mode = HYDROLOGY_M1;
-        else if (!strcmp(argv[2], "M2"))
+        else if (!strcmp(argv[2], "m2"))
             mode = HYDROLOGY_M2;
-        else if (!strcmp(argv[2], "M3"))
+        else if (!strcmp(argv[2], "m3"))
             mode = HYDROLOGY_M3;
-        else if (!strcmp(argv[2], "M4"))
+        else if (!strcmp(argv[2], "m4"))
             mode = HYDROLOGY_M4;
     }
 
-    if (Host == false) {
+    if (host == false) {
         switch (mode) {
             case HYDROLOGY_M1:
                 ret = t_hydrology_device_m1m2(HYDROLOGY_M1);

@@ -135,23 +135,23 @@ void udelay(u32 delay)
 
     if (delay > DELAY_TIMER_UNIT) {
         ticks = DELAY_TIMER_UNIT;
-        refer = basic_timer_get_timer_cnt();
+        refer = basic_timer_get_us();
 
         while (delta < ticks) {
-            delta = basic_timer_get_timer_cnt() >= refer ?
-                basic_timer_get_timer_cnt() - refer :
-                basic_timer_get_timer_cnt() + (DELAY_TIMER_UNIT - refer);
+            delta = basic_timer_get_us() >= refer ?
+                basic_timer_get_us() - refer :
+                basic_timer_get_us() + (DELAY_TIMER_UNIT - refer);
         }
 
         udelay(delay - DELAY_TIMER_UNIT);
     } else {
         ticks = delay;
-        refer = basic_timer_get_timer_cnt();
+        refer = basic_timer_get_us();
 
         while (delta < ticks) {
-            delta = basic_timer_get_timer_cnt() >= refer ?
-                basic_timer_get_timer_cnt() - refer :
-                basic_timer_get_timer_cnt() + (DELAY_TIMER_UNIT - refer);
+            delta = basic_timer_get_us() >= refer ?
+                basic_timer_get_us() - refer :
+                basic_timer_get_us() + (DELAY_TIMER_UNIT - refer);
         }
     }
 
@@ -233,9 +233,9 @@ int t_delay(int argc, char **argv)
 {
     u32 time_stamp = 0;
 
-    time_stamp = basic_timer_get_timer_cnt();
+    time_stamp = basic_timer_get_us();
     udelay(1000);
-    time_stamp = basic_timer_get_timer_cnt() - time_stamp;
+    time_stamp = basic_timer_get_us() - time_stamp;
     printk(KERN_DEBUG "Delay 1000 us, The result = %u us.", time_stamp);
 
     time_stamp = basic_timer_get_ms();

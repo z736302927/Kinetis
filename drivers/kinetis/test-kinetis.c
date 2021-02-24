@@ -62,6 +62,7 @@ int t_delay(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_FATFS
+int t_fatfs_operate(int argc, char **argv);
 int t_fatfs_loopback(int argc, char **argv);
 int t_fatfs_miscellaneous(int argc, char **argv);
 int t_fatfs_file_check(int argc, char **argv);
@@ -90,6 +91,7 @@ int t_hc_05_test_cmd(int argc, char **argv);
 
 #ifdef DESIGN_VERIFICATION_HYDROLOGY
 int t_hydrology(int argc, char **argv);
+int t_hydrology_init(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_LED
@@ -149,6 +151,8 @@ int t_tlc5971_send_packet(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_W25QXXX
+int t_w25qxxx_chip_erase(int argc, char **argv);
+int t_w25qxxx_read_info(int argc, char **argv);
 int t_w25qxxx_loopback(int argc, char **argv);
 #endif
 
@@ -160,29 +164,29 @@ struct test_case_typedef {
 struct test_case_typedef kinetis_case_table[] = {
 
 #ifdef DESIGN_VERIFICATION_AK8975
-    {"ak8975.basicinfo", t_ak8975_basic_info},
-    {"ak8975.magnetic", t_ak8975_magnetic},
-    {"ak8975.selftest", t_ak8975_selftest},
-    {"ak8975.fuseromaccess", t_ak8975_fuse_rom_access},
+    {"ak8975.basic-info",           t_ak8975_basic_info},
+    {"ak8975.magnetic",             t_ak8975_magnetic},
+    {"ak8975.selftest",             t_ak8975_selftest},
+    {"ak8975.fuse-rom-access",      t_ak8975_fuse_rom_access},
 #endif
 #ifdef DESIGN_VERIFICATION_AT24CXX
-    {"at24cxx.lb", t_at24cxx_loopback},
-    {"at24cxx.current_addr_read", t_at24cxx_current_addr_read},
-    {"at24cxx.random_read", t_at24cxx_current_random_read},
-    {"at24cxx.seq_read", t_at24cxx_sequential_read},
-    {"at24cxx.lb_speed", t_at24cxx_loopback_speed},
+    {"at24cxx.loopback",            t_at24cxx_loopback},
+    {"at24cxx.current-addr-read",   t_at24cxx_current_addr_read},
+    {"at24cxx.random-read",         t_at24cxx_current_random_read},
+    {"at24cxx.seq-read",            t_at24cxx_sequential_read},
+    {"at24cxx.lb-speed",            t_at24cxx_loopback_speed},
 #endif
 #ifdef DESIGN_VERIFICATION_BMI160
     {"bmi160.", fuction},
 #endif
 #ifdef DESIGN_VERIFICATION_DS3231
-    {"ds3231.setclock", t_ds3231_set_clock},
-    {"ds3231.getclock", t_ds3231_get_clock},
-    {"ds3231.setalarm1", t_ds3231_set_alarm1},
-    {"ds3231.setalarm2", t_ds3231_set_alarm2},
-    {"ds3231.squarewave", t_ds3231_square_wave},
-    {"ds3231.32khzwave", t_ds3231_32khz_wave},
-    {"ds3231.gettemprature", t_ds3231_get_temprature},
+    {"ds3231.set-clock",            t_ds3231_set_clock},
+    {"ds3231.get-clock",            t_ds3231_get_clock},
+    {"ds3231.set-alarm1",           t_ds3231_set_alarm1},
+    {"ds3231.set-alarm2",           t_ds3231_set_alarm2},
+    {"ds3231.square-wave",          t_ds3231_square_wave},
+    {"ds3231.32khz-wave",           t_ds3231_32khz_wave},
+    {"ds3231.get-temprature",       t_ds3231_get_temprature},
 #endif
 #ifdef DESIGN_VERIFICATION_ESP32
     {"esp32.", fuction},
@@ -197,13 +201,14 @@ struct test_case_typedef kinetis_case_table[] = {
     {"gt9271.", },
 #endif
 #ifdef DESIGN_VERIFICATION_HC_05
-    {"hc-05.test", t_hc_05_test_cmd},
+    {"hc-05.test",                  t_hc_05_test_cmd},
 #endif
 #ifdef DESIGN_VERIFICATION_HMC5883L
     {"hmc5883l.", fuction},
 #endif
 #ifdef DESIGN_VERIFICATION_HYDROLOGY
-    {"hydrology.test", t_hydrology},
+    {"hydrology.init",              t_hydrology_init},
+    {"hydrology.test",              t_hydrology},
 #endif
 #ifdef DESIGN_VERIFICATION_ICM20602
     {"icm20602.", fuction},
@@ -215,7 +220,7 @@ struct test_case_typedef kinetis_case_table[] = {
     {"is25lpwp256d.", fuction},
 #endif
 #ifdef DESIGN_VERIFICATION_BASICTIMER
-    {"basic-timer.gettick", t_basic_timer_get_tick},
+    {"basic-timer.gettick",         t_basic_timer_get_tick},
 #endif
 #ifdef DESIGN_VERIFICATION_CHINESE
     {"chinese.", fuction},
@@ -227,16 +232,17 @@ struct test_case_typedef kinetis_case_table[] = {
     {"delay.delay", t_delay},
 #endif
 #ifdef DESIGN_VERIFICATION_FATFS
-    {"fatfs.loopback", t_fatfs_loopback},
-    {"fatfs.miscellaneous", t_fatfs_miscellaneous},
-    {"fatfs.filecheck", t_fatfs_file_check},
-    {"fatfs.scanfiles", t_fatfs_scan_files},
-    {"fatfs.append", t_fatfs_append},
-    {"fatfs.deletenode", t_fatfs_delete_node},
-    {"fatfs.expend", t_fatfs_expend},
-    {"fatfs.diskio", t_fatfs_diskio},
-    {"fatfs.contiguousfile", t_fatfs_contiguous_file},
-    {"fatfs.rawspeed", t_fatfs_raw_speed},
+    {"fatfs.operate",               t_fatfs_operate},
+    {"fatfs.loopback",              t_fatfs_loopback},
+    {"fatfs.miscellaneous",         t_fatfs_miscellaneous},
+    {"fatfs.file-check",             t_fatfs_file_check},
+    {"fatfs.scan-files",             t_fatfs_scan_files},
+    {"fatfs.append",                t_fatfs_append},
+    {"fatfs.delete-node",            t_fatfs_delete_node},
+    {"fatfs.expend",                t_fatfs_expend},
+    {"fatfs.diskio",                t_fatfs_diskio},
+    {"fatfs.contiguous-file",        t_fatfs_contiguous_file},
+    {"fatfs.raw-speed",              t_fatfs_raw_speed},
 #endif
 #ifdef DESIGN_VERIFICATION_FSM
     {"fsm.Example", t_fsm_example},
@@ -328,6 +334,8 @@ struct test_case_typedef kinetis_case_table[] = {
 #endif
 #ifdef DESIGN_VERIFICATION_W25QXXX
     {"w25qxxx.loopback", t_w25qxxx_loopback},
+    {"w25qxxx.info", t_w25qxxx_read_info},
+    {"w25qxxx.erase", t_w25qxxx_chip_erase},
 #endif
 #ifdef DESIGN_VERIFICATION_XMODEM
     {"test", fuction},

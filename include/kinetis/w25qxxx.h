@@ -19,6 +19,7 @@ void w25qxxx_write_status_reg(u8 w25qxxx, u8 num, u8 tmp);
 void w25qxxx_read_data(u8 w25qxxx, u32 addr, u8 *pdata, u32 length);
 void w25qxxx_write_data(u8 w25qxxx, u32 addr, u8 *pdata, u16 length);
 void w25qxxx_sector_erase(u8 w25qxxx, u32 addr);
+void sw25qxxx_chip_erase(u8 w25qxxx);
 u8 w25qxxx_release_device_id(u8 w25qxxx);
 void w25qxxx_init(u8 w25qxxx);
 void w25qxxx_read_info(u8 w25qxxx);
