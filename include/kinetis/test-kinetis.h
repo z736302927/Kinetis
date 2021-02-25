@@ -16,7 +16,7 @@ typedef enum {
     NOT_EXSIST
 } test_status;
 
-void k_test_case_schedule(void);
+int k_test_case_schedule(void);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

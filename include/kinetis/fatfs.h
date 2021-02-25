@@ -13,7 +13,7 @@ extern "C" {
 #include "fs/fatfs/ff.h"         /* Declarations of sector size */
 
 int fatfs_init(void);
-void printf_fatfs_err(FRESULT fresult);
+int process_fatfs_err(FRESULT fresult);
 FRESULT fatfs_miscellaneous(void);
 FRESULT fatfs_scan_files(char *path);
 FRESULT fatfs_open_append(FIL *fp, const char *path);

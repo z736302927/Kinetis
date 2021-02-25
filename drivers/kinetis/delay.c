@@ -49,7 +49,7 @@ void delay_init(void)
 
     if (delay_priv_val.input_clock >= 600000000)
         printk(KERN_DEBUG
-            "Inputing clock is too large, please modify the delay unit.");
+            "Inputing clock is too large, please modify the delay unit.\n");
 
     delay_enable_timer();
 #ifdef DELAY_USING_STM32LIB
@@ -119,7 +119,7 @@ void udelay(u32 delay)
     if (delay > 1000000) {
         printk(KERN_ERR
             "The %s() input parameter is greater than 1000000, "
-            "please use mdelay()", __func__);
+            "please use mdelay()\n", __func__);
         return;
     }
 
@@ -168,7 +168,7 @@ void mdelay(u32 delay)
     if (delay > 1000000) {
         printk(KERN_ERR
             "The %s() input parameter is greater than 1000000, "
-            "please use sdelay()", __func__);
+            "please use sdelay()\n", __func__);
         return;
     }
 
@@ -217,7 +217,7 @@ void sdelay(u32 delay)
     if (delay > 1000) {
         printk(KERN_ERR
             "The %s() input parameter is greater than 1000, "
-            "please correct", __func__);
+            "please correct\n", __func__);
         return;
     }
 
@@ -236,17 +236,17 @@ int t_delay(int argc, char **argv)
     time_stamp = basic_timer_get_us();
     udelay(1000);
     time_stamp = basic_timer_get_us() - time_stamp;
-    printk(KERN_DEBUG "Delay 1000 us, The result = %u us.", time_stamp);
+    printk(KERN_DEBUG "Delay 1000 us, The result = %u us.\n", time_stamp);
 
     time_stamp = basic_timer_get_ms();
     mdelay(1000);
     time_stamp = basic_timer_get_ms() - time_stamp;
-    printk(KERN_DEBUG "Delay 1000 ms, The result = %u ms.", time_stamp);
+    printk(KERN_DEBUG "Delay 1000 ms, The result = %u ms.\n", time_stamp);
 
     time_stamp = basic_timer_get_ss();
     sdelay(3);
     time_stamp = basic_timer_get_ss() - time_stamp;
-    printk(KERN_DEBUG "Delay 3 s, The result = %u s.", time_stamp);
+    printk(KERN_DEBUG "Delay 3 s, The result = %u s.\n", time_stamp);
 
     return PASS;
 }

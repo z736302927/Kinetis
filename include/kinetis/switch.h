@@ -20,7 +20,7 @@ enum switch_event {
     SWITCH_UP,
     SWITCHEVENT_NBR,
     NONE_SWITCH
-} SwitchEvent;
+};
 
 struct _switch {
     u32 unique_id;
@@ -33,6 +33,9 @@ struct _switch {
     switch_callback callback[SWITCHEVENT_NBR];
     struct list_head list;
 };
+
+int switch_task_init(void);
+void switch_task_exit(void);
 
 int switch_add(u32 unique_id, u8(*pin_level)(void), u8 active_level,
     switch_callback callback);

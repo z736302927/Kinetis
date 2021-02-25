@@ -22,9 +22,9 @@ ds3231.32khz-wave
 ds3231.get-temprature"
 
 /*w25qxxx测试*/
-w25qxxx.loopbackw25q1281
-w25qxxx.infow25q128
-w25qxxx.erasew25q128
+w25qxxx.loopback w25q1281
+w25qxxx.info w25q128
+w25qxxx.erase w25q128
 
 /*文件系统测试*/
 fatfs.operatemount
@@ -41,23 +41,32 @@ fatfs.diskio
 fatfs.contiguous-file"
 fatfs.raw-speed
 
+/*绝对时钟测试*/
+basic-timer.get-tick
+
+/*按键测试*/
+button.add
+button.drop
+
+/*led测试*/
+led.add
+led.drop
+
 /*测试Device端M1模式下一些自报报文*/
 hydrology.init
-hydrology.testdevicem1
+hydrology.test device m1
 
 /*绝对时钟测试*/
-basictimer.GetTick
+basic-timer.get-tick
 
 /*延时函数测试*/
-delay.Delay
-
-/*内存读写测试*/
-memory.Test
+delay.test
 
 /*随机数测试*/
-random.Number
-random.Array
+random.number
+random.array
 
 /*获取时钟*/
-rtc.GetClock
+rtc.set-clock
+rtc.get-clock
 

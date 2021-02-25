@@ -20,9 +20,9 @@ static void switch_task_callback(void)
     switch_ticks();
 }
 
-void switch_task_init(void)
+int switch_task_init(void)
 {
-    tim_task_add(5, true, switch_task_callback);
+    return tim_task_add(5, true, switch_task_callback);
 }
 
 void switch_task_exit(void)

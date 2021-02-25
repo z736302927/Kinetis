@@ -1,6 +1,13 @@
 #include "kinetis/test-kinetis.h"
 #include "kinetis/shell.h"
 #include "kinetis/idebug.h"
+#include "kinetis/rtc-task.h"
+#include "kinetis/tim-task.h"
+#include "kinetis/button.h"
+#include "kinetis/switch.h"
+#include "kinetis/hydrology.h"
+#include "kinetis/fatfs.h"
+
 
 #include <linux/gfp.h>
 #include <linux/slab.h>
@@ -76,7 +83,7 @@ int t_fatfs_raw_speed(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_FSM
-int t_FSM_Example(int argc, char **argv);
+int t_fsm_example(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_GENERAL
@@ -97,10 +104,6 @@ int t_hydrology_init(int argc, char **argv);
 #ifdef DESIGN_VERIFICATION_LED
 int t_led_add(int argc, char **argv);
 int t_led_drop(int argc, char **argv);
-#endif
-
-#ifdef DESIGN_VERIFICATION_MEMORY
-int t_memory_Test(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_RNG
@@ -220,68 +223,65 @@ struct test_case_typedef kinetis_case_table[] = {
     {"is25lpwp256d.", fuction},
 #endif
 #ifdef DESIGN_VERIFICATION_BASICTIMER
-    {"basic-timer.gettick",         t_basic_timer_get_tick},
+    {"basic-timer.get-tick",        t_basic_timer_get_tick},
 #endif
 #ifdef DESIGN_VERIFICATION_CHINESE
     {"chinese.", fuction},
 #endif
 #ifdef DESIGN_VERIFICATION_CRC
-    {"crc.test", t_crc},
+    {"crc.test",                    t_crc},
 #endif
 #ifdef DESIGN_VERIFICATION_DELAY
-    {"delay.delay", t_delay},
+    {"delay.test",                 t_delay},
 #endif
 #ifdef DESIGN_VERIFICATION_FATFS
     {"fatfs.operate",               t_fatfs_operate},
     {"fatfs.loopback",              t_fatfs_loopback},
     {"fatfs.miscellaneous",         t_fatfs_miscellaneous},
-    {"fatfs.file-check",             t_fatfs_file_check},
-    {"fatfs.scan-files",             t_fatfs_scan_files},
+    {"fatfs.file-check",            t_fatfs_file_check},
+    {"fatfs.scan-files",            t_fatfs_scan_files},
     {"fatfs.append",                t_fatfs_append},
-    {"fatfs.delete-node",            t_fatfs_delete_node},
+    {"fatfs.delete-node",           t_fatfs_delete_node},
     {"fatfs.expend",                t_fatfs_expend},
     {"fatfs.diskio",                t_fatfs_diskio},
-    {"fatfs.contiguous-file",        t_fatfs_contiguous_file},
-    {"fatfs.raw-speed",              t_fatfs_raw_speed},
+    {"fatfs.contiguous-file",       t_fatfs_contiguous_file},
+    {"fatfs.raw-speed",             t_fatfs_raw_speed},
 #endif
 #ifdef DESIGN_VERIFICATION_FSM
-    {"fsm.Example", t_fsm_example},
+    {"fsm.example",                 t_fsm_example},
 #endif
 #ifdef DESIGN_VERIFICATION_GENERAL
-    {"general.success", t_general_success},
-    {"general.error", t_general_error},
-    {"general.timeout", t_general_timeout},
+    {"general.success",             t_general_success},
+    {"general.error",               t_general_error},
+    {"general.timeout",             t_general_timeout},
 #endif
 #ifdef DESIGN_VERIFICATION_BUTTON
-    {"button.add", t_button_add},
-    {"button.drop", t_button_drop},
+    {"button.add",                  t_button_add},
+    {"button.drop",                 t_button_drop},
 #endif
 #ifdef DESIGN_VERIFICATION_LCD
     {"test", fuction},
 #endif
 #ifdef DESIGN_VERIFICATION_LED
-    {"led.add", t_led_add},
-    {"led.drop", t_led_drop},
-#endif
-#ifdef DESIGN_VERIFICATION_MEMORY
-    {"memory.test", t_memory_Test},
+    {"led.add",                     t_led_add},
+    {"led.drop",                    t_led_drop},
 #endif
 #ifdef DESIGN_VERIFICATION_RNG
-    {"random.number", t_random_number},
-    {"random.array", t_random_array},
+    {"random.number",               t_random_number},
+    {"random.array",                t_random_array},
 #endif
 #ifdef DESIGN_VERIFICATION_RS485
     {"test", fuction},
 #endif
 #ifdef DESIGN_VERIFICATION_RTC
-    {"rtc.setclock", t_rtc_set_clock},
-    {"rtc.setclock", t_rtc_get_clock},
+    {"rtc.set-clock",               t_rtc_set_clock},
+    {"rtc.get-clock",               t_rtc_get_clock},
 #endif
 #ifdef DESIGN_VERIFICATION_RTCTASK
-    {"rtc-task.add", t_rtc_task_add},
+    {"rtc-task.add",                t_rtc_task_add},
 #endif
 #ifdef DESIGN_VERIFICATION_SEIRALPORT
-    {"serial-port.shell", t_serial_port_shell},
+    {"serial-port.shell",           t_serial_port_shell},
 #endif
 #ifdef DESIGN_VERIFICATION_SHELL
     {"test", fuction},
@@ -290,11 +290,11 @@ struct test_case_typedef kinetis_case_table[] = {
     {"test", fuction},
 #endif
 #ifdef DESIGN_VERIFICATION_SWITCH
-    {"switch.add", t_switch_add},
-    {"switch.drop", t_switch_drop},
+    {"switch.add",                  t_switch_add},
+    {"switch.drop",                 t_switch_drop},
 #endif
 #ifdef DESIGN_VERIFICATION_TIMTASK
-    {"timtask.add", t_tim_task_add},
+    {"timtask.add",                 t_tim_task_add},
 #endif
 #ifdef DESIGN_VERIFICATION_TOUCHSCREEN
     {"test", fuction},
@@ -309,7 +309,7 @@ struct test_case_typedef kinetis_case_table[] = {
     {"test", fuction},
 #endif
 #ifdef DESIGN_VERIFICATION_MY9221
-    {"my9221.send", t_my9221_send_packet},
+    {"my9221.send",                 t_my9221_send_packet},
 #endif
 #ifdef DESIGN_VERIFICATION_NBIOT
     {"test", fuction},
@@ -330,17 +330,62 @@ struct test_case_typedef kinetis_case_table[] = {
     {"test", fuction},
 #endif
 #ifdef DESIGN_VERIFICATION_TLC5971
-    {"tlc5971.send", t_tlc5971_send_packet},
+    {"tlc5971.send",                t_tlc5971_send_packet},
 #endif
 #ifdef DESIGN_VERIFICATION_W25QXXX
-    {"w25qxxx.loopback", t_w25qxxx_loopback},
-    {"w25qxxx.info", t_w25qxxx_read_info},
-    {"w25qxxx.erase", t_w25qxxx_chip_erase},
+    {"w25qxxx.loopback",            t_w25qxxx_loopback},
+    {"w25qxxx.info",                t_w25qxxx_read_info},
+    {"w25qxxx.erase",               t_w25qxxx_chip_erase},
 #endif
 #ifdef DESIGN_VERIFICATION_XMODEM
     {"test", fuction},
 #endif
 };
+
+static int idle_task_init(void)
+{
+    int ret;
+
+    ret = fatfs_init();
+
+    if (ret)
+        goto err;
+
+    ret = hydrology_device_reboot();
+
+    if (ret)
+        goto err;
+
+    basic_timer_init();
+    shell_init();
+
+    ret = button_task_init();
+
+    if (ret)
+        goto err;
+
+    ret = switch_task_init();
+
+    if (ret)
+        goto err;
+    
+    return 0;
+err:
+    printk(KERN_ERR "Failed to init test platform, error code: %d\n", ret);
+    return ret;
+}
+
+static void idle_task_exit(void)
+{
+    button_task_exit();
+    switch_task_init();
+}
+
+static void idle_task_schedule(void)
+{
+    tim_task_loop();
+    rtc_task_loop();
+}
 
 int parse_test_all_case(char *cmd)
 {
@@ -363,13 +408,18 @@ int parse_test_all_case(char *cmd)
     return NOT_EXSIST;
 }
 
-void k_test_case_schedule(void)
+int k_test_case_schedule(void)
 {
     char *buffer;
     int ret;
+    
+    ret = idle_task_init();
 
+    if (ret)
+        goto err;
+    
     buffer = kmalloc(128, __GFP_ZERO);
-
+    
     while (1) {
         if (shell_get_user_input(buffer) == true) {
             if (buffer[0] == '\r')
@@ -389,9 +439,16 @@ void k_test_case_schedule(void)
                 printk("/ # ");
             }
         }
+        
+        idle_task_schedule();
     }
 
     kfree(buffer);
+    
+err:
+    idle_task_exit();
+    
+    return ret;
 }
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */

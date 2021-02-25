@@ -20,9 +20,9 @@ static void button_task_callback(void)
     button_ticks();
 }
 
-void button_task_init(void)
+int button_task_init(void)
 {
-    tim_task_add(5, true, button_task_callback);
+    return tim_task_add(5, true, button_task_callback);
 }
 
 void button_task_exit(void)

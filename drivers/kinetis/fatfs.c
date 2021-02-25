@@ -45,12 +45,6 @@ int fatfs_init(void)
         res = f_mount(&disk_fatfs, (TCHAR const *)disk_path, 0);
 
         if (res == FR_NO_FILESYSTEM) {
-            res = f_mkfs((const TCHAR *)disk_path, 0, work_buffer, sizeof(work_buffer));
-
-            if (res != FR_OK) {
-                printf_fatfs_err(res);
-                return -ENOSYS;
-            }
         }
     } else {
         printk(KERN_ERR "Failed to link low level driver.\n");
@@ -61,8 +55,10 @@ int fatfs_init(void)
 }
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-void printf_fatfs_err(FRESULT fresult)
+int process_fatfs_err(FRESULT fresult)
 {
+    int ret;
+    
     switch (fresult) {
         case FR_OK:                   //(0)
             printk(KERN_DEBUG "Operation successful.\n");
@@ -114,7 +110,11 @@ void printf_fatfs_err(FRESULT fresult)
             break;
 
         case FR_NO_FILESYSTEM:        //(13)
-            printk(KERN_DEBUG "Invalid file system.\n");
+            printk(KERN_DEBUG "No file system, please using f_mkfs().\n");
+            ret = f_mkfs((const TCHAR *)disk_path, 0, work_buffer, sizeof(work_buffer));
+
+            if (ret != FR_OK)
+                goto err;
             break;
 
         case FR_MKFS_ABORTED:         //(14)
@@ -143,8 +143,13 @@ void printf_fatfs_err(FRESULT fresult)
 
         default:
             break;
-
     }
+    
+    return 0;
+err:
+    printk(KERN_ERR "Can't process fs error, fs result: %d\n", ret);
+    
+    return ret;
 }
 
 FRESULT fatfs_miscellaneous(void)
@@ -860,7 +865,7 @@ int t_fatfs_operate(int argc, char **argv)
     }
 
     if (ret) {
-        printf_fatfs_err(ret);
+        process_fatfs_err(ret);
         return FAIL;
     }
 
@@ -882,7 +887,7 @@ int t_fatfs_loopback(int argc, char **argv)
 
         if (res != FR_OK) {
             /* FatFs Initialization Error */
-            printf_fatfs_err(res);
+            process_fatfs_err(res);
         } else {
             /*##-3- Create a FAT file system (format) on the logical drive #########*/
             if (res == FR_NO_FILESYSTEM) {
@@ -897,21 +902,21 @@ int t_fatfs_loopback(int argc, char **argv)
 
             if (res != FR_OK) {
                 /* FatFs Format Error */
-                printf_fatfs_err(res);
+                process_fatfs_err(res);
             } else {
                 /*##-4- Create and Open a new text file object with write access #####*/
                 res = f_open(&test_file, "STM32.TXT", FA_CREATE_ALWAYS | FA_WRITE);
 
                 if (res != FR_OK) {
                     /* 'STM32.TXT' file Open for write Error */
-                    printf_fatfs_err(res);
+                    process_fatfs_err(res);
                 } else {
                     /*##-5- Write data to the text file ################################*/
                     res = f_write(&test_file, wtext, sizeof(wtext), (void *)&byteswritten);
 
                     if ((byteswritten == 0) || (res != FR_OK)) {
                         /* 'STM32.TXT' file Write or EOF Error */
-                        printf_fatfs_err(res);
+                        process_fatfs_err(res);
                     } else {
                         /*##-6- Close the open text file #################################*/
                         f_close(&test_file);
@@ -921,14 +926,14 @@ int t_fatfs_loopback(int argc, char **argv)
 
                         if (res != FR_OK) {
                             /* 'STM32.TXT' file Open for read Error */
-                            printf_fatfs_err(res);
+                            process_fatfs_err(res);
                         } else {
                             /*##-8- Read data from the text file ###########################*/
                             res = f_read(&test_file, rtext, sizeof(rtext), (void *)&bytesread);
 
                             if ((bytesread == 0) || (res != FR_OK)) {
                                 /* 'STM32.TXT' file Read or EOF Error */
-                                printf_fatfs_err(res);
+                                process_fatfs_err(res);
                             } else {
                                 /*##-9- Close the open text file #############################*/
                                 f_close(&test_file);
@@ -936,7 +941,7 @@ int t_fatfs_loopback(int argc, char **argv)
                                 /*##-10- Compare read data with the expected data ############*/
                                 if ((bytesread != byteswritten)) {
                                     /* Read data is different from the expected data */
-                                    printf_fatfs_err(res);
+                                    process_fatfs_err(res);
                                 } else {
                                     /* Success of the demo: no error occurrence */
                                     printk(KERN_DEBUG "FatFs TEST PASS\n");

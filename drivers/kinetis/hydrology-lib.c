@@ -43,13 +43,13 @@ int hydrology_read_file_size(char *file_name, u32 *Size)
     if (res == FR_OK)
         *Size = file.obj.objsize;
     else {
-        printf_fatfs_err(res);
+        process_fatfs_err(res);
         printk(KERN_DEBUG "Read the size of %s failed.\n", file_name);
         return -EINVAL;
     }
 
     f_close(&file);
-    
+
     return 0;
 }
 
@@ -71,13 +71,13 @@ int hydrology_read_store_info(char *file_name, long addr, u8 *pdata, int len)
         if (res != FR_OK)
             return -EFAULT;
     } else {
-        printf_fatfs_err(res);
+        process_fatfs_err(res);
         printk(KERN_DEBUG "Read %s failed.\n", file_name);
         return -EINVAL;
     }
 
     f_close(&file);
-    
+
     return 0;
 }
 
@@ -109,7 +109,7 @@ int hydrology_write_store_info(char *file_name, long addr, u8 *pdata, int len)
         snprintf(buffer, strlen(HYDROLOGY_FILE_PATH), "%s", HYDROLOGY_FILE_PATH);
         /* Try opening a directory. */
         res = f_opendir(&dir, buffer);
-        
+
         /* Failure to open directory, create directory. */
         if (res != FR_OK)
             res = f_mkdir(buffer);
@@ -144,7 +144,7 @@ int hydrology_write_store_info(char *file_name, long addr, u8 *pdata, int len)
         if (res != FR_OK)
             return -EFAULT;
     } else {
-        printf_fatfs_err(res);
+        process_fatfs_err(res);
         printk(KERN_DEBUG "Write %s failed.\n", file_name);
         return -EINVAL;
     }
@@ -313,7 +313,7 @@ struct hydrology g_hydrology;
 int hydrology_resource_init(void)
 {
     int ret;
-    u8 Data;
+    u8 tmp;
     u32 flash_size, min_size;
 
     flash_size = hydrology_get_flash_size();
@@ -330,17 +330,30 @@ int hydrology_resource_init(void)
     }
 
     ret = hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_INIT_MARK,
-            &Data, 1);
+            &tmp, 1);
 
     if (ret) {
-        printk(KERN_DEBUG "It is first time to use hydrology device\n");
-        printk(KERN_DEBUG "Writing to flash\n");
-        hydrology_device_reset();
-        hydrology_host_reset();
-        printk(KERN_DEBUG "Wrote to flash.\n");
+        printk(KERN_ERR "It is first time to use hydrology device\n");
+        printk(KERN_ERR "// Writing to flash\n");
+        ret = hydrology_device_reset();
+
+        if (ret)
+            goto err;
+
+        ret = hydrology_host_reset();
+
+        if (ret)
+            goto err;
+
+        printk(KERN_ERR "// Wrote to flash.\n");
     }
 
-    return true;
+    return 0;
+err:
+    printk(KERN_ERR "Failed to init hydrology resource, "
+        "error code: %d\n", ret);
+
+    return ret;
 }
 
 void hydrology_device_shundown(void)

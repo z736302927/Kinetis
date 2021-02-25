@@ -41,6 +41,9 @@ struct button {
     struct list_head list;
 };
 
+int button_task_init(void);
+void button_task_exit(void);
+
 int button_add(u32 unique_id, u8(*pin_level)(void), u8 active_level,
     button_callback callback);
 void button_drop(u32 unique_id);
