@@ -44,51 +44,179 @@ enum hydrology_mode {
 };
 
 enum hydrology_rtu_type {
-    Rainfall = 0x50,
-    RiverCourse = 0x48,
-    Reservoir = 0x4B,
-    GateDam = 0x5A,
-    PumpingStation = 0x44,
-    Tide = 0x54,
-    SoilMoisture = 0x4D,
-    Groundwater = 0x47,
-    WaterQuality = 0x51,
-    WaterIntake = 0x49,
-    Outfall = 0x4F,
+    RAINFALL = 0X50,
+    RIVER_COURSE = 0X48,
+    RESERVOIR = 0X4B,
+    GATE_DAM = 0X5A,
+    PUMPING_STATION = 0X44,
+    TIDE = 0X54,
+    SOIL_MOISTURE = 0X4D,
+    GROUND_WATER = 0X47,
+    WATER_QUALITY = 0X51,
+    WATER_INTAKE = 0X49,
+    OUTFALL = 0X4F,
 };
 
+static inline char *hydrology_type_rtu_string(enum hydrology_rtu_type type)
+{
+    switch (type) {
+        case RAINFALL:
+            return "rainfall";
+        case RIVER_COURSE:
+            return "lriver course";
+        case RESERVOIR:
+            return "reservoir";
+        case GATE_DAM:
+            return "gate_dam";
+        case PUMPING_STATION:
+            return "pumping station";
+        case TIDE:
+            return "tide";
+        case SOIL_MOISTURE:
+            return "soil moisture";
+        case GROUND_WATER:
+            return "ground water";
+        case WATER_QUALITY:
+            return "water quality";
+        case WATER_INTAKE:
+            return "water intake";
+        case OUTFALL:
+            return "outfall";
+        default:
+            return "unknown";
+    }
+}
+
 enum hydrology_body_type {
-    LinkMaintenance = 0x2F,               //遥测站链路维持报
-    Test,                                 //遥测站测试报
-    EvenPeriodInformation,                //均匀时段水文信息报
-    TimerReport,                          //遥测站定时报
-    AddReport,                            //遥测站加报报
-    Hour,                                 //遥测站小时报
-    ArtificialNumber,                     //遥测站人工置数报
-    Picture,                              //遥测站图片报
-    Realtime,                             //中心站查询遥测站实时数据
-    Period,                               //中心站查询遥测站时段数据
-    InquireArtificialNumber,              //中心站查询遥测站人工置数
-    Specifiedelement,                     //中心站查询遥测站指定要素实时数据
-    ConfigurationModification = 0x40,     //遥测站配置修改
-    ConfigurationRead,                    //遥测站配置读取
-    ParameterModification,                //中心站修改遥测站运行参数
-    ParameterRead,                        //中心站读取遥测站运行参数
-    WaterPumpMotor,                       //中心站查询水泵电机实时工作数据
-    SoftwareVersion,                      //中心站查询遥测站查询遥测站软件版本
-    Status,                               //中心站查询遥测站状态信息
-    InitializeSolidStorage,               //初始化固态存储数据
-    Reset,                                //恢复遥测站出厂设置
-    ChangePassword,                       //中心站修改传输密码
-    SetClock,                             //中心站设置遥测站时钟
-    SetICCard,                            //中心站设置遥测站IC卡状态
-    Pump,                                 //中心站设置遥测站水泵开关命令响应/ 水泵状态自报
-    Valve,                                //中心站设置遥测站控制阀门开关命令响应/ 阀门状态自报
-    Gate,                                 //中心站设置遥测站控制闸门开关命令响应/ 闸门状态信息自报
-    WaterSetting,                         //中心站设置遥测站水量定值控制命令响应
-    Record,                               //中心站查询遥测站事件记录
-    Time,                                 //中心站查询遥测站时钟
+    LINK_REPORT = 0x2F,               //遥测站链路维持报
+    TEST_REPORT,                                 //遥测站测试报
+    EVEN_PERIOD_INFO_REPORT,                //均匀时段水文信息报
+    TIMER_REPORT,                          //遥测站定时报
+    ADD_REPORT,                            //遥测站加报报
+    HOUR_REPORT,                                 //遥测站小时报
+    ARTIFICIAL_NUM_REPORT,                     //遥测站人工置数报
+    PICTURE_REPORT,                              //遥测站图片报
+    REAL_TIME_REPORT,                             //中心站查询遥测站实时数据
+    PERIOD_REPORT,                               //中心站查询遥测站时段数据
+    INQUIRE_ARTIFICIAL_NUM_REPORT,              //中心站查询遥测站人工置数
+    SPECIFIED_ELEMENT_REPORT,                     //中心站查询遥测站指定要素实时数据
+    CONFIG_WRITE_REPORT = 0x40,     //遥测站配置修改
+    CONFIG_READ_REPORT,                    //遥测站配置读取
+    PARA_WRITE_REPORT,                //中心站修改遥测站运行参数
+    PARA_READ_REPORT,                        //中心站读取遥测站运行参数
+    WATER_PUMP_MOTOR_REPORT,                       //中心站查询水泵电机实时工作数据
+    SW_VERSION_REPORT,                      //中心站查询遥测站查询遥测站软件版本
+    STATUS_REPORT,                               //中心站查询遥测站状态信息
+    INIT_SOLID_STORAGE_REPORT,               //初始化固态存储数据
+    RESET_REPORT,                                //恢复遥测站出厂设置
+    CHANGE_PASSWORD_REPORT,                       //中心站修改传输密码
+    SET_CLOCK_REPORT,                             //中心站设置遥测站时钟
+    SET_IC_CARD_REPORT,                            //中心站设置遥测站IC卡状态
+    PUMP_REPORT,                                 //中心站设置遥测站水泵开关命令响应/ 水泵状态自报
+    VALVE_REPORT,                                //中心站设置遥测站控制阀门开关命令响应/ 阀门状态自报
+    GATE_REPORT,                                 //中心站设置遥测站控制闸门开关命令响应/ 闸门状态信息自报
+    WATER_SETTING_REPORT,                         //中心站设置遥测站水量定值控制命令响应
+    RECORD_REPORT,                               //中心站查询遥测站事件记录
+    TIME_REPORT,                                 //中心站查询遥测站时钟
 };
+
+static inline char *hydrology_type_string(enum hydrology_body_type type)
+{
+    switch (type) {
+        case LINK_REPORT:
+            return "link report";
+
+        case TEST_REPORT:
+            return "test report";
+
+        case EVEN_PERIOD_INFO_REPORT:
+            return "even period info Report";
+
+        case TIMER_REPORT:
+            return "timer report";
+
+        case ADD_REPORT:
+            return "add report";
+
+        case HOUR_REPORT:
+            return "hour report";
+
+        case ARTIFICIAL_NUM_REPORT:
+            return "artificial num report";
+
+        case PICTURE_REPORT:
+            return "picture report";
+
+        case REAL_TIME_REPORT:
+            return "real time report";
+
+        case PERIOD_REPORT:
+            return "period report";
+
+        case INQUIRE_ARTIFICIAL_NUM_REPORT:
+            return "inquire artificial num report";
+
+        case SPECIFIED_ELEMENT_REPORT:
+            return "specified element report";
+
+        case CONFIG_WRITE_REPORT:
+            return "config write report";
+
+        case CONFIG_READ_REPORT:
+            return "config read report";
+
+        case PARA_WRITE_REPORT:
+            return "para write report";
+
+        case PARA_READ_REPORT:
+            return "para read report";
+
+        case WATER_PUMP_MOTOR_REPORT:
+            return "water pump motor report";
+
+        case SW_VERSION_REPORT:
+            return "sw version report";
+
+        case STATUS_REPORT:
+            return "status report";
+
+        case INIT_SOLID_STORAGE_REPORT:
+            return "init solid storage report";
+
+        case RESET_REPORT:
+            return "reset report";
+
+        case CHANGE_PASSWORD_REPORT:
+            return "change password report";
+
+        case SET_CLOCK_REPORT:
+            return "set clock report";
+
+        case SET_IC_CARD_REPORT:
+            return "set ic card report";
+
+        case PUMP_REPORT:
+            return "pump report";
+
+        case VALVE_REPORT:
+            return "valve report";
+
+        case GATE_REPORT:
+            return "gate report";
+
+        case WATER_SETTING_REPORT:
+            return "watersetting report";
+
+        case RECORD_REPORT:
+            return "record report";
+
+        case TIME_REPORT:
+            return "time report";
+
+        default:
+            return "unknown report";
+    }
+}
 
 enum hydrology_msg_src_type {
     MSG_FORM_SERVER,

@@ -294,7 +294,7 @@ struct test_case_typedef kinetis_case_table[] = {
     {"switch.drop",                 t_switch_drop},
 #endif
 #ifdef DESIGN_VERIFICATION_TIMTASK
-    {"timtask.add",                 t_tim_task_add},
+    {"timt-ask.add",                 t_tim_task_add},
 #endif
 #ifdef DESIGN_VERIFICATION_TOUCHSCREEN
     {"test", fuction},
@@ -414,6 +414,7 @@ int k_test_case_schedule(void)
     int ret;
     
     ret = idle_task_init();
+    printk(KERN_ERR "/----------Test platform has been activated.----------/\n");
 
     if (ret)
         goto err;

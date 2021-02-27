@@ -146,7 +146,8 @@ void kinetis_dump_buffer8(void *buffer, int size, int column)
             pr_cont("\n\r");
 
         if (!(i % column))
-            pr_cont("Buffer[%4d~%4d]: ",
+            pr_cont("[%5d.%06d] Buffer[%4d~%4d]: ",
+                basic_timer_get_ss(), basic_timer_get_timer_cnt(),
                 i,
                 i + column > size ? size - 1 : i + column - 1);
 

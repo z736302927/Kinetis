@@ -76,7 +76,7 @@ int led_add(u32 unique_id, enum led_color color, void *group, u32 num)
     led->unique_id = unique_id;
     led->color = color;
     led->group = group;
-    led->num = color;
+    led->num = num;
     led_init(led);
 
     list_add_tail(&led->list, &led_head);
@@ -128,18 +128,26 @@ static void led_task_callback(void)
 {
     led_operation(1, TOGGLE);
     led_operation(2, TOGGLE);
-    led_operation(3, TOGGLE);
-    led_operation(4, TOGGLE);
 }
 
 int t_led_add(int argc, char **argv)
 {
-    tim_task_add(1000, true, led_task_callback);
+    int ret;
 
-    led_add(1, RED, GPIOC, GPIO_PIN_6);
-    led_add(2, RED, GPIOC, GPIO_PIN_7);
-    led_add(3, RED, GPIOC, GPIO_PIN_8);
-    led_add(4, RED, GPIOC, GPIO_PIN_9);
+    ret = led_add(1, RED, GPIOF, GPIO_PIN_9);
+
+    if (ret)
+        return FAIL;
+
+    ret = led_add(2, RED, GPIOF, GPIO_PIN_10);
+
+    if (ret)
+        return FAIL;
+
+    ret = tim_task_add(1000, true, led_task_callback);
+
+    if (ret)
+        return FAIL;
 
     return PASS;
 }
@@ -150,8 +158,6 @@ int t_led_drop(int argc, char **argv)
 
     led_drop(1);
     led_drop(2);
-    led_drop(3);
-    led_drop(4);
 
     return PASS;
 }

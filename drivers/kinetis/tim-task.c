@@ -40,6 +40,7 @@ int tim_task_add(u32 interval, bool auto_load, void(*callback)())
 
     tim_task->callback = callback;
     tim_task->timeout = basic_timer_get_ms() + interval;
+    tim_task->interval = interval;
     tim_task->auto_load = auto_load;
 
     list_add_tail(&tim_task->list, &tim_task_head);
@@ -77,11 +78,12 @@ void tim_task_loop(void)
     struct tim_task *tim_task, *tmp;
 
     list_for_each_entry_safe(tim_task, tmp, &tim_task_head, list) {
-        if (tim_task->timeout >= basic_timer_get_ms()) {
+        if (tim_task->timeout <= basic_timer_get_ms()) {
             tim_task->callback();
 
             if (tim_task->auto_load)
-                tim_task->timeout = basic_timer_get_ms();
+                tim_task->timeout =
+                    basic_timer_get_ms() + tim_task->interval;
             else {
                 list_del(&tim_task->list);
                 kfree(tim_task);
@@ -97,32 +99,36 @@ void tim_task_loop(void)
 #include <linux/iopoll.h>
 #include <linux/printk.h>
 
-static bool tim_task_flag = 0;
+static u64 time_stamp;
 
 void tim_task_callback(void)
 {
-    tim_task_flag = true;
-    printk(KERN_DEBUG "tim_task timeout!");
+    time_stamp = basic_timer_get_ms() - time_stamp;
+    printk(KERN_DEBUG "timeout! tim_task elapse time = %llu ms.\n", time_stamp);
+
+    if (time_stamp >= 900 && time_stamp <= 1100)
+        printk(KERN_DEBUG "PASS\n");
+    else
+        printk(KERN_DEBUG "FAIL\n");
 }
 
 int t_tim_task_add(int argc, char **argv)
 {
-    u32 time_stamp = 0;
-    bool val;
+    int ret;
 
     time_stamp = basic_timer_get_ms();
+    
+    ret = tim_task_add(1000, false, tim_task_callback); //1s loop
+    
+    if (ret)
+        goto err;
 
-    tim_task_add(1000, false, tim_task_callback); //1s loop
-
-    readl_poll_timeout_atomic(&tim_task_flag, val, val == true, 1, 2000);
-
-    time_stamp = basic_timer_get_ms() - time_stamp;
-    printk(KERN_DEBUG "tim_task elapse time = %u ms.", time_stamp);
-
-    if (time_stamp > 1100)
-        return FAIL;
-    else
-        return PASS;
+    return PASS;
+    
+err:
+    printk(KERN_ERR "Failed to execute %s(), error code: %d\n",
+        __func__, ret);
+    return FAIL;
 }
 
 #endif

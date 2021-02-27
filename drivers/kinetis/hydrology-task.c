@@ -39,8 +39,8 @@ static void measure_temperature_humidit(void)
 
 void link_packet(void)
 {
-    printk(KERN_DEBUG "Send packet, function code = LinkMaintenance\n");
-    hydrology_device_process(NULL, 0, HYDROLOGY_M1, LinkMaintenance);
+    printk(KERN_DEBUG "Send %s packet\n", hydrology_type_string(LINK_REPORT));
+    hydrology_device_process(NULL, 0, HYDROLOGY_M1, LINK_REPORT);
 }
 
 static void test_packet(void)
@@ -66,23 +66,23 @@ static void test_packet(void)
             Elment.value);
     }
 
-    printk(KERN_DEBUG "Send packet, function code = Test\n");
-    hydrology_device_process(element_table, 1, HYDROLOGY_M1, Test);
+    printk(KERN_DEBUG "Send %s packet\n", hydrology_type_string(TEST_REPORT));
+    hydrology_device_process(element_table, 1, HYDROLOGY_M1, TEST_REPORT);
 }
 
 static void timer_report_packet(void)
 {
-    printk(KERN_DEBUG "Send packet, function code = TimerReport\n");
+    printk(KERN_DEBUG "Send %s packet\n", hydrology_type_string(TIMER_REPORT));
 }
 
 static void add_report_packet(void)
 {
-    printk(KERN_DEBUG "Send packet, function code = AddReport\n");
+    printk(KERN_DEBUG "Send %s packet\n", hydrology_type_string(ADD_REPORT));
 }
 
 static void hour_packet(void)
 {
-    printk(KERN_DEBUG "Send packet, function code = Hour\n");
+    printk(KERN_DEBUG "Send %s packet\n", hydrology_type_string(HOUR_REPORT));
 }
 
 void hydrology_task_exit(void)
@@ -98,7 +98,6 @@ void hydrology_task_exit(void)
 int hydrology_task_init(void)
 {
     u8 interval;
-
     tim_task_add(60 * 1000, true, measure_temperature_humidit);
     tim_task_add(40 * 1000, true, link_packet);
 

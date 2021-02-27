@@ -10,21 +10,13 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include <linux/types.h>
 #include <linux/list.h>
+#include <linux/time.h>
 
 #include "kinetis/core_common.h"
 
-struct rtc_task_date_time {
-    u8 year;
-    u8 month;
-    u8 date;
-    u8 hours;
-    u8 minutes;
-    u8 seconds;
-};
-
 struct rtc_task {
-    struct rtc_task_date_time expired_time;
-    struct rtc_task_date_time interval;
+    struct tm expired;
+    struct tm interval;
     void (*callback)(void);
     struct list_head list;
     bool auto_load;

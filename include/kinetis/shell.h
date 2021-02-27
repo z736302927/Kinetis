@@ -8,12 +8,12 @@ extern "C" {
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /* Includes ------------------------------------------------------------------*/
-
+#include <linux/types.h>
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 void shell_init(void);
-int shell_get_user_input(char *cur_pos);
+bool shell_get_user_input(char *cur_pos);
 
 #ifdef __cplusplus
 }

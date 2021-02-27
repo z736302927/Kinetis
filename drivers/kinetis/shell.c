@@ -70,14 +70,22 @@ static inline u8 shell_port_receive(void)
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-int shell_get_user_input(char *cur_pos)
+bool shell_get_user_input(char *cur_pos)
 {
     char input = '\0';
     u16 length = 0;
 
-    while (input != '\r') {
+    input = shell_port_receive();
+
+    if (input == 0xFF)
+        return false;
+    else
+        goto get_char;
+    
+    do {
         input = shell_port_receive();
 
+get_char:
         if (input == 0xFF)
             continue;
         else if (input == '\b') {
@@ -92,7 +100,7 @@ int shell_get_user_input(char *cur_pos)
             length++;
             printk("%c", input);
         }
-    }
+    } while (input != '\r');
 
     cur_pos--;
 

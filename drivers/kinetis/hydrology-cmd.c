@@ -36,7 +36,7 @@ static int hydrology_send_realtime_data(void)
 
     if (hydrology_device_process_send(element_table,
             sizeof(element_table) / sizeof(struct hydrology_element_info),
-            HYDROLOGY_M4, Realtime) == false)
+            HYDROLOGY_M4, REAL_TIME_REPORT) == false)
         return false;
 
     return true;
@@ -51,11 +51,11 @@ static int hydrology_send_period_data(void)
     };
 
     element_table[1].ID = down_body->element[1]->guide[0];
-    hydrology_read_specified_element_info(&element_table[1], Period, element_table[1].ID);
+    hydrology_read_specified_element_info(&element_table[1], PERIOD_REPORT, element_table[1].ID);
 
     if (hydrology_device_process_send(element_table,
             sizeof(element_table) / sizeof(struct hydrology_element_info),
-            HYDROLOGY_M4, Period) == false)
+            HYDROLOGY_M4, PERIOD_REPORT) == false)
         return false;
 
     return true;
@@ -84,7 +84,7 @@ static int hydrology_send_specified_element(void)
     }
 
     ret = hydrology_device_process_send(element_table, down_body->count,
-            HYDROLOGY_M4, Specifiedelement);
+            HYDROLOGY_M4, SPECIFIED_ELEMENT_REPORT);
 
     kfree(element_table);
 
@@ -222,7 +222,7 @@ static int hydrology_send_water_pump_motor_data(void)
 
     if (hydrology_device_process_send(element_table,
             sizeof(element_table) / sizeof(struct hydrology_element_info),
-            HYDROLOGY_M4, WaterPumpMotor) == false)
+            HYDROLOGY_M4, WATER_PUMP_MOTOR_REPORT) == false)
         return false;
 
     return true;
@@ -236,7 +236,7 @@ static int hydrology_send_status_data(void)
 
     if (hydrology_device_process_send(element_table,
             sizeof(element_table) / sizeof(struct hydrology_element_info),
-            HYDROLOGY_M4, Status) == false)
+            HYDROLOGY_M4, STATUS_REPORT) == false)
         return false;
 
     return true;
@@ -883,7 +883,7 @@ static int hydrology_send_password(void)
 
     if (hydrology_device_process_send(element_table,
             sizeof(element_table) / sizeof(struct hydrology_element_info),
-            HYDROLOGY_M4, ChangePassword) == false)
+            HYDROLOGY_M4, CHANGE_PASSWORD_REPORT) == false)
         return false;
 
     return true;
@@ -897,7 +897,7 @@ static int hydrology_send_iccard(void)
 
     if (hydrology_device_process_send(element_table,
             sizeof(element_table) / sizeof(struct hydrology_element_info),
-            HYDROLOGY_M4, SetICCard) == false)
+            HYDROLOGY_M4, SET_IC_CARD_REPORT) == false)
         return false;
 
     return true;
@@ -911,7 +911,7 @@ static int hydrology_send_pump(void)
 
     if (hydrology_device_process_send(element_table,
             sizeof(element_table) / sizeof(struct hydrology_element_info),
-            HYDROLOGY_M4, Pump) == false)
+            HYDROLOGY_M4, PUMP_REPORT) == false)
         return false;
 
     return true;
@@ -925,7 +925,7 @@ static int hydrology_send_valve(void)
 
     if (hydrology_device_process_send(element_table,
             sizeof(element_table) / sizeof(struct hydrology_element_info),
-            HYDROLOGY_M4, Valve) == false)
+            HYDROLOGY_M4, VALVE_REPORT) == false)
         return false;
 
     return true;
@@ -939,7 +939,7 @@ static int hydrology_send_gate(void)
 
     if (hydrology_device_process_send(element_table,
             sizeof(element_table) / sizeof(struct hydrology_element_info),
-            HYDROLOGY_M4, Gate) == false)
+            HYDROLOGY_M4, GATE_REPORT) == false)
         return false;
 
     return true;
@@ -953,7 +953,7 @@ static int hydrology_send_water_setting(void)
 
     if (hydrology_device_process_send(element_table,
             sizeof(element_table) / sizeof(struct hydrology_element_info),
-            HYDROLOGY_M4, WaterSetting) == false)
+            HYDROLOGY_M4, WATER_SETTING_REPORT) == false)
         return false;
 
     return true;
@@ -967,7 +967,7 @@ static int hydrology_send_record_erc(void)
 
     if (hydrology_device_process_send(element_table,
             sizeof(element_table) / sizeof(struct hydrology_element_info),
-            HYDROLOGY_M4, Record) == false)
+            HYDROLOGY_M4, RECORD_REPORT) == false)
         return false;
 
     return true;
@@ -978,72 +978,72 @@ int hydrology_execute_command(enum hydrology_body_type funcode)
     int ret = false;
 
     switch (funcode) {
-        case Test:
-        case EvenPeriodInformation:
-        case TimerReport:
-        case AddReport:
-        case Hour:
-        case ArtificialNumber:
-        case Picture:
-        case Realtime:
-        case Period:
-        case InquireArtificialNumber:
-        case Specifiedelement:
-        case ConfigurationRead:
-        case ParameterRead:
-        case WaterPumpMotor:
-        case SoftwareVersion:
-        case Status:
-        case Record:
-        case Time:
+        case TEST_REPORT:
+        case EVEN_PERIOD_INFO_REPORT:
+        case TIMER_REPORT:
+        case ADD_REPORT:
+        case HOUR_REPORT:
+        case ARTIFICIAL_NUM_REPORT:
+        case PICTURE_REPORT:
+        case REAL_TIME_REPORT:
+        case PERIOD_REPORT:
+        case INQUIRE_ARTIFICIAL_NUM_REPORT:
+        case SPECIFIED_ELEMENT_REPORT:
+        case CONFIG_READ_REPORT:
+        case PARA_READ_REPORT:
+        case WATER_PUMP_MOTOR_REPORT:
+        case SW_VERSION_REPORT:
+        case STATUS_REPORT:
+        case RECORD_REPORT:
+        case TIME_REPORT:
             break;
 
-        case ConfigurationModification:
+        case CONFIG_WRITE_REPORT:
             hydrology_basic_info_config();
             break;
 
-        case ParameterModification:
+        case PARA_WRITE_REPORT:
             hydrology_set_parameter();
             hydrology_record_erc(ERC2);
             break;
 
-        case InitializeSolidStorage:
+        case INIT_SOLID_STORAGE_REPORT:
             hydrology_initialize_solid_storage();
             hydrology_record_erc(ERC5);
             hydrology_device_reboot();
             break;
 
-        case Reset:
+        case RESET_REPORT:
             hydrology_device_reset();
             hydrology_device_reboot();
             break;
 
-        case ChangePassword:
+        case CHANGE_PASSWORD_REPORT:
             hydrology_set_password();
             hydrology_record_erc(ERC5);
             break;
 
-        case SetClock:
+        case SET_CLOCK_REPORT:
             hydrology_set_clock();
             break;
 
-        case SetICCard:
+        case SET_IC_CARD_REPORT:
             hydrology_set_iccard();
             break;
 
-        case Pump:
+        case PUMP_REPORT:
             hydrology_set_pump();
             break;
 
-        case Valve:
+        case VALVE_REPORT:
             hydrology_set_valve();
             break;
 
-        case Gate:
+        case GATE_REPORT:
             hydrology_set_gate();
             break;
 
-        case WaterSetting:
+        case WATER_SETTING_REPORT:
             hydrology_set_watersetting();
             break;
 
@@ -1059,97 +1059,97 @@ int hydrology_response_downstream(enum hydrology_body_type funcode)
     int ret = false;
 
     switch (funcode) {
-        case LinkMaintenance:
-        case Test:
-        case EvenPeriodInformation:
-        case TimerReport:
-        case AddReport:
-        case Hour:
-        case ArtificialNumber:
-        case Picture:
+        case LINK_REPORT:
+        case TEST_REPORT:
+        case EVEN_PERIOD_INFO_REPORT:
+        case TIMER_REPORT:
+        case ADD_REPORT:
+        case HOUR_REPORT:
+        case ARTIFICIAL_NUM_REPORT:
+        case PICTURE_REPORT:
             break;
 
-        case Realtime:
+        case REAL_TIME_REPORT:
             hydrology_send_realtime_data();
             break;
 
-        case Period:
+        case PERIOD_REPORT:
             hydrology_send_period_data();
             break;
 
-        case InquireArtificialNumber:
-            return hydrology_device_process_send(NULL, 0, HYDROLOGY_M4, InquireArtificialNumber);
+        case INQUIRE_ARTIFICIAL_NUM_REPORT:
+            return hydrology_device_process_send(NULL, 0, HYDROLOGY_M4, INQUIRE_ARTIFICIAL_NUM_REPORT);
 
-        case Specifiedelement:
+        case SPECIFIED_ELEMENT_REPORT:
             hydrology_send_specified_element();
             break;
 
-        case ConfigurationModification:
-            hydrology_basic_info_read(ConfigurationModification);
+        case CONFIG_WRITE_REPORT:
+            hydrology_basic_info_read(CONFIG_WRITE_REPORT);
             break;
 
-        case ConfigurationRead:
-            hydrology_basic_info_read(ConfigurationRead);
+        case CONFIG_READ_REPORT:
+            hydrology_basic_info_read(CONFIG_READ_REPORT);
             break;
 
-        case ParameterModification:
-            hydrology_read_parameter(ParameterModification);
+        case PARA_WRITE_REPORT:
+            hydrology_read_parameter(PARA_WRITE_REPORT);
             break;
 
-        case ParameterRead:
-            hydrology_read_parameter(ParameterRead);
+        case PARA_READ_REPORT:
+            hydrology_read_parameter(PARA_READ_REPORT);
             break;
 
-        case WaterPumpMotor:
+        case WATER_PUMP_MOTOR_REPORT:
             hydrology_send_water_pump_motor_data();
             break;
 
-        case SoftwareVersion:
-            return hydrology_device_process_send(NULL, 0, HYDROLOGY_M4, SoftwareVersion);
+        case SW_VERSION_REPORT:
+            return hydrology_device_process_send(NULL, 0, HYDROLOGY_M4, SW_VERSION_REPORT);
 
-        case Status:
+        case STATUS_REPORT:
             hydrology_send_status_data();
             break;
 
-        case InitializeSolidStorage:
-            return hydrology_device_process_send(NULL, 0, HYDROLOGY_M4, InitializeSolidStorage);
+        case INIT_SOLID_STORAGE_REPORT:
+            return hydrology_device_process_send(NULL, 0, HYDROLOGY_M4, INIT_SOLID_STORAGE_REPORT);
 
-        case Reset:
-            return hydrology_device_process_send(NULL, 0, HYDROLOGY_M4, Reset);
+        case RESET_REPORT:
+            return hydrology_device_process_send(NULL, 0, HYDROLOGY_M4, RESET_REPORT);
 
-        case ChangePassword:
+        case CHANGE_PASSWORD_REPORT:
             hydrology_send_password();
             break;
 
-        case SetClock:
-            return hydrology_device_process_send(NULL, 0, HYDROLOGY_M4, SetClock);
+        case SET_CLOCK_REPORT:
+            return hydrology_device_process_send(NULL, 0, HYDROLOGY_M4, SET_CLOCK_REPORT);
 
-        case SetICCard:
+        case SET_IC_CARD_REPORT:
             hydrology_send_iccard();
             break;
 
-        case Pump:
+        case PUMP_REPORT:
             hydrology_send_pump();
             break;
 
-        case Valve:
+        case VALVE_REPORT:
             hydrology_send_valve();
             break;
 
-        case Gate:
+        case GATE_REPORT:
             hydrology_send_gate();
             break;
 
-        case WaterSetting:
+        case WATER_SETTING_REPORT:
             hydrology_send_water_setting();
             break;
 
-        case Record:
+        case RECORD_REPORT:
             hydrology_send_record_erc();
             break;
 
-        case Time:
-            return hydrology_device_process_send(NULL, 0, HYDROLOGY_M4, Time);
+        case TIME_REPORT:
+            return hydrology_device_process_send(NULL, 0, HYDROLOGY_M4, TIME_REPORT);
     }
 
     return ret;
@@ -1160,57 +1160,57 @@ int hydrology_response_upstream(enum hydrology_body_type funcode, u8 End)
     int ret = false;
 
     switch (funcode) {
-        case LinkMaintenance:
-        case Realtime:
-        case Period:
-        case InquireArtificialNumber:
-        case Specifiedelement:
-        case ConfigurationModification:
-        case ConfigurationRead:
-        case ParameterModification:
-        case ParameterRead:
-        case WaterPumpMotor:
-        case SoftwareVersion:
-        case Status:
-        case InitializeSolidStorage:
-        case Reset:
-        case ChangePassword:
-        case SetClock:
-        case SetICCard:
-        case WaterSetting:
-        case Record:
-        case Time:
+        case LINK_REPORT:
+        case REAL_TIME_REPORT:
+        case PERIOD_REPORT:
+        case INQUIRE_ARTIFICIAL_NUM_REPORT:
+        case SPECIFIED_ELEMENT_REPORT:
+        case CONFIG_WRITE_REPORT:
+        case CONFIG_READ_REPORT:
+        case PARA_WRITE_REPORT:
+        case PARA_READ_REPORT:
+        case WATER_PUMP_MOTOR_REPORT:
+        case SW_VERSION_REPORT:
+        case STATUS_REPORT:
+        case INIT_SOLID_STORAGE_REPORT:
+        case RESET_REPORT:
+        case CHANGE_PASSWORD_REPORT:
+        case SET_CLOCK_REPORT:
+        case SET_IC_CARD_REPORT:
+        case WATER_SETTING_REPORT:
+        case RECORD_REPORT:
+        case TIME_REPORT:
             break;
 
-        case Test:
-            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, Test, End);
+        case TEST_REPORT:
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, TEST_REPORT, End);
 
-        case EvenPeriodInformation:
-            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, EvenPeriodInformation, End);
+        case EVEN_PERIOD_INFO_REPORT:
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, EVEN_PERIOD_INFO_REPORT, End);
 
-        case TimerReport:
-            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, TimerReport, End);
+        case TIMER_REPORT:
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, TIMER_REPORT, End);
 
-        case AddReport:
-            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, AddReport, End);
+        case ADD_REPORT:
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, ADD_REPORT, End);
 
-        case Hour:
-            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, Hour, End);
+        case HOUR_REPORT:
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, HOUR_REPORT, End);
 
-        case ArtificialNumber:
-            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, ArtificialNumber, End);
+        case ARTIFICIAL_NUM_REPORT:
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, ARTIFICIAL_NUM_REPORT, End);
 
-        case Picture:
-            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, Picture, End);
+        case PICTURE_REPORT:
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, PICTURE_REPORT, End);
 
-        case Pump:
-            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, Pump, End);
+        case PUMP_REPORT:
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, PUMP_REPORT, End);
 
-        case Valve:
-            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, Valve, End);
+        case VALVE_REPORT:
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, VALVE_REPORT, End);
 
-        case Gate:
-            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, Gate, End);
+        case GATE_REPORT:
+            return hydrology_host_process_send(NULL, 0, HYDROLOGY_M2, GATE_REPORT, End);
     }
 
     return ret;

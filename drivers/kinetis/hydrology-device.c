@@ -54,41 +54,41 @@ int hydrology_device_init_send(u8 cnt, enum hydrology_body_type funcode)
     upbody->count = cnt;
 
     switch (funcode) {
-        case LinkMaintenance:
-        case InitializeSolidStorage:
-        case Reset:
-        case SetClock:
-        case Time:
+        case LINK_REPORT:
+        case INIT_SOLID_STORAGE_REPORT:
+        case RESET_REPORT:
+        case SET_CLOCK_REPORT:
+        case TIME_REPORT:
             upbody->count = 0;
             break;
 
-        case Test:
-        case EvenPeriodInformation:
-        case TimerReport:
-        case AddReport:
-        case Hour:
-        case Realtime:
-        case Period:
-        case Specifiedelement:
-        case ConfigurationModification:
-        case ConfigurationRead:
-        case ParameterModification:
-        case ParameterRead:
-        case WaterPumpMotor:
+        case TEST_REPORT:
+        case EVEN_PERIOD_INFO_REPORT:
+        case TIMER_REPORT:
+        case ADD_REPORT:
+        case HOUR_REPORT:
+        case REAL_TIME_REPORT:
+        case PERIOD_REPORT:
+        case SPECIFIED_ELEMENT_REPORT:
+        case CONFIG_WRITE_REPORT:
+        case CONFIG_READ_REPORT:
+        case PARA_WRITE_REPORT:
+        case PARA_READ_REPORT:
+        case WATER_PUMP_MOTOR_REPORT:
             break;
 
-        case ArtificialNumber:
-        case Picture:
-        case InquireArtificialNumber:
-        case SoftwareVersion:
-        case Status:
-        case ChangePassword:
-        case SetICCard:
-        case Pump:
-        case Valve:
-        case Gate:
-        case WaterSetting:
-        case Record:
+        case ARTIFICIAL_NUM_REPORT:
+        case PICTURE_REPORT:
+        case INQUIRE_ARTIFICIAL_NUM_REPORT:
+        case SW_VERSION_REPORT:
+        case STATUS_REPORT:
+        case CHANGE_PASSWORD_REPORT:
+        case SET_IC_CARD_REPORT:
+        case PUMP_REPORT:
+        case VALVE_REPORT:
+        case GATE_REPORT:
+        case WATER_SETTING_REPORT:
+        case RECORD_REPORT:
             upbody->count = 1;
             break;
     }
@@ -283,22 +283,22 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
     upbody->len = 0;
 
     switch (funcode) {
-        case LinkMaintenance:
+        case LINK_REPORT:
             hydrology_get_stream_id(upbody->stream_id);
             upbody->len += 2;
             hydrology_get_time(upbody->send_time);
             upbody->len += 6;
             break;
 
-        case Test:
-        case EvenPeriodInformation:
-        case TimerReport:
-        case AddReport:
-        case Hour:
-        case WaterPumpMotor:
-        case Realtime:
-        case Period:
-        case Specifiedelement:
+        case TEST_REPORT:
+        case EVEN_PERIOD_INFO_REPORT:
+        case TIMER_REPORT:
+        case ADD_REPORT:
+        case HOUR_REPORT:
+        case WATER_PUMP_MOTOR_REPORT:
+        case REAL_TIME_REPORT:
+        case PERIOD_REPORT:
+        case SPECIFIED_ELEMENT_REPORT:
             hydrology_get_stream_id(upbody->stream_id);
             upbody->len += 2;
             hydrology_get_time(upbody->send_time);
@@ -332,8 +332,8 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 
             break;
 
-        case ArtificialNumber:
-        case InquireArtificialNumber:
+        case ARTIFICIAL_NUM_REPORT:
+        case INQUIRE_ARTIFICIAL_NUM_REPORT:
             hydrology_get_stream_id(upbody->stream_id);
             upbody->len += 2;
             hydrology_get_time(upbody->send_time);
@@ -344,7 +344,7 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
             upbody->len += upbody->element[0]->num + 2;
             break;
 
-        case Picture:
+        case PICTURE_REPORT:
             hydrology_get_stream_id(upbody->stream_id);
             upbody->len += 2;
             hydrology_get_time(upbody->send_time);
@@ -372,11 +372,11 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 
             break;
 
-        case Status:
-        case ConfigurationModification:
-        case ConfigurationRead:
-        case ParameterModification:
-        case ParameterRead:
+        case STATUS_REPORT:
+        case CONFIG_WRITE_REPORT:
+        case CONFIG_READ_REPORT:
+        case PARA_WRITE_REPORT:
+        case PARA_READ_REPORT:
             hydrology_get_stream_id(upbody->stream_id);
             upbody->len += 2;
             hydrology_get_time(upbody->send_time);
@@ -402,7 +402,7 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 
             break;
 
-        case SoftwareVersion:
+        case SW_VERSION_REPORT:
             hydrology_get_stream_id(upbody->stream_id);
             upbody->len += 2;
             hydrology_get_time(upbody->send_time);
@@ -428,9 +428,9 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
             upbody->len += upbody->element[0]->num + 1;
             break;
 
-        case InitializeSolidStorage:
-        case Reset:
-        case SetClock:
+        case INIT_SOLID_STORAGE_REPORT:
+        case RESET_REPORT:
+        case SET_CLOCK_REPORT:
             hydrology_get_stream_id(upbody->stream_id);
             upbody->len += 2;
             hydrology_get_time(upbody->send_time);
@@ -443,8 +443,8 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
             upbody->len += 5;
             break;
 
-        case ChangePassword:
-        case SetICCard:
+        case CHANGE_PASSWORD_REPORT:
+        case SET_IC_CARD_REPORT:
             hydrology_get_stream_id(upbody->stream_id);
             upbody->len += 2;
             hydrology_get_time(upbody->send_time);
@@ -467,7 +467,7 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
             upbody->len += upbody->element[0]->num + 2;
             break;
 
-        case Pump:
+        case PUMP_REPORT:
             hydrology_get_stream_id(upbody->stream_id);
             upbody->len += 2;
             hydrology_get_time(upbody->send_time);
@@ -493,7 +493,7 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
             upbody->len += upbody->element[0]->num + 1;
             break;
 
-        case Valve:
+        case VALVE_REPORT:
             hydrology_get_stream_id(upbody->stream_id);
             upbody->len += 2;
             hydrology_get_time(upbody->send_time);
@@ -519,7 +519,7 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
             upbody->len += upbody->element[0]->num + 1;
             break;
 
-        case Gate:
+        case GATE_REPORT:
             hydrology_get_stream_id(upbody->stream_id);
             upbody->len += 2;
             hydrology_get_time(upbody->send_time);
@@ -550,7 +550,7 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
             upbody->len += upbody->element[0]->num + 1;
             break;
 
-        case WaterSetting:
+        case WATER_SETTING_REPORT:
             hydrology_get_stream_id(upbody->stream_id);
             upbody->len += 2;
             hydrology_get_time(upbody->send_time);
@@ -575,7 +575,7 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
             upbody->len += upbody->element[0]->num;
             break;
 
-        case Record:
+        case RECORD_REPORT:
             hydrology_get_stream_id(upbody->stream_id);
             upbody->len += 2;
             hydrology_get_time(upbody->send_time);
@@ -600,7 +600,7 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
             upbody->len += upbody->element[0]->num;
             break;
 
-        case Time:
+        case TIME_REPORT:
             hydrology_get_stream_id(upbody->stream_id);
             upbody->len += 2;
             hydrology_get_time(upbody->send_time);
@@ -693,13 +693,13 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
         pointer = sizeof(struct hydrology_up_header) - 4;
 
         switch (funcode) {
-            case LinkMaintenance:
+            case LINK_REPORT:
                 memcpy(&buffer[pointer], upbody, 8);
                 pointer += 8;
                 break;
 
-            case EvenPeriodInformation:
-            case Period:
+            case EVEN_PERIOD_INFO_REPORT:
+            case PERIOD_REPORT:
                 memcpy(&buffer[pointer], upbody, 23);
                 pointer += 23;
                 memcpy(&buffer[pointer], upbody->element[0]->guide, 2);
@@ -731,13 +731,13 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 
                 break;
 
-            case Test:
-            case TimerReport:
-            case AddReport:
-            case Hour:
-            case Realtime:
-            case Specifiedelement:
-            case WaterPumpMotor:
+            case TEST_REPORT:
+            case TIMER_REPORT:
+            case ADD_REPORT:
+            case HOUR_REPORT:
+            case REAL_TIME_REPORT:
+            case SPECIFIED_ELEMENT_REPORT:
+            case WATER_PUMP_MOTOR_REPORT:
                 memcpy(&buffer[pointer], upbody, 23);
                 pointer += 23;
 
@@ -750,8 +750,8 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 
                 break;
 
-            case ArtificialNumber:
-            case InquireArtificialNumber:
+            case ARTIFICIAL_NUM_REPORT:
+            case INQUIRE_ARTIFICIAL_NUM_REPORT:
                 memcpy(&buffer[pointer], upbody, 8);
                 pointer += 8;
                 memcpy(&buffer[pointer], upbody->element[0]->guide, 2);
@@ -761,7 +761,7 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
                 pointer += upbody->element[i]->num;
                 break;
 
-            case Picture:
+            case PICTURE_REPORT:
                 memcpy(&buffer[pointer], upbody, 8);
                 pointer += 8;
                 memcpy(&buffer[pointer], upbody->element[0]->guide, 2);
@@ -771,11 +771,11 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
                 pointer += upbody->element[i]->num;
                 break;
 
-            case ConfigurationModification:
-            case ConfigurationRead:
-            case ParameterModification:
-            case ParameterRead:
-            case Status:
+            case CONFIG_WRITE_REPORT:
+            case CONFIG_READ_REPORT:
+            case PARA_WRITE_REPORT:
+            case PARA_READ_REPORT:
+            case STATUS_REPORT:
                 memcpy(&buffer[pointer], upbody, 15);
                 pointer += 15;
 
@@ -788,7 +788,7 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 
                 break;
 
-            case SoftwareVersion:
+            case SW_VERSION_REPORT:
                 memcpy(&buffer[pointer], upbody, 15);
                 pointer += 15;
                 memcpy(&buffer[pointer], upbody->element[0]->guide, 1);
@@ -797,16 +797,16 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
                 pointer += upbody->element[0]->num;
                 break;
 
-            case InitializeSolidStorage:
-            case Reset:
-            case SetClock:
-            case Time:
+            case INIT_SOLID_STORAGE_REPORT:
+            case RESET_REPORT:
+            case SET_CLOCK_REPORT:
+            case TIME_REPORT:
                 memcpy(&buffer[pointer], upbody, 15);
                 pointer += 15;
                 break;
 
-            case ChangePassword:
-            case SetICCard:
+            case CHANGE_PASSWORD_REPORT:
+            case SET_IC_CARD_REPORT:
                 memcpy(&buffer[pointer], upbody, 15);
                 pointer += 15;
                 memcpy(&buffer[pointer], upbody->element[0]->guide, 2);
@@ -815,9 +815,9 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
                 pointer += upbody->element[0]->num;
                 break;
 
-            case Pump:
-            case Valve:
-            case Gate:
+            case PUMP_REPORT:
+            case VALVE_REPORT:
+            case GATE_REPORT:
                 memcpy(&buffer[pointer], upbody, 15);
                 pointer += 15;
                 memcpy(&buffer[pointer], upbody->element[0]->guide, 1);
@@ -826,8 +826,8 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
                 pointer += upbody->element[0]->num;
                 break;
 
-            case WaterSetting:
-            case Record:
+            case WATER_SETTING_REPORT:
+            case RECORD_REPORT:
                 memcpy(&buffer[pointer], upbody, 15);
                 pointer += 15;
                 memcpy(&buffer[pointer], upbody->element[0]->value, upbody->element[0]->num);
@@ -880,7 +880,7 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
         body_pointer = 0;
 
         switch (funcode) {
-            case LinkMaintenance:
+            case LINK_REPORT:
                 memcpy(&body_buffer[body_pointer], upbody, 8);
                 body_pointer += 8;
 
@@ -889,8 +889,8 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 
                 break;
 
-            case EvenPeriodInformation:
-            case Period:
+            case EVEN_PERIOD_INFO_REPORT:
+            case PERIOD_REPORT:
                 memcpy(&body_buffer[body_pointer], upbody, 23);
                 body_pointer += 23;
                 memcpy(&body_buffer[body_pointer], upbody->element[0]->guide, 2);
@@ -925,13 +925,13 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 
                 break;
 
-            case Test:
-            case TimerReport:
-            case AddReport:
-            case Hour:
-            case Realtime:
-            case Specifiedelement:
-            case WaterPumpMotor:
+            case TEST_REPORT:
+            case TIMER_REPORT:
+            case ADD_REPORT:
+            case HOUR_REPORT:
+            case REAL_TIME_REPORT:
+            case SPECIFIED_ELEMENT_REPORT:
+            case WATER_PUMP_MOTOR_REPORT:
                 memcpy(&body_buffer[body_pointer], upbody, 23);
                 body_pointer += 23;
 
@@ -947,11 +947,11 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 
                 break;
 
-            case ConfigurationModification:
-            case ConfigurationRead:
-            case ParameterModification:
-            case ParameterRead:
-            case Status:
+            case CONFIG_WRITE_REPORT:
+            case CONFIG_READ_REPORT:
+            case PARA_WRITE_REPORT:
+            case PARA_READ_REPORT:
+            case STATUS_REPORT:
                 memcpy(&body_buffer[body_pointer], upbody, 15);
                 body_pointer += 15;
 
@@ -967,7 +967,7 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 
                 break;
 
-            case SoftwareVersion:
+            case SW_VERSION_REPORT:
                 memcpy(&body_buffer[body_pointer], upbody, 15);
                 body_pointer += 15;
                 memcpy(&body_buffer[body_pointer], upbody->element[0]->guide, 1);
@@ -980,10 +980,10 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 
                 break;
 
-            case InitializeSolidStorage:
-            case Reset:
-            case SetClock:
-            case Time:
+            case INIT_SOLID_STORAGE_REPORT:
+            case RESET_REPORT:
+            case SET_CLOCK_REPORT:
+            case TIME_REPORT:
                 memcpy(&body_buffer[body_pointer], upbody, 15);
                 body_pointer += 15;
 
@@ -992,8 +992,8 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 
                 break;
 
-            case ChangePassword:
-            case SetICCard:
+            case CHANGE_PASSWORD_REPORT:
+            case SET_IC_CARD_REPORT:
                 memcpy(&body_buffer[body_pointer], upbody, 15);
                 body_pointer += 15;
                 memcpy(&body_buffer[body_pointer], upbody->element[0]->guide, 2);
@@ -1006,9 +1006,9 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 
                 break;
 
-            case Pump:
-            case Valve:
-            case Gate:
+            case PUMP_REPORT:
+            case VALVE_REPORT:
+            case GATE_REPORT:
                 memcpy(&body_buffer[body_pointer], upbody, 15);
                 body_pointer += 15;
                 memcpy(&body_buffer[body_pointer], upbody->element[0]->guide, 1);
@@ -1021,8 +1021,8 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 
                 break;
 
-            case WaterSetting:
-            case Record:
+            case WATER_SETTING_REPORT:
+            case RECORD_REPORT:
                 memcpy(&body_buffer[body_pointer], upbody, 15);
                 body_pointer += 15;
                 memcpy(&body_buffer[body_pointer], upbody->element[0]->value, upbody->element[0]->num);
@@ -1033,8 +1033,8 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 
                 break;
 
-            case ArtificialNumber:
-            case InquireArtificialNumber:
+            case ARTIFICIAL_NUM_REPORT:
+            case INQUIRE_ARTIFICIAL_NUM_REPORT:
                 for (i = 1; i <= total; ++i) {
                     hydrology_device_set_up_header_sequence(i, total);
 
@@ -1093,7 +1093,7 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 
                 break;
 
-            case Picture:
+            case PICTURE_REPORT:
                 for (i = 1; i <= total; ++i) {
                     hydrology_device_set_up_header_sequence(i, total);
 
@@ -1200,14 +1200,14 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
     body_pointer = 0;
 
     switch (funcode) {
-        case LinkMaintenance:
+        case LINK_REPORT:
             memcpy(&body_buffer[body_pointer], upbody, 8);
             body_pointer += 8;
             hydrology_device_split_transfer(body_buffer, buffer, upheader, upbody, seq, total);
             break;
 
-        case EvenPeriodInformation:
-        case Period:
+        case EVEN_PERIOD_INFO_REPORT:
+        case PERIOD_REPORT:
             memcpy(&body_buffer[body_pointer], upbody, 23);
             body_pointer += 23;
             memcpy(&body_buffer[body_pointer], upbody->element[0]->guide, 2);
@@ -1240,13 +1240,13 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
             hydrology_device_split_transfer(body_buffer, buffer, upheader, upbody, seq, total);
             break;
 
-        case Test:
-        case TimerReport:
-        case AddReport:
-        case Hour:
-        case Realtime:
-        case Specifiedelement:
-        case WaterPumpMotor:
+        case TEST_REPORT:
+        case TIMER_REPORT:
+        case ADD_REPORT:
+        case HOUR_REPORT:
+        case REAL_TIME_REPORT:
+        case SPECIFIED_ELEMENT_REPORT:
+        case WATER_PUMP_MOTOR_REPORT:
             memcpy(&body_buffer[body_pointer], upbody, 23);
             body_pointer += 23;
 
@@ -1260,11 +1260,11 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
             hydrology_device_split_transfer(body_buffer, buffer, upheader, upbody, seq, total);
             break;
 
-        case ConfigurationModification:
-        case ConfigurationRead:
-        case ParameterModification:
-        case ParameterRead:
-        case Status:
+        case CONFIG_WRITE_REPORT:
+        case CONFIG_READ_REPORT:
+        case PARA_WRITE_REPORT:
+        case PARA_READ_REPORT:
+        case STATUS_REPORT:
             memcpy(&body_buffer[body_pointer], upbody, 15);
             body_pointer += 15;
 
@@ -1278,7 +1278,7 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
             hydrology_device_split_transfer(body_buffer, buffer, upheader, upbody, seq, total);
             break;
 
-        case SoftwareVersion:
+        case SW_VERSION_REPORT:
             memcpy(&body_buffer[body_pointer], upbody, 15);
             body_pointer += 15;
             memcpy(&body_buffer[body_pointer], upbody->element[0]->guide, 1);
@@ -1288,17 +1288,17 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
             hydrology_device_split_transfer(body_buffer, buffer, upheader, upbody, seq, total);
             break;
 
-        case InitializeSolidStorage:
-        case Reset:
-        case SetClock:
-        case Time:
+        case INIT_SOLID_STORAGE_REPORT:
+        case RESET_REPORT:
+        case SET_CLOCK_REPORT:
+        case TIME_REPORT:
             memcpy(&body_buffer[body_pointer], upbody, 15);
             body_pointer += 15;
             hydrology_device_split_transfer(body_buffer, buffer, upheader, upbody, seq, total);
             break;
 
-        case ChangePassword:
-        case SetICCard:
+        case CHANGE_PASSWORD_REPORT:
+        case SET_IC_CARD_REPORT:
             memcpy(&body_buffer[body_pointer], upbody, 15);
             body_pointer += 15;
             memcpy(&body_buffer[body_pointer], upbody->element[0]->guide, 2);
@@ -1308,9 +1308,9 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
             hydrology_device_split_transfer(body_buffer, buffer, upheader, upbody, seq, total);
             break;
 
-        case Pump:
-        case Valve:
-        case Gate:
+        case PUMP_REPORT:
+        case VALVE_REPORT:
+        case GATE_REPORT:
             memcpy(&body_buffer[body_pointer], upbody, 15);
             body_pointer += 15;
             memcpy(&body_buffer[body_pointer], upbody->element[0]->guide, 1);
@@ -1320,8 +1320,8 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
             hydrology_device_split_transfer(body_buffer, buffer, upheader, upbody, seq, total);
             break;
 
-        case WaterSetting:
-        case Record:
+        case WATER_SETTING_REPORT:
+        case RECORD_REPORT:
             memcpy(&body_buffer[body_pointer], upbody, 15);
             body_pointer += 15;
             memcpy(&body_buffer[body_pointer], upbody->element[0]->value, upbody->element[0]->num);
@@ -1329,8 +1329,8 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
             hydrology_device_split_transfer(body_buffer, buffer, upheader, upbody, seq, total);
             break;
 
-        case ArtificialNumber:
-        case InquireArtificialNumber:
+        case ARTIFICIAL_NUM_REPORT:
+        case INQUIRE_ARTIFICIAL_NUM_REPORT:
             hydrology_device_set_up_header_sequence(seq, total);
 
             upheader->dir_len[0] = 0;
@@ -1387,7 +1387,7 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 
             break;
 
-        case Picture:
+        case PICTURE_REPORT:
             hydrology_device_set_up_header_sequence(seq, total);
 
             upheader->dir_len[0] = 0;
@@ -1565,24 +1565,24 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
     down_body->count = 0;
 
     switch (funcode) {
-        case Test:
-        case EvenPeriodInformation:
-        case TimerReport:
-        case AddReport:
-        case Hour:
-        case ArtificialNumber:
-        case Picture:
-        case Realtime:
-        case InquireArtificialNumber:
-        case WaterPumpMotor:
-        case SoftwareVersion:
-        case Status:
-        case SetClock:
-        case Record:
-        case Time:
+        case TEST_REPORT:
+        case EVEN_PERIOD_INFO_REPORT:
+        case TIMER_REPORT:
+        case ADD_REPORT:
+        case HOUR_REPORT:
+        case ARTIFICIAL_NUM_REPORT:
+        case PICTURE_REPORT:
+        case REAL_TIME_REPORT:
+        case INQUIRE_ARTIFICIAL_NUM_REPORT:
+        case WATER_PUMP_MOTOR_REPORT:
+        case SW_VERSION_REPORT:
+        case STATUS_REPORT:
+        case SET_CLOCK_REPORT:
+        case RECORD_REPORT:
+        case TIME_REPORT:
             return true;
 
-        case Period:
+        case PERIOD_REPORT:
             hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_PERIOD_BT,
                 &input[position], 4);
             position += 4;
@@ -1594,7 +1594,7 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
             down_body->count = 2;
             break;
 
-        case Specifiedelement:
+        case SPECIFIED_ELEMENT_REPORT:
             tmp_len = len;
             tmp_position = position;
 
@@ -1610,8 +1610,8 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
 
             break;
 
-        case ConfigurationModification:
-        case ParameterModification:
+        case CONFIG_WRITE_REPORT:
+        case PARA_WRITE_REPORT:
             tmp_len = len;
             tmp_position = position;
 
@@ -1628,8 +1628,8 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
 
             break;
 
-        case ConfigurationRead:
-        case ParameterRead:
+        case CONFIG_READ_REPORT:
+        case PARA_READ_REPORT:
             tmp_len = len;
             tmp_position = position;
 
@@ -1645,17 +1645,17 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
 
             break;
 
-        case InitializeSolidStorage:
-        case Reset:
-        case SetICCard:
-        case Pump:
-        case Valve:
-        case Gate:
-        case WaterSetting:
+        case INIT_SOLID_STORAGE_REPORT:
+        case RESET_REPORT:
+        case SET_IC_CARD_REPORT:
+        case PUMP_REPORT:
+        case VALVE_REPORT:
+        case GATE_REPORT:
+        case WATER_SETTING_REPORT:
             down_body->count = 1;
             break;
 
-        case ChangePassword:
+        case CHANGE_PASSWORD_REPORT:
             down_body->count = 2;
             break;
 
@@ -1682,24 +1682,24 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
     }
 
     switch (funcode) {
-        case Test:
-        case EvenPeriodInformation:
-        case TimerReport:
-        case AddReport:
-        case Hour:
-        case ArtificialNumber:
-        case Picture:
-        case Realtime:
-        case InquireArtificialNumber:
-        case WaterPumpMotor:
-        case SoftwareVersion:
-        case Status:
-        case SetClock:
-        case Record:
-        case Time:
+        case TEST_REPORT:
+        case EVEN_PERIOD_INFO_REPORT:
+        case TIMER_REPORT:
+        case ADD_REPORT:
+        case HOUR_REPORT:
+        case ARTIFICIAL_NUM_REPORT:
+        case PICTURE_REPORT:
+        case REAL_TIME_REPORT:
+        case INQUIRE_ARTIFICIAL_NUM_REPORT:
+        case WATER_PUMP_MOTOR_REPORT:
+        case SW_VERSION_REPORT:
+        case STATUS_REPORT:
+        case SET_CLOCK_REPORT:
+        case RECORD_REPORT:
+        case TIME_REPORT:
             break;
 
-        case Period:
+        case PERIOD_REPORT:
             for (i = 0; i < 2; ++i) {
                 memcpy(down_body->element[i]->guide, &input[position], 2);
                 position += 2;
@@ -1724,9 +1724,9 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
 
             break;
 
-        case Specifiedelement:
-        case ConfigurationRead:
-        case ParameterRead:
+        case SPECIFIED_ELEMENT_REPORT:
+        case CONFIG_READ_REPORT:
+        case PARA_READ_REPORT:
             for (i = 0; i < down_body->count; ++i) {
                 memcpy(down_body->element[i]->guide, &input[position], 2);
                 position += 2;
@@ -1735,10 +1735,10 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
 
             break;
 
-        case ConfigurationModification:
-        case ParameterModification:
-        case ChangePassword:
-        case SetICCard:
+        case CONFIG_WRITE_REPORT:
+        case PARA_WRITE_REPORT:
+        case CHANGE_PASSWORD_REPORT:
+        case SET_IC_CARD_REPORT:
             for (i = 0; i < down_body->count; ++i) {
                 memcpy(down_body->element[i]->guide, &input[position], 2);
                 position += 2;
@@ -1761,15 +1761,15 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
 
             break;
 
-        case InitializeSolidStorage:
-        case Reset:
+        case INIT_SOLID_STORAGE_REPORT:
+        case RESET_REPORT:
             memcpy(down_body->element[0]->guide, &input[position], 2);
             position += 2;
             len -= 2;
             break;
 
-        case Pump:
-        case Valve:
+        case PUMP_REPORT:
+        case VALVE_REPORT:
             down_body->element[0]->num = input[position];
             position += 1;
             len -= 1;
@@ -1786,7 +1786,7 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
             len -= down_body->element[0]->num;
             break;
 
-        case Gate:
+        case GATE_REPORT:
             down_body->element[0]->num = input[position] >> 3;
             position += 1;
             len -= 1;
@@ -1803,7 +1803,7 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
             len -= down_body->element[0]->num;
             break;
 
-        case WaterSetting:
+        case WATER_SETTING_REPORT:
             down_body->element[0]->num = 1;
             down_body->element[0]->value = kmalloc(down_body->element[0]->num, __GFP_ZERO);
 
@@ -2079,15 +2079,15 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
     int ret;
 
     switch (funcode) {
-        case LinkMaintenance:
+        case LINK_REPORT:
             ret = true;
             break;
 
-        case Test:
-        case TimerReport:
-        case AddReport:
-        case Realtime:
-        case Specifiedelement:
+        case TEST_REPORT:
+        case TIMER_REPORT:
+        case ADD_REPORT:
+        case REAL_TIME_REPORT:
+        case SPECIFIED_ELEMENT_REPORT:
             count = random_get8bit() % (117 - 100);
 
             if (count == 0)
@@ -2119,8 +2119,8 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
             kfree(element_table);
             break;
 
-        case EvenPeriodInformation:
-        case Hour:
+        case EVEN_PERIOD_INFO_REPORT:
+        case HOUR_REPORT:
             count = random_get8bit() % sizeof(s_guide);
 
             if (count == 0)
@@ -2144,7 +2144,7 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
             kfree(element_table);
             break;
 
-        case Period:
+        case PERIOD_REPORT:
             count = 2;
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
@@ -2162,8 +2162,8 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
             kfree(element_table);
             break;
 
-        case ConfigurationModification:
-        case ConfigurationRead:
+        case CONFIG_WRITE_REPORT:
+        case CONFIG_READ_REPORT:
             count = random_get8bit() % 15;
 
             if (count == 0)
@@ -2195,8 +2195,8 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
             kfree(element_table);
             break;
 
-        case ParameterModification:
-        case ParameterRead:
+        case PARA_WRITE_REPORT:
+        case PARA_READ_REPORT:
             count = random_get8bit() % (137 - 120);
 
             if (count == 0)
@@ -2228,7 +2228,7 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
             kfree(element_table);
             break;
 
-        case WaterPumpMotor:
+        case WATER_PUMP_MOTOR_REPORT:
             count = 6;
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
@@ -2249,8 +2249,8 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
             kfree(element_table);
             break;
 
-        case Status:
-        case SetICCard:
+        case STATUS_REPORT:
+        case SET_IC_CARD_REPORT:
             count = 1;
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
@@ -2266,7 +2266,7 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
             kfree(element_table);
             break;
 
-        case ChangePassword:
+        case CHANGE_PASSWORD_REPORT:
             count = 1;
             element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
@@ -2282,19 +2282,19 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
             kfree(element_table);
             break;
 
-        case ArtificialNumber:
-        case Picture:
-        case InquireArtificialNumber:
-        case SoftwareVersion:
-        case InitializeSolidStorage:
-        case Reset:
-        case SetClock:
-        case Pump:
-        case Valve:
-        case Gate:
-        case WaterSetting:
-        case Record:
-        case Time:
+        case ARTIFICIAL_NUM_REPORT:
+        case PICTURE_REPORT:
+        case INQUIRE_ARTIFICIAL_NUM_REPORT:
+        case SW_VERSION_REPORT:
+        case INIT_SOLID_STORAGE_REPORT:
+        case RESET_REPORT:
+        case SET_CLOCK_REPORT:
+        case PUMP_REPORT:
+        case VALVE_REPORT:
+        case GATE_REPORT:
+        case WATER_SETTING_REPORT:
+        case RECORD_REPORT:
+        case TIME_REPORT:
             ret = hydrology_device_process(NULL, 0, mode, funcode);
             break;
     }
@@ -2306,37 +2306,37 @@ int t_hydrology_device_m1m2(enum hydrology_mode mode)
 {
     g_hydrology.source = MSG_FORM_CLIENT;
 
-    if (t_hydrology_device_random_element(mode, LinkMaintenance) == false)
+    if (t_hydrology_device_random_element(mode, LINK_REPORT) == false)
         return false;
 
-    if (t_hydrology_device_random_element(mode, Test) == false)
+    if (t_hydrology_device_random_element(mode, TEST_REPORT) == false)
         return false;
 
-    if (t_hydrology_device_random_element(mode, EvenPeriodInformation) == false)
+    if (t_hydrology_device_random_element(mode, EVEN_PERIOD_INFO_REPORT) == false)
         return false;
 
-    if (t_hydrology_device_random_element(mode, TimerReport) == false)
+    if (t_hydrology_device_random_element(mode, TIMER_REPORT) == false)
         return false;
 
-    if (t_hydrology_device_random_element(mode, AddReport) == false)
+    if (t_hydrology_device_random_element(mode, ADD_REPORT) == false)
         return false;
 
-    if (t_hydrology_device_random_element(mode, Hour) == false)
+    if (t_hydrology_device_random_element(mode, HOUR_REPORT) == false)
         return false;
 
-    if (t_hydrology_device_random_element(mode, ArtificialNumber) == false)
+    if (t_hydrology_device_random_element(mode, ARTIFICIAL_NUM_REPORT) == false)
         return false;
 
-    if (t_hydrology_device_random_element(mode, Picture) == false)
+    if (t_hydrology_device_random_element(mode, PICTURE_REPORT) == false)
         return false;
 
-    if (t_hydrology_device_random_element(mode, Pump) == false)
+    if (t_hydrology_device_random_element(mode, PUMP_REPORT) == false)
         return false;
 
-    if (t_hydrology_device_random_element(mode, Valve) == false)
+    if (t_hydrology_device_random_element(mode, VALVE_REPORT) == false)
         return false;
 
-    if (t_hydrology_device_random_element(mode, Gate) == false)
+    if (t_hydrology_device_random_element(mode, GATE_REPORT) == false)
         return false;
 
     return true;
@@ -2346,34 +2346,34 @@ int t_hydrology_device_m3(void)
 {
     g_hydrology.source = MSG_FORM_CLIENT;
 
-    if (t_hydrology_device_random_element(HYDROLOGY_M3, Test) == false)
+    if (t_hydrology_device_random_element(HYDROLOGY_M3, TEST_REPORT) == false)
         return false;
 
-    if (t_hydrology_device_random_element(HYDROLOGY_M3, EvenPeriodInformation) == false)
+    if (t_hydrology_device_random_element(HYDROLOGY_M3, EVEN_PERIOD_INFO_REPORT) == false)
         return false;
 
-    if (t_hydrology_device_random_element(HYDROLOGY_M3, TimerReport) == false)
+    if (t_hydrology_device_random_element(HYDROLOGY_M3, TIMER_REPORT) == false)
         return false;
 
-    if (t_hydrology_device_random_element(HYDROLOGY_M3, AddReport) == false)
+    if (t_hydrology_device_random_element(HYDROLOGY_M3, ADD_REPORT) == false)
         return false;
 
-    if (t_hydrology_device_random_element(HYDROLOGY_M3, Hour) == false)
+    if (t_hydrology_device_random_element(HYDROLOGY_M3, HOUR_REPORT) == false)
         return false;
 
-    if (t_hydrology_device_random_element(HYDROLOGY_M3, ArtificialNumber) == false)
+    if (t_hydrology_device_random_element(HYDROLOGY_M3, ARTIFICIAL_NUM_REPORT) == false)
         return false;
 
-    if (t_hydrology_device_random_element(HYDROLOGY_M3, Picture) == false)
+    if (t_hydrology_device_random_element(HYDROLOGY_M3, PICTURE_REPORT) == false)
         return false;
 
-    if (t_hydrology_device_random_element(HYDROLOGY_M3, Pump) == false)
+    if (t_hydrology_device_random_element(HYDROLOGY_M3, PUMP_REPORT) == false)
         return false;
 
-    if (t_hydrology_device_random_element(HYDROLOGY_M3, Valve) == false)
+    if (t_hydrology_device_random_element(HYDROLOGY_M3, VALVE_REPORT) == false)
         return false;
 
-    if (t_hydrology_device_random_element(HYDROLOGY_M3, Gate) == false)
+    if (t_hydrology_device_random_element(HYDROLOGY_M3, GATE_REPORT) == false)
         return false;
 
     return true;

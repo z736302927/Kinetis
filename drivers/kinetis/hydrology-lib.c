@@ -670,11 +670,11 @@ int hydrology_malloc_element(u8 guide, u8 D, u8 d,
 
 //    switch(funcode)
 //    {
-//        case LinkMaintenance:
+//        case LINK_REPORT:
 //            break;
 
-//        case EvenPeriodInformation:
-//        case Hour:
+//        case EVEN_PERIOD_INFO_REPORT:
+//        case HOUR_REPORT:
 //            g_hydrology.epi =
 //                (HydrologyEvenPeriodInfo **)kmalloc(sizeof(HydrologyEvenPeriodInfo *) * upbody->count);
 
@@ -687,9 +687,9 @@ int hydrology_malloc_element(u8 guide, u8 D, u8 d,
 //            hydrology_read_store_info(HYDROLOGY_FILE_EPI, 0, g_hydrology.epi, 12 * 2 * upbody->count);
 //            break;
 
-//        case Test:
-//        case TimerReport:
-//        case AddReport:
+//        case TEST_REPORT:
+//        case TIMER_REPORT:
+//        case ADD_REPORT:
 //            for(i = 0; i < upbody->count; i++)
 //            {
 //                switch(element_table[i].type)
@@ -740,8 +740,8 @@ int hydrology_malloc_element(u8 guide, u8 D, u8 d,
 
 //            break;
 
-//        case ArtificialNumber:
-//        case Picture:
+//        case ARTIFICIAL_NUM_REPORT:
+//        case PICTURE_REPORT:
 //            upbody->element[i]->guide[0] = element_table[i].ID;
 //            upbody->element[i]->guide[1] = element_table[i].ID;
 
@@ -784,14 +784,14 @@ int hydrology_malloc_element(u8 guide, u8 D, u8 d,
 
 //            break;
 
-//        case Realtime:
-//        case Period:
-//        case InquireArtificialNumber:
-//        case Specifiedelement:
-//        case ConfigurationModification:
-//        case ConfigurationRead:
-//        case ParameterModification:
-//        case ParameterRead:
+//        case REAL_TIME_REPORT:
+//        case PERIOD_REPORT:
+//        case INQUIRE_ARTIFICIAL_NUM_REPORT:
+//        case SPECIFIED_ELEMENT_REPORT:
+//        case CONFIG_WRITE_REPORT:
+//        case CONFIG_READ_REPORT:
+//        case PARA_WRITE_REPORT:
+//        case PARA_READ_REPORT:
 //            for(i = 0; i < down_body->count; i++)
 //            {
 //                upbody->element[i]->num = (down_body->element[i]->guide[1] >> 3);
@@ -806,20 +806,20 @@ int hydrology_malloc_element(u8 guide, u8 D, u8 d,
 
 //            break;
 
-//        case WaterPumpMotor:
-//        case SoftwareVersion:
-//        case Status:
-//        case InitializeSolidStorage:
-//        case Reset:
-//        case ChangePassword:
-//        case SetClock:
-//        case SetICCard:
-//        case Pump:
-//        case Valve:
-//        case Gate:
-//        case WaterSetting:
-//        case Record:
-//        case Time:
+//        case WATER_PUMP_MOTOR_REPORT:
+//        case SW_VERSION_REPORT:
+//        case STATUS_REPORT:
+//        case INIT_SOLID_STORAGE_REPORT:
+//        case RESET_REPORT:
+//        case CHANGE_PASSWORD_REPORT:
+//        case SET_CLOCK_REPORT:
+//        case SET_IC_CARD_REPORT:
+//        case PUMP_REPORT:
+//        case VALVE_REPORT:
+//        case GATE_REPORT:
+//        case WATER_SETTING_REPORT:
+//        case RECORD_REPORT:
+//        case TIME_REPORT:
 
 //            break;
 //    }
@@ -847,23 +847,23 @@ int hydrology_read_specified_element_info(struct hydrology_element_info *element
     int ret;
 
     switch (funcode) {
-        case LinkMaintenance:
+        case LINK_REPORT:
             break;
 
-        case Test:
-        case EvenPeriodInformation:
-        case TimerReport:
-        case AddReport:
-        case Hour:
-        case ArtificialNumber:
-        case Picture:
-        case Realtime:
-        case Period:
-        case InquireArtificialNumber:
-        case Specifiedelement:
-        case WaterPumpMotor:
-        case Status:
-        case SetICCard:
+        case TEST_REPORT:
+        case EVEN_PERIOD_INFO_REPORT:
+        case TIMER_REPORT:
+        case ADD_REPORT:
+        case HOUR_REPORT:
+        case ARTIFICIAL_NUM_REPORT:
+        case PICTURE_REPORT:
+        case REAL_TIME_REPORT:
+        case PERIOD_REPORT:
+        case INQUIRE_ARTIFICIAL_NUM_REPORT:
+        case SPECIFIED_ELEMENT_REPORT:
+        case WATER_PUMP_MOTOR_REPORT:
+        case STATUS_REPORT:
+        case SET_IC_CARD_REPORT:
             if (index > 0x75)
                 index -= 0xF0;
             else
@@ -872,31 +872,31 @@ int hydrology_read_specified_element_info(struct hydrology_element_info *element
             addr = index * sizeof(struct hydrology_element_info);
             break;
 
-        case ConfigurationModification:
-        case ConfigurationRead:
+        case CONFIG_WRITE_REPORT:
+        case CONFIG_READ_REPORT:
             index += 131;
             addr = (index - 1) * sizeof(struct hydrology_element_info);
             break;
 
-        case ParameterModification:
-        case ParameterRead:
+        case PARA_WRITE_REPORT:
+        case PARA_READ_REPORT:
             index += 131 + 15;
             index -= 0x20;
             addr = index * sizeof(struct hydrology_element_info);
             break;
 
-        case SoftwareVersion:
-        case Pump:
-        case Valve:
-        case Gate:
-        case WaterSetting:
-        case Record:
+        case SW_VERSION_REPORT:
+        case PUMP_REPORT:
+        case VALVE_REPORT:
+        case GATE_REPORT:
+        case WATER_SETTING_REPORT:
+        case RECORD_REPORT:
             index += 131 + 15;
             index -= 0x20;
             addr = index * sizeof(struct hydrology_element_info);
             break;
 
-        case ChangePassword:
+        case CHANGE_PASSWORD_REPORT:
             if (index == 0x03) {
                 index += 131;
                 addr = (index - 1) * sizeof(struct hydrology_element_info);
@@ -908,10 +908,10 @@ int hydrology_read_specified_element_info(struct hydrology_element_info *element
 
             break;
 
-        case InitializeSolidStorage:
-        case Reset:
-        case SetClock:
-        case Time:
+        case INIT_SOLID_STORAGE_REPORT:
+        case RESET_REPORT:
+        case SET_CLOCK_REPORT:
+        case TIME_REPORT:
             break;
     }
 

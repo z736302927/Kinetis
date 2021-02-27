@@ -12,6 +12,7 @@ extern "C" {
 #include "kinetis/basic-timer.h"
 
 #include <linux/kern_levels.h>
+#include <linux/time.h>
 
 #define RELEASE_VERSION       1
 
@@ -24,6 +25,17 @@ extern "C" {
 #endif
 
 void kinetis_dump_buffer8(void *buffer, int size, int column);
+
+static inline const char *get_rtc_string(struct tm *rtc)
+{
+    static char time[32];
+    
+    snprintf(time, sizeof(time), "%02ld/%02d/%02d/ %02d:%02d:%02d",
+        rtc->tm_year, rtc->tm_mon, rtc->tm_mday,
+        rtc->tm_hour, rtc->tm_min, rtc->tm_sec);
+    
+    return time;
+}
 
 #define ERR_PRINT_TIME  printk("[%05d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt())
 #define DBG_PRINT_TIME  printk("[%05d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt())
