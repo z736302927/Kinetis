@@ -18,7 +18,7 @@
 #include <linux/math64.h>
 #include <linux/export.h>
 #include <linux/types.h>
-#include <linux/uaccess.h>
+#include <linux/string.h>
 #include "kstrtox.h"
 
 const char *_parse_integer_fixup_radix(const char *s, unsigned int *base)
@@ -123,7 +123,6 @@ int kstrtoull(const char *s, unsigned int base, unsigned long long *res)
 		s++;
 	return _kstrtoull(s, base, res);
 }
-EXPORT_SYMBOL(kstrtoull);
 
 /**
  * kstrtoll - convert a string to a long long
@@ -162,7 +161,6 @@ int kstrtoll(const char *s, unsigned int base, long long *res)
 	}
 	return 0;
 }
-EXPORT_SYMBOL(kstrtoll);
 
 /* Internal, do not use. */
 int _kstrtoul(const char *s, unsigned int base, unsigned long *res)
@@ -178,7 +176,6 @@ int _kstrtoul(const char *s, unsigned int base, unsigned long *res)
 	*res = tmp;
 	return 0;
 }
-EXPORT_SYMBOL(_kstrtoul);
 
 /* Internal, do not use. */
 int _kstrtol(const char *s, unsigned int base, long *res)
@@ -194,7 +191,6 @@ int _kstrtol(const char *s, unsigned int base, long *res)
 	*res = tmp;
 	return 0;
 }
-EXPORT_SYMBOL(_kstrtol);
 
 /**
  * kstrtouint - convert a string to an unsigned int
@@ -224,7 +220,6 @@ int kstrtouint(const char *s, unsigned int base, unsigned int *res)
 	*res = tmp;
 	return 0;
 }
-EXPORT_SYMBOL(kstrtouint);
 
 /**
  * kstrtoint - convert a string to an int
@@ -254,7 +249,6 @@ int kstrtoint(const char *s, unsigned int base, int *res)
 	*res = tmp;
 	return 0;
 }
-EXPORT_SYMBOL(kstrtoint);
 
 int kstrtou16(const char *s, unsigned int base, u16 *res)
 {
@@ -269,7 +263,6 @@ int kstrtou16(const char *s, unsigned int base, u16 *res)
 	*res = tmp;
 	return 0;
 }
-EXPORT_SYMBOL(kstrtou16);
 
 int kstrtos16(const char *s, unsigned int base, s16 *res)
 {
@@ -284,7 +277,6 @@ int kstrtos16(const char *s, unsigned int base, s16 *res)
 	*res = tmp;
 	return 0;
 }
-EXPORT_SYMBOL(kstrtos16);
 
 int kstrtou8(const char *s, unsigned int base, u8 *res)
 {
@@ -299,7 +291,6 @@ int kstrtou8(const char *s, unsigned int base, u8 *res)
 	*res = tmp;
 	return 0;
 }
-EXPORT_SYMBOL(kstrtou8);
 
 int kstrtos8(const char *s, unsigned int base, s8 *res)
 {
@@ -314,7 +305,6 @@ int kstrtos8(const char *s, unsigned int base, s8 *res)
 	*res = tmp;
 	return 0;
 }
-EXPORT_SYMBOL(kstrtos8);
 
 /**
  * kstrtobool - convert common user inputs into boolean values
@@ -361,7 +351,6 @@ int kstrtobool(const char *s, bool *res)
 
 	return -EINVAL;
 }
-EXPORT_SYMBOL(kstrtobool);
 
 /*
  * Since "base" would be a nonsense argument, this open-codes the
@@ -373,12 +362,10 @@ int kstrtobool_from_user(const char __user *s, size_t count, bool *res)
 	char buf[4];
 
 	count = min(count, sizeof(buf) - 1);
-	if (copy_from_user(buf, s, count))
-		return -EFAULT;
+	memcpy(buf, s, count);
 	buf[count] = '\0';
 	return kstrtobool(buf, res);
 }
-EXPORT_SYMBOL(kstrtobool_from_user);
 
 #define kstrto_from_user(f, g, type)					\
 int f(const char __user *s, size_t count, unsigned int base, type *res)	\
@@ -387,8 +374,7 @@ int f(const char __user *s, size_t count, unsigned int base, type *res)	\
 	char buf[1 + sizeof(type) * 8 + 1 + 1];				\
 									\
 	count = min(count, sizeof(buf) - 1);				\
-	if (copy_from_user(buf, s, count))				\
-		return -EFAULT;						\
+	memcpy(buf, s, count);						\
 	buf[count] = '\0';						\
 	return g(buf, base, res);					\
 }									\

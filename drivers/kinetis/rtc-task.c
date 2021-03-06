@@ -9,6 +9,7 @@
 
 //rtc_task rtc_task list head.
 static LIST_HEAD(rtc_task_head);
+static LIST_HEAD(rtc_task_suspend_head);
 
 //struct rtc_task ticks
 static struct tm current_time = {.tm_year = 0};
@@ -318,11 +319,14 @@ int rtc_task_add(u8 add_year, u8 add_month, u8 add_date,
         printk(KERN_ERR "Native time has not been updated.\n");
         return -ETIMEDOUT;
     }
-    
+
     rtc_task = kmalloc(sizeof(*rtc_task), GFP_KERNEL);
 
     if (!rtc_task)
         return -ENOMEM;
+
+    if (!callback)
+        return -EINVAL;
 
     rtc_task->callback = callback;
 
@@ -336,6 +340,7 @@ int rtc_task_add(u8 add_year, u8 add_month, u8 add_date,
     rtc_task_update_time(rtc_task);
 
     rtc_task->auto_load = auto_load;
+    rtc_task->self_alloc = true;
 
     list_add_tail(&rtc_task->list, &rtc_task_head);
 
@@ -363,6 +368,98 @@ int rtc_task_drop(void(*callback)())
 }
 
 /**
+  * @brief  add the rtc_task struct handle.
+  * @param  rtc_task: the rtc_task handle strcut.
+  * @param  timeout_cb: Timeout callback.
+  * @param  timeout: time out time.
+  * @param  repeat: repeat interval time.
+  * @retval None
+  */
+int rtc_task_enqueue(struct rtc_task *rtc_task,
+    u8 add_year, u8 add_month, u8 add_date,
+    u8 add_hours, u8 add_minutes, u8 add_seconds,
+    bool auto_load, void(*callback)(struct rtc_task *))
+{
+    int ret, val;
+
+    ret = readl_poll_timeout_atomic(&current_time.tm_year, val, val, 1, 3000000);
+
+    if (ret) {
+        printk(KERN_ERR "Native time has not been updated.\n");
+        return -ETIMEDOUT;
+    }
+
+    if (!callback)
+        return -EINVAL;
+
+    rtc_task->callback = callback;
+
+    rtc_task->interval.tm_year  = add_year;
+    rtc_task->interval.tm_mon = add_month;
+    rtc_task->interval.tm_mday = add_date;
+    rtc_task->interval.tm_hour = add_hours;
+    rtc_task->interval.tm_min = add_minutes;
+    rtc_task->interval.tm_sec = add_seconds;
+
+    rtc_task_update_time(rtc_task);
+
+    rtc_task->auto_load = auto_load;
+    rtc_task->self_alloc = false;
+
+    list_add_tail(&rtc_task->list, &rtc_task_head);
+
+    return 0;
+}
+
+/**
+  * @brief  drop the rtc_task struct handle.
+  * @param  rtc_task: the rtc_task rtc_task strcut.
+  * @retval None
+  */
+void rtc_task_dequeue(struct rtc_task *rtc_task)
+{
+    list_del(&rtc_task->list);
+}
+
+/**
+  * @brief  suspend the rtc_task struct handle.
+  * @param  rtc_task: the rtc_task rtc_task strcut.
+  * @retval None
+  */
+int rtc_task_suspend(void(*callback)())
+{
+    struct rtc_task *rtc_task, *tmp;
+
+    list_for_each_entry_safe(rtc_task, tmp, &rtc_task_head, list) {
+        if (rtc_task->callback == callback) {
+            list_move_tail(&rtc_task->list, &rtc_task_suspend_head);
+            return 0;
+        }
+    }
+
+    return -EINVAL;
+}
+
+/**
+  * @brief  resume the rtc_task struct handle.
+  * @param  rtc_task: the rtc_task rtc_task strcut.
+  * @retval None
+  */
+int rtc_task_resume(void(*callback)())
+{
+    struct rtc_task *rtc_task, *tmp;
+
+    list_for_each_entry_safe(rtc_task, tmp, &rtc_task_suspend_head, list) {
+        if (rtc_task->callback == callback) {
+            list_move_tail(&rtc_task->list, &rtc_task_head);
+            return 0;
+        }
+    }
+
+    return -EINVAL;
+}
+
+/**
   * @brief  Task loop.
   * @param  None.
   * @retval None
@@ -379,7 +476,9 @@ void rtc_task_loop(void)
                 rtc_task_update_time(rtc_task);
             else {
                 list_del(&rtc_task->list);
-                kfree(rtc_task);
+
+                if (rtc_task->self_alloc == true)
+                    kfree(rtc_task);
             }
         }
     }

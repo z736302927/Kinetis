@@ -1042,7 +1042,7 @@ int t_fatfs_append(int argc, char **argv)
     FRESULT fr;
     FATFS fs;
     FIL fil;
-    uint8_t year, month, date, hours, minutes, seconds;
+    struct tm rtc;;
 
     /* Open or create a log file and ready to append */
     f_mount(&fs, "", 0);
@@ -1051,12 +1051,10 @@ int t_fatfs_append(int argc, char **argv)
     if (fr != FR_OK)
         return FAIL;
 
-    rtc_calendar_show(&year, &month, &date, &hours, &minutes, &seconds, NULL,
-        KRTC_FORMAT_BIN);
+    rtc_calendar_get(&rtc, KRTC_FORMAT_BIN);
 
     /* Append a line */
-    f_printf(&fil, "%02u/%02u/%u, %2u:%02u\n",
-        date, month, year, hours, minutes);
+    f_printf(&fil, "%s\n", get_rtc_string(&rtc));
 
     /* Close the file */
     f_close(&fil);

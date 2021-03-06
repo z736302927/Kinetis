@@ -52,8 +52,7 @@ void rtc_backup_reg_read(u32 *tmp)
   * @param  None
   * @retval None
   */
-void rtc_calendar_config(u8 year, u8 month, u8 date,
-    u8 hours, u8 minutes, u8 seconds, u8 weekday, u8 format)
+void rtc_calendar_set(struct tm *rtc, u8 format)
 {
 #ifdef USING_CHIP_RTC
     RTC_DateTypeDef sdate;
@@ -66,12 +65,12 @@ void rtc_calendar_config(u8 year, u8 month, u8 date,
     else
         HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BCD);
 
-    sdate.Year = year;
-    sdate.Month = month;
-    sdate.Date = date;
+    sdate.Year = rtc->tm_year;
+    sdate.Month = rtc->tm_mon;
+    sdate.Date = rtc->tm_mday;
 
-    if (weekday != 0)
-        sdate.WeekDay = weekday;
+    if (rtc->tm_wday != 0)
+        sdate.WeekDay = rtc->tm_wday;
 
     if (format == KRTC_FORMAT_BIN)
         HAL_RTC_SetDate(&hrtc, &sdate, RTC_FORMAT_BIN);
@@ -85,9 +84,9 @@ void rtc_calendar_config(u8 year, u8 month, u8 date,
     else
         HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BCD);
 
-    stime.Hours = hours;
-    stime.Minutes = minutes;
-    stime.Seconds = seconds;
+    stime.Hours = rtc->tm_hour;
+    stime.Minutes = rtc->tm_min;
+    stime.Seconds = rtc->tm_sec;
     stime.TimeFormat = RTC_HOURFORMAT12_AM;
     stime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE ;
     stime.StoreOperation = RTC_STOREOPERATION_RESET;
@@ -104,12 +103,13 @@ void rtc_calendar_config(u8 year, u8 month, u8 date,
 #ifdef USING_DS3231
     char time[13];
 
-    snprintf(time, sizeof(time), "%02d%02d%02d%02d%02d%02d", year, month, date,
-        hours, minutes, seconds);
+    snprintf(time, sizeof(time), "%02d%02d%02d%02d%02d%02d",
+        rtc->tm_year, rtc->tm_mon, rtc->tm_mday,
+        rtc->tm_hour, rtc->tm_min, rtc->tm_sec);
     ds3231_SetTimeWithString(time);
 
-    if (weekday != 0)
-        ds3231_SetWeek(weekday);
+    if (rtc->tm_wday != 0)
+        ds3231_SetWeek(rtc->tm_wday);
 
 #endif
 }
@@ -120,8 +120,7 @@ void rtc_calendar_config(u8 year, u8 month, u8 date,
   * @param  showdate : pointer to buffer
   * @retval None
   */
-void rtc_calendar_show(u8 *year, u8 *month, u8 *date,
-    u8 *hours, u8 *minutes, u8 *seconds, u8 *weekday, u8 format)
+void rtc_calendar_get(struct tm *rtc, u8 format)
 {
 #ifdef USING_CHIP_RTC
     RTC_DateTypeDef sdate;
@@ -133,12 +132,12 @@ void rtc_calendar_show(u8 *year, u8 *month, u8 *date,
     else
         HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BCD);
 
-    *year = sdate.Year;
-    *month = sdate.Month;
-    *date = sdate.Date;
+    rtc->tm_year = sdate.Year;
+    rtc->tm_mon = sdate.Month;
+    rtc->tm_mday = sdate.Date;
 
-    if (weekday != NULL)
-        *weekday = sdate.WeekDay;
+    if (rtc->tm_wday != 0)
+        rtc->tm_wday = sdate.WeekDay;
 
     /* Get the RTC current Time */
     if (format == KRTC_FORMAT_BIN)
@@ -146,27 +145,27 @@ void rtc_calendar_show(u8 *year, u8 *month, u8 *date,
     else
         HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BCD);
 
-    *hours = stime.Hours;
-    *minutes = stime.Minutes;
-    *seconds = stime.Seconds;
+    rtc->tm_hour = stime.Hours;
+    rtc->tm_min = stime.Minutes;
+    rtc->tm_sec = stime.Seconds;
 #endif
 
 #ifdef USING_DS3231
     u8 time[6], week;
 
-    if (Format == KRTC_FORMAT_BIN)
+    if (format == KRTC_FORMAT_BIN)
         ds3231_ReadTime(time, DS3231_FORMAT_BIN);
     else
         ds3231_ReadTime(time, DS3231_FORMAT_BCD);
 
     ds3231_ReadWeek(&week);
-    *year = time[5];
-    *month = time[4];
-    *date = time[3];
-    *weekday = week;
-    *hours = time[2];
-    *minutes = time[1];
-    *seconds = time[0];
+    rtc->tm_year = time[5];
+    rtc->tm_mon = time[4];
+    rtc->tm_mday = time[3];
+    rtc->tm_wday = week;
+    rtc->tm_hour = time[2];
+    rtc->tm_min = time[1];
+    rtc->tm_sec = time[0];
 #endif
 }
 
@@ -213,59 +212,49 @@ u8 rtc_get_time_format(void)
 
 int t_rtc_set_clock(int argc, char **argv)
 {
-    u8 year, month, date;
-    u8 hours, minutes, seconds, weekday;
-    char time[25];
+    struct tm rtc;
 
-    year = random_get8bit() % 100;
-    month = random_get8bit() % 12;
-    date = random_get8bit() % 28;
-    hours = random_get8bit() % 24;
-    minutes = random_get8bit() % 60;
-    seconds = random_get8bit() % 60;
-    weekday = random_get8bit() % 7;
+    rtc.tm_year = random_get8bit() % 100;
+    rtc.tm_mon = random_get8bit() % 12;
+    rtc.tm_mday = random_get8bit() % 28;
+    rtc.tm_hour = random_get8bit() % 24;
+    rtc.tm_min = random_get8bit() % 60;
+    rtc.tm_sec = random_get8bit() % 60;
+    rtc.tm_wday = random_get8bit() % 7;
 
     if (argc > 1)
-        year = strtoul(argv[1], &argv[1], 10);
+        rtc.tm_year = strtoul(argv[1], &argv[1], 10);
 
     if (argc > 2)
-        month = strtoul(argv[2], &argv[2], 10);
+        rtc.tm_mon = strtoul(argv[2], &argv[2], 10);
 
     if (argc > 3)
-        date = strtoul(argv[3], &argv[3], 10);
+        rtc.tm_mday = strtoul(argv[3], &argv[3], 10);
 
     if (argc > 4)
-        hours = strtoul(argv[4], &argv[4], 10);
+        rtc.tm_hour = strtoul(argv[4], &argv[4], 10);
 
     if (argc > 5)
-        minutes = strtoul(argv[5], &argv[5], 10);
+        rtc.tm_min = strtoul(argv[5], &argv[5], 10);
 
     if (argc > 6)
-        seconds = strtoul(argv[6], &argv[6], 10);
+        rtc.tm_sec = strtoul(argv[6], &argv[6], 10);
 
     if (argc > 7)
-        weekday = strtoul(argv[7], &argv[7], 10);
+        rtc.tm_wday = strtoul(argv[7], &argv[7], 10);
 
-    snprintf(time, sizeof(time), "20%02d/%02d/%02d/% 02d:%02d:%02d",
-        year, month, date, hours, minutes, seconds);
-    printk(KERN_DEBUG "Set clock is %s", time);
-    rtc_calendar_config(year, month, date,
-        hours, minutes, seconds, weekday, KRTC_FORMAT_BIN);
+    printk(KERN_DEBUG "Set clock is %s", get_rtc_string(&rtc));
+    rtc_calendar_set(&rtc, KRTC_FORMAT_BIN);
 
     return PASS;
 }
 
 int t_rtc_get_clock(int argc, char **argv)
 {
-    u8 year, month, date;
-    u8 hours, minutes, seconds, weekday;
-    char time[25];
+    struct tm rtc;
 
-    rtc_calendar_show(&year, &month, &date,
-        &hours, &minutes, &seconds, &weekday, KRTC_FORMAT_BIN);
-    snprintf(time, sizeof(time), "20%02d/%02d/%02d/% 02d:%02d:%02d",
-        year, month, date, hours, minutes, seconds);
-    printk(KERN_DEBUG "Get clock is %s", time);
+    rtc_calendar_get(&rtc, KRTC_FORMAT_BIN);
+    printk(KERN_DEBUG "Get clock is %s", get_rtc_string(&rtc));;
 
     return PASS;
 }

@@ -53,7 +53,7 @@ int switch_add(u32 unique_id, u8(*pin_level)(void), u8 active_level,
     struct _switch *_switch;
     u32 i;
 
-    _switch = kmalloc(sizeof(*_switch), GFP_KERNEL);
+    _switch = kzalloc(sizeof(*_switch), GFP_KERNEL);
 
     if (!_switch)
         return -ENOMEM;

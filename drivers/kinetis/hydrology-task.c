@@ -7,6 +7,7 @@
 #include "kinetis/rtc-task.h"
 #include "kinetis/sht20.h"
 #include "kinetis/idebug.h"
+#include "kinetis/real-time-clock.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -39,50 +40,74 @@ static void measure_temperature_humidit(void)
 
 void link_packet(void)
 {
-    printk(KERN_DEBUG "Send %s packet\n", hydrology_type_string(LINK_REPORT));
+    printk(KERN_DEBUG "Send %s packet\n",
+        hydrology_type_string(LINK_REPORT));
     hydrology_device_process(NULL, 0, HYDROLOGY_M1, LINK_REPORT);
 }
 
 static void test_packet(void)
 {
-    float floatvalue;
-    u8 i;
-    struct hydrology_element Elment;
+    struct hydrology_element element;
     struct hydrology_element_info element_table[] = {
-        HYDROLOGY_E_DT,
-        NULL
+        HYDROLOGY_E_DT
     };
+    struct tm rtc;
+    double floatvalue = 12;
+    u8 i;
+    
+    rtc_calendar_get(&rtc, KRTC_FORMAT_BIN);
 
-
-    floatvalue = 12;
-
-    for (i = 0; i < 1; i++) {
+    for (i = 0; i < ARRAY_SIZE(element_table); i++) {
         hydrology_malloc_element(element_table[i].ID,
             element_table[i].D, element_table[i].d,
-            &Elment);
+            &element);
 
-        hydrology_convert_to_hex_element((double)floatvalue,
+        hydrology_convert_to_hex_element(floatvalue,
             element_table[i].D, element_table[i].d,
-            Elment.value);
+            element.value);
     }
 
-    printk(KERN_DEBUG "Send %s packet\n", hydrology_type_string(TEST_REPORT));
+    printk(KERN_DEBUG "[%s] Send %s packet\n",
+        get_rtc_string(&rtc),
+        hydrology_type_string(TEST_REPORT));
     hydrology_device_process(element_table, 1, HYDROLOGY_M1, TEST_REPORT);
+
+    for (i = 0; i < ARRAY_SIZE(element_table); i++) {
+        hydrology_free_element(&element);
+    }
 }
 
 static void timer_report_packet(void)
 {
-    printk(KERN_DEBUG "Send %s packet\n", hydrology_type_string(TIMER_REPORT));
+    struct tm rtc;
+    
+    rtc_calendar_get(&rtc, KRTC_FORMAT_BIN);
+    
+    printk(KERN_DEBUG "[%s] Send %s packet\n",
+        get_rtc_string(&rtc),
+        hydrology_type_string(TIMER_REPORT));
 }
 
 static void add_report_packet(void)
 {
-    printk(KERN_DEBUG "Send %s packet\n", hydrology_type_string(ADD_REPORT));
+    struct tm rtc;
+    
+    rtc_calendar_get(&rtc, KRTC_FORMAT_BIN);
+    
+    printk(KERN_DEBUG "[%s] Send %s packet\n",
+        get_rtc_string(&rtc),
+        hydrology_type_string(ADD_REPORT));
 }
 
 static void hour_packet(void)
 {
-    printk(KERN_DEBUG "Send %s packet\n", hydrology_type_string(HOUR_REPORT));
+    struct tm rtc;
+    
+    rtc_calendar_get(&rtc, KRTC_FORMAT_BIN);
+    
+    printk(KERN_DEBUG "[%s] Send %s packet\n",
+        get_rtc_string(&rtc),
+        hydrology_type_string(HOUR_REPORT));
 }
 
 void hydrology_task_exit(void)
@@ -112,7 +137,7 @@ int hydrology_task_init(void)
         rtc_task_add(0, 0, 0, 0, interval, 0, true, add_report_packet);
 
     rtc_task_add(0, 0, 0, 1, 0, 0, true, hour_packet);
-    
+
     return 0;
 }
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */

@@ -12,42 +12,47 @@ extern "C" {
 #include <linux/list.h>
 
 #include "kinetis/core_common.h"
+#include "kinetis/tim-task.h"
 
-typedef void (*button_callback)(void *);
+struct button;
+
+typedef void (*button_callback)(struct button *);
 
 enum press_button_event {
-    PRESS_DOWN = 0,
+    NONE_PRESS = 0,
+    PRESS_DEBOUNCE,
+    PRESS_DOWN,
     PRESS_UP,
-    PRESS_REPEAT,
     SINGLE_CLICK,
     DOUBLE_CLICK,
-    LONG_RRESS_START,
-    LONG_PRESS_HOLD,
+    LONG_RRESS,
+    PRESS_REPEAT,
     PRESSEVENT_NBR,
-    NONE_PRESS
 };
 
 struct button {
     u32 unique_id;
-    u16 ticks;
-    u8  repeat : 4;
-    u8  event : 4;
-    u8  state : 3;
-    u8  debounce_cnt : 3;
-    u8  active_level : 1;
-    u8  button_level : 1;
-    u8(*hal_button_level)(void);
-    button_callback callback[PRESSEVENT_NBR];
+    u64 valid_ticks;
+    u8 cnt : 2;
+    u8 repeat : 4;
+    u8 event : 4;
+    u8 state : 3;
+    u8 debounce_cnt : 3;
+    u8 active_level : 1;
+	DECLARE_BITMAP(button_level, 3);
+    u8(*hal_button_level)(struct button *);
+    struct tim_task task;
+    button_callback callback;
     struct list_head list;
 };
 
 int button_task_init(void);
 void button_task_exit(void);
 
-int button_add(u32 unique_id, u8(*pin_level)(void), u8 active_level,
+int button_add(u32 unique_id, u8(*pin_level)(struct button *), u8 active_level,
     button_callback callback);
 void button_drop(u32 unique_id);
-void button_ticks(void);
+void button_polling(void);
 
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */

@@ -9,13 +9,12 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 #include <linux/types.h>
+#include <linux/time.h>
 
 #include "kinetis/core_common.h"
 
-void rtc_calendar_config(u8 year, u8 month, u8 date,
-    u8 hours, u8 minutes, u8 seconds, u8 weekday, u8 format);
-void rtc_calendar_show(u8 *year, u8 *month, u8 *date,
-    u8 *hours, u8 *minutes, u8 *seconds, u8 *weekday, u8 format);
+void rtc_calendar_set(struct tm *rtc, u8 format);
+void rtc_calendar_get(struct tm *rtc, u8 format);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

@@ -154,14 +154,29 @@ int hydrology_write_store_info(char *file_name, long addr, u8 *pdata, int len)
 
 void hydrology_get_time(u8 *time)
 {
-    rtc_calendar_show((u8 *)&time[0], (u8 *)&time[1], (u8 *)&time[2],
-        (u8 *)&time[3], (u8 *)&time[4], (u8 *)&time[5], NULL, KRTC_FORMAT_BCD);
+    struct tm rtc;
+    
+    rtc_calendar_get(&rtc, KRTC_FORMAT_BCD);
+    time[0] = rtc.tm_year;
+    time[1] = rtc.tm_mon;
+    time[2] = rtc.tm_mday;
+    time[3] = rtc.tm_hour;
+    time[4] = rtc.tm_min;
+    time[5] = rtc.tm_sec;
 }
 
 void hydrology_set_time(u8 *time)
 {
-    rtc_calendar_config(time[0], time[1], time[2], time[3],
-        time[4], time[5], NULL, KRTC_FORMAT_BCD);
+    struct tm rtc;
+    
+    rtc.tm_year = time[0];
+    rtc.tm_mon = time[1];
+    rtc.tm_mday = time[2];
+    rtc.tm_hour = time[3];
+    rtc.tm_min = time[4];
+    rtc.tm_sec = time[5];
+    rtc.tm_wday = 0;
+    rtc_calendar_set(&rtc, KRTC_FORMAT_BCD);
 }
 
 extern void link_packet(void);
@@ -598,6 +613,11 @@ int hydrology_malloc_element(u8 guide, u8 D, u8 d,
     }
 
     return true;
+}
+
+void hydrology_free_element(struct hydrology_element *element)
+{
+    kfree(element->value);
 }
 
 //int hydrology_ReadAnalog(float *value, int index)

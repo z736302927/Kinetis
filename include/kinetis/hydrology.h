@@ -321,6 +321,7 @@ void hydrology_get_guide_id(u8 *value, u8 D, u8 d);
 int hydrology_convert_to_hex_element(double input, int D, int d, u8 *out);
 int hydrology_malloc_element(u8 guide, u8 D, u8 d,
     struct hydrology_element *element);
+void hydrology_free_element(struct hydrology_element *element);
 void hydrology_get_stream_id(u8 *stream_id);
 int hydrology_device_process_send(struct hydrology_element_info *element_table, u8 cnt,
     enum hydrology_mode mode, enum hydrology_body_type funcode);

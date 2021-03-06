@@ -193,6 +193,18 @@ extern int _find_next_bit_be(const unsigned long *p, int size, int offset);
 
 #endif
 
+#undef find_first_zero_bit
+#undef find_next_zero_bit
+#undef find_first_bit
+#undef find_next_bit
+
+unsigned long find_first_zero_bit(const unsigned long *addr, unsigned long size);
+unsigned long find_next_zero_bit(const unsigned long *addr, unsigned long size,
+				 unsigned long offset);
+unsigned long find_first_bit(const unsigned long *addr, unsigned long size);
+unsigned long find_next_bit(const unsigned long *addr, unsigned long size,
+			    unsigned long offset);
+
 #if __LINUX_ARM_ARCH__ < 5
 
 #include <asm-generic/bitops/__fls.h>

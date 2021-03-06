@@ -16,13 +16,19 @@ extern "C" {
 struct tim_task {
     u64 timeout;
     u32 interval;
-    void (*callback)(void);
+    void (*callback)(struct tim_task *);
     struct list_head list;
     bool auto_load;
+    bool self_alloc;
 };
 
 int tim_task_add(u32 interval, bool auto_load, void(*callback)());
 int tim_task_drop(void(*callback)());
+int tim_task_enqueue(struct tim_task *tim_task,
+    u32 interval, void(*callback)(struct tim_task *));
+void tim_task_dequeue(struct tim_task *tim_task);
+int tim_task_suspend(void(*callback)());
+int tim_task_resume(void(*callback)());
 void tim_task_loop(void);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
