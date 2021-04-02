@@ -30,7 +30,7 @@ int rtc_task_drop(void(*callback)());
 int rtc_task_enqueue(struct rtc_task *rtc_task,
     u8 add_year, u8 add_month, u8 add_date,
     u8 add_hours, u8 add_minutes, u8 add_seconds,
-    bool auto_load, void(*callback)(struct rtc_task *));
+    void(*callback)(struct rtc_task *));
 void rtc_task_dequeue(struct rtc_task *rtc_task);
 int rtc_task_suspend(void(*callback)());
 int rtc_task_resume(void(*callback)());

@@ -378,7 +378,7 @@ int rtc_task_drop(void(*callback)())
 int rtc_task_enqueue(struct rtc_task *rtc_task,
     u8 add_year, u8 add_month, u8 add_date,
     u8 add_hours, u8 add_minutes, u8 add_seconds,
-    bool auto_load, void(*callback)(struct rtc_task *))
+    void(*callback)(struct rtc_task *))
 {
     int ret, val;
 
@@ -403,7 +403,7 @@ int rtc_task_enqueue(struct rtc_task *rtc_task,
 
     rtc_task_update_time(rtc_task);
 
-    rtc_task->auto_load = auto_load;
+    rtc_task->auto_load = false;
     rtc_task->self_alloc = false;
 
     list_add_tail(&rtc_task->list, &rtc_task_head);

@@ -25,9 +25,7 @@ void delay_disable_timer(void);
 void delay_init(void);
 void delay_set_flag(void);
 void delay_clear_flag(void);
-void udelay(u32 delay);
-void mdelay(u32 delay);
-void sdelay(u32 delay);
+void udelay(u64 usecs);
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 

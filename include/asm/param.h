@@ -5,7 +5,7 @@
 #include <uapi/asm/param.h>
 
 # undef HZ
-# define HZ		CONFIG_HZ
+# define HZ		1000
 # define USER_HZ	1024
 # define CLOCKS_PER_SEC	USER_HZ	/* frequency at which times() counts */
 

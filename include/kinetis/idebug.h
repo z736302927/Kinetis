@@ -24,8 +24,6 @@ extern "C" {
 #define KERN_DEFAULT	3
 #endif
 
-void kinetis_dump_buffer8(void *buffer, int size, int column);
-
 static inline const char *get_rtc_string(struct tm *rtc)
 {
     static char time[32];

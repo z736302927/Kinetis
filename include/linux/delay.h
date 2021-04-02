@@ -23,7 +23,7 @@
 
 extern unsigned long loops_per_jiffy;
 
-#include <asm/delay.h>
+void udelay(u64 usecs);
 
 /*
  * Using udelay() for intervals greater than a few milliseconds can
@@ -56,7 +56,7 @@ static inline void ndelay(unsigned long x)
 extern unsigned long lpj_fine;
 void calibrate_delay(void);
 void __attribute__((weak)) calibration_delay_done(void);
-void msleep(unsigned int msecs);
+void msleep(unsigned long msecs);
 unsigned long msleep_interruptible(unsigned int msecs);
 void usleep_range(unsigned long min, unsigned long max);
 

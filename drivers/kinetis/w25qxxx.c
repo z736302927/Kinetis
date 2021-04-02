@@ -1487,11 +1487,13 @@ int t_w25qxxx_loopback(int argc, char **argv)
 
         w25qxxx_write_data(w25qxxx, test_addr, tx_buffer, length);
         w25qxxx_read_data(w25qxxx, test_addr, rx_buffer, length);
-
-        printk(KERN_DEBUG "w25qxxx tx buffer: \n");
-        kinetis_dump_buffer8(tx_buffer, 128, 16);
-        printk(KERN_DEBUG "w25qxxx rx buffer: \n");
-        kinetis_dump_buffer8(rx_buffer, 128, 16);
+        
+        print_hex_dump(KERN_DEBUG, "w25qxxx tx buffer: ", DUMP_PREFIX_OFFSET,
+            16, 4,
+            tx_buffer, length, false);
+        print_hex_dump(KERN_DEBUG, "w25qxxx rx buffer: ", DUMP_PREFIX_OFFSET,
+            16, 4,
+            tx_buffer, length, false);
         
         for (i = 0; i < length; i++) {
             if (tx_buffer[i] != rx_buffer[i]) {

@@ -93,6 +93,11 @@ void random_get_array(void *pdata, u32 length, u8 bits)
     }
 }
 
+u32 get_random_range(u32 min, u32 max)
+{
+    return random_get_int() % (max - min) + min;
+}
+
 #ifdef DESIGN_VERIFICATION_DELAY
 #include "kinetis/test-kinetis.h"
 #include "kinetis/idebug.h"
@@ -140,7 +145,9 @@ int t_random_array(int argc, char **argv)
     random_get_array(pdata, length, bits);
     printk(KERN_DEBUG "random number is the following\n");
 
-    kinetis_dump_buffer8(pdata, length, 16);
+    print_hex_dump(KERN_DEBUG, "random: ", DUMP_PREFIX_OFFSET,
+        16, 1,
+        pdata, length, false);
 
     return PASS;
 }

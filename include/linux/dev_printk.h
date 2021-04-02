@@ -13,7 +13,6 @@
 
 #include <linux/compiler.h>
 #include <linux/types.h>
-#include <linux/ratelimit.h>
 
 #ifndef dev_fmt
 #define dev_fmt(fmt) fmt

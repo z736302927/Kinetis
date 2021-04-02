@@ -453,7 +453,7 @@ static inline void *kcalloc(size_t n, size_t size, gfp_t flags)
  */
 extern void *__kmalloc_track_caller(size_t, gfp_t, unsigned long);
 #define kmalloc_track_caller(size, flags) \
-	__kmalloc_track_caller(size, flags, _RET_IP_)
+	kmalloc(size, flags)
 
 static inline void *kmalloc_array_node(size_t n, size_t size, gfp_t flags,
 				       int node)

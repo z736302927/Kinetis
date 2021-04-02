@@ -5,6 +5,7 @@
 #include <linux/printk.h>
 #include <linux/errno.h>
 #include <linux/string.h>
+#include <linux/device.h>
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -137,26 +138,6 @@ int printk(const char *fmt, ...)
     return text_len;
 }
 
-void kinetis_dump_buffer8(void *buffer, int size, int column)
-{
-    u32 i;    
-
-    for (i = 0; i < size; i++) {
-        if (i && !(i % column))
-            pr_cont("\n\r");
-
-        if (!(i % column))
-            pr_cont("[%5d.%06d] Buffer[%4d~%4d]: ",
-                basic_timer_get_ss(), basic_timer_get_timer_cnt(),
-                i,
-                i + column > size ? size - 1 : i + column - 1);
-
-        pr_cont(KERN_DEBUG "0x%02x, ", *((u8 *)(buffer + i)));
-    }
-
-    pr_cont("\n\r");
-}
-
 /**
  * vscnprintf - Format a string and place it in a buffer
  * @buf: The buffer to place the result into
@@ -207,3 +188,138 @@ int scnprintf(char *buf, size_t size, const char *fmt, ...)
 
 	return i;
 }
+
+/*
+ * Device logging functions
+ */
+
+#ifdef CONFIG_PRINTK
+
+int dev_vprintk_emit(int level, const struct device *dev,
+		     const char *fmt, va_list args)
+{
+    static char time[32];
+    size_t pre_len = 0;
+    static char textbuf[LOG_LINE_MAX];
+    char *text = textbuf;
+    size_t text_len;
+    int lflags = 0;
+    
+    text_len = vsnprintf(textbuf, LOG_LINE_MAX - 2, fmt, args);
+
+    /* mark and strip a trailing newline */
+    if (text_len && text[text_len - 1] == '\n') {
+        text_len--;
+        lflags |= LOG_NEWLINE;
+    }
+
+    if (level > LOGLEVEL_DEFAULT)
+        return -EINVAL;
+
+    switch (level) {
+        case LOGLEVEL_DEFAULT:
+            break;
+
+        case LOGLEVEL_EMERG:
+        case LOGLEVEL_ALERT:
+        case LOGLEVEL_CRIT:
+        case LOGLEVEL_ERR:
+            break;
+
+        case LOGLEVEL_WARNING:
+            break;
+
+        case LOGLEVEL_NOTICE:
+        case LOGLEVEL_INFO:
+        case LOGLEVEL_DEBUG:
+            break;
+    }
+    
+    if (lflags & LOG_NEWLINE) {
+        snprintf(time, sizeof(time), "[%5d.%06d] ",
+            basic_timer_get_ss(), basic_timer_get_timer_cnt());
+        pre_len = strlen(time);
+        
+        memmove(text + pre_len, text, text_len);
+        memmove(text, time, pre_len);
+        text_len += pre_len;
+        
+        text[text_len] = '\n';
+        text[text_len + 1] = '\r';
+        text_len += 2;
+    }
+    
+    HAL_UART_Transmit(&huart1, (u8 *)text, text_len, 0xFFFF);
+    
+    return text_len;
+}
+EXPORT_SYMBOL(dev_vprintk_emit);
+
+int dev_printk_emit(int level, const struct device *dev, const char *fmt, ...)
+{
+	va_list args;
+	int r;
+
+	va_start(args, fmt);
+
+	r = dev_vprintk_emit(level, dev, fmt, args);
+
+	va_end(args);
+
+	return r;
+}
+EXPORT_SYMBOL(dev_printk_emit);
+
+static void __dev_printk(const char *level, const struct device *dev,
+			struct va_format *vaf)
+{
+	if (dev)
+		dev_printk_emit(level[1] - '0', dev, "%s: %pV",
+				dev_name(dev), vaf);
+	else
+		printk("%s(NULL device *): %pV", level, vaf);
+}
+
+void dev_printk(const char *level, const struct device *dev,
+		const char *fmt, ...)
+{
+	struct va_format vaf;
+	va_list args;
+
+	va_start(args, fmt);
+
+	vaf.fmt = fmt;
+	vaf.va = &args;
+
+	__dev_printk(level, dev, &vaf);
+
+	va_end(args);
+}
+EXPORT_SYMBOL(dev_printk);
+
+#define define_dev_printk_level(func, kern_level)		\
+void func(const struct device *dev, const char *fmt, ...)	\
+{								\
+	struct va_format vaf;					\
+	va_list args;						\
+								\
+	va_start(args, fmt);					\
+								\
+	vaf.fmt = fmt;						\
+	vaf.va = &args;						\
+								\
+	__dev_printk(kern_level, dev, &vaf);			\
+								\
+	va_end(args);						\
+}								\
+EXPORT_SYMBOL(func);
+
+define_dev_printk_level(_dev_emerg, KERN_EMERG);
+define_dev_printk_level(_dev_alert, KERN_ALERT);
+define_dev_printk_level(_dev_crit, KERN_CRIT);
+define_dev_printk_level(_dev_err, KERN_ERR);
+define_dev_printk_level(_dev_warn, KERN_WARNING);
+define_dev_printk_level(_dev_notice, KERN_NOTICE);
+define_dev_printk_level(_dev_info, KERN_INFO);
+
+#endif

@@ -1,8 +1,10 @@
 #include "kinetis/delay.h"
 #include "kinetis/basic-timer.h"
 #include "kinetis/idebug.h"
+#include "kinetis/random-gene.h"
 
 #include <linux/printk.h>
+#include <linux/jiffies.h>
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -114,48 +116,11 @@ static void delay_wait_cnt_end(void)
  * of iterations and eventually causes a stack overflow.Therefore, try to enter
  * smaller parameters.
  */
-void udelay(u32 delay)
+void udelay(u64 usecs)
 {
-    if (delay > 1000000) {
-        printk(KERN_ERR
-            "The %s() input parameter is greater than 1000000, "
-            "please use mdelay()\n", __func__);
-        return;
-    }
+    u64 timeout = basic_timer_get_us() + usecs;
 
-#ifdef DELAY_USING_HARDWARE
-    delay_priv_val.prescaler = (delay_priv_val.input_clock / delay_priv_val.unit / 1000000) - 1;
-    delay_priv_val.period = delay_priv_val.unit * delay - 1;
-    delay_set_timer_para(delay_priv_val.prescaler, delay_priv_val.period);
-    delay_wait_cnt_end();
-#else
-    u32 refer = 0;
-    u32 delta = 0;
-    u32 ticks = 0;
-
-    if (delay > DELAY_TIMER_UNIT) {
-        ticks = DELAY_TIMER_UNIT;
-        refer = basic_timer_get_us();
-
-        while (delta < ticks) {
-            delta = basic_timer_get_us() >= refer ?
-                basic_timer_get_us() - refer :
-                basic_timer_get_us() + (DELAY_TIMER_UNIT - refer);
-        }
-
-        udelay(delay - DELAY_TIMER_UNIT);
-    } else {
-        ticks = delay;
-        refer = basic_timer_get_us();
-
-        while (delta < ticks) {
-            delta = basic_timer_get_us() >= refer ?
-                basic_timer_get_us() - refer :
-                basic_timer_get_us() + (DELAY_TIMER_UNIT - refer);
-        }
-    }
-
-#endif
+    while (time_after64(basic_timer_get_us(), timeout));
 }
 
 /*
@@ -163,71 +128,31 @@ void udelay(u32 delay)
  * of iterations and eventually causes a stack overflow.Therefore, try to enter
  * smaller parameters.
  */
-void mdelay(u32 delay)
+void msleep(unsigned long msecs)
 {
-    if (delay > 1000000) {
-        printk(KERN_ERR
-            "The %s() input parameter is greater than 1000000, "
-            "please use sdelay()\n", __func__);
-        return;
-    }
+    unsigned long timeout = jiffies + msecs;
 
-#ifdef DELAY_USING_HARDWARE
-    delay_priv_val.prescaler = (delay_priv_val.input_clock / delay_priv_val.unit / 1000) - 1;
-    delay_priv_val.period = delay_priv_val.unit * delay - 1;
-    delay_set_timer_para(delay_priv_val.prescaler, delay_priv_val.period);
-    delay_wait_cnt_end();
-#else
-    u32 refer = 0;
-    u32 delta = 0;
-    u32 ticks = 0;
-
-    if (delay > DELAY_TIMER_UNIT) {
-        ticks = DELAY_TIMER_UNIT;
-        refer = basic_timer_get_ms();
-
-        while (delta < ticks) {
-            delta = basic_timer_get_ms() >= refer ?
-                basic_timer_get_ms() - refer :
-                basic_timer_get_ms() + (DELAY_TIMER_UNIT - refer);
-        }
-
-        mdelay(delay - DELAY_TIMER_UNIT);
-    } else {
-        ticks = delay;
-        refer = basic_timer_get_ms();
-
-        while (delta < ticks) {
-            delta = basic_timer_get_ms() >= refer ?
-                basic_timer_get_ms() - refer :
-                basic_timer_get_ms() + (DELAY_TIMER_UNIT - refer);
-        }
-    }
-
-#endif
+    while (time_after(jiffies, timeout));
 }
 
-/*
- * The latency ranges from 0 to (2^32 / 1000000), but this leads to an increase in the number
- * of iterations and eventually causes a stack overflow.Therefore, try to enter
- * smaller parameters.
+/**
+ * usleep_range - Sleep for an approximate time
+ * @min: Minimum time in usecs to sleep
+ * @max: Maximum time in usecs to sleep
+ *
  */
-void sdelay(u32 delay)
+void usleep_range(unsigned long min, unsigned long max)
 {
-    if (delay > 1000) {
-        printk(KERN_ERR
-            "The %s() input parameter is greater than 1000, "
-            "please correct\n", __func__);
-        return;
-    }
+	u32 delta = get_random_range(min, max);
 
-    mdelay(delay * 1000);
+	udelay(delta);
 }
-
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 #ifdef DESIGN_VERIFICATION_DELAY
 #include "kinetis/test-kinetis.h"
+
+#include <linux/delay.h>
 
 int t_delay(int argc, char **argv)
 {
@@ -244,7 +169,7 @@ int t_delay(int argc, char **argv)
     printk(KERN_DEBUG "Delay 1000 ms, The result = %u ms.\n", time_stamp);
 
     time_stamp = basic_timer_get_ss();
-    sdelay(3);
+    ssleep(3);
     time_stamp = basic_timer_get_ss() - time_stamp;
     printk(KERN_DEBUG "Delay 3 s, The result = %u s.\n", time_stamp);
 

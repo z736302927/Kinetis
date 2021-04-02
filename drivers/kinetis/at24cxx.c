@@ -5,6 +5,7 @@
 
 #include <linux/printk.h>
 #include <linux/errno.h>
+#include <linux/delay.h>
 
 #define AT24CXX_IIC                     IIC_HW_1
 #define AT24CXX_ADDR                    0x50
@@ -190,10 +191,12 @@ int at24cxx_sequential_read(u8 *pdata, u32 length)
 
 #ifdef DESIGN_VERIFICATION_AT24CXX
 #include "kinetis/test-kinetis.h"
-#include "stdlib.h"
-#include "string.h"
 #include "kinetis/random-gene.h"
 #include "kinetis/basic-timer.h"
+
+#undef abs
+#include "stdlib.h"
+#include "string.h"
 
 static u8 tx_buffer[AT24CXX_VOLUME];
 static u8 rx_buffer[AT24CXX_VOLUME];
@@ -294,7 +297,9 @@ int t_at24cxx_current_random_read(int argc, char **argv)
         printk(KERN_DEBUG "round[%4u], read addr@0x%08x, length: %u.\n",
             i, test_addr, length);
 
-        kinetis_dump_buffer8(&rx_buffer[test_addr], length, 8);
+        print_hex_dump(KERN_DEBUG, "at24cxx rx: ", DUMP_PREFIX_OFFSET,
+            16, 1,
+            &rx_buffer[test_addr], length, false);
     }
 
     return PASS;

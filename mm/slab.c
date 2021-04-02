@@ -88,6 +88,7 @@
  */
  
 #include <linux/gfp.h>
+#include <linux/slab.h>
 
 #include "stdlib.h"
 #include "string.h"
@@ -108,9 +109,9 @@ static u32 pos = 0;
  * Don't free memory not originally allocated by kmalloc()
  * or you will run into trouble.
  */
-void kfree(void *objp)
+void kfree(const void *objp)
 {
-    free(objp);
+    free((void *)objp);
 
 #ifdef MALLOC_RECORD
     u32 i;
@@ -194,3 +195,31 @@ void *kmalloc(unsigned int size, unsigned int flags)
 
     return ret;
 }
+
+/**
+ * krealloc - reallocate memory. The contents will remain unchanged.
+ * @p: object to reallocate memory for.
+ * @new_size: how many bytes of memory are required.
+ * @flags: the type of memory to allocate.
+ *
+ * The contents of the object pointed to are preserved up to the
+ * lesser of the new and old sizes (__GFP_ZERO flag is effectively ignored).
+ * If @p is %NULL, krealloc() behaves exactly like kmalloc().  If @new_size
+ * is 0 and @p is not a %NULL pointer, the object pointed to is freed.
+ *
+ * Return: pointer to the allocated memory or %NULL in case of error
+ */
+void *krealloc(const void *p, size_t new_size, gfp_t flags)
+{
+	void *ret;
+
+	if (unlikely(!new_size)) {
+		kfree(p);
+		return ZERO_SIZE_PTR;
+	}
+
+	ret = realloc((void *)p, new_size);
+
+	return ret;
+}
+EXPORT_SYMBOL(krealloc);

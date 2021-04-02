@@ -2,6 +2,7 @@
 #ifndef _LINUX_JIFFIES_H
 #define _LINUX_JIFFIES_H
 
+#include <linux/typecheck.h>
 #include <linux/cache.h>
 #include <linux/limits.h>
 #include <linux/math64.h>
@@ -11,7 +12,6 @@
 #include <linux/timex.h>
 #include <vdso/jiffies.h>
 #include <asm/param.h>			/* for HZ */
-#include <generated/timeconst.h>
 
 /*
  * The following defines establish the engineering parameters of the PLL
@@ -76,8 +76,8 @@ extern int register_refined_jiffies(long clock_tick_rate);
  * without sampling the sequence number in jiffies_lock.
  * get_jiffies_64() will do this for you as appropriate.
  */
-extern u64 __cacheline_aligned_in_smp jiffies_64;
-extern unsigned long volatile __cacheline_aligned_in_smp __jiffy_arch_data jiffies;
+extern u64 volatile jiffies_64;
+extern unsigned long volatile jiffies;
 
 #if (BITS_PER_LONG < 64)
 u64 get_jiffies_64(void);
