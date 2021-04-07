@@ -15,6 +15,7 @@
 #define _DEVICE_DRIVER_H_
 
 #include <linux/klist.h>
+#include <linux/pm.h>
 #include <linux/device/bus.h>
 
 /**
@@ -108,6 +109,8 @@ struct device_driver {
 	void (*shutdown) (struct device *dev);
 	int (*suspend) (struct device *dev, int state);
 	int (*resume) (struct device *dev);
+
+	const struct dev_pm_ops *pm;
 	void (*coredump) (struct device *dev);
 
 	struct driver_private *p;

@@ -89,6 +89,11 @@
  
 #include <linux/gfp.h>
 #include <linux/slab.h>
+#include <linux/bug.h>
+#include <linux/err.h>
+#include <linux/string.h>
+
+#undef abs
 
 #include "stdlib.h"
 #include "string.h"
@@ -223,3 +228,246 @@ void *krealloc(const void *p, size_t new_size, gfp_t flags)
 	return ret;
 }
 EXPORT_SYMBOL(krealloc);
+
+/**
+ * kmem_cache_alloc - Allocate an object
+ * @cachep: The cache to allocate from.
+ * @flags: See kmalloc().
+ *
+ * Allocate an object from this cache.  The flags are only relevant
+ * if the cache has no available objects.
+ *
+ * Return: pointer to the new object or %NULL in case of error
+ */
+void *kmem_cache_alloc(struct kmem_cache *cachep, gfp_t flags)
+{
+	void *ret = kmalloc(cachep->object_size, flags);
+    
+    if (ret)
+        cachep->ctor(ret);
+
+	return ret;
+}
+EXPORT_SYMBOL(kmem_cache_alloc);
+
+/**
+ * kmem_cache_free - Deallocate an object
+ * @cachep: The cache the allocation was from.
+ * @objp: The previously allocated object.
+ *
+ * Free an object which was previously allocated from this
+ * cache.
+ */
+void kmem_cache_free(struct kmem_cache *cachep, void *objp)
+{
+	kfree(objp);
+}
+EXPORT_SYMBOL(kmem_cache_free);
+
+/*
+ * Determine the size of a slab object
+ */
+unsigned int kmem_cache_size(struct kmem_cache *s)
+{
+	return s->object_size;
+}
+EXPORT_SYMBOL(kmem_cache_size);
+
+/*
+ * Figure out what the alignment of the objects will be given a set of
+ * flags, a user specified alignment and the size of the objects.
+ */
+static unsigned int calculate_alignment(slab_flags_t flags,
+		unsigned int align, unsigned int size)
+{
+	/*
+	 * If the user wants hardware cache aligned objects then follow that
+	 * suggestion if the object is sufficiently large.
+	 *
+	 * The hardware cache alignment cannot override the specified
+	 * alignment though. If that is greater then use it.
+	 */
+	if (flags & SLAB_HWCACHE_ALIGN) {
+		unsigned int ralign;
+
+		ralign = 32;
+		while (size <= ralign / 2)
+			ralign /= 2;
+		align = max(align, ralign);
+	}
+
+	if (align < ARCH_SLAB_MINALIGN)
+		align = ARCH_SLAB_MINALIGN;
+
+	return ALIGN(align, sizeof(void *));
+}
+
+#ifdef CONFIG_DEBUG_VM
+static int kmem_cache_sanity_check(const char *name, unsigned int size)
+{
+	if (!name || in_interrupt() || size < sizeof(void *) ||
+		size > KMALLOC_MAX_SIZE) {
+		pr_err("kmem_cache_create(%s) integrity check failed\n", name);
+		return -EINVAL;
+	}
+
+	WARN_ON(strchr(name, ' '));	/* It confuses parsers */
+	return 0;
+}
+#else
+static inline int kmem_cache_sanity_check(const char *name, unsigned int size)
+{
+	return 0;
+}
+#endif
+
+static struct kmem_cache *create_cache(const char *name,
+		unsigned int object_size, unsigned int align,
+		slab_flags_t flags, unsigned int useroffset,
+		unsigned int usersize, void (*ctor)(void *),
+		struct kmem_cache *root_cache)
+{
+	struct kmem_cache *s;
+	int err;
+
+	if (WARN_ON(useroffset + usersize > object_size))
+		useroffset = usersize = 0;
+
+	err = -ENOMEM;
+	s = kzalloc(sizeof(*s), GFP_KERNEL);
+	if (!s)
+		return ERR_PTR(err);
+
+	s->name = name;
+	s->size = s->object_size = object_size;
+	s->align = align;
+	s->ctor = ctor;
+	s->useroffset = useroffset;
+	s->usersize = usersize;
+	s->refcount = 1;
+
+	return s;
+}
+
+/**
+ * kmem_cache_create_usercopy - Create a cache with a region suitable
+ * for copying to userspace
+ * @name: A string which is used in /proc/slabinfo to identify this cache.
+ * @size: The size of objects to be created in this cache.
+ * @align: The required alignment for the objects.
+ * @flags: SLAB flags
+ * @useroffset: Usercopy region offset
+ * @usersize: Usercopy region size
+ * @ctor: A constructor for the objects.
+ *
+ * Cannot be called within a interrupt, but can be interrupted.
+ * The @ctor is run when new pages are allocated by the cache.
+ *
+ * The flags are
+ *
+ * %SLAB_POISON - Poison the slab with a known test pattern (a5a5a5a5)
+ * to catch references to uninitialised memory.
+ *
+ * %SLAB_RED_ZONE - Insert `Red` zones around the allocated memory to check
+ * for buffer overruns.
+ *
+ * %SLAB_HWCACHE_ALIGN - Align the objects in this cache to a hardware
+ * cacheline.  This can be beneficial if you're counting cycles as closely
+ * as davem.
+ *
+ * Return: a pointer to the cache on success, NULL on failure.
+ */
+struct kmem_cache *
+kmem_cache_create_usercopy(const char *name,
+		  unsigned int size, unsigned int align,
+		  slab_flags_t flags,
+		  unsigned int useroffset, unsigned int usersize,
+		  void (*ctor)(void *))
+{
+	struct kmem_cache *s = NULL;
+	const char *cache_name;
+	int err;
+
+	err = kmem_cache_sanity_check(name, size);
+	if (err) {
+		goto out_unlock;
+	}
+
+	/* Fail closed on bad usersize of useroffset values. */
+	if (WARN_ON(!usersize && useroffset) ||
+	    WARN_ON(size < usersize || size - usersize < useroffset))
+		usersize = useroffset = 0;
+
+	cache_name = kstrdup_const(name, GFP_KERNEL);
+	if (!cache_name) {
+		err = -ENOMEM;
+		goto out_unlock;
+	}
+
+	s = create_cache(cache_name, size,
+			 calculate_alignment(flags, align, size),
+			 flags, useroffset, usersize, ctor, NULL);
+	if (IS_ERR(s)) {
+		err = PTR_ERR(s);
+		kfree(cache_name);
+	}
+
+out_unlock:
+
+	if (err) {
+		if (flags & SLAB_PANIC)
+			pr_err("kmem_cache_create: Failed to create slab '%s'. Error %d\n",
+				name, err);
+		else {
+			pr_warn("kmem_cache_create(%s) failed with error %d\n",
+				name, err);
+		}
+		return NULL;
+	}
+	return s;
+}
+EXPORT_SYMBOL(kmem_cache_create_usercopy);
+
+/**
+ * kmem_cache_create - Create a cache.
+ * @name: A string which is used in /proc/slabinfo to identify this cache.
+ * @size: The size of objects to be created in this cache.
+ * @align: The required alignment for the objects.
+ * @flags: SLAB flags
+ * @ctor: A constructor for the objects.
+ *
+ * Cannot be called within a interrupt, but can be interrupted.
+ * The @ctor is run when new pages are allocated by the cache.
+ *
+ * The flags are
+ *
+ * %SLAB_POISON - Poison the slab with a known test pattern (a5a5a5a5)
+ * to catch references to uninitialised memory.
+ *
+ * %SLAB_RED_ZONE - Insert `Red` zones around the allocated memory to check
+ * for buffer overruns.
+ *
+ * %SLAB_HWCACHE_ALIGN - Align the objects in this cache to a hardware
+ * cacheline.  This can be beneficial if you're counting cycles as closely
+ * as davem.
+ *
+ * Return: a pointer to the cache on success, NULL on failure.
+ */
+struct kmem_cache *
+kmem_cache_create(const char *name, unsigned int size, unsigned int align,
+		slab_flags_t flags, void (*ctor)(void *))
+{
+	return kmem_cache_create_usercopy(name, size, align, flags, 0, 0,
+					  ctor);
+}
+EXPORT_SYMBOL(kmem_cache_create);
+
+void kmem_cache_destroy(struct kmem_cache *s)
+{
+	if (unlikely(!s))
+		return;
+    
+	kfree(s->name);
+	kfree(s);
+}
+EXPORT_SYMBOL(kmem_cache_destroy);

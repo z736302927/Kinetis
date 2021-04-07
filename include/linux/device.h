@@ -18,6 +18,7 @@
 #include <linux/dev_printk.h>
 #include <linux/overflow.h>
 #include <linux/gfp.h>
+#include <linux/sysfs.h>
 #include <linux/device/driver.h>
 
 struct device;
@@ -93,6 +94,36 @@ char *devm_kstrdup(struct device *dev, const char *s, gfp_t gfp) __malloc;
 const char *devm_kstrdup_const(struct device *dev, const char *s, gfp_t gfp);
 void *devm_kmemdup(struct device *dev, const void *src, size_t len, gfp_t gfp);
 
+unsigned long devm_get_free_pages(struct device *dev,
+				  gfp_t gfp_mask, unsigned int order);
+void devm_free_pages(struct device *dev, unsigned long addr);
+
+//void __iomem *devm_ioremap_resource(struct device *dev,
+//				    const struct resource *res);
+//void __iomem *devm_ioremap_resource_wc(struct device *dev,
+//				       const struct resource *res);
+
+//void __iomem *devm_of_iomap(struct device *dev,
+//			    struct device_node *node, int index,
+//			    resource_size_t *size);
+
+/* allows to add/remove a custom action to devres stack */
+int devm_add_action(struct device *dev, void (*action)(void *), void *data);
+void devm_remove_action(struct device *dev, void (*action)(void *), void *data);
+void devm_release_action(struct device *dev, void (*action)(void *), void *data);
+
+static inline int devm_add_action_or_reset(struct device *dev,
+					   void (*action)(void *), void *data)
+{
+	int ret;
+
+	ret = devm_add_action(dev, action, data);
+	if (ret)
+		action(data);
+
+	return ret;
+}
+
 /*
  * The type of device, "struct device" is embedded in. A class
  * or bus can contain devices of different types
@@ -107,6 +138,61 @@ struct device_type {
 	const struct attribute_group **groups;
 	void (*release)(struct device *dev);
 };
+
+/* interface for exporting device attributes */
+struct device_attribute {
+	struct attribute	attr;
+	ssize_t (*show)(struct device *dev, struct device_attribute *attr,
+			char *buf);
+	ssize_t (*store)(struct device *dev, struct device_attribute *attr,
+			 const char *buf, size_t count);
+};
+
+struct dev_ext_attribute {
+	struct device_attribute attr;
+	void *var;
+};
+
+ssize_t device_show_ulong(struct device *dev, struct device_attribute *attr,
+			  char *buf);
+ssize_t device_store_ulong(struct device *dev, struct device_attribute *attr,
+			   const char *buf, size_t count);
+ssize_t device_show_int(struct device *dev, struct device_attribute *attr,
+			char *buf);
+ssize_t device_store_int(struct device *dev, struct device_attribute *attr,
+			 const char *buf, size_t count);
+ssize_t device_show_bool(struct device *dev, struct device_attribute *attr,
+			char *buf);
+ssize_t device_store_bool(struct device *dev, struct device_attribute *attr,
+			 const char *buf, size_t count);
+
+#define DEVICE_ATTR(_name, _mode, _show, _store) \
+	struct device_attribute dev_attr_##_name = __ATTR(_name, _mode, _show, _store)
+#define DEVICE_ATTR_PREALLOC(_name, _mode, _show, _store) \
+	struct device_attribute dev_attr_##_name = \
+		__ATTR_PREALLOC(_name, _mode, _show, _store)
+#define DEVICE_ATTR_RW(_name) \
+	struct device_attribute dev_attr_##_name = __ATTR_RW(_name)
+#define DEVICE_ATTR_ADMIN_RW(_name) \
+	struct device_attribute dev_attr_##_name = __ATTR_RW_MODE(_name, 0600)
+#define DEVICE_ATTR_RO(_name) \
+	struct device_attribute dev_attr_##_name = __ATTR_RO(_name)
+#define DEVICE_ATTR_ADMIN_RO(_name) \
+	struct device_attribute dev_attr_##_name = __ATTR_RO_MODE(_name, 0400)
+#define DEVICE_ATTR_WO(_name) \
+	struct device_attribute dev_attr_##_name = __ATTR_WO(_name)
+#define DEVICE_ULONG_ATTR(_name, _mode, _var) \
+	struct dev_ext_attribute dev_attr_##_name = \
+		{ __ATTR(_name, _mode, device_show_ulong, device_store_ulong), &(_var) }
+#define DEVICE_INT_ATTR(_name, _mode, _var) \
+	struct dev_ext_attribute dev_attr_##_name = \
+		{ __ATTR(_name, _mode, device_show_int, device_store_int), &(_var) }
+#define DEVICE_BOOL_ATTR(_name, _mode, _var) \
+	struct dev_ext_attribute dev_attr_##_name = \
+		{ __ATTR(_name, _mode, device_show_bool, device_store_bool), &(_var) }
+#define DEVICE_ATTR_IGNORE_LOCKDEP(_name, _mode, _show, _store) \
+	struct device_attribute dev_attr_##_name =		\
+		__ATTR_IGNORE_LOCKDEP(_name, _mode, _show, _store)
 
 /**
  * struct device - The basic device structure

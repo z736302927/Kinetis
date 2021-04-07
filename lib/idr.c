@@ -4,7 +4,6 @@
 #include <linux/export.h>
 #include <linux/idr.h>
 #include <linux/slab.h>
-#include <linux/spinlock.h>
 #include <linux/xarray.h>
 
 /**
@@ -392,7 +391,6 @@ int ida_alloc_range(struct ida *ida, unsigned int min, unsigned int max,
 		max = INT_MAX;
 
 retry:
-	xas_lock_irqsave(&xas, flags);
 next:
 	bitmap = xas_find_marked(&xas, max / IDA_BITMAP_BITS, XA_FREE_MARK);
 	if (xas.xa_index > min / IDA_BITMAP_BITS)
@@ -450,7 +448,6 @@ next:
 		xas_store(&xas, bitmap);
 	}
 out:
-	xas_unlock_irqrestore(&xas, flags);
 	if (xas_nomem(&xas, gfp)) {
 		xas.xa_index = min / IDA_BITMAP_BITS;
 		bit = min % IDA_BITMAP_BITS;
@@ -462,7 +459,6 @@ out:
 		return xas_error(&xas);
 	return xas.xa_index * IDA_BITMAP_BITS + bit;
 alloc:
-	xas_unlock_irqrestore(&xas, flags);
 	alloc = kzalloc(sizeof(*bitmap), gfp);
 	if (!alloc)
 		return -ENOMEM;
@@ -470,7 +466,6 @@ alloc:
 	bit = min % IDA_BITMAP_BITS;
 	goto retry;
 nospc:
-	xas_unlock_irqrestore(&xas, flags);
 	kfree(alloc);
 	return -ENOSPC;
 }
@@ -493,7 +488,6 @@ void ida_free(struct ida *ida, unsigned int id)
 
 	BUG_ON((int)id < 0);
 
-	xas_lock_irqsave(&xas, flags);
 	bitmap = xas_load(&xas);
 
 	if (xa_is_value(bitmap)) {
@@ -517,10 +511,8 @@ delete:
 			xas_store(&xas, NULL);
 		}
 	}
-	xas_unlock_irqrestore(&xas, flags);
 	return;
  err:
-	xas_unlock_irqrestore(&xas, flags);
 	WARN(1, "ida_free called for id=%d which is not allocated.\n", id);
 }
 EXPORT_SYMBOL(ida_free);
@@ -543,13 +535,11 @@ void ida_destroy(struct ida *ida)
 	struct ida_bitmap *bitmap;
 	unsigned long flags;
 
-	xas_lock_irqsave(&xas, flags);
 	xas_for_each(&xas, bitmap, ULONG_MAX) {
 		if (!xa_is_value(bitmap))
 			kfree(bitmap);
 		xas_store(&xas, NULL);
 	}
-	xas_unlock_irqrestore(&xas, flags);
 }
 EXPORT_SYMBOL(ida_destroy);
 

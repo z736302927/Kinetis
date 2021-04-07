@@ -12,7 +12,7 @@
 #include <linux/bug.h>
 #include <linux/errno.h>
 
-#include <asm/sections.h>
+//#include <asm/sections.h>
 
 #include "base.h"
 
@@ -848,28 +848,21 @@ void *devm_krealloc(struct device *dev, void *ptr, size_t new_size, gfp_t gfp)
 	if (unlikely(ZERO_OR_NULL_PTR(ptr)))
 		return devm_kmalloc(dev, new_size, gfp);
 
-	if (WARN_ON(is_kernel_rodata((unsigned long)ptr)))
-		/*
-		 * We cannot reliably realloc a const string returned by
-		 * devm_kstrdup_const().
-		 */
-		return NULL;
-
 	if (!check_dr_size(new_size, &total_new_size))
 		return NULL;
 
-	total_old_size = ksize(container_of(ptr, struct devres, data));
-	if (total_old_size == 0) {
-		WARN(1, "Pointer doesn't point to dynamically allocated memory.");
-		return NULL;
-	}
+//	total_old_size = ksize(container_of(ptr, struct devres, data));
+//	if (total_old_size == 0) {
+//		WARN(1, "Pointer doesn't point to dynamically allocated memory.");
+//		return NULL;
+//	}
 
-	/*
-	 * If new size is smaller or equal to the actual number of bytes
-	 * allocated previously - just return the same pointer.
-	 */
-	if (total_new_size <= total_old_size)
-		return ptr;
+//	/*
+//	 * If new size is smaller or equal to the actual number of bytes
+//	 * allocated previously - just return the same pointer.
+//	 */
+//	if (total_new_size <= total_old_size)
+//		return ptr;
 
 	/*
 	 * Otherwise: allocate new, larger chunk. We need to allocate before
@@ -889,12 +882,12 @@ void *devm_krealloc(struct device *dev, void *ptr, size_t new_size, gfp_t gfp)
 
 	replace_dr(dev, &old_dr->node, &new_dr->node);
 
-	/*
-	 * We can copy the memory contents after releasing the lock as we're
-	 * no longer modyfing the list links.
-	 */
-	memcpy(new_dr->data, old_dr->data,
-	       total_old_size - offsetof(struct devres, data));
+//	/*
+//	 * We can copy the memory contents after releasing the lock as we're
+//	 * no longer modyfing the list links.
+//	 */
+//	memcpy(new_dr->data, old_dr->data,
+//	       total_old_size - offsetof(struct devres, data));
 	/*
 	 * Same for releasing the old devres - it's now been removed from the
 	 * list. This is also the reason why we must not use devm_kfree() - the
@@ -947,9 +940,6 @@ EXPORT_SYMBOL_GPL(devm_kstrdup);
  */
 const char *devm_kstrdup_const(struct device *dev, const char *s, gfp_t gfp)
 {
-	if (is_kernel_rodata((unsigned long)s))
-		return s;
-
 	return devm_kstrdup(dev, s, gfp);
 }
 EXPORT_SYMBOL_GPL(devm_kstrdup_const);
@@ -1020,13 +1010,6 @@ EXPORT_SYMBOL_GPL(devm_kasprintf);
 void devm_kfree(struct device *dev, const void *p)
 {
 	int rc;
-
-	/*
-	 * Special cases: pointer to a string in .rodata returned by
-	 * devm_kstrdup_const() or NULL/ZERO ptr.
-	 */
-	if (unlikely(is_kernel_rodata((unsigned long)p) || ZERO_OR_NULL_PTR(p)))
-		return;
 
 	rc = devres_destroy(dev, devm_kmalloc_release,
 			    devm_kmalloc_match, (void *)p);

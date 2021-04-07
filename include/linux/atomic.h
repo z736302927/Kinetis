@@ -81,9 +81,9 @@
 #include <linux/atomic-arch-fallback.h>
 #include <asm-generic/atomic-instrumented.h>
 #else
-#include <linux/atomic-fallback.h>
+//#include <linux/atomic-fallback.h>
 #endif
 
-#include <asm-generic/atomic-long.h>
+//#include <asm-generic/atomic-long.h>
 
 #endif /* _LINUX_ATOMIC_H */

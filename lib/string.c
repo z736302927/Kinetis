@@ -1110,4 +1110,5 @@ char *strreplace(char *s, char old, char new)
 void fortify_panic(const char *name)
 {
 	pr_emerg("detected buffer overflow in %s\n", name);
+	BUG();
 }

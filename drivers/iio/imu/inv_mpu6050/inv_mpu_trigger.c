@@ -181,9 +181,7 @@ static int inv_mpu_data_rdy_trigger_set_state(struct iio_trigger *trig,
 	struct inv_mpu6050_state *st = iio_priv(indio_dev);
 	int result;
 
-	mutex_lock(&st->lock);
 	result = inv_mpu6050_set_enable(indio_dev, state);
-	mutex_unlock(&st->lock);
 
 	return result;
 }
@@ -194,33 +192,33 @@ static const struct iio_trigger_ops inv_mpu_trigger_ops = {
 
 int inv_mpu6050_probe_trigger(struct iio_dev *indio_dev, int irq_type)
 {
-	int ret;
-	struct inv_mpu6050_state *st = iio_priv(indio_dev);
+//	int ret;
+//	struct inv_mpu6050_state *st = iio_priv(indio_dev);
 
-	st->trig = devm_iio_trigger_alloc(&indio_dev->dev,
-					  "%s-dev%d",
-					  indio_dev->name,
-					  indio_dev->id);
-	if (!st->trig)
-		return -ENOMEM;
+//	st->trig = devm_iio_trigger_alloc(&indio_dev->dev,
+//					  "%s-dev%d",
+//					  indio_dev->name,
+//					  indio_dev->id);
+//	if (!st->trig)
+//		return -ENOMEM;
 
-	ret = devm_request_irq(&indio_dev->dev, st->irq,
-			       &iio_trigger_generic_data_rdy_poll,
-			       irq_type,
-			       "inv_mpu",
-			       st->trig);
-	if (ret)
-		return ret;
+//	ret = devm_request_irq(&indio_dev->dev, st->irq,
+//			       &iio_trigger_generic_data_rdy_poll,
+//			       irq_type,
+//			       "inv_mpu",
+//			       st->trig);
+//	if (ret)
+//		return ret;
 
-	st->trig->dev.parent = regmap_get_device(st->map);
-	st->trig->ops = &inv_mpu_trigger_ops;
-	iio_trigger_set_drvdata(st->trig, indio_dev);
+//	st->trig->dev.parent = regmap_get_device(st->map);
+//	st->trig->ops = &inv_mpu_trigger_ops;
+//	iio_trigger_set_drvdata(st->trig, indio_dev);
 
-	ret = devm_iio_trigger_register(&indio_dev->dev, st->trig);
-	if (ret)
-		return ret;
+//	ret = devm_iio_trigger_register(&indio_dev->dev, st->trig);
+//	if (ret)
+//		return ret;
 
-	indio_dev->trig = iio_trigger_get(st->trig);
+//	indio_dev->trig = iio_trigger_get(st->trig);
 
 	return 0;
 }

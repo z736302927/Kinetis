@@ -4,7 +4,9 @@
 
 #ifndef __ASSEMBLY__
 
+#ifndef nop
 #define nop() __asm__ __volatile__("mov\tr0,r0\t@ nop\n\t");
+#endif
 
 #if __LINUX_ARM_ARCH__ >= 7 ||		\
 	(__LINUX_ARM_ARCH__ == 6 && defined(CONFIG_CPU_32v6K))
@@ -67,16 +69,32 @@ extern void arm_heavy_mb(void);
 #define dma_rmb()	dmb(osh)
 #define dma_wmb()	dmb(oshst)
 #else
+#ifndef mb
 #define mb()		barrier()
+#endif
+#ifndef rmb
 #define rmb()		barrier()
+#endif
+#ifndef wmb
 #define wmb()		barrier()
+#endif
+#ifndef dma_rmb
 #define dma_rmb()	barrier()
+#endif
+#ifndef dma_wmb
 #define dma_wmb()	barrier()
 #endif
+#endif
 
+#ifndef __smp_mb
 #define __smp_mb()	dmb(ish)
+#endif
+#ifndef __smp_rmb
 #define __smp_rmb()	__smp_mb()
+#endif
+#ifndef __smp_wmb
 #define __smp_wmb()	dmb(ishst)
+#endif
 
 #ifdef CONFIG_CPU_SPECTRE
 static inline unsigned long array_index_mask_nospec(unsigned long idx,

@@ -283,6 +283,7 @@ struct i2c_driver {
 	 */
 	int (*command)(struct i2c_client *client, unsigned int cmd, void *arg);
 
+	struct device_driver driver;
 	const struct i2c_device_id *id_table;
 
 	/* Device detection callback for automatic device creation */
@@ -773,7 +774,8 @@ i2c_unlock_bus(struct i2c_adapter *adapter, unsigned int flags)
 static inline void i2c_mark_adapter_suspended(struct i2c_adapter *adap)
 {
 	i2c_lock_bus(adap, I2C_LOCK_ROOT_ADAPTER);
-	set_bit(I2C_ALF_IS_SUSPENDED, &adap->locked_flags);
+
+	struct device_driver driver;	set_bit(I2C_ALF_IS_SUSPENDED, &adap->locked_flags);
 	i2c_unlock_bus(adap, I2C_LOCK_ROOT_ADAPTER);
 }
 

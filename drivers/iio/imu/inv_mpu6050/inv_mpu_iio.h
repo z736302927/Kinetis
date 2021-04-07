@@ -8,7 +8,6 @@
 
 #include <linux/i2c.h>
 #include <linux/i2c-mux.h>
-#include <linux/mutex.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/buffer.h>
 #include <linux/regmap.h>
@@ -111,7 +110,7 @@ struct inv_mpu6050_chip_config {
  */
 struct inv_mpu6050_hw {
 	u8 whoami;
-	u8 *name;
+	char *name;
 	const struct inv_mpu6050_reg_map *reg;
 	const struct inv_mpu6050_chip_config *config;
 	size_t fifo_size;
@@ -144,7 +143,6 @@ struct inv_mpu6050_hw {
  *  @magn_orient:       magnetometer sensor chip orientation if available.
  */
 struct inv_mpu6050_state {
-	struct mutex lock;
 	struct iio_trigger  *trig;
 	struct inv_mpu6050_chip_config chip_config;
 	const struct inv_mpu6050_reg_map *reg;

@@ -45,7 +45,6 @@ struct regmap_async {
 };
 
 struct regmap {
-	void *lock_arg; /* This is passed to lock/unlock functions */
 	gfp_t alloc_flags;
 
 	struct device *dev; /* Device we do I/O on */

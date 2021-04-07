@@ -3,15 +3,13 @@
 * Copyright (C) 2012 Invensense, Inc.
 */
 
-#include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/sysfs.h>
 #include <linux/jiffies.h>
-#include <linux/irq.h>
 #include <linux/interrupt.h>
-#include <linux/poll.h>
+//#include <linux/poll.h>
 #include <linux/math64.h>
 #include <asm/unaligned.h>
 #include "inv_mpu_iio.h"
@@ -171,10 +169,8 @@ irqreturn_t inv_mpu6050_read_fifo(int irq, void *p)
 	u8 data[INV_MPU6050_OUTPUT_DATA_SIZE];
 	u16 fifo_count;
 	s64 timestamp;
-	int int_status;
+	unsigned int int_status;
 	size_t i, nb;
-
-	mutex_lock(&st->lock);
 
 	/* ack interrupt and check status */
 	result = regmap_read(st->map, st->reg->int_status, &int_status);
@@ -245,7 +241,6 @@ irqreturn_t inv_mpu6050_read_fifo(int irq, void *p)
 	}
 
 end_session:
-	mutex_unlock(&st->lock);
 	iio_trigger_notify_done(indio_dev->trig);
 
 	return IRQ_HANDLED;
@@ -253,7 +248,6 @@ end_session:
 flush_fifo:
 	/* Flush HW and SW FIFOs. */
 	inv_reset_fifo(indio_dev);
-	mutex_unlock(&st->lock);
 	iio_trigger_notify_done(indio_dev->trig);
 
 	return IRQ_HANDLED;

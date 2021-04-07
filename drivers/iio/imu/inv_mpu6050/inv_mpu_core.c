@@ -3,17 +3,14 @@
 * Copyright (C) 2012 Invensense, Inc.
 */
 
-#include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/i2c.h>
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/sysfs.h>
 #include <linux/jiffies.h>
-#include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/iio/iio.h>
-#include <linux/acpi.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include "inv_mpu_iio.h"
@@ -468,25 +465,19 @@ inv_mpu6050_read_raw(struct iio_dev *indio_dev,
 		ret = iio_device_claim_direct_mode(indio_dev);
 		if (ret)
 			return ret;
-		mutex_lock(&st->lock);
 		ret = inv_mpu6050_read_channel_data(indio_dev, chan, val);
-		mutex_unlock(&st->lock);
 		iio_device_release_direct_mode(indio_dev);
 		return ret;
 	case IIO_CHAN_INFO_SCALE:
 		switch (chan->type) {
 		case IIO_ANGL_VEL:
-			mutex_lock(&st->lock);
 			*val  = 0;
 			*val2 = gyro_scale_6050[st->chip_config.fsr];
-			mutex_unlock(&st->lock);
 
 			return IIO_VAL_INT_PLUS_NANO;
 		case IIO_ACCEL:
-			mutex_lock(&st->lock);
 			*val = 0;
 			*val2 = accel_scale[st->chip_config.accl_fs];
-			mutex_unlock(&st->lock);
 
 			return IIO_VAL_INT_PLUS_MICRO;
 		case IIO_TEMP:
@@ -509,16 +500,12 @@ inv_mpu6050_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_CALIBBIAS:
 		switch (chan->type) {
 		case IIO_ANGL_VEL:
-			mutex_lock(&st->lock);
 			ret = inv_mpu6050_sensor_show(st, st->reg->gyro_offset,
 						chan->channel2, val);
-			mutex_unlock(&st->lock);
 			return IIO_VAL_INT;
 		case IIO_ACCEL:
-			mutex_lock(&st->lock);
 			ret = inv_mpu6050_sensor_show(st, st->reg->accl_offset,
 						chan->channel2, val);
-			mutex_unlock(&st->lock);
 			return IIO_VAL_INT;
 
 		default:
@@ -602,7 +589,6 @@ static int inv_mpu6050_write_raw(struct iio_dev *indio_dev,
 	if (result)
 		return result;
 
-	mutex_lock(&st->lock);
 	result = inv_mpu6050_set_power_itg(st, true);
 	if (result)
 		goto error_write_raw_unlock;
@@ -645,7 +631,6 @@ static int inv_mpu6050_write_raw(struct iio_dev *indio_dev,
 
 	result |= inv_mpu6050_set_power_itg(st, false);
 error_write_raw_unlock:
-	mutex_unlock(&st->lock);
 	iio_device_release_direct_mode(indio_dev);
 
 	return result;
@@ -714,7 +699,6 @@ inv_mpu6050_fifo_rate_store(struct device *dev, struct device_attribute *attr,
 	/* compute back the fifo rate to handle truncation cases */
 	fifo_rate = INV_MPU6050_DIVIDER_TO_FIFO_RATE(d);
 
-	mutex_lock(&st->lock);
 	if (d == st->chip_config.divider) {
 		result = 0;
 		goto fifo_rate_fail_unlock;
@@ -740,7 +724,6 @@ inv_mpu6050_fifo_rate_store(struct device *dev, struct device_attribute *attr,
 fifo_rate_fail_power_off:
 	result |= inv_mpu6050_set_power_itg(st, false);
 fifo_rate_fail_unlock:
-	mutex_unlock(&st->lock);
 	iio_device_release_direct_mode(indio_dev);
 	if (result)
 		return result;
@@ -758,9 +741,7 @@ inv_fifo_rate_show(struct device *dev, struct device_attribute *attr,
 	struct inv_mpu6050_state *st = iio_priv(dev_to_iio_dev(dev));
 	unsigned fifo_rate;
 
-	mutex_lock(&st->lock);
 	fifo_rate = INV_MPU6050_DIVIDER_TO_FIFO_RATE(st->chip_config.divider);
-	mutex_unlock(&st->lock);
 
 	return scnprintf(buf, PAGE_SIZE, "%u\n", fifo_rate);
 }
@@ -1213,7 +1194,6 @@ int inv_mpu_core_probe(struct regmap *regmap, int irq, const char *name,
 		return -ENODEV;
 	}
 	st = iio_priv(indio_dev);
-	mutex_init(&st->lock);
 	st->chip_type = chip_type;
 	st->powerup_count = 0;
 	st->irq = irq;
@@ -1232,30 +1212,30 @@ int inv_mpu_core_probe(struct regmap *regmap, int irq, const char *name,
 		st->plat_data = *pdata;
 	}
 
-	desc = irq_get_irq_data(irq);
-	if (!desc) {
-		dev_err(dev, "Could not find IRQ %d\n", irq);
-		return -EINVAL;
-	}
+//	desc = irq_get_irq_data(irq);
+//	if (!desc) {
+//		dev_err(dev, "Could not find IRQ %d\n", irq);
+//		return -EINVAL;
+//	}
 
-	irq_type = irqd_get_trigger_type(desc);
-	if (!irq_type)
-		irq_type = IRQF_TRIGGER_RISING;
-	if (irq_type == IRQF_TRIGGER_RISING)
-		st->irq_mask = INV_MPU6050_ACTIVE_HIGH;
-	else if (irq_type == IRQF_TRIGGER_FALLING)
-		st->irq_mask = INV_MPU6050_ACTIVE_LOW;
-	else if (irq_type == IRQF_TRIGGER_HIGH)
-		st->irq_mask = INV_MPU6050_ACTIVE_HIGH |
-			INV_MPU6050_LATCH_INT_EN;
-	else if (irq_type == IRQF_TRIGGER_LOW)
-		st->irq_mask = INV_MPU6050_ACTIVE_LOW |
-			INV_MPU6050_LATCH_INT_EN;
-	else {
-		dev_err(dev, "Invalid interrupt type 0x%x specified\n",
-			irq_type);
-		return -EINVAL;
-	}
+//	irq_type = irqd_get_trigger_type(desc);
+//	if (!irq_type)
+//		irq_type = IRQF_TRIGGER_RISING;
+//	if (irq_type == IRQF_TRIGGER_RISING)
+//		st->irq_mask = INV_MPU6050_ACTIVE_HIGH;
+//	else if (irq_type == IRQF_TRIGGER_FALLING)
+//		st->irq_mask = INV_MPU6050_ACTIVE_LOW;
+//	else if (irq_type == IRQF_TRIGGER_HIGH)
+//		st->irq_mask = INV_MPU6050_ACTIVE_HIGH |
+//			INV_MPU6050_LATCH_INT_EN;
+//	else if (irq_type == IRQF_TRIGGER_LOW)
+//		st->irq_mask = INV_MPU6050_ACTIVE_LOW |
+//			INV_MPU6050_LATCH_INT_EN;
+//	else {
+//		dev_err(dev, "Invalid interrupt type 0x%x specified\n",
+//			irq_type);
+//		return -EINVAL;
+//	}
 
 	st->vdd_supply = devm_regulator_get(dev, "vdd");
 	if (IS_ERR(st->vdd_supply)) {
@@ -1355,19 +1335,19 @@ int inv_mpu_core_probe(struct regmap *regmap, int irq, const char *name,
 	indio_dev->info = &mpu_info;
 	indio_dev->modes = INDIO_BUFFER_TRIGGERED;
 
-	result = devm_iio_triggered_buffer_setup(dev, indio_dev,
-						 iio_pollfunc_store_time,
-						 inv_mpu6050_read_fifo,
-						 NULL);
-	if (result) {
-		dev_err(dev, "configure buffer fail %d\n", result);
-		return result;
-	}
-	result = inv_mpu6050_probe_trigger(indio_dev, irq_type);
-	if (result) {
-		dev_err(dev, "trigger probe fail %d\n", result);
-		return result;
-	}
+//	result = devm_iio_triggered_buffer_setup(dev, indio_dev,
+//						 iio_pollfunc_store_time,
+//						 inv_mpu6050_read_fifo,
+//						 NULL);
+//	if (result) {
+//		dev_err(dev, "configure buffer fail %d\n", result);
+//		return result;
+//	}
+//	result = inv_mpu6050_probe_trigger(indio_dev, irq_type);
+//	if (result) {
+//		dev_err(dev, "trigger probe fail %d\n", result);
+//		return result;
+//	}
 
 	result = devm_iio_device_register(dev, indio_dev);
 	if (result) {
@@ -1379,21 +1359,17 @@ int inv_mpu_core_probe(struct regmap *regmap, int irq, const char *name,
 }
 EXPORT_SYMBOL_GPL(inv_mpu_core_probe);
 
-#ifdef CONFIG_PM_SLEEP
-
 static int inv_mpu_resume(struct device *dev)
 {
 	struct inv_mpu6050_state *st = iio_priv(dev_get_drvdata(dev));
 	int result;
 
-	mutex_lock(&st->lock);
 	result = inv_mpu_core_enable_regulator_vddio(st);
 	if (result)
 		goto out_unlock;
 
 	result = inv_mpu6050_set_power_itg(st, true);
 out_unlock:
-	mutex_unlock(&st->lock);
 
 	return result;
 }
@@ -1403,18 +1379,8 @@ static int inv_mpu_suspend(struct device *dev)
 	struct inv_mpu6050_state *st = iio_priv(dev_get_drvdata(dev));
 	int result;
 
-	mutex_lock(&st->lock);
 	result = inv_mpu6050_set_power_itg(st, false);
 	inv_mpu_core_disable_regulator_vddio(st);
-	mutex_unlock(&st->lock);
 
 	return result;
 }
-#endif /* CONFIG_PM_SLEEP */
-
-SIMPLE_DEV_PM_OPS(inv_mpu_pmops, inv_mpu_suspend, inv_mpu_resume);
-EXPORT_SYMBOL_GPL(inv_mpu_pmops);
-
-MODULE_AUTHOR("Invensense Corporation");
-MODULE_DESCRIPTION("Invensense device MPU6050 driver");
-MODULE_LICENSE("GPL");

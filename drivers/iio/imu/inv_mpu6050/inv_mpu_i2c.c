@@ -3,13 +3,11 @@
 * Copyright (C) 2012 Invensense, Inc.
 */
 
-#include <linux/acpi.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/i2c.h>
 #include <linux/iio/iio.h>
-#include <linux/module.h>
-#include <linux/of_device.h>
+
 #include "inv_mpu_iio.h"
 
 static const struct regmap_config inv_mpu_regmap_config = {
@@ -23,8 +21,6 @@ static int inv_mpu6050_select_bypass(struct i2c_mux_core *muxc, u32 chan_id)
 	struct inv_mpu6050_state *st = iio_priv(indio_dev);
 	int ret;
 
-	mutex_lock(&st->lock);
-
 	ret = inv_mpu6050_set_power_itg(st, true);
 	if (ret)
 		goto error_unlock;
@@ -33,7 +29,6 @@ static int inv_mpu6050_select_bypass(struct i2c_mux_core *muxc, u32 chan_id)
 			   st->irq_mask | INV_MPU6050_BIT_BYPASS_EN);
 
 error_unlock:
-	mutex_unlock(&st->lock);
 
 	return ret;
 }
@@ -43,13 +38,9 @@ static int inv_mpu6050_deselect_bypass(struct i2c_mux_core *muxc, u32 chan_id)
 	struct iio_dev *indio_dev = i2c_mux_priv(muxc);
 	struct inv_mpu6050_state *st = iio_priv(indio_dev);
 
-	mutex_lock(&st->lock);
-
 	/* It doesn't really matter if any of the calls fail */
 	regmap_write(st->map, st->reg->int_pin_cfg, st->irq_mask);
 	inv_mpu6050_set_power_itg(st, false);
-
-	mutex_unlock(&st->lock);
 
 	return 0;
 }
@@ -59,9 +50,9 @@ static const char *inv_mpu_match_acpi_device(struct device *dev,
 {
 	const struct acpi_device_id *id;
 
-	id = acpi_match_device(dev->driver->acpi_match_table, dev);
-	if (!id)
-		return NULL;
+//	id = acpi_match_device(dev->driver->acpi_match_table, dev);
+//	if (!id)
+//		return NULL;
 
 	*chip_id = (int)id->driver_data;
 
@@ -104,12 +95,8 @@ static int inv_mpu_magn_disable(struct iio_dev *indio_dev)
 	switch (st->chip_type) {
 	case INV_MPU9250:
 	case INV_MPU9255:
-		mux_node = of_get_child_by_name(dev->of_node, "i2c-gate");
-		if (mux_node != NULL) {
-			st->magn_disabled = true;
-			dev_warn(dev, "disable internal use of magnetometer\n");
-		}
-		of_node_put(mux_node);
+        st->magn_disabled = false;
+        dev_warn(dev, "Enable internal use of magnetometer\n");
 		break;
 	default:
 		break;
@@ -138,18 +125,14 @@ static int inv_mpu_probe(struct i2c_client *client,
 				     I2C_FUNC_SMBUS_I2C_BLOCK))
 		return -EOPNOTSUPP;
 
-	if (client->dev.of_node) {
-		chip_type = (enum inv_devices)
-			of_device_get_match_data(&client->dev);
-		name = client->name;
-	} else if (id) {
+	if (id) {
 		chip_type = (enum inv_devices)
 			id->driver_data;
 		name = id->name;
-	} else if (ACPI_HANDLE(&client->dev)) {
-		name = inv_mpu_match_acpi_device(&client->dev, &chip_type);
-		if (!name)
-			return -ENODEV;
+//	} else if (ACPI_HANDLE(&client->dev)) {
+//		name = inv_mpu_match_acpi_device(&client->dev, &chip_type);
+//		if (!name)
+//			return -ENODEV;
 	} else {
 		return -ENOSYS;
 	}
@@ -220,8 +203,6 @@ static const struct i2c_device_id inv_mpu_id[] = {
 	{}
 };
 
-MODULE_DEVICE_TABLE(i2c, inv_mpu_id);
-
 static const struct of_device_id inv_of_match[] = {
 	{
 		.compatible = "invensense,mpu6050",
@@ -257,14 +238,12 @@ static const struct of_device_id inv_of_match[] = {
 	},
 	{ }
 };
-MODULE_DEVICE_TABLE(of, inv_of_match);
 
 static const struct acpi_device_id inv_acpi_match[] = {
 	{"INVN6500", INV_MPU6500},
 	{ },
 };
 
-MODULE_DEVICE_TABLE(acpi, inv_acpi_match);
 
 static struct i2c_driver inv_mpu_driver = {
 	.probe		=	inv_mpu_probe,
@@ -272,14 +251,8 @@ static struct i2c_driver inv_mpu_driver = {
 	.id_table	=	inv_mpu_id,
 	.driver = {
 		.of_match_table = inv_of_match,
-		.acpi_match_table = ACPI_PTR(inv_acpi_match),
+		.acpi_match_table = inv_acpi_match,
 		.name	=	"inv-mpu6050-i2c",
 		.pm     =       &inv_mpu_pmops,
 	},
 };
-
-module_i2c_driver(inv_mpu_driver);
-
-MODULE_AUTHOR("Invensense Corporation");
-MODULE_DESCRIPTION("Invensense device MPU6050 driver");
-MODULE_LICENSE("GPL");

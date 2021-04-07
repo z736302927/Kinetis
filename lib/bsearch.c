@@ -8,7 +8,6 @@
 
 #include <linux/export.h>
 #include <linux/bsearch.h>
-#include <linux/kprobes.h>
 
 /*
  * bsearch - binary search an array of elements
@@ -33,4 +32,3 @@ void *bsearch(const void *key, const void *base, size_t num, size_t size, cmp_fu
 	return __inline_bsearch(key, base, num, size, cmp);
 }
 EXPORT_SYMBOL(bsearch);
-NOKPROBE_SYMBOL(bsearch);

@@ -96,9 +96,6 @@
 #include <linux/bug.h>
 #include <linux/compiler.h>
 #include <linux/limits.h>
-#include <linux/spinlock_types.h>
-
-struct mutex;
 
 /**
  * typedef refcount_t - variant of atomic_t specialized for reference counts
@@ -154,7 +151,7 @@ static inline __must_check bool __refcount_add_not_zero(int i, refcount_t *r, in
 	do {
 		if (!old)
 			break;
-	} while (!atomic_try_cmpxchg_relaxed(&r->refs, &old, old + i));
+	} while (!atomic_cmpxchg(&r->refs, old, old + i));
 
 	if (oldp)
 		*oldp = old;
@@ -190,7 +187,7 @@ static inline __must_check bool refcount_add_not_zero(int i, refcount_t *r)
 
 static inline void __refcount_add(int i, refcount_t *r, int *oldp)
 {
-	int old = atomic_fetch_add_relaxed(i, &r->refs);
+	int old = atomic_fetch_add(i, &r->refs);
 
 	if (oldp)
 		*oldp = old;
@@ -269,7 +266,7 @@ static inline void refcount_inc(refcount_t *r)
 
 static inline __must_check bool __refcount_sub_and_test(int i, refcount_t *r, int *oldp)
 {
-	int old = atomic_fetch_sub_release(i, &r->refs);
+	int old = atomic_fetch_sub(i, &r->refs);
 
 	if (oldp)
 		*oldp = old;
@@ -335,7 +332,7 @@ static inline __must_check bool refcount_dec_and_test(refcount_t *r)
 
 static inline void __refcount_dec(refcount_t *r, int *oldp)
 {
-	int old = atomic_fetch_sub_release(1, &r->refs);
+	int old = atomic_fetch_sub(1, &r->refs);
 
 	if (oldp)
 		*oldp = old;
@@ -361,9 +358,9 @@ static inline void refcount_dec(refcount_t *r)
 
 extern __must_check bool refcount_dec_if_one(refcount_t *r);
 extern __must_check bool refcount_dec_not_one(refcount_t *r);
-extern __must_check bool refcount_dec_and_mutex_lock(refcount_t *r, struct mutex *lock);
-extern __must_check bool refcount_dec_and_lock(refcount_t *r, spinlock_t *lock);
-extern __must_check bool refcount_dec_and_lock_irqsave(refcount_t *r,
-						       spinlock_t *lock,
-						       unsigned long *flags);
+//extern __must_check bool refcount_dec_and_mutex_lock(refcount_t *r, struct mutex *lock);
+//extern __must_check bool refcount_dec_and_lock(refcount_t *r, spinlock_t *lock);
+//extern __must_check bool refcount_dec_and_lock_irqsave(refcount_t *r,
+//						       spinlock_t *lock,
+//						       unsigned long *flags);
 #endif /* _LINUX_REFCOUNT_H */

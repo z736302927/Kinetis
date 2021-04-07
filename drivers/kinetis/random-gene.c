@@ -10,7 +10,7 @@
   * @step 5:
   */
 
-#include "rng.h"
+//#include "rng.h"
 
 #define USING_HARDWARE_RNG
 #define USING_C_LIBRARY
@@ -18,7 +18,7 @@
 static inline u32 random_get_int(void)
 {
 #ifdef USING_HARDWARE_RNG
-    return HAL_RNG_GetRandomNumber(&hrng);
+    return 0;//HAL_RNG_GetRandomNumber(&hrng);
 #else
     return 0;
 #endif

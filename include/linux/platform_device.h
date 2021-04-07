@@ -12,6 +12,7 @@
 
 #include <linux/device.h>
 #include <linux/interrupt.h>
+#include <linux/pm.h>
 
 #define PLATFORM_DEVID_NONE	(-1)
 #define PLATFORM_DEVID_AUTO	(-2)
@@ -52,10 +53,6 @@ struct platform_device_info {
 };
 extern struct platform_device *platform_device_register_full(
 		const struct platform_device_info *pdevinfo);
-
-typedef struct pm_message {
-	int event;
-} pm_message_t;
 
 struct platform_driver {
 	int (*probe)(struct platform_device *);

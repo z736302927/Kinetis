@@ -248,7 +248,7 @@ int radix_tree_tagged(const struct radix_tree_root *, unsigned int tag);
 
 static inline void radix_tree_preload_end(void)
 {
-	local_unlock(&radix_tree_preloads.lock);
+
 }
 
 void __rcu **idr_get_free(struct radix_tree_root *root,

@@ -158,7 +158,7 @@ extern int _find_next_bit_be(const unsigned long *p, int size, int offset);
  * The __* form of bitops are non-atomic and may be reordered.
  */
 #define ATOMIC_BITOP(name,nr,p)			\
-	(__builtin_constant_p(nr) ? ____atomic_##name(nr, p) : _##name(nr,p))
+	(__builtin_constant_p(nr) ? ____atomic_##name(nr, p) : __##name(nr,p))
 #else
 #define ATOMIC_BITOP(name,nr,p)		_##name(nr,p)
 #endif
