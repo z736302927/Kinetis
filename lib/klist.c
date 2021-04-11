@@ -167,7 +167,6 @@ struct klist_waiter {
 	int woken;
 };
 
-static DEFINE_SPINLOCK(klist_remove_lock);
 static LIST_HEAD(klist_remove_waiters);
 
 static void klist_release(struct klist_node *n)

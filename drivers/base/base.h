@@ -41,7 +41,6 @@
 struct subsys_private {
 	struct list_head interfaces;
 
-	struct kset *drivers_kset;
 	struct klist klist_devices;
 	struct klist klist_drivers;
 	unsigned int drivers_autoprobe:1;
@@ -53,7 +52,6 @@ struct subsys_private {
 struct driver_private {
 	struct klist klist_devices;
 	struct klist_node knode_bus;
-	struct module_kobject *mkobj;
 	struct device_driver *driver;
 };
 #define to_driver(obj) container_of(obj, struct driver_private, kobj)

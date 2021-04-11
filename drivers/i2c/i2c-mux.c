@@ -19,12 +19,10 @@
  * warranty of any kind, whether express or implied.
  */
 
-#include <linux/acpi.h>
+//#include <linux/acpi.h>
 #include <linux/i2c.h>
 #include <linux/i2c-mux.h>
 #include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/of.h>
 #include <linux/slab.h>
 #include <linux/sysfs.h>
 
@@ -140,75 +138,75 @@ static unsigned int i2c_mux_parent_classes(struct i2c_adapter *parent)
 	return class;
 }
 
-static void i2c_mux_lock_bus(struct i2c_adapter *adapter, unsigned int flags)
-{
-	struct i2c_mux_priv *priv = adapter->algo_data;
-	struct i2c_adapter *parent = priv->muxc->parent;
+//static void i2c_mux_lock_bus(struct i2c_adapter *adapter, unsigned int flags)
+//{
+//	struct i2c_mux_priv *priv = adapter->algo_data;
+//	struct i2c_adapter *parent = priv->muxc->parent;
 
-	rt_mutex_lock_nested(&parent->mux_lock, i2c_adapter_depth(adapter));
-	if (!(flags & I2C_LOCK_ROOT_ADAPTER))
-		return;
-	i2c_lock_bus(parent, flags);
-}
+//	rt_mutex_lock_nested(&parent->mux_lock, i2c_adapter_depth(adapter));
+//	if (!(flags & I2C_LOCK_ROOT_ADAPTER))
+//		return;
+//	i2c_lock_bus(parent, flags);
+//}
 
-static int i2c_mux_trylock_bus(struct i2c_adapter *adapter, unsigned int flags)
-{
-	struct i2c_mux_priv *priv = adapter->algo_data;
-	struct i2c_adapter *parent = priv->muxc->parent;
+//static int i2c_mux_trylock_bus(struct i2c_adapter *adapter, unsigned int flags)
+//{
+//	struct i2c_mux_priv *priv = adapter->algo_data;
+//	struct i2c_adapter *parent = priv->muxc->parent;
 
-	if (!rt_mutex_trylock(&parent->mux_lock))
-		return 0;	/* mux_lock not locked, failure */
-	if (!(flags & I2C_LOCK_ROOT_ADAPTER))
-		return 1;	/* we only want mux_lock, success */
-	if (i2c_trylock_bus(parent, flags))
-		return 1;	/* parent locked too, success */
-	rt_mutex_unlock(&parent->mux_lock);
-	return 0;		/* parent not locked, failure */
-}
+//	if (!rt_mutex_trylock(&parent->mux_lock))
+//		return 0;	/* mux_lock not locked, failure */
+//	if (!(flags & I2C_LOCK_ROOT_ADAPTER))
+//		return 1;	/* we only want mux_lock, success */
+//	if (i2c_trylock_bus(parent, flags))
+//		return 1;	/* parent locked too, success */
+//	rt_mutex_unlock(&parent->mux_lock);
+//	return 0;		/* parent not locked, failure */
+//}
 
-static void i2c_mux_unlock_bus(struct i2c_adapter *adapter, unsigned int flags)
-{
-	struct i2c_mux_priv *priv = adapter->algo_data;
-	struct i2c_adapter *parent = priv->muxc->parent;
+//static void i2c_mux_unlock_bus(struct i2c_adapter *adapter, unsigned int flags)
+//{
+//	struct i2c_mux_priv *priv = adapter->algo_data;
+//	struct i2c_adapter *parent = priv->muxc->parent;
 
-	if (flags & I2C_LOCK_ROOT_ADAPTER)
-		i2c_unlock_bus(parent, flags);
-	rt_mutex_unlock(&parent->mux_lock);
-}
+//	if (flags & I2C_LOCK_ROOT_ADAPTER)
+//		i2c_unlock_bus(parent, flags);
+//	rt_mutex_unlock(&parent->mux_lock);
+//}
 
-static void i2c_parent_lock_bus(struct i2c_adapter *adapter,
-				unsigned int flags)
-{
-	struct i2c_mux_priv *priv = adapter->algo_data;
-	struct i2c_adapter *parent = priv->muxc->parent;
+//static void i2c_parent_lock_bus(struct i2c_adapter *adapter,
+//				unsigned int flags)
+//{
+//	struct i2c_mux_priv *priv = adapter->algo_data;
+//	struct i2c_adapter *parent = priv->muxc->parent;
 
-	rt_mutex_lock_nested(&parent->mux_lock, i2c_adapter_depth(adapter));
-	i2c_lock_bus(parent, flags);
-}
+//	rt_mutex_lock_nested(&parent->mux_lock, i2c_adapter_depth(adapter));
+//	i2c_lock_bus(parent, flags);
+//}
 
-static int i2c_parent_trylock_bus(struct i2c_adapter *adapter,
-				  unsigned int flags)
-{
-	struct i2c_mux_priv *priv = adapter->algo_data;
-	struct i2c_adapter *parent = priv->muxc->parent;
+//static int i2c_parent_trylock_bus(struct i2c_adapter *adapter,
+//				  unsigned int flags)
+//{
+//	struct i2c_mux_priv *priv = adapter->algo_data;
+//	struct i2c_adapter *parent = priv->muxc->parent;
 
-	if (!rt_mutex_trylock(&parent->mux_lock))
-		return 0;	/* mux_lock not locked, failure */
-	if (i2c_trylock_bus(parent, flags))
-		return 1;	/* parent locked too, success */
-	rt_mutex_unlock(&parent->mux_lock);
-	return 0;		/* parent not locked, failure */
-}
+//	if (!rt_mutex_trylock(&parent->mux_lock))
+//		return 0;	/* mux_lock not locked, failure */
+//	if (i2c_trylock_bus(parent, flags))
+//		return 1;	/* parent locked too, success */
+//	rt_mutex_unlock(&parent->mux_lock);
+//	return 0;		/* parent not locked, failure */
+//}
 
-static void i2c_parent_unlock_bus(struct i2c_adapter *adapter,
-				  unsigned int flags)
-{
-	struct i2c_mux_priv *priv = adapter->algo_data;
-	struct i2c_adapter *parent = priv->muxc->parent;
+//static void i2c_parent_unlock_bus(struct i2c_adapter *adapter,
+//				  unsigned int flags)
+//{
+//	struct i2c_mux_priv *priv = adapter->algo_data;
+//	struct i2c_adapter *parent = priv->muxc->parent;
 
-	i2c_unlock_bus(parent, flags);
-	rt_mutex_unlock(&parent->mux_lock);
-}
+//	i2c_unlock_bus(parent, flags);
+//	rt_mutex_unlock(&parent->mux_lock);
+//}
 
 struct i2c_adapter *i2c_root_adapter(struct device *dev)
 {
@@ -267,17 +265,17 @@ struct i2c_mux_core *i2c_mux_alloc(struct i2c_adapter *parent,
 }
 EXPORT_SYMBOL_GPL(i2c_mux_alloc);
 
-static const struct i2c_lock_operations i2c_mux_lock_ops = {
-	.lock_bus =    i2c_mux_lock_bus,
-	.trylock_bus = i2c_mux_trylock_bus,
-	.unlock_bus =  i2c_mux_unlock_bus,
-};
+//static const struct i2c_lock_operations i2c_mux_lock_ops = {
+//	.lock_bus =    i2c_mux_lock_bus,
+//	.trylock_bus = i2c_mux_trylock_bus,
+//	.unlock_bus =  i2c_mux_unlock_bus,
+//};
 
-static const struct i2c_lock_operations i2c_parent_lock_ops = {
-	.lock_bus =    i2c_parent_lock_bus,
-	.trylock_bus = i2c_parent_trylock_bus,
-	.unlock_bus =  i2c_parent_unlock_bus,
-};
+//static const struct i2c_lock_operations i2c_parent_lock_ops = {
+//	.lock_bus =    i2c_parent_lock_bus,
+//	.trylock_bus = i2c_parent_trylock_bus,
+//	.unlock_bus =  i2c_parent_unlock_bus,
+//};
 
 int i2c_mux_add_adapter(struct i2c_mux_core *muxc,
 			u32 force_nr, u32 chan_id,
@@ -327,17 +325,16 @@ int i2c_mux_add_adapter(struct i2c_mux_core *muxc,
 	/* Now fill out new adapter structure */
 	snprintf(priv->adap.name, sizeof(priv->adap.name),
 		 "i2c-%d-mux (chan_id %d)", i2c_adapter_id(parent), chan_id);
-	priv->adap.owner = THIS_MODULE;
 	priv->adap.algo = &priv->algo;
 	priv->adap.algo_data = priv;
 	priv->adap.dev.parent = &parent->dev;
 	priv->adap.retries = parent->retries;
 	priv->adap.timeout = parent->timeout;
 	priv->adap.quirks = parent->quirks;
-	if (muxc->mux_locked)
-		priv->adap.lock_ops = &i2c_mux_lock_ops;
-	else
-		priv->adap.lock_ops = &i2c_parent_lock_ops;
+//	if (muxc->mux_locked)
+//		priv->adap.lock_ops = &i2c_mux_lock_ops;
+//	else
+//		priv->adap.lock_ops = &i2c_parent_lock_ops;
 
 	/* Sanity check on class */
 	if (i2c_mux_parent_classes(parent) & class)
@@ -347,56 +344,56 @@ int i2c_mux_add_adapter(struct i2c_mux_core *muxc,
 	else
 		priv->adap.class = class;
 
-	/*
-	 * Try to populate the mux adapter's of_node, expands to
-	 * nothing if !CONFIG_OF.
-	 */
-	if (muxc->dev->of_node) {
-		struct device_node *dev_node = muxc->dev->of_node;
-		struct device_node *mux_node, *child = NULL;
-		u32 reg;
+//	/*
+//	 * Try to populate the mux adapter's of_node, expands to
+//	 * nothing if !CONFIG_OF.
+//	 */
+//	if (muxc->dev->of_node) {
+//		struct device_node *dev_node = muxc->dev->of_node;
+//		struct device_node *mux_node, *child = NULL;
+//		u32 reg;
 
-		if (muxc->arbitrator)
-			mux_node = of_get_child_by_name(dev_node, "i2c-arb");
-		else if (muxc->gate)
-			mux_node = of_get_child_by_name(dev_node, "i2c-gate");
-		else
-			mux_node = of_get_child_by_name(dev_node, "i2c-mux");
+//		if (muxc->arbitrator)
+//			mux_node = of_get_child_by_name(dev_node, "i2c-arb");
+//		else if (muxc->gate)
+//			mux_node = of_get_child_by_name(dev_node, "i2c-gate");
+//		else
+//			mux_node = of_get_child_by_name(dev_node, "i2c-mux");
 
-		if (mux_node) {
-			/* A "reg" property indicates an old-style DT entry */
-			if (!of_property_read_u32(mux_node, "reg", &reg)) {
-				of_node_put(mux_node);
-				mux_node = NULL;
-			}
-		}
+//		if (mux_node) {
+//			/* A "reg" property indicates an old-style DT entry */
+//			if (!of_property_read_u32(mux_node, "reg", &reg)) {
+//				of_node_put(mux_node);
+//				mux_node = NULL;
+//			}
+//		}
 
-		if (!mux_node)
-			mux_node = of_node_get(dev_node);
-		else if (muxc->arbitrator || muxc->gate)
-			child = of_node_get(mux_node);
+//		if (!mux_node)
+//			mux_node = of_node_get(dev_node);
+//		else if (muxc->arbitrator || muxc->gate)
+//			child = of_node_get(mux_node);
 
-		if (!child) {
-			for_each_child_of_node(mux_node, child) {
-				ret = of_property_read_u32(child, "reg", &reg);
-				if (ret)
-					continue;
-				if (chan_id == reg)
-					break;
-			}
-		}
+//		if (!child) {
+//			for_each_child_of_node(mux_node, child) {
+//				ret = of_property_read_u32(child, "reg", &reg);
+//				if (ret)
+//					continue;
+//				if (chan_id == reg)
+//					break;
+//			}
+//		}
 
-		priv->adap.dev.of_node = child;
-		of_node_put(mux_node);
-	}
+//		priv->adap.dev.of_node = child;
+//		of_node_put(mux_node);
+//	}
 
-	/*
-	 * Associate the mux channel with an ACPI node.
-	 */
-	if (has_acpi_companion(muxc->dev))
-		acpi_preset_companion(&priv->adap.dev,
-				      ACPI_COMPANION(muxc->dev),
-				      chan_id);
+//	/*
+//	 * Associate the mux channel with an ACPI node.
+//	 */
+//	if (has_acpi_companion(muxc->dev))
+//		acpi_preset_companion(&priv->adap.dev,
+//				      ACPI_COMPANION(muxc->dev),
+//				      chan_id);
 
 	if (force_nr) {
 		priv->adap.nr = force_nr;
@@ -417,14 +414,14 @@ int i2c_mux_add_adapter(struct i2c_mux_core *muxc,
 		}
 	}
 
-	WARN(sysfs_create_link(&priv->adap.dev.kobj, &muxc->dev->kobj,
-			       "mux_device"),
-	     "can't create symlink to mux device\n");
+//	WARN(sysfs_create_link(&priv->adap.dev.kobj, &muxc->dev->kobj,
+//			       "mux_device"),
+//	     "can't create symlink to mux device\n");
 
-	snprintf(symlink_name, sizeof(symlink_name), "channel-%u", chan_id);
-	WARN(sysfs_create_link(&muxc->dev->kobj, &priv->adap.dev.kobj,
-			       symlink_name),
-	     "can't create symlink to channel %u\n", chan_id);
+//	snprintf(symlink_name, sizeof(symlink_name), "channel-%u", chan_id);
+//	WARN(sysfs_create_link(&muxc->dev->kobj, &priv->adap.dev.kobj,
+//			       symlink_name),
+//	     "can't create symlink to channel %u\n", chan_id);
 	dev_info(&parent->dev, "Added multiplexed i2c bus %d\n",
 		 i2c_adapter_id(&priv->adap));
 
@@ -444,22 +441,22 @@ void i2c_mux_del_adapters(struct i2c_mux_core *muxc)
 	while (muxc->num_adapters) {
 		struct i2c_adapter *adap = muxc->adapter[--muxc->num_adapters];
 		struct i2c_mux_priv *priv = adap->algo_data;
-		struct device_node *np = adap->dev.of_node;
+//		struct device_node *np = adap->dev.of_node;
 
 		muxc->adapter[muxc->num_adapters] = NULL;
 
-		snprintf(symlink_name, sizeof(symlink_name),
-			 "channel-%u", priv->chan_id);
-		sysfs_remove_link(&muxc->dev->kobj, symlink_name);
+//		snprintf(symlink_name, sizeof(symlink_name),
+//			 "channel-%u", priv->chan_id);
+//		sysfs_remove_link(&muxc->dev->kobj, symlink_name);
 
-		sysfs_remove_link(&priv->adap.dev.kobj, "mux_device");
+//		sysfs_remove_link(&priv->adap.dev.kobj, "mux_device");
 		i2c_del_adapter(adap);
-		of_node_put(np);
+//		of_node_put(np);
 		kfree(priv);
 	}
 }
 EXPORT_SYMBOL_GPL(i2c_mux_del_adapters);
 
-MODULE_AUTHOR("Rodolfo Giometti <giometti@linux.it>");
-MODULE_DESCRIPTION("I2C driver for multiplexed I2C busses");
-MODULE_LICENSE("GPL v2");
+//MODULE_AUTHOR("Rodolfo Giometti <giometti@linux.it>");
+//MODULE_DESCRIPTION("I2C driver for multiplexed I2C busses");
+//MODULE_LICENSE("GPL v2");

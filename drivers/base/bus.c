@@ -332,7 +332,7 @@ struct device *bus_find_device(struct bus_type *bus,
 	klist_iter_init_node(&bus->p->klist_devices, &i,
 			     (start ? &start->p->knode_bus : NULL));
 	while ((dev = next_device(&i)))
-		if (match(dev, data) && get_device(dev))
+		if (match(dev, data) && dev)
 			break;
 	klist_iter_exit(&i);
 	return dev;
@@ -380,7 +380,7 @@ EXPORT_SYMBOL_GPL(bus_find_device);
 //}
 //EXPORT_SYMBOL_GPL(subsys_find_device_by_id);
 
-static struct device_driver *next_driver(struct klist_iter *i)
+struct device_driver *next_driver(struct klist_iter *i)
 {
 	struct klist_node *n = klist_next(i);
 	struct driver_private *drv_priv;
@@ -440,7 +440,7 @@ EXPORT_SYMBOL_GPL(bus_for_each_drv);
  */
 int bus_add_device(struct device *dev)
 {
-	struct bus_type *bus = bus_get(dev->bus);
+	struct bus_type *bus = dev->bus;
 	int error = 0;
 
 	if (bus) {
@@ -459,6 +459,7 @@ int bus_add_device(struct device *dev)
 void bus_probe_device(struct device *dev)
 {
 	struct bus_type *bus = dev->bus;
+	struct subsys_interface *sif;
 
 	if (!bus)
 		return;
@@ -562,25 +563,32 @@ int bus_add_driver(struct device_driver *drv)
 	struct driver_private *priv;
 	int error = 0;
 
-	bus = bus_get(drv->bus);
+	bus = drv->bus;
 	if (!bus)
 		return -EINVAL;
 
 	pr_debug("bus: '%s': add driver %s\n", bus->name, drv->name);
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
-	if (!priv) {
-		error = -ENOMEM;
-		goto out_put_bus;
-	}
+	if (!priv)
+		return -ENOMEM; 
 	klist_init(&priv->klist_devices, NULL, NULL);
 	priv->driver = drv;
-	drv->p = priv;
-	priv->kobj.kset = bus->p->drivers_kset;
+	drv->p = priv; 
 
 	klist_add_tail(&priv->knode_bus, &bus->p->klist_drivers);
+	if (drv->bus->p->drivers_autoprobe) {
+		error = driver_attach(drv);
+		if (error)
+			goto out_unregister;
+	}
 
 	return 0;
+    
+out_unregister: 
+    /* drv->p is freed in driver_release()  */
+    drv->p = NULL; 
+    return error;
 }
 
 /**
@@ -594,18 +602,11 @@ int bus_add_driver(struct device_driver *drv)
 void bus_remove_driver(struct device_driver *drv)
 {
 	if (!drv->bus)
-		return;
+		return;    
 
-	if (!drv->suppress_bind_attrs)
-		remove_bind_files(drv);
-	driver_remove_groups(drv, drv->bus->drv_groups);
-	driver_remove_file(drv, &driver_attr_uevent);
+    kfree(drv->p);
 	klist_remove(&drv->p->knode_bus);
-	pr_debug("bus: '%s': remove driver %s\n", drv->bus->name, drv->name);
-	driver_detach(drv);
-	module_remove_driver(drv);
-	kobject_put(&drv->p->kobj);
-	bus_put(drv->bus);
+	pr_debug("bus: '%s': remove driver %s\n", drv->bus->name, drv->name); 
 }
 //
 ///* Helper for bus_rescan_devices's iter */
@@ -716,38 +717,38 @@ void bus_remove_driver(struct device_driver *drv)
 // */
 //static struct bus_attribute bus_attr_uevent = __ATTR(uevent, S_IWUSR, NULL,
 //						     bus_uevent_store);
-//
-///**
-// * bus_register - register a driver-core subsystem
-// * @bus: bus to register
-// *
-// * Once we have that, we register the bus with the kobject
-// * infrastructure, then register the children subsystems it has:
-// * the devices and drivers that belong to the subsystem.
-// */
-//int bus_register(struct bus_type *bus)
-//{
-//	int retval;
-//	struct subsys_private *priv;
+
+/**
+ * bus_register - register a driver-core subsystem
+ * @bus: bus to register
+ *
+ * Once we have that, we register the bus with the kobject
+ * infrastructure, then register the children subsystems it has:
+ * the devices and drivers that belong to the subsystem.
+ */
+int bus_register(struct bus_type *bus)
+{
+	int retval;
+	struct subsys_private *priv;
 //	struct lock_class_key *key = &bus->lock_key;
-//
-//	priv = kzalloc(sizeof(struct subsys_private), GFP_KERNEL);
-//	if (!priv)
-//		return -ENOMEM;
-//
-//	priv->bus = bus;
-//	bus->p = priv;
-//
+
+	priv = kzalloc(sizeof(struct subsys_private), GFP_KERNEL);
+	if (!priv)
+		return -ENOMEM;
+
+	priv->bus = bus;
+	bus->p = priv;
+
 //	BLOCKING_INIT_NOTIFIER_HEAD(&priv->bus_notifier);
-//
+
 //	retval = kobject_set_name(&priv->subsys.kobj, "%s", bus->name);
 //	if (retval)
 //		goto out;
 //
 //	priv->subsys.kobj.kset = bus_kset;
 //	priv->subsys.kobj.ktype = &bus_ktype;
-//	priv->drivers_autoprobe = 1;
-//
+	priv->drivers_autoprobe = 1;
+
 //	retval = kset_register(&priv->subsys);
 //	if (retval)
 //		goto out;
@@ -769,12 +770,12 @@ void bus_remove_driver(struct device_driver *drv)
 //		retval = -ENOMEM;
 //		goto bus_drivers_fail;
 //	}
-//
-//	INIT_LIST_HEAD(&priv->interfaces);
+
+	INIT_LIST_HEAD(&priv->interfaces);
 //	__mutex_init(&priv->mutex, "subsys mutex", key);
-//	klist_init(&priv->klist_devices, klist_devices_get, klist_devices_put);
-//	klist_init(&priv->klist_drivers, NULL, NULL);
-//
+	klist_init(&priv->klist_devices, NULL, NULL);
+	klist_init(&priv->klist_drivers, NULL, NULL);
+
 //	retval = add_probe_files(bus);
 //	if (retval)
 //		goto bus_probe_files_fail;
@@ -782,48 +783,48 @@ void bus_remove_driver(struct device_driver *drv)
 //	retval = bus_add_groups(bus, bus->bus_groups);
 //	if (retval)
 //		goto bus_groups_fail;
-//
-//	pr_debug("bus: '%s': registered\n", bus->name);
-//	return 0;
-//
-//bus_groups_fail:
+
+	pr_debug("bus: '%s': registered\n", bus->name);
+	return 0;
+
+bus_groups_fail:
 //	remove_probe_files(bus);
-//bus_probe_files_fail:
+bus_probe_files_fail:
 //	kset_unregister(bus->p->drivers_kset);
-//bus_drivers_fail:
+bus_drivers_fail:
 //	kset_unregister(bus->p->devices_kset);
-//bus_devices_fail:
+bus_devices_fail:
 //	bus_remove_file(bus, &bus_attr_uevent);
-//bus_uevent_fail:
+bus_uevent_fail:
 //	kset_unregister(&bus->p->subsys);
-//out:
-//	kfree(bus->p);
-//	bus->p = NULL;
-//	return retval;
-//}
-//EXPORT_SYMBOL_GPL(bus_register);
-//
-///**
-// * bus_unregister - remove a bus from the system
-// * @bus: bus.
-// *
-// * Unregister the child subsystems and the bus itself.
-// * Finally, we call bus_put() to release the refcount
-// */
-//void bus_unregister(struct bus_type *bus)
-//{
-//	pr_debug("bus: '%s': unregistering\n", bus->name);
-//	if (bus->dev_root)
-//		device_unregister(bus->dev_root);
+out:
+	kfree(bus->p);
+	bus->p = NULL;
+	return retval;
+}
+EXPORT_SYMBOL_GPL(bus_register);
+
+/**
+ * bus_unregister - remove a bus from the system
+ * @bus: bus.
+ *
+ * Unregister the child subsystems and the bus itself.
+ * Finally, we call bus_put() to release the refcount
+ */
+void bus_unregister(struct bus_type *bus)
+{
+	pr_debug("bus: '%s': unregistering\n", bus->name);
+	if (bus->dev_root)
+		device_unregister(bus->dev_root);
 //	bus_remove_groups(bus, bus->bus_groups);
 //	remove_probe_files(bus);
 //	kset_unregister(bus->p->drivers_kset);
 //	kset_unregister(bus->p->devices_kset);
 //	bus_remove_file(bus, &bus_attr_uevent);
 //	kset_unregister(&bus->p->subsys);
-//}
-//EXPORT_SYMBOL_GPL(bus_unregister);
-//
+}
+EXPORT_SYMBOL_GPL(bus_unregister);
+
 //int bus_register_notifier(struct bus_type *bus, struct notifier_block *nb)
 //{
 //	return blocking_notifier_chain_register(&bus->p->bus_notifier, nb);

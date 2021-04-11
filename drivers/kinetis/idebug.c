@@ -189,12 +189,6 @@ int scnprintf(char *buf, size_t size, const char *fmt, ...)
 	return i;
 }
 
-/*
- * Device logging functions
- */
-
-#ifdef CONFIG_PRINTK
-
 int dev_vprintk_emit(int level, const struct device *dev,
 		     const char *fmt, va_list args)
 {
@@ -254,72 +248,3 @@ int dev_vprintk_emit(int level, const struct device *dev,
     return text_len;
 }
 EXPORT_SYMBOL(dev_vprintk_emit);
-
-int dev_printk_emit(int level, const struct device *dev, const char *fmt, ...)
-{
-	va_list args;
-	int r;
-
-	va_start(args, fmt);
-
-	r = dev_vprintk_emit(level, dev, fmt, args);
-
-	va_end(args);
-
-	return r;
-}
-EXPORT_SYMBOL(dev_printk_emit);
-
-static void __dev_printk(const char *level, const struct device *dev,
-			struct va_format *vaf)
-{
-	if (dev)
-		dev_printk_emit(level[1] - '0', dev, "%s: %pV",
-				dev_name(dev), vaf);
-	else
-		printk("%s(NULL device *): %pV", level, vaf);
-}
-
-void dev_printk(const char *level, const struct device *dev,
-		const char *fmt, ...)
-{
-	struct va_format vaf;
-	va_list args;
-
-	va_start(args, fmt);
-
-	vaf.fmt = fmt;
-	vaf.va = &args;
-
-	__dev_printk(level, dev, &vaf);
-
-	va_end(args);
-}
-EXPORT_SYMBOL(dev_printk);
-
-#define define_dev_printk_level(func, kern_level)		\
-void func(const struct device *dev, const char *fmt, ...)	\
-{								\
-	struct va_format vaf;					\
-	va_list args;						\
-								\
-	va_start(args, fmt);					\
-								\
-	vaf.fmt = fmt;						\
-	vaf.va = &args;						\
-								\
-	__dev_printk(kern_level, dev, &vaf);			\
-								\
-	va_end(args);						\
-}								\
-EXPORT_SYMBOL(func);
-
-define_dev_printk_level(_dev_emerg, KERN_EMERG);
-define_dev_printk_level(_dev_alert, KERN_ALERT);
-define_dev_printk_level(_dev_crit, KERN_CRIT);
-define_dev_printk_level(_dev_err, KERN_ERR);
-define_dev_printk_level(_dev_warn, KERN_WARNING);
-define_dev_printk_level(_dev_notice, KERN_NOTICE);
-define_dev_printk_level(_dev_info, KERN_INFO);
-
-#endif

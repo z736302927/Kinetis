@@ -3,11 +3,14 @@
 * Copyright (C) 2012 Invensense, Inc.
 */
 
+//#include <linux/acpi.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/i2c.h>
 #include <linux/iio/iio.h>
-
+//#include <linux/module.h>
+//#include <linux/of_device.h>
+//#include <linux/property.h>
 #include "inv_mpu_iio.h"
 
 static const struct regmap_config inv_mpu_regmap_config = {
@@ -17,46 +20,7 @@ static const struct regmap_config inv_mpu_regmap_config = {
 
 static int inv_mpu6050_select_bypass(struct i2c_mux_core *muxc, u32 chan_id)
 {
-	struct iio_dev *indio_dev = i2c_mux_priv(muxc);
-	struct inv_mpu6050_state *st = iio_priv(indio_dev);
-	int ret;
-
-	ret = inv_mpu6050_set_power_itg(st, true);
-	if (ret)
-		goto error_unlock;
-
-	ret = regmap_write(st->map, st->reg->int_pin_cfg,
-			   st->irq_mask | INV_MPU6050_BIT_BYPASS_EN);
-
-error_unlock:
-
-	return ret;
-}
-
-static int inv_mpu6050_deselect_bypass(struct i2c_mux_core *muxc, u32 chan_id)
-{
-	struct iio_dev *indio_dev = i2c_mux_priv(muxc);
-	struct inv_mpu6050_state *st = iio_priv(indio_dev);
-
-	/* It doesn't really matter if any of the calls fail */
-	regmap_write(st->map, st->reg->int_pin_cfg, st->irq_mask);
-	inv_mpu6050_set_power_itg(st, false);
-
 	return 0;
-}
-
-static const char *inv_mpu_match_acpi_device(struct device *dev,
-					     enum inv_devices *chip_id)
-{
-	const struct acpi_device_id *id;
-
-//	id = acpi_match_device(dev->driver->acpi_match_table, dev);
-//	if (!id)
-//		return NULL;
-
-	*chip_id = (int)id->driver_data;
-
-	return dev_name(dev);
 }
 
 static bool inv_mpu_i2c_aux_bus(struct device *dev)
@@ -65,9 +29,13 @@ static bool inv_mpu_i2c_aux_bus(struct device *dev)
 
 	switch (st->chip_type) {
 	case INV_ICM20608:
+	case INV_ICM20609:
+	case INV_ICM20689:
 	case INV_ICM20602:
+	case INV_IAM20680:
 		/* no i2c auxiliary bus on the chip */
 		return false;
+	case INV_MPU9150:
 	case INV_MPU9250:
 	case INV_MPU9255:
 		if (st->magn_disabled)
@@ -79,27 +47,41 @@ static bool inv_mpu_i2c_aux_bus(struct device *dev)
 	}
 }
 
-/*
- * MPU9xxx magnetometer support requires to disable i2c auxiliary bus support.
- * To ensure backward compatibility with existing setups, do not disable
- * i2c auxiliary bus if it used.
- * Check for i2c-gate node in devicetree and set magnetometer disabled.
- * Only MPU6500 is supported by ACPI, no need to check.
- */
-static int inv_mpu_magn_disable(struct iio_dev *indio_dev)
+static int inv_mpu_i2c_aux_setup(struct iio_dev *indio_dev)
 {
 	struct inv_mpu6050_state *st = iio_priv(indio_dev);
 	struct device *dev = indio_dev->dev.parent;
 	struct device_node *mux_node;
+	int ret;
 
+	/*
+	 * MPU9xxx magnetometer support requires to disable i2c auxiliary bus.
+	 * To ensure backward compatibility with existing setups, do not disable
+	 * i2c auxiliary bus if it used.
+	 * Check for i2c-gate node in devicetree and set magnetometer disabled.
+	 * Only MPU6500 is supported by ACPI, no need to check.
+	 */
 	switch (st->chip_type) {
+	case INV_MPU9150:
 	case INV_MPU9250:
 	case INV_MPU9255:
-        st->magn_disabled = false;
-        dev_warn(dev, "Enable internal use of magnetometer\n");
+//		mux_node = of_get_child_by_name(dev->of_node, "i2c-gate");
+//		if (mux_node != NULL) {
+			st->magn_disabled = true;
+//			dev_warn(dev, "disable internal use of magnetometer\n");
+//		}
+//		of_node_put(mux_node);
 		break;
 	default:
 		break;
+	}
+
+	/* enable i2c bypass when using i2c auxiliary bus */
+	if (inv_mpu_i2c_aux_bus(dev)) {
+		ret = regmap_write(st->map, st->reg->int_pin_cfg,
+				   st->irq_mask | INV_MPU6050_BIT_BYPASS_EN);
+		if (ret)
+			return ret;
 	}
 
 	return 0;
@@ -129,23 +111,19 @@ static int inv_mpu_probe(struct i2c_client *client,
 		chip_type = (enum inv_devices)
 			id->driver_data;
 		name = id->name;
-//	} else if (ACPI_HANDLE(&client->dev)) {
-//		name = inv_mpu_match_acpi_device(&client->dev, &chip_type);
-//		if (!name)
-//			return -ENODEV;
 	} else {
 		return -ENOSYS;
 	}
 
 	regmap = devm_regmap_init_i2c(client, &inv_mpu_regmap_config);
 	if (IS_ERR(regmap)) {
-		dev_err(&client->dev, "Failed to register i2c regmap %d\n",
-			(int)PTR_ERR(regmap));
+		dev_err(&client->dev, "Failed to register i2c regmap: %pe\n",
+			regmap);
 		return PTR_ERR(regmap);
 	}
 
 	result = inv_mpu_core_probe(regmap, client->irq, name,
-				    inv_mpu_magn_disable, chip_type);
+				    inv_mpu_i2c_aux_setup, chip_type);
 	if (result < 0)
 		return result;
 
@@ -154,8 +132,7 @@ static int inv_mpu_probe(struct i2c_client *client,
 		/* declare i2c auxiliary bus */
 		st->muxc = i2c_mux_alloc(client->adapter, &client->dev,
 					 1, 0, I2C_MUX_LOCKED | I2C_MUX_GATE,
-					 inv_mpu6050_select_bypass,
-					 inv_mpu6050_deselect_bypass);
+					 inv_mpu6050_select_bypass, NULL);
 		if (!st->muxc)
 			return -ENOMEM;
 		st->muxc->priv = dev_get_drvdata(&client->dev);
@@ -199,7 +176,11 @@ static const struct i2c_device_id inv_mpu_id[] = {
 	{"mpu9250", INV_MPU9250},
 	{"mpu9255", INV_MPU9255},
 	{"icm20608", INV_ICM20608},
+	{"icm20609", INV_ICM20609},
+	{"icm20689", INV_ICM20689},
 	{"icm20602", INV_ICM20602},
+	{"icm20690", INV_ICM20690},
+	{"iam20680", INV_IAM20680},
 	{}
 };
 
@@ -233,8 +214,24 @@ static const struct of_device_id inv_of_match[] = {
 		.data = (void *)INV_ICM20608
 	},
 	{
+		.compatible = "invensense,icm20609",
+		.data = (void *)INV_ICM20609
+	},
+	{
+		.compatible = "invensense,icm20689",
+		.data = (void *)INV_ICM20689
+	},
+	{
 		.compatible = "invensense,icm20602",
 		.data = (void *)INV_ICM20602
+	},
+	{
+		.compatible = "invensense,icm20690",
+		.data = (void *)INV_ICM20690
+	},
+	{
+		.compatible = "invensense,iam20680",
+		.data = (void *)INV_IAM20680
 	},
 	{ }
 };
@@ -244,15 +241,34 @@ static const struct acpi_device_id inv_acpi_match[] = {
 	{ },
 };
 
-
 static struct i2c_driver inv_mpu_driver = {
 	.probe		=	inv_mpu_probe,
 	.remove		=	inv_mpu_remove,
 	.id_table	=	inv_mpu_id,
 	.driver = {
 		.of_match_table = inv_of_match,
-		.acpi_match_table = inv_acpi_match,
+//		.acpi_match_table = ACPI_PTR(inv_acpi_match),
 		.name	=	"inv-mpu6050-i2c",
 		.pm     =       &inv_mpu_pmops,
 	},
 };
+
+int __init inv_mpu_driver_init(void)
+{
+	int ret;
+
+	ret = i2c_add_driver(&inv_mpu_driver);
+	if (ret)
+		printk(KERN_ERR "i2c-gpio: probe failed: %d\n", ret);
+    
+	return ret;
+}
+
+void __exit inv_mpu_driver_exit(void)
+{
+	i2c_del_driver(&inv_mpu_driver);
+}
+
+//MODULE_AUTHOR("Invensense Corporation");
+//MODULE_DESCRIPTION("Invensense device MPU6050 driver");
+//MODULE_LICENSE("GPL");

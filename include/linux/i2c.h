@@ -668,7 +668,7 @@ struct i2c_adapter_quirks {
  * with the access algorithms necessary to access it.
  */
 struct i2c_adapter {
-	struct module *owner;
+//	struct module *owner;
 	unsigned int class;		  /* classes to allow probing for */
 	const struct i2c_algorithm *algo; /* the algorithm to access the bus */
 	void *algo_data;
@@ -692,7 +692,7 @@ struct i2c_adapter {
 	struct i2c_bus_recovery_info *bus_recovery_info;
 	const struct i2c_adapter_quirks *quirks;
 
-	struct irq_domain *host_notify_domain;
+//	struct irq_domain *host_notify_domain;
 };
 #define to_i2c_adapter(d) container_of(d, struct i2c_adapter, dev)
 
@@ -817,12 +817,12 @@ int i2c_add_adapter(struct i2c_adapter *adap);
 void i2c_del_adapter(struct i2c_adapter *adap);
 int i2c_add_numbered_adapter(struct i2c_adapter *adap);
 
-int i2c_register_driver(struct module *owner, struct i2c_driver *driver);
+int i2c_register_driver(struct i2c_driver *driver);
 void i2c_del_driver(struct i2c_driver *driver);
 
 /* use a define to avoid include chaining to get THIS_MODULE */
 #define i2c_add_driver(driver) \
-	i2c_register_driver(THIS_MODULE, driver)
+	i2c_register_driver(driver)
 
 /* call the i2c_client->command() of all attached clients with
  * the given arguments */

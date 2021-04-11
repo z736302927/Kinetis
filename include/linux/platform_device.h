@@ -37,6 +37,9 @@ struct platform_device {
 extern int platform_device_register(struct platform_device *);
 extern void platform_device_unregister(struct platform_device *);
 
+extern struct bus_type platform_bus_type;
+extern struct device platform_bus;
+
 struct platform_device_info {
 		struct device *parent;
 		struct fwnode_handle *fwnode;
@@ -73,8 +76,18 @@ struct platform_driver {
 /*
  * use a macro to avoid include chaining to get THIS_MODULE
  */
-extern int platform_driver_register(struct platform_driver *);
+#define platform_driver_register(drv) \
+        __platform_driver_register(drv)
+extern int __platform_driver_register(struct platform_driver *);
 extern void platform_driver_unregister(struct platform_driver *);
+    
+/* non-hotpluggable platform devices may use this so that probe() and
+ * its support may live in __init sections, conserving runtime memory.
+ */
+#define platform_driver_probe(drv, probe) \
+        __platform_driver_probe(drv, probe, THIS_MODULE)
+extern int __platform_driver_probe(struct platform_driver *driver,
+        int (*probe)(struct platform_device *), struct module *module);
 
 static inline void *platform_get_drvdata(const struct platform_device *pdev)
 {
@@ -186,5 +199,7 @@ static inline int is_sh_early_platform_device(struct platform_device *pdev)
 	return 0;
 }
 #endif /* CONFIG_SUPERH */
+
+int __init platform_bus_init(void);
 
 #endif /* _PLATFORM_DEVICE_H_ */

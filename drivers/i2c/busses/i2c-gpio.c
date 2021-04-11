@@ -422,7 +422,6 @@ static int i2c_gpio_probe(struct platform_device *pdev)
 
 	bit_data->data = priv;
 
-	adap->owner = THIS_MODULE;
 	snprintf(adap->name, sizeof(adap->name), "i2c-gpio%d", pdev->id);
 
 	adap->algo_data = bit_data;

@@ -9,12 +9,12 @@
 #include <linux/i2c-mux.h>
 #include <linux/platform_data/i2c-mux-gpio.h>
 #include <linux/platform_device.h>
-#include <linux/module.h>
+//#include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/bits.h>
 #include <linux/gpio/consumer.h>
 /* FIXME: stop poking around inside gpiolib */
-#include "../../gpio/gpiolib.h"
+#include "../gpio/gpiolib.h"
 
 struct gpiomux {
 	struct i2c_mux_gpio_platform_data data;
@@ -224,7 +224,7 @@ static const struct of_device_id i2c_mux_gpio_of_match[] = {
 	{ .compatible = "i2c-mux-gpio", },
 	{},
 };
-MODULE_DEVICE_TABLE(of, i2c_mux_gpio_of_match);
+//MODULE_DEVICE_TABLE(of, i2c_mux_gpio_of_match);
 
 static struct platform_driver i2c_mux_gpio_driver = {
 	.probe	= i2c_mux_gpio_probe,
@@ -235,9 +235,9 @@ static struct platform_driver i2c_mux_gpio_driver = {
 	},
 };
 
-module_platform_driver(i2c_mux_gpio_driver);
+//module_platform_driver(i2c_mux_gpio_driver);
 
-MODULE_DESCRIPTION("GPIO-based I2C multiplexer driver");
-MODULE_AUTHOR("Peter Korsgaard <peter.korsgaard@barco.com>");
-MODULE_LICENSE("GPL");
-MODULE_ALIAS("platform:i2c-mux-gpio");
+//MODULE_DESCRIPTION("GPIO-based I2C multiplexer driver");
+//MODULE_AUTHOR("Peter Korsgaard <peter.korsgaard@barco.com>");
+//MODULE_LICENSE("GPL");
+//MODULE_ALIAS("platform:i2c-mux-gpio");

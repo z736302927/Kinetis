@@ -19,11 +19,34 @@
 #include <linux/overflow.h>
 #include <linux/gfp.h>
 #include <linux/sysfs.h>
+#include <linux/slab.h>
+#include <linux/err.h>
 #include <linux/device/driver.h>
 
 struct device;
 struct device_private;
 struct device_driver;
+
+/**
+ * struct subsys_interface - interfaces to device functions
+ * @name:       name of the device function
+ * @subsys:     subsytem of the devices to attach to
+ * @node:       the list of functions registered at the subsystem
+ * @add_dev:    device hookup to device function handler
+ * @remove_dev: device hookup to device function handler
+ *
+ * Simple interfaces attached to a subsystem. Multiple interfaces can
+ * attach to a subsystem and its devices. Unlike drivers, they do not
+ * exclusively claim or control devices. Interfaces usually represent
+ * a specific functionality of a subsystem/class of devices.
+ */
+struct subsys_interface {
+	const char *name;
+	struct bus_type *subsys;
+	struct list_head node;
+	int (*add_dev)(struct device *dev, struct subsys_interface *sif);
+	void (*remove_dev)(struct device *dev, struct subsys_interface *sif);
+};
 
 /* device resource management */
 typedef void (*dr_release_t)(struct device *dev, void *res);
@@ -289,7 +312,9 @@ struct device {
 	struct device		*parent;
 	struct device_private	*p;
     const char		init_name[48]; /* initial name of the device */
-	const struct device_type *type;
+	const struct device_type *type;    
+
+	struct bus_type	*bus;		/* type of bus device is on */
 	struct device_driver *driver;	/* which driver has allocated this
 					   device */
 	void		*platform_data;	/* Platform specific data, device
@@ -299,6 +324,8 @@ struct device {
 #ifdef CONFIG_NUMA
 	int		numa_node;	/* NUMA node this device is close to */
 #endif
+
+	u32			id;	/* device instance */
 	struct list_head	devres_head;
 };
 
@@ -309,20 +336,18 @@ static inline const char *dev_name(const struct device *dev)
 }
 
 /**
- * dev_set_name - set a device name
- * @dev: device
- * @fmt: format string for the device's name
+ * dev_bus_name - Return a device's bus/class name, if at all possible
+ * @dev: struct device to get the bus/class name of
+ *
+ * Will return the name of the bus/class the device is attached to.  If it is
+ * not attached to a bus/class, an empty string will be returned.
  */
-static inline int dev_set_name(struct device *dev, const char *fmt, ...)
+static inline const char *dev_bus_name(const struct device *dev)
 {
-	va_list vargs;
-	int err;
-
-	va_start(vargs, fmt);
-	err = vsnprintf((char *)dev->init_name, sizeof(dev->init_name), fmt, vargs);
-	va_end(vargs);
-	return err;
+	return dev->bus ? dev->bus->name : "";
 }
+
+__printf(2, 3) int dev_set_name(struct device *dev, const char *name, ...);
 
 #ifdef CONFIG_NUMA
 static inline int dev_to_node(struct device *dev)
@@ -353,10 +378,42 @@ static inline void dev_set_drvdata(struct device *dev, void *data)
 	dev->driver_data = data;
 }
 
+/*
+ * High level routines for use by the bus drivers
+ */
+int __must_check device_register(struct device *dev);
+void device_unregister(struct device *dev);
+void device_initialize(struct device *dev);
+int __must_check device_add(struct device *dev);
+void device_del(struct device *dev);
+int device_for_each_child(struct device *dev, void *data,
+			  int (*fn)(struct device *dev, void *data));
+int device_for_each_child_reverse(struct device *dev, void *data,
+				  int (*fn)(struct device *dev, void *data));
+struct device *device_find_child(struct device *dev, void *data,
+				 int (*match)(struct device *dev, void *data));
+struct device *device_find_child_by_name(struct device *parent,
+					 const char *name);
+int device_rename(struct device *dev, const char *new_name);
+
 static inline void *dev_get_platdata(const struct device *dev)
 {
 	return dev->platform_data;
 }
+
+/*
+ * Manual binding of a device to driver. See drivers/base/bus.c
+ * for information on use.
+ */
+int __must_check device_bind_driver(struct device *dev);
+void device_release_driver(struct device *dev);
+int  __must_check device_attach(struct device *dev);
+int __must_check driver_attach(struct device_driver *drv);
+void device_initial_probe(struct device *dev);
+int __must_check device_reprobe(struct device *dev);
+
+bool device_is_bound(struct device *dev);
+
 /**
  * struct device_private - structure to hold the private to the driver core portions of the device structure.
  *
@@ -398,47 +455,8 @@ struct device_private {
 	container_of(obj, struct device_private, knode_bus)
 #define to_device_private_class(obj)	\
 	container_of(obj, struct device_private, knode_class)
-        
-static inline struct device *next_device(struct klist_iter *i)
-{
-	struct klist_node *n = klist_next(i);
-	struct device *dev = NULL;
-	struct device_private *p;
-
-	if (n) {
-		p = to_device_private_parent(n);
-		dev = p->device;
-	}
-	return dev;
-}
-
-/**
- * device_for_each_child - device child iterator.
- * @parent: parent struct device.
- * @fn: function to be called for each device.
- * @data: data for the callback.
- *
- * Iterate over @parent's child devices, and call @fn for each,
- * passing it @data.
- *
- * We check the return of @fn each time. If it returns anything
- * other than 0, we break out and return that value.
- */
-static inline int device_for_each_child(struct device *parent, void *data,
-			  int (*fn)(struct device *dev, void *data))
-{
-	struct klist_iter i;
-	struct device *child;
-	int error = 0;
-
-	if (!parent->p)
-		return 0;
-
-	klist_iter_init(&parent->p->klist_children, &i);
-	while (!error && (child = next_device(&i)))
-		error = fn(child, data);
-	klist_iter_exit(&i);
-	return error;
-}
+    
+extern __printf(3, 4)
+int dev_err_probe(const struct device *dev, int err, const char *fmt, ...);
 
 #endif /* _DEVICE_H_ */
