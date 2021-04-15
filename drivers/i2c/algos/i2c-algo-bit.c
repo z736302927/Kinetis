@@ -35,9 +35,9 @@ static int bit_test;	/* see if the line-setting functions work	*/
 
 #ifdef DEBUG
 static int i2c_debug = 1;
-module_param(i2c_debug, int, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(i2c_debug,
-		 "debug level - 0 off; 1 normal; 2 verbose; 3 very verbose");
+//module_param(i2c_debug, int, S_IRUGO | S_IWUSR);
+//MODULE_PARM_DESC(i2c_debug,
+//		 "debug level - 0 off; 1 normal; 2 verbose; 3 very verbose");
 #endif
 
 /* --- setting states on the bus with the right timing: ---------------	*/

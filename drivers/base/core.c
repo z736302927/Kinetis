@@ -4317,11 +4317,16 @@ EXPORT_SYMBOL(dev_printk_emit);
 static void __dev_printk(const char *level, const struct device *dev,
 			struct va_format *vaf)
 {
+    static char textbuf[1024];
+    size_t text_len;
+    
+    text_len = vsnprintf(textbuf, 1024, vaf->fmt, *vaf->va);
+    
 	if (dev)
-		dev_printk_emit(level[1] - '0', dev, "%s %s: %pV",
-				dev_driver_string(dev), dev_name(dev), vaf);
+		dev_printk_emit(level[1] - '0', dev, "%s %s: %s",
+				dev_driver_string(dev), dev_name(dev), textbuf);
 	else
-		printk("%s(NULL device *): %pV", level, vaf);
+		printk("%s(NULL device *): %s", level, textbuf);
 }
 
 void dev_printk(const char *level, const struct device *dev,

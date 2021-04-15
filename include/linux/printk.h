@@ -164,6 +164,7 @@ static inline void printk_nmi_direct_exit(void) { }
 struct dev_printk_info;
 
 #define CONFIG_PRINTK
+#define DEBUG
 
 #ifdef CONFIG_PRINTK
 asmlinkage __printf(4, 0)

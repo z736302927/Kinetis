@@ -56,6 +56,8 @@ enum gpiod_flags {
 	GPIOD_OUT_HIGH_OPEN_DRAIN = GPIOD_OUT_HIGH | GPIOD_FLAGS_BIT_OPEN_DRAIN,
 };
 
+#define CONFIG_GPIOLIB
+
 #ifdef CONFIG_GPIOLIB
 
 /* Return the number of GPIOs associated with a device / function */
@@ -606,7 +608,7 @@ struct gpio_desc *devm_fwnode_get_gpiod_from_child(struct device *dev,
 	return devm_fwnode_gpiod_get_index(dev, child, con_id, 0, flags, label);
 }
 
-#if CONFIG_GPIOLIB && CONFIG_OF_GPIO
+#if CONFIG_OF_GPIO
 struct device_node;
 
 struct gpio_desc *gpiod_get_from_of_node(struct device_node *node,
@@ -678,7 +680,7 @@ struct acpi_gpio_mapping {
 	unsigned int quirks;
 };
 
-#if CONFIG_GPIOLIB && CONFIG_ACPI
+#if CONFIG_ACPI
 
 struct acpi_device;
 
@@ -711,7 +713,7 @@ static inline void devm_acpi_dev_remove_driver_gpios(struct device *dev) {}
 #endif /* CONFIG_GPIOLIB && CONFIG_ACPI */
 
 
-#if CONFIG_GPIOLIB && CONFIG_GPIO_SYSFS
+#if CONFIG_GPIO_SYSFS
 
 int gpiod_export(struct gpio_desc *desc, bool direction_may_change);
 int gpiod_export_link(struct device *dev, const char *name,

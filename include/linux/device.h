@@ -327,6 +327,8 @@ struct device {
 
 	u32			id;	/* device instance */
 	struct list_head	devres_head;
+
+	void	(*release)(struct device *dev);
 };
 
 static inline const char *dev_name(const struct device *dev)

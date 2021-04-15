@@ -6,6 +6,7 @@
 #include <linux/instrumentation.h>
 
 #define CUT_HERE		"------------[ cut here ]------------\n"
+#define CONFIG_BUG
 
 #ifdef CONFIG_GENERIC_BUG
 #define BUGFLAG_WARNING		(1 << 0)
@@ -54,7 +55,7 @@ struct bug_entry {
 #ifndef HAVE_ARCH_BUG
 #define BUG() do { \
 	printk("BUG: failure at %s:%d/%s()!\n", __FILE__, __LINE__, __func__); \
-	barrier_before_unreachable(); \
+//	barrier_before_unreachable(); \
 	panic("BUG!"); \
 } while (0)
 #endif

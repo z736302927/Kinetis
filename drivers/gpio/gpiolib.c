@@ -2,25 +2,25 @@
 
 #include <linux/bitmap.h>
 #include <linux/kernel.h>
-#include <linux/module.h>
+//#include <linux/module.h>
 #include <linux/interrupt.h>
-#include <linux/irq.h>
-#include <linux/spinlock.h>
+//#include <linux/irq.h>
+//#include <linux/spinlock.h>
 #include <linux/list.h>
 #include <linux/device.h>
 #include <linux/err.h>
-#include <linux/debugfs.h>
-#include <linux/seq_file.h>
+//#include <linux/debugfs.h>
+//#include <linux/seq_file.h>
 #include <linux/gpio.h>
 #include <linux/idr.h>
 #include <linux/slab.h>
-#include <linux/acpi.h>
+//#include <linux/acpi.h>
 #include <linux/gpio/driver.h>
 #include <linux/gpio/machine.h>
 #include <linux/pinctrl/consumer.h>
-#include <linux/fs.h>
-#include <linux/compat.h>
-#include <linux/file.h>
+//#include <linux/fs.h>
+//#include <linux/compat.h>
+//#include <linux/file.h>
 #include <uapi/linux/gpio.h>
 
 #include "gpiolib.h"
@@ -29,8 +29,8 @@
 #include "gpiolib-cdev.h"
 #include "gpiolib-sysfs.h"
 
-#define CREATE_TRACE_POINTS
-#include <trace/events/gpio.h>
+//#define CREATE_TRACE_POINTS
+//#include <trace/events/gpio.h>
 
 /* Implementation infrastructure for GPIO interfaces.
  *
@@ -63,7 +63,7 @@ static struct bus_type gpio_bus_type = {
 /*
  * Number of GPIOs to use for the fast path in set array
  */
-#define FASTPATH_NGPIO CONFIG_GPIOLIB_FASTPATH_LIMIT
+#define FASTPATH_NGPIO 512
 
 /* gpio_lock prevents conflicts during gpio_desc[] table updates.
  * While any GPIO is requested, its gpio_chip is not removable;
@@ -71,11 +71,11 @@ static struct bus_type gpio_bus_type = {
  */
 DEFINE_SPINLOCK(gpio_lock);
 
-static DEFINE_MUTEX(gpio_lookup_lock);
+//static DEFINE_MUTEX(gpio_lookup_lock);
 static LIST_HEAD(gpio_lookup_list);
 LIST_HEAD(gpio_devices);
 
-static DEFINE_MUTEX(gpio_machine_hogs_mutex);
+//static DEFINE_MUTEX(gpio_machine_hogs_mutex);
 static LIST_HEAD(gpio_machine_hogs);
 
 static void gpiochip_free_hogs(struct gpio_chip *gc);
@@ -107,17 +107,17 @@ struct gpio_desc *gpio_to_desc(unsigned gpio)
 	struct gpio_device *gdev;
 	unsigned long flags;
 
-	spin_lock_irqsave(&gpio_lock, flags);
+//	spin_lock_irqsave(&gpio_lock, flags);
 
 	list_for_each_entry(gdev, &gpio_devices, list) {
 		if (gdev->base <= gpio &&
 		    gdev->base + gdev->ngpio > gpio) {
-			spin_unlock_irqrestore(&gpio_lock, flags);
+//			spin_unlock_irqrestore(&gpio_lock, flags);
 			return &gdev->descs[gpio - gdev->base];
 		}
 	}
 
-	spin_unlock_irqrestore(&gpio_lock, flags);
+//	spin_unlock_irqrestore(&gpio_lock, flags);
 
 	if (!gpio_is_valid(gpio))
 		pr_warn("invalid GPIO %d\n", gpio);
@@ -305,7 +305,7 @@ static struct gpio_desc *gpio_name_to_desc(const char * const name)
 	if (!name)
 		return NULL;
 
-	spin_lock_irqsave(&gpio_lock, flags);
+//	spin_lock_irqsave(&gpio_lock, flags);
 
 	list_for_each_entry(gdev, &gpio_devices, list) {
 		int i;
@@ -317,13 +317,13 @@ static struct gpio_desc *gpio_name_to_desc(const char * const name)
 				continue;
 
 			if (!strcmp(desc->name, name)) {
-				spin_unlock_irqrestore(&gpio_lock, flags);
+//				spin_unlock_irqrestore(&gpio_lock, flags);
 				return desc;
 			}
 		}
 	}
 
-	spin_unlock_irqrestore(&gpio_lock, flags);
+//	spin_unlock_irqrestore(&gpio_lock, flags);
 
 	return NULL;
 }
@@ -380,9 +380,9 @@ static int devprop_gpiochip_set_names(struct gpio_chip *chip)
 	if (!dev)
 		return 0;
 
-	count = device_property_string_array_count(dev, "gpio-line-names");
-	if (count < 0)
-		return 0;
+//	count = device_property_string_array_count(dev, "gpio-line-names");
+//	if (count < 0)
+//		return 0;
 
 	if (count > gdev->ngpio) {
 		dev_warn(&gdev->dev, "gpio-line-names is length %d but should be at most length %d",
@@ -394,13 +394,13 @@ static int devprop_gpiochip_set_names(struct gpio_chip *chip)
 	if (!names)
 		return -ENOMEM;
 
-	ret = device_property_read_string_array(dev, "gpio-line-names",
-						names, count);
-	if (ret < 0) {
-		dev_warn(&gdev->dev, "failed to read GPIO line names\n");
-		kfree(names);
-		return ret;
-	}
+//	ret = device_property_read_string_array(dev, "gpio-line-names",
+//						names, count);
+//	if (ret < 0) {
+//		dev_warn(&gdev->dev, "failed to read GPIO line names\n");
+//		kfree(names);
+//		return ret;
+//	}
 
 	for (i = 0; i < count; i++)
 		gdev->descs[i].name = names[i];
@@ -542,14 +542,14 @@ static void machine_gpiochip_add(struct gpio_chip *gc)
 {
 	struct gpiod_hog *hog;
 
-	mutex_lock(&gpio_machine_hogs_mutex);
+//	mutex_lock(&gpio_machine_hogs_mutex);
 
 	list_for_each_entry(hog, &gpio_machine_hogs, list) {
 		if (!strcmp(gc->label, hog->chip_label))
 			gpiochip_machine_hog(gc, hog);
 	}
 
-	mutex_unlock(&gpio_machine_hogs_mutex);
+//	mutex_unlock(&gpio_machine_hogs_mutex);
 }
 
 static void gpiochip_setup_devs(void)
@@ -587,7 +587,7 @@ int gpiochip_add_data_with_key(struct gpio_chip *gc, void *data,
 	gc->gpiodev = gdev;
 	if (gc->parent) {
 		gdev->dev.parent = gc->parent;
-		gdev->dev.of_node = gc->parent->of_node;
+//		gdev->dev.of_node = gc->parent->of_node;
 	}
 
 #ifdef CONFIG_OF_GPIO
@@ -610,13 +610,13 @@ int gpiochip_add_data_with_key(struct gpio_chip *gc, void *data,
 
 	device_initialize(&gdev->dev);
 	dev_set_drvdata(&gdev->dev, gdev);
-	if (gc->parent && gc->parent->driver)
-		gdev->owner = gc->parent->driver->owner;
-	else if (gc->owner)
-		/* TODO: remove chip->owner */
-		gdev->owner = gc->owner;
-	else
-		gdev->owner = THIS_MODULE;
+//	if (gc->parent && gc->parent->driver)
+//		gdev->owner = gc->parent->driver->owner;
+//	else if (gc->owner)
+//		/* TODO: remove chip->owner */
+//		gdev->owner = gc->owner;
+//	else
+//		gdev->owner = THIS_MODULE;
 
 	gdev->descs = kcalloc(gc->ngpio, sizeof(gdev->descs[0]), GFP_KERNEL);
 	if (!gdev->descs) {
@@ -643,7 +643,7 @@ int gpiochip_add_data_with_key(struct gpio_chip *gc, void *data,
 	gdev->ngpio = gc->ngpio;
 	gdev->data = data;
 
-	spin_lock_irqsave(&gpio_lock, flags);
+//	spin_lock_irqsave(&gpio_lock, flags);
 
 	/*
 	 * TODO: this allocates a Linux GPIO number base in the global
@@ -656,7 +656,7 @@ int gpiochip_add_data_with_key(struct gpio_chip *gc, void *data,
 		base = gpiochip_find_base(gc->ngpio);
 		if (base < 0) {
 			ret = base;
-			spin_unlock_irqrestore(&gpio_lock, flags);
+//			spin_unlock_irqrestore(&gpio_lock, flags);
 			goto err_free_label;
 		}
 		/*
@@ -671,16 +671,16 @@ int gpiochip_add_data_with_key(struct gpio_chip *gc, void *data,
 
 	ret = gpiodev_add_to_list(gdev);
 	if (ret) {
-		spin_unlock_irqrestore(&gpio_lock, flags);
+//		spin_unlock_irqrestore(&gpio_lock, flags);
 		goto err_free_label;
 	}
 
 	for (i = 0; i < gc->ngpio; i++)
 		gdev->descs[i].gdev = gdev;
 
-	spin_unlock_irqrestore(&gpio_lock, flags);
+//	spin_unlock_irqrestore(&gpio_lock, flags);
 
-	BLOCKING_INIT_NOTIFIER_HEAD(&gdev->notifier);
+//	BLOCKING_INIT_NOTIFIER_HEAD(&gdev->notifier);
 
 #ifdef CONFIG_PINCTRL
 	INIT_LIST_HEAD(&gdev->pin_ranges);
@@ -765,9 +765,9 @@ err_free_gpiochip_mask:
 	gpiochip_remove_pin_ranges(gc);
 	gpiochip_free_valid_mask(gc);
 err_remove_from_list:
-	spin_lock_irqsave(&gpio_lock, flags);
+//	spin_lock_irqsave(&gpio_lock, flags);
 	list_del(&gdev->list);
-	spin_unlock_irqrestore(&gpio_lock, flags);
+//	spin_unlock_irqrestore(&gpio_lock, flags);
 err_free_label:
 	kfree_const(gdev->label);
 err_free_descs:
@@ -829,12 +829,12 @@ void gpiochip_remove(struct gpio_chip *gc)
 	 */
 	gdev->data = NULL;
 
-	spin_lock_irqsave(&gpio_lock, flags);
+//	spin_lock_irqsave(&gpio_lock, flags);
 	for (i = 0; i < gdev->ngpio; i++) {
 		if (gpiochip_is_requested(gc, i))
 			break;
 	}
-	spin_unlock_irqrestore(&gpio_lock, flags);
+//	spin_unlock_irqrestore(&gpio_lock, flags);
 
 	if (i != gdev->ngpio)
 		dev_crit(&gdev->dev,
@@ -847,7 +847,7 @@ void gpiochip_remove(struct gpio_chip *gc)
 	 * gone.
 	 */
 	gcdev_unregister(gdev);
-	put_device(&gdev->dev);
+//	put_device(&gdev->dev);
 }
 EXPORT_SYMBOL_GPL(gpiochip_remove);
 
@@ -870,14 +870,14 @@ struct gpio_chip *gpiochip_find(void *data,
 	struct gpio_chip *gc = NULL;
 	unsigned long flags;
 
-	spin_lock_irqsave(&gpio_lock, flags);
+//	spin_lock_irqsave(&gpio_lock, flags);
 	list_for_each_entry(gdev, &gpio_devices, list)
 		if (gdev->chip && match(gdev->chip, data)) {
 			gc = gdev->chip;
 			break;
 		}
 
-	spin_unlock_irqrestore(&gpio_lock, flags);
+//	spin_unlock_irqrestore(&gpio_lock, flags);
 
 	return gc;
 }
@@ -1837,7 +1837,7 @@ static int gpiod_request_commit(struct gpio_desc *desc, const char *label)
 			return -ENOMEM;
 	}
 
-	spin_lock_irqsave(&gpio_lock, flags);
+//	spin_lock_irqsave(&gpio_lock, flags);
 
 	/* NOTE:  gpio_request() can be called in early boot,
 	 * before IRQs are enabled, for non-sleeping (SOC) GPIOs.
@@ -1852,13 +1852,13 @@ static int gpiod_request_commit(struct gpio_desc *desc, const char *label)
 
 	if (gc->request) {
 		/* gc->request may sleep */
-		spin_unlock_irqrestore(&gpio_lock, flags);
+//		spin_unlock_irqrestore(&gpio_lock, flags);
 		offset = gpio_chip_hwgpio(desc);
 		if (gpiochip_line_is_valid(gc, offset))
 			ret = gc->request(gc, offset);
 		else
 			ret = -EINVAL;
-		spin_lock_irqsave(&gpio_lock, flags);
+//		spin_lock_irqsave(&gpio_lock, flags);
 
 		if (ret) {
 			desc_set_label(desc, NULL);
@@ -1868,15 +1868,15 @@ static int gpiod_request_commit(struct gpio_desc *desc, const char *label)
 	}
 	if (gc->get_direction) {
 		/* gc->get_direction may sleep */
-		spin_unlock_irqrestore(&gpio_lock, flags);
+//		spin_unlock_irqrestore(&gpio_lock, flags);
 		gpiod_get_direction(desc);
-		spin_lock_irqsave(&gpio_lock, flags);
+//		spin_lock_irqsave(&gpio_lock, flags);
 	}
-	spin_unlock_irqrestore(&gpio_lock, flags);
+//	spin_unlock_irqrestore(&gpio_lock, flags);
 	return 0;
 
 out_free_unlock:
-	spin_unlock_irqrestore(&gpio_lock, flags);
+//	spin_unlock_irqrestore(&gpio_lock, flags);
 	kfree_const(label);
 	return ret;
 }
@@ -1927,13 +1927,13 @@ int gpiod_request(struct gpio_desc *desc, const char *label)
 	VALIDATE_DESC(desc);
 	gdev = desc->gdev;
 
-	if (try_module_get(gdev->owner)) {
-		ret = gpiod_request_commit(desc, label);
-		if (ret)
-			module_put(gdev->owner);
-		else
-			get_device(&gdev->dev);
-	}
+//	if (try_module_get(gdev->owner)) {
+//		ret = gpiod_request_commit(desc, label);
+//		if (ret)
+//			module_put(gdev->owner);
+//		else
+//			get_device(&gdev->dev);
+//	}
 
 	if (ret)
 		gpiod_dbg(desc, "%s: status %d\n", __func__, ret);
@@ -1951,15 +1951,15 @@ static bool gpiod_free_commit(struct gpio_desc *desc)
 
 	gpiod_unexport(desc);
 
-	spin_lock_irqsave(&gpio_lock, flags);
+//	spin_lock_irqsave(&gpio_lock, flags);
 
 	gc = desc->gdev->chip;
 	if (gc && test_bit(FLAG_REQUESTED, &desc->flags)) {
 		if (gc->free) {
-			spin_unlock_irqrestore(&gpio_lock, flags);
+//			spin_unlock_irqrestore(&gpio_lock, flags);
 			might_sleep_if(gc->can_sleep);
 			gc->free(gc, gpio_chip_hwgpio(desc));
-			spin_lock_irqsave(&gpio_lock, flags);
+//			spin_lock_irqsave(&gpio_lock, flags);
 		}
 		kfree_const(desc->label);
 		desc_set_label(desc, NULL);
@@ -1982,9 +1982,9 @@ static bool gpiod_free_commit(struct gpio_desc *desc)
 		ret = true;
 	}
 
-	spin_unlock_irqrestore(&gpio_lock, flags);
-	blocking_notifier_call_chain(&desc->gdev->notifier,
-				     GPIOLINE_CHANGED_RELEASED, desc);
+//	spin_unlock_irqrestore(&gpio_lock, flags);
+//	blocking_notifier_call_chain(&desc->gdev->notifier,
+//				     GPIOLINE_CHANGED_RELEASED, desc);
 
 	return ret;
 }
@@ -1992,8 +1992,8 @@ static bool gpiod_free_commit(struct gpio_desc *desc)
 void gpiod_free(struct gpio_desc *desc)
 {
 	if (desc && desc->gdev && gpiod_free_commit(desc)) {
-		module_put(desc->gdev->owner);
-		put_device(&desc->gdev->dev);
+//		module_put(desc->gdev->owner);
+//		put_device(&desc->gdev->dev);
 	} else {
 		WARN_ON(extra_checks);
 	}
@@ -2235,7 +2235,7 @@ int gpiod_direction_input(struct gpio_desc *desc)
 		ret = gpio_set_bias(desc);
 	}
 
-	trace_gpio_direction(desc_to_gpio(desc), 1, ret);
+//	trace_gpio_direction(desc_to_gpio(desc), 1, ret);
 
 	return ret;
 }
@@ -2279,8 +2279,8 @@ static int gpiod_direction_output_raw_commit(struct gpio_desc *desc, int value)
 
 	if (!ret)
 		set_bit(FLAG_IS_OUT, &desc->flags);
-	trace_gpio_value(desc_to_gpio(desc), 0, val);
-	trace_gpio_direction(desc_to_gpio(desc), 0, ret);
+//	trace_gpio_value(desc_to_gpio(desc), 0, val);
+//	trace_gpio_direction(desc_to_gpio(desc), 0, ret);
 	return ret;
 }
 
@@ -2494,7 +2494,7 @@ static int gpiod_get_raw_value_commit(const struct gpio_desc *desc)
 	offset = gpio_chip_hwgpio(desc);
 	value = gc->get ? gc->get(gc, offset) : -EIO;
 	value = value < 0 ? value : !!value;
-	trace_gpio_value(desc_to_gpio(desc), 1, value);
+//	trace_gpio_value(desc_to_gpio(desc), 1, value);
 	return value;
 }
 
@@ -2605,7 +2605,7 @@ int gpiod_get_array_value_complex(bool raw, bool can_sleep,
 			if (!raw && test_bit(FLAG_ACTIVE_LOW, &desc->flags))
 				value = !value;
 			__assign_bit(j, value_bitmap, value);
-			trace_gpio_value(desc_to_gpio(desc), 1, value);
+//			trace_gpio_value(desc_to_gpio(desc), 1, value);
 			j++;
 
 			if (array_info)
@@ -2738,7 +2738,7 @@ static void gpio_set_open_drain_value_commit(struct gpio_desc *desc, bool value)
 		if (!ret)
 			set_bit(FLAG_IS_OUT, &desc->flags);
 	}
-	trace_gpio_direction(desc_to_gpio(desc), value, ret);
+//	trace_gpio_direction(desc_to_gpio(desc), value, ret);
 	if (ret < 0)
 		gpiod_err(desc,
 			  "%s: Error in set_value for open drain err %d\n",
@@ -2763,7 +2763,7 @@ static void gpio_set_open_source_value_commit(struct gpio_desc *desc, bool value
 	} else {
 		ret = gc->direction_input(gc, offset);
 	}
-	trace_gpio_direction(desc_to_gpio(desc), !value, ret);
+//	trace_gpio_direction(desc_to_gpio(desc), !value, ret);
 	if (ret < 0)
 		gpiod_err(desc,
 			  "%s: Error in set_value for open source err %d\n",
@@ -2775,7 +2775,7 @@ static void gpiod_set_raw_value_commit(struct gpio_desc *desc, bool value)
 	struct gpio_chip	*gc;
 
 	gc = desc->gdev->chip;
-	trace_gpio_value(desc_to_gpio(desc), 0, value);
+//	trace_gpio_value(desc_to_gpio(desc), 0, value);
 	gc->set(gc, gpio_chip_hwgpio(desc), value);
 }
 
@@ -2872,7 +2872,7 @@ int gpiod_set_array_value_complex(bool raw, bool can_sleep,
 			    test_bit(i, array_info->invert_mask)) &&
 			    test_bit(FLAG_ACTIVE_LOW, &desc->flags))
 				value = !value;
-			trace_gpio_value(desc_to_gpio(desc), 0, value);
+//			trace_gpio_value(desc_to_gpio(desc), 0, value);
 			/*
 			 * collect all normal outputs belonging to the same chip
 			 * open drain and open source outputs are set individually
@@ -3202,13 +3202,13 @@ int gpiochip_reqres_irq(struct gpio_chip *gc, unsigned int offset)
 {
 	int ret;
 
-	if (!try_module_get(gc->gpiodev->owner))
-		return -ENODEV;
+//	if (!try_module_get(gc->gpiodev->owner))
+//		return -ENODEV;
 
 	ret = gpiochip_lock_as_irq(gc, offset);
 	if (ret) {
 		chip_err(gc, "unable to lock HW IRQ %u for IRQ\n", offset);
-		module_put(gc->gpiodev->owner);
+//		module_put(gc->gpiodev->owner);
 		return ret;
 	}
 	return 0;
@@ -3218,7 +3218,7 @@ EXPORT_SYMBOL_GPL(gpiochip_reqres_irq);
 void gpiochip_relres_irq(struct gpio_chip *gc, unsigned int offset)
 {
 	gpiochip_unlock_as_irq(gc, offset);
-	module_put(gc->gpiodev->owner);
+//	module_put(gc->gpiodev->owner);
 }
 EXPORT_SYMBOL_GPL(gpiochip_relres_irq);
 
@@ -3415,12 +3415,12 @@ void gpiod_add_lookup_tables(struct gpiod_lookup_table **tables, size_t n)
 {
 	unsigned int i;
 
-	mutex_lock(&gpio_lookup_lock);
+//	mutex_lock(&gpio_lookup_lock);
 
 	for (i = 0; i < n; i++)
 		list_add_tail(&tables[i]->list, &gpio_lookup_list);
 
-	mutex_unlock(&gpio_lookup_lock);
+//	mutex_unlock(&gpio_lookup_lock);
 }
 
 /**
@@ -3455,11 +3455,11 @@ EXPORT_SYMBOL_GPL(gpiod_set_array_value_cansleep);
  */
 void gpiod_add_lookup_table(struct gpiod_lookup_table *table)
 {
-	mutex_lock(&gpio_lookup_lock);
+//	mutex_lock(&gpio_lookup_lock);
 
 	list_add_tail(&table->list, &gpio_lookup_list);
 
-	mutex_unlock(&gpio_lookup_lock);
+//	mutex_unlock(&gpio_lookup_lock);
 }
 EXPORT_SYMBOL_GPL(gpiod_add_lookup_table);
 
@@ -3469,11 +3469,11 @@ EXPORT_SYMBOL_GPL(gpiod_add_lookup_table);
  */
 void gpiod_remove_lookup_table(struct gpiod_lookup_table *table)
 {
-	mutex_lock(&gpio_lookup_lock);
+//	mutex_lock(&gpio_lookup_lock);
 
 	list_del(&table->list);
 
-	mutex_unlock(&gpio_lookup_lock);
+//	mutex_unlock(&gpio_lookup_lock);
 }
 EXPORT_SYMBOL_GPL(gpiod_remove_lookup_table);
 
@@ -3486,7 +3486,7 @@ void gpiod_add_hogs(struct gpiod_hog *hogs)
 	struct gpio_chip *gc;
 	struct gpiod_hog *hog;
 
-	mutex_lock(&gpio_machine_hogs_mutex);
+//	mutex_lock(&gpio_machine_hogs_mutex);
 
 	for (hog = &hogs[0]; hog->chip_label; hog++) {
 		list_add_tail(&hog->list, &gpio_machine_hogs);
@@ -3500,7 +3500,7 @@ void gpiod_add_hogs(struct gpiod_hog *hogs)
 			gpiochip_machine_hog(gc, hog);
 	}
 
-	mutex_unlock(&gpio_machine_hogs_mutex);
+//	mutex_unlock(&gpio_machine_hogs_mutex);
 }
 EXPORT_SYMBOL_GPL(gpiod_add_hogs);
 
@@ -3509,7 +3509,7 @@ static struct gpiod_lookup_table *gpiod_find_lookup_table(struct device *dev)
 	const char *dev_id = dev ? dev_name(dev) : NULL;
 	struct gpiod_lookup_table *table;
 
-	mutex_lock(&gpio_lookup_lock);
+//	mutex_lock(&gpio_lookup_lock);
 
 	list_for_each_entry(table, &gpio_lookup_list, list) {
 		if (table->dev_id && dev_id) {
@@ -3531,7 +3531,7 @@ static struct gpiod_lookup_table *gpiod_find_lookup_table(struct device *dev)
 	table = NULL;
 
 found:
-	mutex_unlock(&gpio_lookup_lock);
+//	mutex_unlock(&gpio_lookup_lock);
 	return table;
 }
 
@@ -3680,10 +3680,10 @@ int gpiod_count(struct device *dev, const char *con_id)
 {
 	int count = -ENOENT;
 
-	if (IS_ENABLED(CONFIG_OF) && dev && dev->of_node)
-		count = of_gpio_get_count(dev, con_id);
-	else if (IS_ENABLED(CONFIG_ACPI) && dev && ACPI_HANDLE(dev))
-		count = acpi_gpio_count(dev, con_id);
+//	if (IS_ENABLED(CONFIG_OF) && dev && dev->of_node)
+//		count = of_gpio_get_count(dev, con_id);
+//	else if (IS_ENABLED(CONFIG_ACPI) && dev && ACPI_HANDLE(dev))
+//		count = acpi_gpio_count(dev, con_id);
 
 	if (count < 0)
 		count = platform_gpio_count(dev, con_id);
@@ -3825,13 +3825,13 @@ struct gpio_desc *__must_check gpiod_get_index(struct device *dev,
 
 	if (dev) {
 		/* Using device tree? */
-		if (IS_ENABLED(CONFIG_OF) && dev->of_node) {
-			dev_dbg(dev, "using device tree for GPIO lookup\n");
-			desc = of_find_gpio(dev, con_id, idx, &lookupflags);
-		} else if (ACPI_COMPANION(dev)) {
-			dev_dbg(dev, "using ACPI for GPIO lookup\n");
-			desc = acpi_find_gpio(dev, con_id, idx, &flags, &lookupflags);
-		}
+//		if (IS_ENABLED(CONFIG_OF) && dev->of_node) {
+//			dev_dbg(dev, "using device tree for GPIO lookup\n");
+//			desc = of_find_gpio(dev, con_id, idx, &lookupflags);
+//		} else if (ACPI_COMPANION(dev)) {
+//			dev_dbg(dev, "using ACPI for GPIO lookup\n");
+//			desc = acpi_find_gpio(dev, con_id, idx, &flags, &lookupflags);
+//		}
 	}
 
 	/*
@@ -3878,8 +3878,8 @@ struct gpio_desc *__must_check gpiod_get_index(struct device *dev,
 		return ERR_PTR(ret);
 	}
 
-	blocking_notifier_call_chain(&desc->gdev->notifier,
-				     GPIOLINE_CHANGED_REQUESTED, desc);
+//	blocking_notifier_call_chain(&desc->gdev->notifier,
+//				     GPIOLINE_CHANGED_REQUESTED, desc);
 
 	return desc;
 }
@@ -3918,22 +3918,22 @@ struct gpio_desc *fwnode_get_named_gpiod(struct fwnode_handle *fwnode,
 	if (!fwnode)
 		return ERR_PTR(-EINVAL);
 
-	if (is_of_node(fwnode)) {
-		desc = gpiod_get_from_of_node(to_of_node(fwnode),
-					      propname, index,
-					      dflags,
-					      label);
-		return desc;
-	} else if (is_acpi_node(fwnode)) {
-		struct acpi_gpio_info info;
+//	if (is_of_node(fwnode)) {
+//		desc = gpiod_get_from_of_node(to_of_node(fwnode),
+//					      propname, index,
+//					      dflags,
+//					      label);
+//		return desc;
+//	} else if (is_acpi_node(fwnode)) {
+//		struct acpi_gpio_info info;
 
-		desc = acpi_node_get_gpiod(fwnode, propname, index, &info);
-		if (IS_ERR(desc))
-			return desc;
+//		desc = acpi_node_get_gpiod(fwnode, propname, index, &info);
+//		if (IS_ERR(desc))
+//			return desc;
 
-		acpi_gpio_update_gpiod_flags(&dflags, &info);
-		acpi_gpio_update_gpiod_lookup_flags(&lflags, &info);
-	}
+//		acpi_gpio_update_gpiod_flags(&dflags, &info);
+//		acpi_gpio_update_gpiod_lookup_flags(&lflags, &info);
+//	}
 
 	/* Currently only ACPI takes this path */
 	ret = gpiod_request(desc, label);
@@ -3946,8 +3946,8 @@ struct gpio_desc *fwnode_get_named_gpiod(struct fwnode_handle *fwnode,
 		return ERR_PTR(ret);
 	}
 
-	blocking_notifier_call_chain(&desc->gdev->notifier,
-				     GPIOLINE_CHANGED_REQUESTED, desc);
+//	blocking_notifier_call_chain(&desc->gdev->notifier,
+//				     GPIOLINE_CHANGED_REQUESTED, desc);
 
 	return desc;
 }
@@ -4222,19 +4222,19 @@ static int __init gpiolib_dev_init(void)
 		return ret;
 	}
 
-	ret = alloc_chrdev_region(&gpio_devt, 0, GPIO_DEV_MAX, GPIOCHIP_NAME);
-	if (ret < 0) {
-		pr_err("gpiolib: failed to allocate char dev region\n");
-		bus_unregister(&gpio_bus_type);
-		return ret;
-	}
+//	ret = alloc_chrdev_region(&gpio_devt, 0, GPIO_DEV_MAX, GPIOCHIP_NAME);
+//	if (ret < 0) {
+//		pr_err("gpiolib: failed to allocate char dev region\n");
+//		bus_unregister(&gpio_bus_type);
+//		return ret;
+//	}
 
 	gpiolib_initialized = true;
 	gpiochip_setup_devs();
 
-#if IS_ENABLED(CONFIG_OF_DYNAMIC) && IS_ENABLED(CONFIG_OF_GPIO)
-	WARN_ON(of_reconfig_notifier_register(&gpio_of_notifier));
-#endif /* CONFIG_OF_DYNAMIC && CONFIG_OF_GPIO */
+//#if IS_ENABLED(CONFIG_OF_DYNAMIC) && IS_ENABLED(CONFIG_OF_GPIO)
+//	WARN_ON(of_reconfig_notifier_register(&gpio_of_notifier));
+//#endif /* CONFIG_OF_DYNAMIC && CONFIG_OF_GPIO */
 
 	return ret;
 }

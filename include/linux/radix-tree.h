@@ -460,4 +460,6 @@ static __always_inline void __rcu **radix_tree_next_slot(void __rcu **slot,
 	     slot = radix_tree_next_slot(slot, iter,			\
 				RADIX_TREE_ITER_TAGGED | tag))
 
+void __init radix_tree_init(void);
+
 #endif /* _LINUX_RADIX_TREE_H */

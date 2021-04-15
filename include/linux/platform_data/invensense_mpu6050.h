@@ -7,6 +7,7 @@
 #define __INV_MPU6050_PLATFORM_H_
 
 #include <linux/init.h>
+#include <linux/i2c.h>
 
 /**
  * struct inv_mpu6050_platform_data - Platform data for the mpu driver
@@ -25,6 +26,8 @@ struct inv_mpu6050_platform_data {
 	__s8 orientation[9];
 };
 
+int i2c_new_inv_mpu(struct i2c_adapter *adapter,
+    char *type, u16 address);
 int __init inv_mpu_driver_init(void);
 void __exit inv_mpu_driver_exit(void);
 

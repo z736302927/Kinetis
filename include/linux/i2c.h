@@ -980,4 +980,7 @@ static inline struct i2c_client *i2c_acpi_new_device(struct device *dev,
 //}
 #endif /* CONFIG_ACPI */
 
+int __init i2c_init(void);
+void __exit i2c_exit(void);
+
 #endif /* _LINUX_I2C_H */

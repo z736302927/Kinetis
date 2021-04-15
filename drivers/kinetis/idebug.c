@@ -17,7 +17,7 @@
   * @step 5:
   */
 
-//#include "usart.h"
+#include "usart.h"
 
 //#ifdef __GNUC__
 ///* With GCC, small printf (option LD Linker->Libraries->Small printf
@@ -36,7 +36,7 @@ int fputc(int ch, FILE *f)
 {
     /* Place your implementation of fputc here */
     /* e.g. write a character to the USART3 and Loop until the end of transmission */
-//    HAL_UART_Transmit(&huart1, (u8 *)&ch, 1, 0xFFFF);
+    HAL_UART_Transmit(&huart1, (u8 *)&ch, 1, 0xFFFF);
 
     return ch;
 }
@@ -133,7 +133,7 @@ int printk(const char *fmt, ...)
         text_len += 2;
     }
     
-//    HAL_UART_Transmit(&huart1, (u8 *)text, text_len, 0xFFFF);
+    HAL_UART_Transmit(&huart1, (u8 *)text, text_len, 0xFFFF);
     
     return text_len;
 }
@@ -243,7 +243,7 @@ int dev_vprintk_emit(int level, const struct device *dev,
         text_len += 2;
     }
     
-//    HAL_UART_Transmit(&huart1, (u8 *)text, text_len, 0xFFFF);
+    HAL_UART_Transmit(&huart1, (u8 *)text, text_len, 0xFFFF);
     
     return text_len;
 }

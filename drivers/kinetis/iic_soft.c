@@ -14,7 +14,7 @@
   * @step 3:  Modify the read-write address length in the header file.
   */
 
-#include "i2c.h"
+//#include "i2c.h"
 
 //static u8 IIC_Soft_FastMode = 1;
 
@@ -70,18 +70,18 @@ void iic_port_transmmit(u8 iic, u8 slave_addr, u16 reg, u8 tmp)
 {
     if (iic == IIC_SW_1)
         iic_soft_write_byte_with_addr(iic, slave_addr, reg, tmp);
-    else if (iic == IIC_HW_1)
-        HAL_I2C_Mem_Write_DMA(&hi2c1, (u16)slave_addr, reg, I2C_MEMADD_SIZE_8BIT,
-            &tmp, 1);
+//    else if (iic == IIC_HW_1)
+//        HAL_I2C_Mem_Write_DMA(&hi2c1, (u16)slave_addr, reg, I2C_MEMADD_SIZE_8BIT,
+//            &tmp, 1);
 }
 
 void iic_port_receive(u8 iic, u8 slave_addr, u16 reg, u8 *tmp)
 {
     if (iic == IIC_SW_1)
         iic_soft_read_byte_with_addr(iic, slave_addr, reg, tmp);
-    else if (iic == IIC_HW_1)
-        HAL_I2C_Mem_Read_DMA(&hi2c1, (u16)(slave_addr), reg, I2C_MEMADD_SIZE_8BIT,
-            tmp, 1);
+//    else if (iic == IIC_HW_1)
+//        HAL_I2C_Mem_Read_DMA(&hi2c1, (u16)(slave_addr), reg, I2C_MEMADD_SIZE_8BIT,
+//            tmp, 1);
 }
 
 void iic_port_multi_transmmit(u8 iic, u8 slave_addr, u16 reg,
@@ -89,9 +89,9 @@ void iic_port_multi_transmmit(u8 iic, u8 slave_addr, u16 reg,
 {
     if (iic == IIC_SW_1)
         iic_soft_write_bytes_with_addr(iic, slave_addr, reg, pdata, length);
-    else if (iic == IIC_HW_1)
-        HAL_I2C_Mem_Write_DMA(&hi2c1, (u16)slave_addr, reg, I2C_MEMADD_SIZE_8BIT,
-            pdata, length);
+//    else if (iic == IIC_HW_1)
+//        HAL_I2C_Mem_Write_DMA(&hi2c1, (u16)slave_addr, reg, I2C_MEMADD_SIZE_8BIT,
+//            pdata, length);
 }
 
 void iic_port_multi_receive(u8 iic, u8 slave_addr, u16 reg,
@@ -99,9 +99,9 @@ void iic_port_multi_receive(u8 iic, u8 slave_addr, u16 reg,
 {
     if (iic == IIC_SW_1)
         iic_soft_read_bytes_with_addr(iic, slave_addr, reg, pdata, length);
-    else if (iic == IIC_HW_1)
-        HAL_I2C_Mem_Read_DMA(&hi2c1, (u16)(slave_addr), reg, I2C_MEMADD_SIZE_8BIT,
-            pdata, length);
+//    else if (iic == IIC_HW_1)
+//        HAL_I2C_Mem_Read_DMA(&hi2c1, (u16)(slave_addr), reg, I2C_MEMADD_SIZE_8BIT,
+//            pdata, length);
 }
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */

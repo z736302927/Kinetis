@@ -1,6 +1,6 @@
 #include "kinetis/basic-timer.h"
 
-//#include "tim.h"
+#include "tim.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -93,7 +93,7 @@ u32 basic_timer_get_timer_cnt(void)
 #ifdef BASIC_16BIT_TIMER
     return timer_tick_us;
 #else
-    return 0;//(u32)htim2.Instance->CNT;
+    return (u32)htim2.Instance->CNT;
 #endif
 }
 

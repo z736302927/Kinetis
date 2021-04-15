@@ -14,7 +14,7 @@
 #include <linux/bits.h>
 #include <linux/gpio/consumer.h>
 /* FIXME: stop poking around inside gpiolib */
-#include "../gpio/gpiolib.h"
+#include "../../gpio/gpiolib.h"
 
 struct gpiomux {
 	struct i2c_mux_gpio_platform_data data;

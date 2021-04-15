@@ -290,7 +290,7 @@ struct ftrace_likely_data {
 # define __compiletime_error(message)
 #endif
 
-#ifdef __OPTIMIZE__
+#ifndef __OPTIMIZE__
 # define __compiletime_assert(condition, msg, prefix, suffix)		\
 	do {								\
 		extern void prefix ## suffix(void) __compiletime_error(msg); \

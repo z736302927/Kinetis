@@ -16,11 +16,12 @@
   * @step 5:
   */
 
-//#include "tim.h"
 
 //#define DELAY_USING_HARDWARE
 
 #ifdef DELAY_USING_HARDWARE
+
+#include "tim.h"
 
 struct delay_para {
     u32 input_clock;

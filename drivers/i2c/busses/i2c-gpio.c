@@ -16,19 +16,7 @@
 #include <linux/slab.h>
 #include <linux/jiffies.h>
 
-struct i2c_gpio_private_data {
-	struct gpio_desc *sda;
-	struct gpio_desc *scl;
-	struct i2c_adapter adap;
-	struct i2c_algo_bit_data bit_data;
-	struct i2c_gpio_platform_data pdata;
-#ifdef CONFIG_I2C_GPIO_FAULT_INJECTOR
-	struct dentry *debug_dir;
-	/* these must be protected by bus lock */
-	struct completion scl_irq_completion;
-	u64 scl_irq_data;
-#endif
-};
+#include "stm32f4xx_hal.h"
 
 /*
  * Toggle SDA by changing the output value of the pin. This is only
@@ -37,9 +25,11 @@ struct i2c_gpio_private_data {
  */
 static void i2c_gpio_setsda_val(void *data, int state)
 {
-	struct i2c_gpio_private_data *priv = data;
+//	struct i2c_gpio_private_data *priv = data;
 
-	gpiod_set_value_cansleep(priv->sda, state);
+//	gpiod_set_value_cansleep(priv->sda, state);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9,
+        state ? GPIO_PIN_SET : GPIO_PIN_RESET);
 }
 
 /*
@@ -50,23 +40,27 @@ static void i2c_gpio_setsda_val(void *data, int state)
  */
 static void i2c_gpio_setscl_val(void *data, int state)
 {
-	struct i2c_gpio_private_data *priv = data;
+//	struct i2c_gpio_private_data *priv = data;
 
-	gpiod_set_value_cansleep(priv->scl, state);
+//	gpiod_set_value_cansleep(priv->scl, state);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8,
+        state ? GPIO_PIN_SET : GPIO_PIN_RESET);
 }
 
 static int i2c_gpio_getsda(void *data)
 {
-	struct i2c_gpio_private_data *priv = data;
+//	struct i2c_gpio_private_data *priv = data;
 
-	return gpiod_get_value_cansleep(priv->sda);
+//	return gpiod_get_value_cansleep(priv->sda);
+    return HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_9);
 }
 
 static int i2c_gpio_getscl(void *data)
 {
-	struct i2c_gpio_private_data *priv = data;
+//	struct i2c_gpio_private_data *priv = data;
 
-	return gpiod_get_value_cansleep(priv->scl);
+//	return gpiod_get_value_cansleep(priv->scl);
+    return HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8);
 }
 
 #ifdef CONFIG_I2C_GPIO_FAULT_INJECTOR
@@ -372,34 +366,34 @@ static int i2c_gpio_probe(struct platform_device *pdev)
     else
         of_i2c_gpio_get_props(pdata);
 
-	/*
-	 * First get the GPIO pins; if it fails, we'll defer the probe.
-	 * If the SCL/SDA lines are marked "open drain" by platform data or
-	 * device tree then this means that something outside of our control is
-	 * marking these lines to be handled as open drain, and we should just
-	 * handle them as we handle any other output. Else we enforce open
-	 * drain as this is required for an I2C bus.
-	 */
-	if (pdata->sda_is_open_drain)
-		gflags = GPIOD_OUT_HIGH;
-	else
-		gflags = GPIOD_OUT_HIGH_OPEN_DRAIN;
-	priv->sda = i2c_gpio_get_desc(dev, "sda", 0, gflags);
-	if (IS_ERR(priv->sda))
-		return PTR_ERR(priv->sda);
+//	/*
+//	 * First get the GPIO pins; if it fails, we'll defer the probe.
+//	 * If the SCL/SDA lines are marked "open drain" by platform data or
+//	 * device tree then this means that something outside of our control is
+//	 * marking these lines to be handled as open drain, and we should just
+//	 * handle them as we handle any other output. Else we enforce open
+//	 * drain as this is required for an I2C bus.
+//	 */
+//	if (pdata->sda_is_open_drain)
+//		gflags = GPIOD_OUT_HIGH;
+//	else
+//		gflags = GPIOD_OUT_HIGH_OPEN_DRAIN;
+//	priv->sda = i2c_gpio_get_desc(dev, "sda", 0, gflags);
+//	if (IS_ERR(priv->sda))
+//		return PTR_ERR(priv->sda);
 
-	if (pdata->scl_is_open_drain)
-		gflags = GPIOD_OUT_HIGH;
-	else
-		gflags = GPIOD_OUT_HIGH_OPEN_DRAIN;
-	priv->scl = i2c_gpio_get_desc(dev, "scl", 1, gflags);
-	if (IS_ERR(priv->scl))
-		return PTR_ERR(priv->scl);
+//	if (pdata->scl_is_open_drain)
+//		gflags = GPIOD_OUT_HIGH;
+//	else
+//		gflags = GPIOD_OUT_HIGH_OPEN_DRAIN;
+//	priv->scl = i2c_gpio_get_desc(dev, "scl", 1, gflags);
+//	if (IS_ERR(priv->scl))
+//		return PTR_ERR(priv->scl);
 
-	if (gpiod_cansleep(priv->sda) || gpiod_cansleep(priv->scl))
-		dev_warn(dev, "Slow GPIO pins might wreak havoc into I2C/SMBus bus timing");
-	else
-		bit_data->can_do_atomic = true;
+//	if (gpiod_cansleep(priv->sda) || gpiod_cansleep(priv->scl))
+//		dev_warn(dev, "Slow GPIO pins might wreak havoc into I2C/SMBus bus timing");
+//	else
+//		bit_data->can_do_atomic = true;
 
 	bit_data->setsda = i2c_gpio_setsda_val;
 	bit_data->setscl = i2c_gpio_setscl_val;

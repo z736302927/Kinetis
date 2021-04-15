@@ -4,10 +4,11 @@
 
 #include <linux/device.h>
 #include <linux/types.h>
-#include <linux/irq.h>
-#include <linux/irqchip/chained_irq.h>
-#include <linux/irqdomain.h>
-#include <linux/lockdep.h>
+#include <linux/irqhandler.h>
+//#include <linux/irq.h>
+//#include <linux/irqchip/chained_irq.h>
+//#include <linux/irqdomain.h>
+//#include <linux/lockdep.h>
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinconf-generic.h>
 
@@ -401,7 +402,7 @@ struct gpio_chip {
 	const char		*const *names;
 	bool			can_sleep;
 
-#if IS_ENABLED(CONFIG_GPIO_GENERIC)
+#if CONFIG_GPIO_GENERIC
 	unsigned long (*read_reg)(void __iomem *reg);
 	void (*write_reg)(void __iomem *reg, unsigned long data);
 	bool be_bits;
