@@ -15,19 +15,20 @@
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/string.h>
+#include <linux/sysfs.h>
 #include "base.h"
 
 ///* /sys/devices/system */
 //static struct kset *system_kset;
-//
-//#define to_bus_attr(_attr) container_of(_attr, struct bus_attribute, attr)
-//
-///*
-// * sysfs bindings for drivers
-// */
-//
-//#define to_drv_attr(_attr) container_of(_attr, struct driver_attribute, attr)
-//
+
+#define to_bus_attr(_attr) container_of(_attr, struct bus_attribute, attr)
+
+/*
+ * sysfs bindings for drivers
+ */
+
+#define to_drv_attr(_attr) container_of(_attr, struct driver_attribute, attr)
+
 //#define DRIVER_ATTR_IGNORE_LOCKDEP(_name, _mode, _show, _store) \
 //	struct driver_attribute driver_attr_##_name =		\
 //		__ATTR_IGNORE_LOCKDEP(_name, _mode, _show, _store)
@@ -49,36 +50,34 @@
 //	if (bus)
 //		kset_put(&bus->p->subsys);
 //}
-//
-//static ssize_t drv_attr_show(struct kobject *kobj, struct attribute *attr,
-//			     char *buf)
-//{
-//	struct driver_attribute *drv_attr = to_drv_attr(attr);
-//	struct driver_private *drv_priv = to_driver(kobj);
-//	ssize_t ret = -EIO;
-//
-//	if (drv_attr->show)
-//		ret = drv_attr->show(drv_priv->driver, buf);
-//	return ret;
-//}
-//
-//static ssize_t drv_attr_store(struct kobject *kobj, struct attribute *attr,
-//			      const char *buf, size_t count)
-//{
-//	struct driver_attribute *drv_attr = to_drv_attr(attr);
-//	struct driver_private *drv_priv = to_driver(kobj);
-//	ssize_t ret = -EIO;
-//
-//	if (drv_attr->store)
-//		ret = drv_attr->store(drv_priv->driver, buf, count);
-//	return ret;
-//}
-//
-//static const struct sysfs_ops driver_sysfs_ops = {
-//	.show	= drv_attr_show,
-//	.store	= drv_attr_store,
-//};
-//
+
+static ssize_t drv_attr_show(void *driver, struct attribute *attr,
+			     char *buf)
+{
+	struct driver_attribute *drv_attr = to_drv_attr(attr);
+	ssize_t ret = -EIO;
+
+	if (drv_attr->show)
+		ret = drv_attr->show(driver, buf);
+	return ret;
+}
+
+static ssize_t drv_attr_store(void *driver, struct attribute *attr,
+			      const char *buf, size_t count)
+{
+	struct driver_attribute *drv_attr = to_drv_attr(attr);
+	ssize_t ret = -EIO;
+
+	if (drv_attr->store)
+		ret = drv_attr->store(driver, buf, count);
+	return ret;
+}
+
+static const struct sysfs_ops driver_sysfs_ops = {
+	.show	= drv_attr_show,
+	.store	= drv_attr_store,
+};
+
 //static void driver_release(struct kobject *kobj)
 //{
 //	struct driver_private *drv_priv = to_driver(kobj);
@@ -91,39 +90,37 @@
 //	.sysfs_ops	= &driver_sysfs_ops,
 //	.release	= driver_release,
 //};
-//
-///*
-// * sysfs bindings for buses
-// */
-//static ssize_t bus_attr_show(struct kobject *kobj, struct attribute *attr,
-//			     char *buf)
-//{
-//	struct bus_attribute *bus_attr = to_bus_attr(attr);
-//	struct subsys_private *subsys_priv = to_subsys_private(kobj);
-//	ssize_t ret = 0;
-//
-//	if (bus_attr->show)
-//		ret = bus_attr->show(subsys_priv->bus, buf);
-//	return ret;
-//}
-//
-//static ssize_t bus_attr_store(struct kobject *kobj, struct attribute *attr,
-//			      const char *buf, size_t count)
-//{
-//	struct bus_attribute *bus_attr = to_bus_attr(attr);
-//	struct subsys_private *subsys_priv = to_subsys_private(kobj);
-//	ssize_t ret = 0;
-//
-//	if (bus_attr->store)
-//		ret = bus_attr->store(subsys_priv->bus, buf, count);
-//	return ret;
-//}
-//
-//static const struct sysfs_ops bus_sysfs_ops = {
-//	.show	= bus_attr_show,
-//	.store	= bus_attr_store,
-//};
-//
+
+/*
+ * sysfs bindings for buses
+ */
+static ssize_t bus_attr_show(void *bus, struct attribute *attr,
+			     char *buf)
+{
+	struct bus_attribute *bus_attr = to_bus_attr(attr);
+	ssize_t ret = 0;
+
+	if (bus_attr->show)
+		ret = bus_attr->show(bus, buf);
+	return ret;
+}
+
+static ssize_t bus_attr_store(void *bus, struct attribute *attr,
+			      const char *buf, size_t count)
+{
+	struct bus_attribute *bus_attr = to_bus_attr(attr);
+	ssize_t ret = 0;
+
+	if (bus_attr->store)
+		ret = bus_attr->store(bus, buf, count);
+	return ret;
+}
+
+static const struct sysfs_ops bus_sysfs_ops = {
+	.show	= bus_attr_show,
+	.store	= bus_attr_store,
+};
+
 //int bus_create_file(struct bus_type *bus, struct bus_attribute *attr)
 //{
 //	int error;

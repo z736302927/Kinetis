@@ -128,7 +128,7 @@ extern void wait_for_device_probe(void);
 /* sysfs interface for exporting driver attributes */
 
 struct driver_attribute {
-//	struct attribute attr;
+	struct attribute attr;
 	ssize_t (*show)(struct device_driver *driver, char *buf);
 	ssize_t (*store)(struct device_driver *driver, const char *buf,
 			 size_t count);

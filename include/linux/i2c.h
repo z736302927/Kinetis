@@ -457,6 +457,9 @@ i2c_new_ancillary_device(struct i2c_client *client,
 			 const char *name,
 			 u16 default_addr);
 
+struct i2c_client *i2c_new_client(struct i2c_adapter *adapter,
+    char *type, u16 address);
+
 void i2c_unregister_device(struct i2c_client *client);
 
 /* Mainboard arch_initcall() code should register all its I2C devices.

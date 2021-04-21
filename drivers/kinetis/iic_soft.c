@@ -145,28 +145,36 @@ static GPIO_InitTypeDef gpio = {
 
 static inline void sda_in(u8 iic)
 {
-    if (iic == IIC_SW_1) {
-        gpio.Pin = GPIO_PIN_9;
-        gpio.Mode = GPIO_MODE_INPUT;
-        HAL_GPIO_Init(GPIOB, &gpio);
-    } else if (iic == IIC_SW_2) {
-        gpio.Pin = GPIO_PIN_3;
-        gpio.Mode = GPIO_MODE_INPUT;
-        HAL_GPIO_Init(GPIOI, &gpio);
-    }
+    /* 
+     * It doesn't have to switch direction in 
+     * open drain  mode. 
+     */
+//    if (iic == IIC_SW_1) {
+//        gpio.Pin = GPIO_PIN_9;
+//        gpio.Mode = GPIO_MODE_INPUT;
+//        HAL_GPIO_Init(GPIOB, &gpio);
+//    } else if (iic == IIC_SW_2) {
+//        gpio.Pin = GPIO_PIN_3;
+//        gpio.Mode = GPIO_MODE_INPUT;
+//        HAL_GPIO_Init(GPIOI, &gpio);
+//    }
 }
 
 static inline void sda_out(u8 iic)
 {
-    if (iic == IIC_SW_1) {
-        gpio.Pin = GPIO_PIN_9;
-        gpio.Mode = GPIO_MODE_OUTPUT_OD;
-        HAL_GPIO_Init(GPIOB, &gpio);
-    } else if (iic == IIC_SW_2) {
-        gpio.Pin = GPIO_PIN_3;
-        gpio.Mode = GPIO_MODE_OUTPUT_OD;
-        HAL_GPIO_Init(GPIOI, &gpio);
-    }
+    /* 
+     * It doesn't have to switch direction in 
+     * open drain  mode. 
+     */
+//    if (iic == IIC_SW_1) {
+//        gpio.Pin = GPIO_PIN_9;
+//        gpio.Mode = GPIO_MODE_OUTPUT_OD;
+//        HAL_GPIO_Init(GPIOB, &gpio);
+//    } else if (iic == IIC_SW_2) {
+//        gpio.Pin = GPIO_PIN_3;
+//        gpio.Mode = GPIO_MODE_OUTPUT_OD;
+//        HAL_GPIO_Init(GPIOI, &gpio);
+//    }
 }
 
 static inline int sda_read(u8 iic)

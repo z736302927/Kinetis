@@ -253,42 +253,6 @@ static struct i2c_driver inv_mpu_driver = {
 	},
 };
 
-/**
- * i2c_new_inv_mpu - return a new i2c device bound to a dummy driver
- * @adapter: the adapter managing the device
- * @address: seven bit address to be used
- * Context: can sleep
- *
- * This returns an I2C client bound to the "dummy" driver, intended for use
- * with devices that consume multiple addresses.  Examples of such chips
- * include various EEPROMS (like 24c04 and 24c08 models).
- *
- * These dummy devices have two main uses.  First, most I2C and SMBus calls
- * except i2c_transfer() need a client handle; the dummy will be that handle.
- * And second, this prevents the specified address from being bound to a
- * different driver.
- *
- * This returns the new i2c client, which should be saved for later use with
- * i2c_unregister_device(); or an ERR_PTR to describe the error.
- */
-int i2c_new_inv_mpu(struct i2c_adapter *adapter,
-    char *type, u16 address)
-{
-	struct i2c_board_info info = {
-		I2C_BOARD_INFO('0', address),
-	};
-    struct i2c_client *client;
-    strcpy(info.type, type);
-    
-    client = i2c_new_client_device(adapter, &info);
-    
-    if (IS_ERR_OR_NULL(client))
-        return -ENOMEM;
-    
-	return 0;
-}
-EXPORT_SYMBOL_GPL(i2c_new_inv_mpu);
-
 int __init inv_mpu_driver_init(void)
 {
 	int ret;

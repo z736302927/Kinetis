@@ -196,7 +196,9 @@ void *kmalloc(unsigned int size, unsigned int flags)
     if (ret != NULL) {
         if (flags | __GFP_ZERO)
             memset(ret, 0, size);
-    }
+    } else
+        printk(KERN_ERR "%s(), No available memory, need %u bytes.\n",
+            __func__, size);
 
     return ret;
 }
@@ -224,6 +226,13 @@ void *krealloc(const void *p, size_t new_size, gfp_t flags)
 	}
 
 	ret = realloc((void *)p, new_size);
+
+    if (ret != NULL) {
+        if (flags | __GFP_ZERO)
+            memset(ret, 0, new_size);
+    } else
+        printk(KERN_ERR "%s(), No available memory, need %u bytes.\n",
+            __func__, new_size);
 
 	return ret;
 }

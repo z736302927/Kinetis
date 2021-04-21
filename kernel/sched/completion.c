@@ -18,8 +18,6 @@
 #include <linux/printk.h>
 #include <linux/errno.h>
 
-#include "kinetis/basic-timer.h"
-
 /**
  * complete: - signals a single thread waiting on this completion
  * @x:  holds the state of this particular completion
@@ -65,22 +63,23 @@ static inline long
 do_wait_for_common(struct completion *x,
 		   long (*action)(long), long timeout, int state)
 {
-    u64 expired = basic_timer_get_us() + timeout;
+    unsigned long expired = jiffies + timeout;
 
 	if (!x->done) {
 		do {
-			if (time_after64(basic_timer_get_us(), expired)) {
+			if (time_after(jiffies, expired)) {
     			printk(KERN_ERR "schedule_timeout: wrong timeout "
-    				"value %lx\n", timeout);
-				break;
+    				"value %ld\n", timeout);
+                goto out;
 			};
 		} while (!x->done);
-		if (!x->done)
-			return timeout;
 	}
 	if (x->done != UINT_MAX)
 		x->done--;
-	return timeout ?: 1;
+    
+	timeout = expired - jiffies;
+ out:
+	return timeout < 0 ? 0 : timeout;
 }
 
 static inline long

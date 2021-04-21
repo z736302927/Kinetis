@@ -275,7 +275,7 @@ unsigned int iio_get_time_res(const struct iio_dev *indio_dev)
 }
 EXPORT_SYMBOL(iio_get_time_res);
 
-static int __init iio_init(void)
+int __init iio_init(void)
 {
 	int ret;
 
@@ -302,11 +302,11 @@ error_nothing:
 	return ret;
 }
 
-static void __exit iio_exit(void)
+void __exit iio_exit(void)
 {
 //	if (iio_devt)
 //		unregister_chrdev_region(iio_devt, IIO_DEV_MAX);
-//	bus_unregister(&iio_bus_type);
+	bus_unregister(&iio_bus_type);
 //	debugfs_remove(iio_debugfs_dentry);
 }
 
@@ -1720,28 +1720,28 @@ int __iio_device_register(struct iio_dev *indio_dev, struct module *this_mod)
 //	indio_dev->label = of_get_property(indio_dev->dev.of_node, "label",
 //					   NULL);
 
-//	ret = iio_check_unique_scan_index(indio_dev);
-//	if (ret < 0)
-//		return ret;
+	ret = iio_check_unique_scan_index(indio_dev);
+	if (ret < 0)
+		return ret;
 
 //	/* configure elements for the chrdev */
 //	indio_dev->dev.devt = MKDEV(MAJOR(iio_devt), indio_dev->id);
 
-//	iio_device_register_debugfs(indio_dev);
+	iio_device_register_debugfs(indio_dev);
 
-//	ret = iio_buffer_alloc_sysfs_and_mask(indio_dev);
-//	if (ret) {
-//		dev_err(indio_dev->dev.parent,
-//			"Failed to create buffer sysfs interfaces\n");
-//		goto error_unreg_debugfs;
-//	}
+	ret = iio_buffer_alloc_sysfs_and_mask(indio_dev);
+	if (ret) {
+		dev_err(indio_dev->dev.parent,
+			"Failed to create buffer sysfs interfaces\n");
+		goto error_unreg_debugfs;
+	}
 
-//	ret = iio_device_register_sysfs(indio_dev);
-//	if (ret) {
-//		dev_err(indio_dev->dev.parent,
-//			"Failed to register sysfs interfaces\n");
-//		goto error_buffer_free_sysfs;
-//	}
+	ret = iio_device_register_sysfs(indio_dev);
+	if (ret) {
+		dev_err(indio_dev->dev.parent,
+			"Failed to register sysfs interfaces\n");
+		goto error_buffer_free_sysfs;
+	}
 //	ret = iio_device_register_eventset(indio_dev);
 //	if (ret) {
 //		dev_err(indio_dev->dev.parent,
@@ -1751,9 +1751,9 @@ int __iio_device_register(struct iio_dev *indio_dev, struct module *this_mod)
 //	if (indio_dev->modes & INDIO_ALL_TRIGGERED_MODES)
 //		iio_device_register_trigger_consumer(indio_dev);
 
-//	if ((indio_dev->modes & INDIO_ALL_BUFFER_MODES) &&
-//		indio_dev->setup_ops == NULL)
-//		indio_dev->setup_ops = &noop_ring_setup_ops;
+	if ((indio_dev->modes & INDIO_ALL_BUFFER_MODES) &&
+		indio_dev->setup_ops == NULL)
+		indio_dev->setup_ops = &noop_ring_setup_ops;
 
 //	cdev_init(&indio_dev->chrdev, &iio_buffer_fileops);
 
@@ -1768,11 +1768,11 @@ int __iio_device_register(struct iio_dev *indio_dev, struct module *this_mod)
 error_unreg_eventset:
 //	iio_device_unregister_eventset(indio_dev);
 error_free_sysfs:
-//	iio_device_unregister_sysfs(indio_dev);
+	iio_device_unregister_sysfs(indio_dev);
 error_buffer_free_sysfs:
-//	iio_buffer_free_sysfs_and_mask(indio_dev);
+	iio_buffer_free_sysfs_and_mask(indio_dev);
 error_unreg_debugfs:
-//	iio_device_unregister_debugfs(indio_dev);
+	iio_device_unregister_debugfs(indio_dev);
 	return ret;
 }
 EXPORT_SYMBOL(__iio_device_register);
@@ -1785,16 +1785,16 @@ void iio_device_unregister(struct iio_dev *indio_dev)
 {
 //	cdev_device_del(&indio_dev->chrdev, &indio_dev->dev);
 
-//	iio_device_unregister_debugfs(indio_dev);
+	iio_device_unregister_debugfs(indio_dev);
 
-//	iio_disable_all_buffers(indio_dev);
+	iio_disable_all_buffers(indio_dev);
 
-//	indio_dev->info = NULL;
+	indio_dev->info = NULL;
 
 //	iio_device_wakeup_eventset(indio_dev);
 //	iio_buffer_wakeup_poll(indio_dev);
 
-//	iio_buffer_free_sysfs_and_mask(indio_dev);
+	iio_buffer_free_sysfs_and_mask(indio_dev);
 }
 EXPORT_SYMBOL(iio_device_unregister);
 

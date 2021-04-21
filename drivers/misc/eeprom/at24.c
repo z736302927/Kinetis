@@ -8,20 +8,20 @@
 
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/module.h>
-#include <linux/of_device.h>
+//#include <linux/module.h>
+//#include <linux/of_device.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
-#include <linux/mutex.h>
+//#include <linux/mutex.h>
 #include <linux/mod_devicetable.h>
 #include <linux/bitops.h>
 #include <linux/jiffies.h>
-#include <linux/property.h>
-#include <linux/acpi.h>
+//#include <linux/property.h>
+//#include <linux/acpi.h>
 #include <linux/i2c.h>
 #include <linux/nvmem-provider.h>
 #include <linux/regmap.h>
-#include <linux/pm_runtime.h>
+//#include <linux/pm_runtime.h>
 #include <linux/gpio/consumer.h>
 
 /* Address pointer is 16 bit. */
@@ -77,7 +77,7 @@ struct at24_data {
 	 * Lock protects against activities from other Linux tasks,
 	 * but not from changes by other I2C masters.
 	 */
-	struct mutex lock;
+//	struct mutex lock;
 
 	unsigned int write_max;
 	unsigned int num_addresses;
@@ -108,16 +108,16 @@ struct at24_data {
  * This value is forced to be a power of two so that writes align on pages.
  */
 static unsigned int at24_io_limit = 128;
-module_param_named(io_limit, at24_io_limit, uint, 0);
-MODULE_PARM_DESC(at24_io_limit, "Maximum bytes per I/O (default 128)");
+//module_param_named(io_limit, at24_io_limit, uint, 0);
+//MODULE_PARM_DESC(at24_io_limit, "Maximum bytes per I/O (default 128)");
 
 /*
  * Specs often allow 5 msec for a page write, sometimes 20 msec;
  * it's important to recover from write timeouts.
  */
 static unsigned int at24_write_timeout = 25;
-module_param_named(write_timeout, at24_write_timeout, uint, 0);
-MODULE_PARM_DESC(at24_write_timeout, "Time (in ms) to try writes (default 25)");
+//module_param_named(write_timeout, at24_write_timeout, uint, 0);
+//MODULE_PARM_DESC(at24_write_timeout, "Time (in ms) to try writes (default 25)");
 
 struct at24_chip_data {
 	u32 byte_len;
@@ -196,7 +196,7 @@ static const struct i2c_device_id at24_ids[] = {
 	{ "at24",	0 },
 	{ /* END OF LIST */ }
 };
-MODULE_DEVICE_TABLE(i2c, at24_ids);
+//MODULE_DEVICE_TABLE(i2c, at24_ids);
 
 static const struct of_device_id at24_of_match[] = {
 	{ .compatible = "atmel,24c00",		.data = &at24_data_24c00 },
@@ -224,13 +224,13 @@ static const struct of_device_id at24_of_match[] = {
 	{ .compatible = "atmel,24c2048",	.data = &at24_data_24c2048 },
 	{ /* END OF LIST */ },
 };
-MODULE_DEVICE_TABLE(of, at24_of_match);
+//MODULE_DEVICE_TABLE(of, at24_of_match);
 
 static const struct acpi_device_id at24_acpi_ids[] = {
 	{ "INT3499",	(kernel_ulong_t)&at24_data_INT3499 },
 	{ /* END OF LIST */ }
 };
-MODULE_DEVICE_TABLE(acpi, at24_acpi_ids);
+//MODULE_DEVICE_TABLE(acpi, at24_acpi_ids);
 
 /*
  * This routine supports chips which consume multiple I2C addresses. It
@@ -399,23 +399,23 @@ static int at24_read(void *priv, unsigned int off, void *val, size_t count)
 	if (off + count > at24->byte_len)
 		return -EINVAL;
 
-	ret = pm_runtime_get_sync(dev);
-	if (ret < 0) {
-		pm_runtime_put_noidle(dev);
-		return ret;
-	}
+//	ret = pm_runtime_get_sync(dev);
+//	if (ret < 0) {
+//		pm_runtime_put_noidle(dev);
+//		return ret;
+//	}
 
 	/*
 	 * Read data from chip, protecting against concurrent updates
 	 * from this host, but not from other I2C masters.
 	 */
-	mutex_lock(&at24->lock);
+//	mutex_lock(&at24->lock);
 
 	while (count) {
 		ret = at24_regmap_read(at24, buf, off, count);
 		if (ret < 0) {
-			mutex_unlock(&at24->lock);
-			pm_runtime_put(dev);
+//			mutex_unlock(&at24->lock);
+//			pm_runtime_put(dev);
 			return ret;
 		}
 		buf += ret;
@@ -423,9 +423,9 @@ static int at24_read(void *priv, unsigned int off, void *val, size_t count)
 		count -= ret;
 	}
 
-	mutex_unlock(&at24->lock);
+//	mutex_unlock(&at24->lock);
 
-	pm_runtime_put(dev);
+//	pm_runtime_put(dev);
 
 	return 0;
 }
@@ -446,25 +446,25 @@ static int at24_write(void *priv, unsigned int off, void *val, size_t count)
 	if (off + count > at24->byte_len)
 		return -EINVAL;
 
-	ret = pm_runtime_get_sync(dev);
-	if (ret < 0) {
-		pm_runtime_put_noidle(dev);
-		return ret;
-	}
+//	ret = pm_runtime_get_sync(dev);
+//	if (ret < 0) {
+//		pm_runtime_put_noidle(dev);
+//		return ret;
+//	}
 
 	/*
 	 * Write data to chip, protecting against concurrent updates
 	 * from this host, but not from other I2C masters.
 	 */
-	mutex_lock(&at24->lock);
+//	mutex_lock(&at24->lock);
 	gpiod_set_value_cansleep(at24->wp_gpio, 0);
 
 	while (count) {
 		ret = at24_regmap_write(at24, buf, off, count);
 		if (ret < 0) {
 			gpiod_set_value_cansleep(at24->wp_gpio, 1);
-			mutex_unlock(&at24->lock);
-			pm_runtime_put(dev);
+//			mutex_unlock(&at24->lock);
+//			pm_runtime_put(dev);
 			return ret;
 		}
 		buf += ret;
@@ -473,16 +473,16 @@ static int at24_write(void *priv, unsigned int off, void *val, size_t count)
 	}
 
 	gpiod_set_value_cansleep(at24->wp_gpio, 1);
-	mutex_unlock(&at24->lock);
+//	mutex_unlock(&at24->lock);
 
-	pm_runtime_put(dev);
+//	pm_runtime_put(dev);
 
 	return 0;
 }
 
 static const struct at24_chip_data *at24_get_chip_data(struct device *dev)
 {
-	struct device_node *of_node = dev->of_node;
+//	struct device_node *of_node = dev->of_node;
 	const struct at24_chip_data *cdata;
 	const struct i2c_device_id *id;
 
@@ -493,12 +493,13 @@ static const struct at24_chip_data *at24_get_chip_data(struct device *dev)
 	 * I2C device ID table as a fallback, so check not only if an OF
 	 * node is present but also if it matches an OF device ID entry.
 	 */
-	if (of_node && of_match_device(at24_of_match, dev))
-		cdata = of_device_get_match_data(dev);
-	else if (id)
+//	if (of_node && of_match_device(at24_of_match, dev))
+//		cdata = of_device_get_match_data(dev);
+//	else if (id)
+	if (id)
 		cdata = (void *)id->driver_data;
-	else
-		cdata = acpi_device_get_match_data(dev);
+//	else
+//		cdata = acpi_device_get_match_data(dev);
 
 	if (!cdata)
 		return ERR_PTR(-ENODEV);
@@ -567,7 +568,7 @@ static int at24_probe(struct i2c_client *client)
 	struct regmap *regmap;
 	bool writable;
 	u8 test_byte;
-	int err;
+	int err = 0;
 
 	i2c_fn_i2c = i2c_check_functionality(client->adapter, I2C_FUNC_I2C);
 	i2c_fn_block = i2c_check_functionality(client->adapter,
@@ -577,7 +578,8 @@ static int at24_probe(struct i2c_client *client)
 	if (IS_ERR(cdata))
 		return PTR_ERR(cdata);
 
-	err = device_property_read_u32(dev, "pagesize", &page_size);
+//	err = device_property_read_u32(dev, "pagesize", &page_size);
+	page_size = 8;
 	if (err)
 		/*
 		 * This is slow, but we can't know all eeproms, so we better
@@ -587,12 +589,13 @@ static int at24_probe(struct i2c_client *client)
 		page_size = 1;
 
 	flags = cdata->flags;
-	if (device_property_present(dev, "read-only"))
-		flags |= AT24_FLAG_READONLY;
-	if (device_property_present(dev, "no-read-rollover"))
-		flags |= AT24_FLAG_NO_RDROL;
+//	if (device_property_present(dev, "read-only"))
+//		flags |= AT24_FLAG_READONLY;
+//	if (device_property_present(dev, "no-read-rollover"))
+//		flags |= AT24_FLAG_NO_RDROL;
 
-	err = device_property_read_u32(dev, "address-width", &addrw);
+    addrw = 8;
+//	err = device_property_read_u32(dev, "address-width", &addrw);
 	if (!err) {
 		switch (addrw) {
 		case 8:
@@ -610,7 +613,8 @@ static int at24_probe(struct i2c_client *client)
 		}
 	}
 
-	err = device_property_read_u32(dev, "size", &byte_len);
+    byte_len = at24_data_24c02.byte_len;
+//	err = device_property_read_u32(dev, "size", &byte_len);
 	if (err)
 		byte_len = cdata->byte_len;
 
@@ -625,7 +629,8 @@ static int at24_probe(struct i2c_client *client)
 	if (!is_power_of_2(page_size))
 		dev_warn(dev, "page_size looks suspicious (no power of 2)!\n");
 
-	err = device_property_read_u32(dev, "num-addresses", &num_addresses);
+    num_addresses = 1;// << addrw;
+//	err = device_property_read_u32(dev, "num-addresses", &num_addresses);
 	if (err) {
 		if (flags & AT24_FLAG_TAKE8ADDR)
 			num_addresses = 8;
@@ -653,7 +658,7 @@ static int at24_probe(struct i2c_client *client)
 	if (!at24)
 		return -ENOMEM;
 
-	mutex_init(&at24->lock);
+//	mutex_init(&at24->lock);
 	at24->byte_len = byte_len;
 	at24->page_size = page_size;
 	at24->flags = flags;
@@ -662,9 +667,9 @@ static int at24_probe(struct i2c_client *client)
 	at24->client[0].client = client;
 	at24->client[0].regmap = regmap;
 
-	at24->wp_gpio = devm_gpiod_get_optional(dev, "wp", GPIOD_OUT_HIGH);
-	if (IS_ERR(at24->wp_gpio))
-		return PTR_ERR(at24->wp_gpio);
+//	at24->wp_gpio = devm_gpiod_get_optional(dev, "wp", GPIOD_OUT_HIGH);
+//	if (IS_ERR(at24->wp_gpio))
+//		return PTR_ERR(at24->wp_gpio);
 
 	writable = !(flags & AT24_FLAG_READONLY);
 	if (writable) {
@@ -701,20 +706,34 @@ static int at24_probe(struct i2c_client *client)
 
 	i2c_set_clientdata(client, at24);
 
-	/* enable runtime pm */
-	pm_runtime_set_active(dev);
-	pm_runtime_enable(dev);
+//	/* enable runtime pm */
+//	pm_runtime_set_active(dev);
+//	pm_runtime_enable(dev);
 
 	/*
 	 * Perform a one-byte test read to verify that the
 	 * chip is functional.
 	 */
-	err = at24_read(at24, 0, &test_byte, 1);
-	pm_runtime_idle(dev);
+    test_byte = 24;
+	err = at24_write(at24, 0, &test_byte, 1);
 	if (err) {
-		pm_runtime_disable(dev);
+//		pm_runtime_disable(dev);
 		return -ENODEV;
 	}
+
+    test_byte = 0;
+	err = at24_read(at24, 0, &test_byte, 1);
+//	pm_runtime_idle(dev);
+	if (err) {
+//		pm_runtime_disable(dev);
+		return -ENODEV;
+	}
+
+    if (test_byte != 24) {
+        dev_err(dev, "Failed to test %u byte(%u) in %s EEPROM\n",
+             1, test_byte, client->name);
+		return -ENODEV;
+    }
 
 	if (writable)
 		dev_info(dev, "%u byte %s EEPROM, writable, %u bytes/write\n",
@@ -728,8 +747,8 @@ static int at24_probe(struct i2c_client *client)
 
 static int at24_remove(struct i2c_client *client)
 {
-	pm_runtime_disable(&client->dev);
-	pm_runtime_set_suspended(&client->dev);
+//	pm_runtime_disable(&client->dev);
+//	pm_runtime_set_suspended(&client->dev);
 
 	return 0;
 }
@@ -738,14 +757,14 @@ static struct i2c_driver at24_driver = {
 	.driver = {
 		.name = "at24",
 		.of_match_table = at24_of_match,
-		.acpi_match_table = ACPI_PTR(at24_acpi_ids),
+//		.acpi_match_table = ACPI_PTR(at24_acpi_ids),
 	},
 	.probe_new = at24_probe,
 	.remove = at24_remove,
 	.id_table = at24_ids,
 };
 
-static int __init at24_init(void)
+int __init at24_init(void)
 {
 	if (!at24_io_limit) {
 		pr_err("at24: at24_io_limit must not be 0!\n");
@@ -755,14 +774,14 @@ static int __init at24_init(void)
 	at24_io_limit = rounddown_pow_of_two(at24_io_limit);
 	return i2c_add_driver(&at24_driver);
 }
-module_init(at24_init);
+//module_init(at24_init);
 
-static void __exit at24_exit(void)
+void __exit at24_exit(void)
 {
 	i2c_del_driver(&at24_driver);
 }
-module_exit(at24_exit);
+//module_exit(at24_exit);
 
-MODULE_DESCRIPTION("Driver for most I2C EEPROMs");
-MODULE_AUTHOR("David Brownell and Wolfram Sang");
-MODULE_LICENSE("GPL");
+//MODULE_DESCRIPTION("Driver for most I2C EEPROMs");
+//MODULE_AUTHOR("David Brownell and Wolfram Sang");
+//MODULE_LICENSE("GPL");

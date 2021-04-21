@@ -121,7 +121,7 @@ void udelay(u64 usecs)
 {
     u64 timeout = basic_timer_get_us() + usecs;
 
-    while (time_after64(basic_timer_get_us(), timeout));
+    while (time_before64(basic_timer_get_us(), timeout));
 }
 
 /*
@@ -133,7 +133,7 @@ void msleep(unsigned long msecs)
 {
     unsigned long timeout = jiffies + msecs;
 
-    while (time_after(jiffies, timeout));
+    while (time_before(jiffies, timeout));
 }
 
 /**

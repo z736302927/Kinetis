@@ -15,6 +15,7 @@
 #define _DEVICE_BUS_H_
 
 #include <linux/klist.h>
+#include <linux/sysfs.h>
 
 struct device_driver;
 struct fwnode_handle;
@@ -119,7 +120,7 @@ extern void bus_unregister(struct bus_type *bus);
 extern int __must_check bus_rescan_devices(struct bus_type *bus);
 
 struct bus_attribute {
-//	struct attribute	attr;
+	struct attribute	attr;
 	ssize_t (*show)(struct bus_type *bus, char *buf);
 	ssize_t (*store)(struct bus_type *bus, const char *buf, size_t count);
 };

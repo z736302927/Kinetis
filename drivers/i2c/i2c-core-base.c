@@ -1102,6 +1102,36 @@ struct i2c_client *i2c_new_ancillary_device(struct i2c_client *client,
 }
 EXPORT_SYMBOL_GPL(i2c_new_ancillary_device);
 
+/**
+ * i2c_new_client - return a new i2c device bound to a dummy driver
+ * @adapter: the adapter managing the device
+ * @address: seven bit address to be used
+ * Context: can sleep
+ *
+ * This returns an I2C client bound to the "dummy" driver, intended for use
+ * with devices that consume multiple addresses.  Examples of such chips
+ * include various EEPROMS (like 24c04 and 24c08 models).
+ *
+ * These dummy devices have two main uses.  First, most I2C and SMBus calls
+ * except i2c_transfer() need a client handle; the dummy will be that handle.
+ * And second, this prevents the specified address from being bound to a
+ * different driver.
+ *
+ * This returns the new i2c client, which should be saved for later use with
+ * i2c_unregister_device(); or an ERR_PTR to describe the error.
+ */
+struct i2c_client *i2c_new_client(struct i2c_adapter *adapter,
+    char *type, u16 address)
+{
+	struct i2c_board_info info = {
+		I2C_BOARD_INFO('0', address),
+	};
+    strcpy(info.type, type);
+
+	return i2c_new_client_device(adapter, &info);
+}
+EXPORT_SYMBOL_GPL(i2c_new_client);
+
 /* ------------------------------------------------------------------------- */
 
 /* I2C bus adapters -- one roots each I2C or SMBUS segment */
@@ -2084,6 +2114,7 @@ EXPORT_SYMBOL(__i2c_transfer);
  */
 int i2c_transfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
 {
+//    char buf[64];
 	int ret;
 
 	if (!adap->algo->master_xfer) {
@@ -2113,6 +2144,12 @@ int i2c_transfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int num)
 
 	ret = __i2c_transfer(adap, msgs, num);
 //	i2c_unlock_bus(adap, I2C_LOCK_SEGMENT);
+//	snprintf(buf, sizeof(buf), "dev addr@%#x, flags: %#x: ",
+//        msgs->addr, msgs->flags);
+//    print_hex_dump(KERN_DEBUG, buf, DUMP_PREFIX_OFFSET,
+//        16, 1,
+//        msgs->buf, msgs->len, false);
+    
 
 	return ret;
 }

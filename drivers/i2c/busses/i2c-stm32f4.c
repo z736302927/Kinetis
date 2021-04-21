@@ -691,7 +691,7 @@ static int stm32f4_i2c_xfer(struct i2c_adapter *i2c_adap, struct i2c_msg msgs[],
 			    int num)
 {
 	struct stm32f4_i2c_dev *i2c_dev = i2c_get_adapdata(i2c_adap);
-	int ret, i;
+	int ret = 0, i;
 
 //	ret = clk_enable(i2c_dev->clk);
 //	if (ret) {

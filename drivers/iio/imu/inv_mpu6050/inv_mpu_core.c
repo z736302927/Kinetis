@@ -1328,9 +1328,12 @@ static int inv_check_and_setup_chip(struct inv_mpu6050_state *st)
 	result = inv_mpu6050_set_power_itg(st, true);
 	if (result)
 		return result;
+//	mask = INV_MPU6050_SENSOR_ACCL | INV_MPU6050_SENSOR_GYRO |
+//			INV_MPU6050_SENSOR_TEMP | INV_MPU6050_SENSOR_MAGN;
+//	result = inv_mpu6050_switch_engine(st, false, mask);
 	mask = INV_MPU6050_SENSOR_ACCL | INV_MPU6050_SENSOR_GYRO |
-			INV_MPU6050_SENSOR_TEMP | INV_MPU6050_SENSOR_MAGN;
-	result = inv_mpu6050_switch_engine(st, false, mask);
+			INV_MPU6050_SENSOR_TEMP;
+	result = inv_mpu6050_switch_engine(st, true, mask);
 	if (result)
 		goto error_power_off;
 
@@ -1390,6 +1393,9 @@ static void inv_mpu_pm_disable(void *data)
 //	pm_runtime_disable(dev);
 }
 
+static int __maybe_unused inv_mpu_resume(struct device *dev);
+static int __maybe_unused inv_mpu_suspend(struct device *dev);
+
 int inv_mpu_core_probe(struct regmap *regmap, int irq, const char *name,
 		int (*inv_mpu_bus_setup)(struct iio_dev *), int chip_type)
 {
@@ -1397,7 +1403,7 @@ int inv_mpu_core_probe(struct regmap *regmap, int irq, const char *name,
 	struct iio_dev *indio_dev;
 	struct inv_mpu6050_platform_data *pdata;
 	struct device *dev = regmap_get_device(regmap);
-	int result;
+	int result, i;
 	struct irq_data *desc;
 	int irq_type;
 
@@ -1572,17 +1578,54 @@ int inv_mpu_core_probe(struct regmap *regmap, int irq, const char *name,
 //		dev_err(dev, "configure buffer fail %d\n", result);
 //		return result;
 //	}
-	result = inv_mpu6050_probe_trigger(indio_dev, irq_type);
-	if (result) {
-		dev_err(dev, "trigger probe fail %d\n", result);
-		return result;
-	}
+//	result = inv_mpu6050_probe_trigger(indio_dev, irq_type);
+//	if (result) {
+//		dev_err(dev, "trigger probe fail %d\n", result);
+//		return result;
+//	}
 
 	result = devm_iio_device_register(dev, indio_dev);
 	if (result) {
 		dev_err(dev, "IIO register fail %d\n", result);
 		return result;
 	}
+
+    dev_info(dev, "Ready to test %s\n",
+        name);
+
+    if (indio_dev->channels) {
+        const struct iio_chan_spec *chan;
+        int val[7];
+
+        for (i = 1; i < indio_dev->num_channels; i++) {
+            chan = &indio_dev->channels[i];
+            result = indio_dev->info->read_raw(indio_dev,
+                    chan,
+                    &val[i - 1],
+                    NULL,
+                    IIO_CHAN_INFO_RAW);
+
+            if (result < 0)
+                return result;
+        }
+
+        for (i = 1; i < indio_dev->num_channels; i++) {
+            pr_cont("val[%d]:%5d, ",
+                chan->scan_index, val[i - 1]);
+        }
+        
+
+        pr_cont("\n\r");
+        ssleep(1);
+    }
+
+//	result = inv_mpu_suspend(dev);
+//	if (result)
+//		return result;
+
+//	result = inv_mpu_resume(dev);
+//	if (result)
+//		return result;
 
 	return 0;
 

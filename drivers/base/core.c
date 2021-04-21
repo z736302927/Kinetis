@@ -1832,40 +1832,38 @@ const char *dev_driver_string(const struct device *dev)
 }
 EXPORT_SYMBOL(dev_driver_string);
 
-//#define to_dev_attr(_attr) container_of(_attr, struct device_attribute, attr)
+#define to_dev_attr(_attr) container_of(_attr, struct device_attribute, attr)
 
-//static ssize_t dev_attr_show(struct kobject *kobj, struct attribute *attr,
-//			     char *buf)
-//{
-//	struct device_attribute *dev_attr = to_dev_attr(attr);
-//	struct device *dev = kobj_to_dev(kobj);
-//	ssize_t ret = -EIO;
+static ssize_t dev_attr_show(void *dev, struct attribute *attr,
+			     char *buf)
+{
+	struct device_attribute *dev_attr = to_dev_attr(attr);
+	ssize_t ret = -EIO;
 
-//	if (dev_attr->show)
-//		ret = dev_attr->show(dev, dev_attr, buf);
-//	if (ret >= (ssize_t)PAGE_SIZE) {
-//		printk("dev_attr_show: %pS returned bad count\n",
-//				dev_attr->show);
-//	}
-//	return ret;
-//}
+	if (dev_attr->show)
+		ret = dev_attr->show(dev, dev_attr, buf);
+	if (ret >= (ssize_t)PAGE_SIZE) {
+		printk("dev_attr_show: %pS returned bad count\n",
+				dev_attr->show);
+	}
+	return ret;
+}
 
-//static ssize_t dev_attr_store(struct kobject *kobj, struct attribute *attr,
-//			      const char *buf, size_t count)
-//{
-//	struct device_attribute *dev_attr = to_dev_attr(attr);
-//	struct device *dev = kobj_to_dev(kobj);
-//	ssize_t ret = -EIO;
+static ssize_t dev_attr_store(void *dev, struct attribute *attr,
+			      const char *buf, size_t count)
+{
+	struct device_attribute *dev_attr = to_dev_attr(attr);
+	ssize_t ret = -EIO;
 
-//	if (dev_attr->store)
-//		ret = dev_attr->store(dev, dev_attr, buf, count);
-//	return ret;
-//}
+	if (dev_attr->store)
+		ret = dev_attr->store(dev, dev_attr, buf, count);
+	return ret;
+}
 
-//static const struct sysfs_ops dev_sysfs_ops = {
-//	.show	= dev_attr_show,
-//	.store	= dev_attr_store,
-//};
+static const struct sysfs_ops dev_sysfs_ops = {
+	.show	= dev_attr_show,
+	.store	= dev_attr_store,
+};
 
 //#define to_ext_attr(x) container_of(x, struct dev_ext_attribute, attr)
 

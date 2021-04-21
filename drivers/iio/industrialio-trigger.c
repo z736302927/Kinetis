@@ -80,9 +80,9 @@ int __iio_trigger_register(struct iio_trigger *trig_info,
 	dev_set_name(&trig_info->dev, "trigger%ld",
 		     (unsigned long) trig_info->id);
 
-//	ret = device_add(&trig_info->dev);
-//	if (ret)
-//		goto error_unregister_id;
+	ret = device_add(&trig_info->dev);
+	if (ret)
+		goto error_unregister_id;
 
 	/* Add to list of available triggers held by the IIO core */
 	if (__iio_trigger_find_by_name(trig_info->name)) {
@@ -95,7 +95,7 @@ int __iio_trigger_register(struct iio_trigger *trig_info,
 	return 0;
 
 error_device_del:
-//	device_del(&trig_info->dev);
+	device_del(&trig_info->dev);
 error_unregister_id:
 	ida_simple_remove(&iio_trigger_ida, trig_info->id);
 	return ret;
