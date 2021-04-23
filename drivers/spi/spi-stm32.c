@@ -5,17 +5,17 @@
 // Copyright (C) 2017, STMicroelectronics - All Rights Reserved
 // Author(s): Amelie Delaunay <amelie.delaunay@st.com> for STMicroelectronics.
 
-#include <linux/debugfs.h>
-#include <linux/clk.h>
+//#include <linux/debugfs.h>
+//#include <linux/clk.h>
 #include <linux/delay.h>
-#include <linux/dmaengine.h>
+//#include <linux/dmaengine.h>
 #include <linux/interrupt.h>
 #include <linux/iopoll.h>
-#include <linux/module.h>
-#include <linux/of_platform.h>
+//#include <linux/module.h>
+//#include <linux/of_platform.h>
 #include <linux/pinctrl/consumer.h>
-#include <linux/pm_runtime.h>
-#include <linux/reset.h>
+//#include <linux/pm_runtime.h>
+//#include <linux/reset.h>
 #include <linux/spi/spi.h>
 
 #define DRIVER_NAME "spi_stm32"
@@ -373,7 +373,7 @@ static int stm32h7_spi_get_fifo_size(struct stm32_spi *spi)
 	unsigned long flags;
 	u32 count = 0;
 
-	spin_lock_irqsave(&spi->lock, flags);
+//	spin_lock_irqsave(&spi->lock, flags);
 
 	stm32_spi_set_bits(spi, STM32H7_SPI_CR1, STM32H7_SPI_CR1_SPE);
 
@@ -382,7 +382,7 @@ static int stm32h7_spi_get_fifo_size(struct stm32_spi *spi)
 
 	stm32_spi_clr_bits(spi, STM32H7_SPI_CR1, STM32H7_SPI_CR1_SPE);
 
-	spin_unlock_irqrestore(&spi->lock, flags);
+//	spin_unlock_irqrestore(&spi->lock, flags);
 
 	dev_dbg(spi->dev, "%d x 8-bit fifo size\n", count);
 
@@ -408,7 +408,7 @@ static int stm32h7_spi_get_bpw_mask(struct stm32_spi *spi)
 	unsigned long flags;
 	u32 cfg1, max_bpw;
 
-	spin_lock_irqsave(&spi->lock, flags);
+//	spin_lock_irqsave(&spi->lock, flags);
 
 	/*
 	 * The most significant bit at DSIZE bit field is reserved when the
@@ -421,7 +421,7 @@ static int stm32h7_spi_get_bpw_mask(struct stm32_spi *spi)
 		  STM32H7_SPI_CFG1_DSIZE_SHIFT;
 	max_bpw += 1;
 
-	spin_unlock_irqrestore(&spi->lock, flags);
+//	spin_unlock_irqrestore(&spi->lock, flags);
 
 	dev_dbg(spi->dev, "%d-bit maximum data frame\n", max_bpw);
 
@@ -666,11 +666,11 @@ static void stm32f4_spi_disable(struct stm32_spi *spi)
 
 	dev_dbg(spi->dev, "disable controller\n");
 
-	spin_lock_irqsave(&spi->lock, flags);
+//	spin_lock_irqsave(&spi->lock, flags);
 
 	if (!(readl_relaxed(spi->base + STM32F4_SPI_CR1) &
 	      STM32F4_SPI_CR1_SPE)) {
-		spin_unlock_irqrestore(&spi->lock, flags);
+//		spin_unlock_irqrestore(&spi->lock, flags);
 		return;
 	}
 
@@ -686,10 +686,10 @@ static void stm32f4_spi_disable(struct stm32_spi *spi)
 		dev_warn(spi->dev, "disabling condition timeout\n");
 	}
 
-	if (spi->cur_usedma && spi->dma_tx)
-		dmaengine_terminate_all(spi->dma_tx);
-	if (spi->cur_usedma && spi->dma_rx)
-		dmaengine_terminate_all(spi->dma_rx);
+//	if (spi->cur_usedma && spi->dma_tx)
+//		dmaengine_terminate_all(spi->dma_tx);
+//	if (spi->cur_usedma && spi->dma_rx)
+//		dmaengine_terminate_all(spi->dma_rx);
 
 	stm32_spi_clr_bits(spi, STM32F4_SPI_CR1, STM32F4_SPI_CR1_SPE);
 
@@ -700,7 +700,7 @@ static void stm32f4_spi_disable(struct stm32_spi *spi)
 	readl_relaxed(spi->base + STM32F4_SPI_DR);
 	readl_relaxed(spi->base + STM32F4_SPI_SR);
 
-	spin_unlock_irqrestore(&spi->lock, flags);
+//	spin_unlock_irqrestore(&spi->lock, flags);
 }
 
 /**
@@ -722,12 +722,12 @@ static void stm32h7_spi_disable(struct stm32_spi *spi)
 
 	dev_dbg(spi->dev, "disable controller\n");
 
-	spin_lock_irqsave(&spi->lock, flags);
+//	spin_lock_irqsave(&spi->lock, flags);
 
 	cr1 = readl_relaxed(spi->base + STM32H7_SPI_CR1);
 
 	if (!(cr1 & STM32H7_SPI_CR1_SPE)) {
-		spin_unlock_irqrestore(&spi->lock, flags);
+//		spin_unlock_irqrestore(&spi->lock, flags);
 		return;
 	}
 
@@ -750,10 +750,10 @@ static void stm32h7_spi_disable(struct stm32_spi *spi)
 	if (!spi->cur_usedma && spi->rx_buf && (spi->rx_len > 0))
 		stm32h7_spi_read_rxfifo(spi, true);
 
-	if (spi->cur_usedma && spi->dma_tx)
-		dmaengine_terminate_all(spi->dma_tx);
-	if (spi->cur_usedma && spi->dma_rx)
-		dmaengine_terminate_all(spi->dma_rx);
+//	if (spi->cur_usedma && spi->dma_tx)
+//		dmaengine_terminate_all(spi->dma_tx);
+//	if (spi->cur_usedma && spi->dma_rx)
+//		dmaengine_terminate_all(spi->dma_rx);
 
 	stm32_spi_clr_bits(spi, STM32H7_SPI_CR1, STM32H7_SPI_CR1_SPE);
 
@@ -764,7 +764,7 @@ static void stm32h7_spi_disable(struct stm32_spi *spi)
 	writel_relaxed(0, spi->base + STM32H7_SPI_IER);
 	writel_relaxed(STM32H7_SPI_IFCR_ALL, spi->base + STM32H7_SPI_IFCR);
 
-	spin_unlock_irqrestore(&spi->lock, flags);
+//	spin_unlock_irqrestore(&spi->lock, flags);
 }
 
 /**
@@ -806,7 +806,7 @@ static irqreturn_t stm32f4_spi_irq_event(int irq, void *dev_id)
 	u32 sr, mask = 0;
 	bool end = false;
 
-	spin_lock(&spi->lock);
+//	spin_lock(&spi->lock);
 
 	sr = readl_relaxed(spi->base + STM32F4_SPI_SR);
 	/*
@@ -832,7 +832,7 @@ static irqreturn_t stm32f4_spi_irq_event(int irq, void *dev_id)
 
 	if (!(sr & mask)) {
 		dev_dbg(spi->dev, "spurious IT (sr=0x%08x)\n", sr);
-		spin_unlock(&spi->lock);
+//		spin_unlock(&spi->lock);
 		return IRQ_NONE;
 	}
 
@@ -874,11 +874,11 @@ end_irq:
 					STM32F4_SPI_CR2_TXEIE |
 					STM32F4_SPI_CR2_RXNEIE |
 					STM32F4_SPI_CR2_ERRIE);
-		spin_unlock(&spi->lock);
+//		spin_unlock(&spi->lock);
 		return IRQ_WAKE_THREAD;
 	}
 
-	spin_unlock(&spi->lock);
+//	spin_unlock(&spi->lock);
 	return IRQ_HANDLED;
 }
 
@@ -911,7 +911,7 @@ static irqreturn_t stm32h7_spi_irq_thread(int irq, void *dev_id)
 	unsigned long flags;
 	bool end = false;
 
-	spin_lock_irqsave(&spi->lock, flags);
+//	spin_lock_irqsave(&spi->lock, flags);
 
 	sr = readl_relaxed(spi->base + STM32H7_SPI_SR);
 	ier = readl_relaxed(spi->base + STM32H7_SPI_IER);
@@ -930,7 +930,7 @@ static irqreturn_t stm32h7_spi_irq_thread(int irq, void *dev_id)
 	if (!(sr & mask)) {
 		dev_dbg(spi->dev, "spurious IT (sr=0x%08x, ier=0x%08x)\n",
 			sr, ier);
-		spin_unlock_irqrestore(&spi->lock, flags);
+//		spin_unlock_irqrestore(&spi->lock, flags);
 		return IRQ_NONE;
 	}
 
@@ -983,7 +983,7 @@ static irqreturn_t stm32h7_spi_irq_thread(int irq, void *dev_id)
 
 	writel_relaxed(sr & mask, spi->base + STM32H7_SPI_IFCR);
 
-	spin_unlock_irqrestore(&spi->lock, flags);
+//	spin_unlock_irqrestore(&spi->lock, flags);
 
 	if (end) {
 		stm32h7_spi_disable(spi);
@@ -1033,7 +1033,7 @@ static int stm32_spi_prepare_msg(struct spi_master *master,
 		spi_dev->mode & SPI_LSB_FIRST,
 		spi_dev->mode & SPI_CS_HIGH);
 
-	spin_lock_irqsave(&spi->lock, flags);
+//	spin_lock_irqsave(&spi->lock, flags);
 
 	/* CPOL, CPHA and LSB FIRST bits have common register */
 	if (clrb || setb)
@@ -1042,7 +1042,7 @@ static int stm32_spi_prepare_msg(struct spi_master *master,
 			 ~clrb) | setb,
 			spi->base + spi->cfg->regs->cpol.reg);
 
-	spin_unlock_irqrestore(&spi->lock, flags);
+//	spin_unlock_irqrestore(&spi->lock, flags);
 
 	return 0;
 }
@@ -1090,11 +1090,11 @@ static void stm32h7_spi_dma_cb(void *data)
 	unsigned long flags;
 	u32 sr;
 
-	spin_lock_irqsave(&spi->lock, flags);
+//	spin_lock_irqsave(&spi->lock, flags);
 
 	sr = readl_relaxed(spi->base + STM32H7_SPI_SR);
 
-	spin_unlock_irqrestore(&spi->lock, flags);
+//	spin_unlock_irqrestore(&spi->lock, flags);
 
 	if (!(sr & STM32H7_SPI_SR_EOT))
 		dev_warn(spi->dev, "DMA error (sr=0x%08x)\n", sr);
@@ -1180,7 +1180,7 @@ static int stm32f4_spi_transfer_one_irq(struct stm32_spi *spi)
 		return -EINVAL;
 	}
 
-	spin_lock_irqsave(&spi->lock, flags);
+//	spin_lock_irqsave(&spi->lock, flags);
 
 	stm32_spi_set_bits(spi, STM32F4_SPI_CR2, cr2);
 
@@ -1190,7 +1190,7 @@ static int stm32f4_spi_transfer_one_irq(struct stm32_spi *spi)
 	if (spi->tx_buf)
 		stm32f4_spi_write_tx(spi);
 
-	spin_unlock_irqrestore(&spi->lock, flags);
+//	spin_unlock_irqrestore(&spi->lock, flags);
 
 	return 1;
 }
@@ -1220,7 +1220,7 @@ static int stm32h7_spi_transfer_one_irq(struct stm32_spi *spi)
 	ier |= STM32H7_SPI_IER_EOTIE | STM32H7_SPI_IER_TXTFIE |
 	       STM32H7_SPI_IER_OVRIE | STM32H7_SPI_IER_MODFIE;
 
-	spin_lock_irqsave(&spi->lock, flags);
+//	spin_lock_irqsave(&spi->lock, flags);
 
 	stm32_spi_enable(spi);
 
@@ -1232,7 +1232,7 @@ static int stm32h7_spi_transfer_one_irq(struct stm32_spi *spi)
 
 	writel_relaxed(ier, spi->base + STM32H7_SPI_IER);
 
-	spin_unlock_irqrestore(&spi->lock, flags);
+//	spin_unlock_irqrestore(&spi->lock, flags);
 
 	return 1;
 }
@@ -1291,7 +1291,7 @@ static int stm32_spi_transfer_one_dma(struct stm32_spi *spi,
 	struct dma_async_tx_descriptor *tx_dma_desc, *rx_dma_desc;
 	unsigned long flags;
 
-	spin_lock_irqsave(&spi->lock, flags);
+//	spin_lock_irqsave(&spi->lock, flags);
 
 	rx_dma_desc = NULL;
 	if (spi->rx_buf && spi->dma_rx) {
@@ -2098,7 +2098,7 @@ static struct platform_driver stm32_spi_driver = {
 
 module_platform_driver(stm32_spi_driver);
 
-MODULE_ALIAS("platform:" DRIVER_NAME);
-MODULE_DESCRIPTION("STMicroelectronics STM32 SPI Controller driver");
-MODULE_AUTHOR("Amelie Delaunay <amelie.delaunay@st.com>");
-MODULE_LICENSE("GPL v2");
+//MODULE_ALIAS("platform:" DRIVER_NAME);
+//MODULE_DESCRIPTION("STMicroelectronics STM32 SPI Controller driver");
+//MODULE_AUTHOR("Amelie Delaunay <amelie.delaunay@st.com>");
+//MODULE_LICENSE("GPL v2");

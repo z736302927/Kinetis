@@ -6,11 +6,11 @@
  * Copyright (C) 2017 Linus Walleij
  */
 #include <linux/kernel.h>
-#include <linux/module.h>
+//#include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/gpio/consumer.h>
-#include <linux/of.h>
-#include <linux/of_device.h>
+//#include <linux/of.h>
+//#include <linux/of_device.h>
 
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_bitbang.h>
@@ -362,9 +362,9 @@ static int spi_gpio_probe(struct platform_device *pdev)
 	if (!master)
 		return -ENOMEM;
 
-	if (pdev->dev.of_node)
-		status = spi_gpio_probe_dt(pdev, master);
-	else
+//	if (pdev->dev.of_node)
+//		status = spi_gpio_probe_dt(pdev, master);
+//	else
 		status = spi_gpio_probe_pdata(pdev, master);
 
 	if (status)
@@ -424,17 +424,17 @@ static int spi_gpio_probe(struct platform_device *pdev)
 	return devm_spi_register_master(&pdev->dev, master);
 }
 
-MODULE_ALIAS("platform:" DRIVER_NAME);
+//MODULE_ALIAS("platform:" DRIVER_NAME);
 
 static struct platform_driver spi_gpio_driver = {
 	.driver = {
 		.name	= DRIVER_NAME,
-		.of_match_table = of_match_ptr(spi_gpio_dt_ids),
+//		.of_match_table = of_match_ptr(spi_gpio_dt_ids),
 	},
 	.probe		= spi_gpio_probe,
 };
 module_platform_driver(spi_gpio_driver);
 
-MODULE_DESCRIPTION("SPI master driver using generic bitbanged GPIO ");
-MODULE_AUTHOR("David Brownell");
-MODULE_LICENSE("GPL");
+//MODULE_DESCRIPTION("SPI master driver using generic bitbanged GPIO ");
+//MODULE_AUTHOR("David Brownell");
+//MODULE_LICENSE("GPL");

@@ -3,10 +3,10 @@
  * polling/bitbanging SPI master controller driver utilities
  */
 
-#include <linux/spinlock.h>
-#include <linux/workqueue.h>
+//#include <linux/spinlock.h>
+//#include <linux/workqueue.h>
 #include <linux/interrupt.h>
-#include <linux/module.h>
+//#include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/errno.h>
 #include <linux/platform_device.h>
@@ -261,9 +261,9 @@ static int spi_bitbang_prepare_hardware(struct spi_master *spi)
 
 	bitbang = spi_master_get_devdata(spi);
 
-	mutex_lock(&bitbang->lock);
+//	mutex_lock(&bitbang->lock);
 	bitbang->busy = 1;
-	mutex_unlock(&bitbang->lock);
+//	mutex_unlock(&bitbang->lock);
 
 	return 0;
 }
@@ -301,9 +301,9 @@ static int spi_bitbang_unprepare_hardware(struct spi_master *spi)
 
 	bitbang = spi_master_get_devdata(spi);
 
-	mutex_lock(&bitbang->lock);
+//	mutex_lock(&bitbang->lock);
 	bitbang->busy = 0;
-	mutex_unlock(&bitbang->lock);
+//	mutex_unlock(&bitbang->lock);
 
 	return 0;
 }
@@ -345,7 +345,7 @@ int spi_bitbang_init(struct spi_bitbang *bitbang)
 	if (custom_cs && !bitbang->chipselect)
 		return -EINVAL;
 
-	mutex_init(&bitbang->lock);
+//	mutex_init(&bitbang->lock);
 
 	if (!master->mode_bits)
 		master->mode_bits = SPI_CPOL | SPI_CPHA | bitbang->flags;
@@ -436,5 +436,5 @@ void spi_bitbang_stop(struct spi_bitbang *bitbang)
 }
 EXPORT_SYMBOL_GPL(spi_bitbang_stop);
 
-MODULE_LICENSE("GPL");
+//MODULE_LICENSE("GPL");
 
