@@ -14,7 +14,7 @@
 #ifndef _DEVICE_CLASS_H_
 #define _DEVICE_CLASS_H_
 
-#include <linux/kobject.h>
+//#include <linux/kobject.h>
 #include <linux/klist.h>
 #include <linux/pm.h>
 #include <linux/device/bus.h>
@@ -57,9 +57,9 @@ struct class {
 
 	const struct attribute_group	**class_groups;
 	const struct attribute_group	**dev_groups;
-	struct kobject			*dev_kobj;
+//	struct kobject			*dev_kobj;
 
-	int (*dev_uevent)(struct device *dev, struct kobj_uevent_env *env);
+//	int (*dev_uevent)(struct device *dev, struct kobj_uevent_env *env);
 	char *(*devnode)(struct device *dev, umode_t *mode);
 
 	void (*class_release)(struct class *class);
@@ -136,11 +136,11 @@ static inline struct device *class_find_device_by_name(struct class *class,
  * @class: class type
  * @np: of_node of the device to match.
  */
-static inline struct device *
-class_find_device_by_of_node(struct class *class, const struct device_node *np)
-{
-	return class_find_device(class, NULL, np, device_match_of_node);
-}
+//static inline struct device *
+//class_find_device_by_of_node(struct class *class, const struct device_node *np)
+//{
+//	return class_find_device(class, NULL, np, device_match_of_node);
+//}
 
 /**
  * class_find_device_by_fwnode : device iterator for locating a particular device

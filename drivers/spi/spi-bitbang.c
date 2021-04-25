@@ -419,9 +419,9 @@ int spi_bitbang_start(struct spi_bitbang *bitbang)
 	/* driver may get busy before register() returns, especially
 	 * if someone registered boardinfo for devices
 	 */
-	ret = spi_register_master(spi_master_get(master));
-	if (ret)
-		spi_master_put(master);
+	ret = spi_register_master(master);
+//	if (ret)
+//		spi_master_put(master);
 
 	return ret;
 }

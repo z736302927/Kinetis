@@ -21,6 +21,8 @@
 #include <linux/sysfs.h>
 #include <linux/slab.h>
 #include <linux/err.h>
+#include <linux/device/bus.h>
+#include <linux/device/class.h>
 #include <linux/device/driver.h>
 
 struct device;
@@ -328,6 +330,7 @@ struct device {
 	u32			id;	/* device instance */
 	struct list_head	devres_head;
 
+	struct class		*class;
 	void	(*release)(struct device *dev);
 };
 

@@ -433,7 +433,22 @@ static struct platform_driver spi_gpio_driver = {
 	},
 	.probe		= spi_gpio_probe,
 };
-module_platform_driver(spi_gpio_driver);
+
+int __init spi_gpio_init(void)
+{
+	int ret;
+
+	ret = platform_driver_register(&spi_gpio_driver);
+	if (ret)
+		printk(KERN_ERR "spi-gpio: probe failed: %d\n", ret);
+    
+	return ret;
+}
+
+void __exit spi_gpio_exit(void)
+{
+	platform_driver_unregister(&spi_gpio_driver);
+}
 
 //MODULE_DESCRIPTION("SPI master driver using generic bitbanged GPIO ");
 //MODULE_AUTHOR("David Brownell");

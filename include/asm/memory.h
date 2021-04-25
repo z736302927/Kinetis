@@ -256,9 +256,9 @@ static inline unsigned long __phys_to_virt(phys_addr_t x)
 
 #endif
 
-#define virt_to_pfn(kaddr) \
-	((((unsigned long)(kaddr) - PAGE_OFFSET) >> PAGE_SHIFT) + \
-	 PHYS_PFN_OFFSET)
+//#define virt_to_pfn(kaddr) \
+//	((((unsigned long)(kaddr) - PAGE_OFFSET) >> PAGE_SHIFT) + \
+//	 PHYS_PFN_OFFSET)
 
 #define __pa_symbol_nodebug(x)	__virt_to_phys_nodebug((x))
 
@@ -291,10 +291,10 @@ static inline void *phys_to_virt(phys_addr_t x)
 /*
  * Drivers should NOT use these either.
  */
-#define __pa(x)			__virt_to_phys((unsigned long)(x))
-#define __pa_symbol(x)		__phys_addr_symbol(RELOC_HIDE((unsigned long)(x), 0))
-#define __va(x)			((void *)__phys_to_virt((phys_addr_t)(x)))
-#define pfn_to_kaddr(pfn)	__va((phys_addr_t)(pfn) << PAGE_SHIFT)
+//#define __pa(x)			__virt_to_phys((unsigned long)(x))
+//#define __pa_symbol(x)		__phys_addr_symbol(RELOC_HIDE((unsigned long)(x), 0))
+//#define __va(x)			((void *)__phys_to_virt((phys_addr_t)(x)))
+//#define pfn_to_kaddr(pfn)	__va((phys_addr_t)(pfn) << PAGE_SHIFT)
 
 extern long long arch_phys_to_idmap_offset;
 
@@ -370,9 +370,9 @@ static inline unsigned long __virt_to_idmap(unsigned long x)
  */
 #define ARCH_PFN_OFFSET		PHYS_PFN_OFFSET
 
-#define virt_to_page(kaddr)	pfn_to_page(virt_to_pfn(kaddr))
-#define virt_addr_valid(kaddr)	(((unsigned long)(kaddr) >= PAGE_OFFSET && (unsigned long)(kaddr) < (unsigned long)high_memory) \
-					&& pfn_valid(virt_to_pfn(kaddr)))
+//#define virt_to_page(kaddr)	pfn_to_page(virt_to_pfn(kaddr))
+//#define virt_addr_valid(kaddr)	(((unsigned long)(kaddr) >= PAGE_OFFSET && (unsigned long)(kaddr) < (unsigned long)high_memory) \
+//					&& pfn_valid(virt_to_pfn(kaddr)))
 
 #endif
 

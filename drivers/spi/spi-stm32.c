@@ -8,11 +8,11 @@
 //#include <linux/debugfs.h>
 //#include <linux/clk.h>
 #include <linux/delay.h>
-//#include <linux/dmaengine.h>
+#include <linux/dmaengine.h>
 #include <linux/interrupt.h>
 #include <linux/iopoll.h>
 //#include <linux/module.h>
-//#include <linux/of_platform.h>
+#include <linux/of_platform.h>
 #include <linux/pinctrl/consumer.h>
 //#include <linux/pm_runtime.h>
 //#include <linux/reset.h>
@@ -1003,13 +1003,13 @@ static int stm32_spi_prepare_msg(struct spi_master *master,
 {
 	struct stm32_spi *spi = spi_master_get_devdata(master);
 	struct spi_device *spi_dev = msg->spi;
-	struct device_node *np = spi_dev->dev.of_node;
+//	struct device_node *np = spi_dev->dev.of_node;
 	unsigned long flags;
 	u32 clrb = 0, setb = 0;
 
 	/* SPI slave device may need time between data frames */
 	spi->cur_midi = 0;
-	if (np && !of_property_read_u32(np, "st,spi-midi-ns", &spi->cur_midi))
+//	if (np && !of_property_read_u32(np, "st,spi-midi-ns", &spi->cur_midi))
 		dev_dbg(spi->dev, "%dns inter-data idleness\n", spi->cur_midi);
 
 	if (spi_dev->mode & SPI_CPOL)
@@ -1361,7 +1361,7 @@ static int stm32_spi_transfer_one_dma(struct stm32_spi *spi,
 
 	spi->cfg->transfer_one_dma_start(spi);
 
-	spin_unlock_irqrestore(&spi->lock, flags);
+//	spin_unlock_irqrestore(&spi->lock, flags);
 
 	return 1;
 
@@ -1373,7 +1373,7 @@ dma_desc_error:
 	stm32_spi_clr_bits(spi, spi->cfg->regs->dma_rx_en.reg,
 			   spi->cfg->regs->dma_rx_en.mask);
 
-	spin_unlock_irqrestore(&spi->lock, flags);
+//	spin_unlock_irqrestore(&spi->lock, flags);
 
 	dev_info(spi->dev, "DMA issue: fall back to irq transfer\n");
 
@@ -1602,7 +1602,7 @@ static int stm32_spi_transfer_one_setup(struct stm32_spi *spi,
 	int nb_words, ret = 0;
 	int mbr;
 
-	spin_lock_irqsave(&spi->lock, flags);
+//	spin_lock_irqsave(&spi->lock, flags);
 
 	spi->cur_xferlen = transfer->len;
 
@@ -1656,7 +1656,7 @@ static int stm32_spi_transfer_one_setup(struct stm32_spi *spi,
 		(spi->cur_usedma) ? "enabled" : "disabled");
 
 out:
-	spin_unlock_irqrestore(&spi->lock, flags);
+//	spin_unlock_irqrestore(&spi->lock, flags);
 
 	return ret;
 }
@@ -1724,7 +1724,7 @@ static int stm32f4_spi_config(struct stm32_spi *spi)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&spi->lock, flags);
+//	spin_lock_irqsave(&spi->lock, flags);
 
 	/* Ensure I2SMOD bit is kept cleared */
 	stm32_spi_clr_bits(spi, STM32F4_SPI_I2SCFGR,
@@ -1742,7 +1742,7 @@ static int stm32f4_spi_config(struct stm32_spi *spi)
 						 STM32F4_SPI_CR1_MSTR |
 						 STM32F4_SPI_CR1_SSM);
 
-	spin_unlock_irqrestore(&spi->lock, flags);
+//	spin_unlock_irqrestore(&spi->lock, flags);
 
 	return 0;
 }
@@ -1755,7 +1755,7 @@ static int stm32h7_spi_config(struct stm32_spi *spi)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&spi->lock, flags);
+//	spin_lock_irqsave(&spi->lock, flags);
 
 	/* Ensure I2SMOD bit is kept cleared */
 	stm32_spi_clr_bits(spi, STM32H7_SPI_I2SCFGR,
@@ -1780,7 +1780,7 @@ static int stm32h7_spi_config(struct stm32_spi *spi)
 						  STM32H7_SPI_CFG2_SSM |
 						  STM32H7_SPI_CFG2_AFCNTR);
 
-	spin_unlock_irqrestore(&spi->lock, flags);
+//	spin_unlock_irqrestore(&spi->lock, flags);
 
 	return 0;
 }
@@ -1828,7 +1828,7 @@ static const struct of_device_id stm32_spi_of_match[] = {
 	{ .compatible = "st,stm32f4-spi", .data = (void *)&stm32f4_spi_cfg },
 	{},
 };
-MODULE_DEVICE_TABLE(of, stm32_spi_of_match);
+//MODULE_DEVICE_TABLE(of, stm32_spi_of_match);
 
 static int stm32_spi_probe(struct platform_device *pdev)
 {
@@ -1847,61 +1847,63 @@ static int stm32_spi_probe(struct platform_device *pdev)
 	spi = spi_master_get_devdata(master);
 	spi->dev = &pdev->dev;
 	spi->master = master;
-	spin_lock_init(&spi->lock);
+//	spin_lock_init(&spi->lock);
 
-	spi->cfg = (const struct stm32_spi_cfg *)
-		of_match_device(pdev->dev.driver->of_match_table,
-				&pdev->dev)->data;
+//	spi->cfg = (const struct stm32_spi_cfg *)
+//		of_match_device(pdev->dev.driver->of_match_table,
+//				&pdev->dev)->data;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	spi->base = devm_ioremap_resource(&pdev->dev, res);
+//	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+//	spi->base = devm_ioremap_resource(&pdev->dev, res);
+	spi->base = 0;
 	if (IS_ERR(spi->base)) {
 		ret = PTR_ERR(spi->base);
 		goto err_master_put;
 	}
 
-	spi->phys_addr = (dma_addr_t)res->start;
+//	spi->phys_addr = (dma_addr_t)res->start;
+	spi->phys_addr = 0;
 
-	spi->irq = platform_get_irq(pdev, 0);
-	if (spi->irq <= 0) {
-		ret = dev_err_probe(&pdev->dev, spi->irq, "failed to get irq\n");
-		goto err_master_put;
-	}
-	ret = devm_request_threaded_irq(&pdev->dev, spi->irq,
-					spi->cfg->irq_handler_event,
-					spi->cfg->irq_handler_thread,
-					IRQF_ONESHOT, pdev->name, master);
-	if (ret) {
-		dev_err(&pdev->dev, "irq%d request failed: %d\n", spi->irq,
-			ret);
-		goto err_master_put;
-	}
+//	spi->irq = platform_get_irq(pdev, 0);
+//	if (spi->irq <= 0) {
+//		ret = dev_err_probe(&pdev->dev, spi->irq, "failed to get irq\n");
+//		goto err_master_put;
+//	}
+//	ret = devm_request_threaded_irq(&pdev->dev, spi->irq,
+//					spi->cfg->irq_handler_event,
+//					spi->cfg->irq_handler_thread,
+//					IRQF_ONESHOT, pdev->name, master);
+//	if (ret) {
+//		dev_err(&pdev->dev, "irq%d request failed: %d\n", spi->irq,
+//			ret);
+//		goto err_master_put;
+//	}
 
-	spi->clk = devm_clk_get(&pdev->dev, NULL);
-	if (IS_ERR(spi->clk)) {
-		ret = PTR_ERR(spi->clk);
-		dev_err(&pdev->dev, "clk get failed: %d\n", ret);
-		goto err_master_put;
-	}
+//	spi->clk = devm_clk_get(&pdev->dev, NULL);
+//	if (IS_ERR(spi->clk)) {
+//		ret = PTR_ERR(spi->clk);
+//		dev_err(&pdev->dev, "clk get failed: %d\n", ret);
+//		goto err_master_put;
+//	}
 
-	ret = clk_prepare_enable(spi->clk);
-	if (ret) {
-		dev_err(&pdev->dev, "clk enable failed: %d\n", ret);
-		goto err_master_put;
-	}
-	spi->clk_rate = clk_get_rate(spi->clk);
-	if (!spi->clk_rate) {
-		dev_err(&pdev->dev, "clk rate = 0\n");
-		ret = -EINVAL;
-		goto err_clk_disable;
-	}
+//	ret = clk_prepare_enable(spi->clk);
+//	if (ret) {
+//		dev_err(&pdev->dev, "clk enable failed: %d\n", ret);
+//		goto err_master_put;
+//	}
+//	spi->clk_rate = clk_get_rate(spi->clk);
+//	if (!spi->clk_rate) {
+//		dev_err(&pdev->dev, "clk rate = 0\n");
+//		ret = -EINVAL;
+//		goto err_clk_disable;
+//	}
 
-	spi->rst = devm_reset_control_get_exclusive(&pdev->dev, NULL);
-	if (!IS_ERR(spi->rst)) {
-		reset_control_assert(spi->rst);
-		udelay(2);
-		reset_control_deassert(spi->rst);
-	}
+//	spi->rst = devm_reset_control_get_exclusive(&pdev->dev, NULL);
+//	if (!IS_ERR(spi->rst)) {
+//		reset_control_assert(spi->rst);
+//		udelay(2);
+//		reset_control_deassert(spi->rst);
+//	}
 
 	if (spi->cfg->has_fifo)
 		spi->fifo_size = spi->cfg->get_fifo_size(spi);
@@ -1913,7 +1915,7 @@ static int stm32_spi_probe(struct platform_device *pdev)
 		goto err_clk_disable;
 	}
 
-	master->dev.of_node = pdev->dev.of_node;
+//	master->dev.of_node = pdev->dev.of_node;
 	master->auto_runtime_pm = true;
 	master->bus_num = pdev->id;
 	master->mode_bits = SPI_CPHA | SPI_CPOL | SPI_CS_HIGH | SPI_LSB_FIRST |
@@ -1927,35 +1929,35 @@ static int stm32_spi_probe(struct platform_device *pdev)
 	master->unprepare_message = stm32_spi_unprepare_msg;
 	master->flags = SPI_MASTER_MUST_TX;
 
-	spi->dma_tx = dma_request_chan(spi->dev, "tx");
-	if (IS_ERR(spi->dma_tx)) {
-		ret = PTR_ERR(spi->dma_tx);
-		spi->dma_tx = NULL;
-		if (ret == -EPROBE_DEFER)
-			goto err_clk_disable;
+//	spi->dma_tx = dma_request_chan(spi->dev, "tx");
+//	if (IS_ERR(spi->dma_tx)) {
+//		ret = PTR_ERR(spi->dma_tx);
+//		spi->dma_tx = NULL;
+//		if (ret == -EPROBE_DEFER)
+//			goto err_clk_disable;
 
-		dev_warn(&pdev->dev, "failed to request tx dma channel\n");
-	} else {
-		master->dma_tx = spi->dma_tx;
-	}
+//		dev_warn(&pdev->dev, "failed to request tx dma channel\n");
+//	} else {
+//		master->dma_tx = spi->dma_tx;
+//	}
 
-	spi->dma_rx = dma_request_chan(spi->dev, "rx");
-	if (IS_ERR(spi->dma_rx)) {
-		ret = PTR_ERR(spi->dma_rx);
-		spi->dma_rx = NULL;
-		if (ret == -EPROBE_DEFER)
-			goto err_dma_release;
+//	spi->dma_rx = dma_request_chan(spi->dev, "rx");
+//	if (IS_ERR(spi->dma_rx)) {
+//		ret = PTR_ERR(spi->dma_rx);
+//		spi->dma_rx = NULL;
+//		if (ret == -EPROBE_DEFER)
+//			goto err_dma_release;
 
-		dev_warn(&pdev->dev, "failed to request rx dma channel\n");
-	} else {
-		master->dma_rx = spi->dma_rx;
-	}
+//		dev_warn(&pdev->dev, "failed to request rx dma channel\n");
+//	} else {
+//		master->dma_rx = spi->dma_rx;
+//	}
 
-	if (spi->dma_tx || spi->dma_rx)
-		master->can_dma = stm32_spi_can_dma;
+//	if (spi->dma_tx || spi->dma_rx)
+//		master->can_dma = stm32_spi_can_dma;
 
-	pm_runtime_set_active(&pdev->dev);
-	pm_runtime_enable(&pdev->dev);
+//	pm_runtime_set_active(&pdev->dev);
+//	pm_runtime_enable(&pdev->dev);
 
 	ret = devm_spi_register_master(&pdev->dev, master);
 	if (ret) {
@@ -1975,16 +1977,16 @@ static int stm32_spi_probe(struct platform_device *pdev)
 	return 0;
 
 err_pm_disable:
-	pm_runtime_disable(&pdev->dev);
+//	pm_runtime_disable(&pdev->dev);
 err_dma_release:
-	if (spi->dma_tx)
-		dma_release_channel(spi->dma_tx);
-	if (spi->dma_rx)
-		dma_release_channel(spi->dma_rx);
+//	if (spi->dma_tx)
+//		dma_release_channel(spi->dma_tx);
+//	if (spi->dma_rx)
+//		dma_release_channel(spi->dma_rx);
 err_clk_disable:
-	clk_disable_unprepare(spi->clk);
+//	clk_disable_unprepare(spi->clk);
 err_master_put:
-	spi_master_put(master);
+//	spi_master_put(master);
 
 	return ret;
 }
@@ -1996,14 +1998,14 @@ static int stm32_spi_remove(struct platform_device *pdev)
 
 	spi->cfg->disable(spi);
 
-	if (master->dma_tx)
-		dma_release_channel(master->dma_tx);
-	if (master->dma_rx)
-		dma_release_channel(master->dma_rx);
+//	if (master->dma_tx)
+//		dma_release_channel(master->dma_tx);
+//	if (master->dma_rx)
+//		dma_release_channel(master->dma_rx);
 
-	clk_disable_unprepare(spi->clk);
+//	clk_disable_unprepare(spi->clk);
 
-	pm_runtime_disable(&pdev->dev);
+//	pm_runtime_disable(&pdev->dev);
 
 	pinctrl_pm_select_sleep_state(&pdev->dev);
 
@@ -2045,7 +2047,8 @@ static int stm32_spi_suspend(struct device *dev)
 	if (ret)
 		return ret;
 
-	return pm_runtime_force_suspend(dev);
+//	return pm_runtime_force_suspend(dev);
+	return 0;
 }
 
 static int stm32_spi_resume(struct device *dev)
@@ -2054,27 +2057,27 @@ static int stm32_spi_resume(struct device *dev)
 	struct stm32_spi *spi = spi_master_get_devdata(master);
 	int ret;
 
-	ret = pm_runtime_force_resume(dev);
-	if (ret)
-		return ret;
+//	ret = pm_runtime_force_resume(dev);
+//	if (ret)
+//		return ret;
 
 	ret = spi_master_resume(master);
 	if (ret) {
-		clk_disable_unprepare(spi->clk);
+//		clk_disable_unprepare(spi->clk);
 		return ret;
 	}
 
-	ret = pm_runtime_get_sync(dev);
-	if (ret < 0) {
-		pm_runtime_put_noidle(dev);
-		dev_err(dev, "Unable to power device:%d\n", ret);
-		return ret;
-	}
+//	ret = pm_runtime_get_sync(dev);
+//	if (ret < 0) {
+//		pm_runtime_put_noidle(dev);
+//		dev_err(dev, "Unable to power device:%d\n", ret);
+//		return ret;
+//	}
 
 	spi->cfg->config(spi);
 
-	pm_runtime_mark_last_busy(dev);
-	pm_runtime_put_autosuspend(dev);
+//	pm_runtime_mark_last_busy(dev);
+//	pm_runtime_put_autosuspend(dev);
 
 	return 0;
 }
@@ -2096,7 +2099,21 @@ static struct platform_driver stm32_spi_driver = {
 	},
 };
 
-module_platform_driver(stm32_spi_driver);
+int __init stm32_spi_init(void)
+{
+	int ret;
+
+	ret = platform_driver_register(&stm32_spi_driver);
+	if (ret)
+		printk(KERN_ERR "spi-gpio: probe failed: %d\n", ret);
+    
+	return ret;
+}
+
+void __exit stm32_spi_exit(void)
+{
+	platform_driver_unregister(&stm32_spi_driver);
+}
 
 //MODULE_ALIAS("platform:" DRIVER_NAME);
 //MODULE_DESCRIPTION("STMicroelectronics STM32 SPI Controller driver");

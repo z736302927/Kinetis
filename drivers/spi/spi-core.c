@@ -8,8 +8,8 @@
 #include <linux/device.h>
 #include <linux/init.h>
 #include <linux/cache.h>
-//#include <linux/dma-mapping.h>
-//#include <linux/dmaengine.h>
+#include <linux/dma-mapping.h>
+#include <linux/dmaengine.h>
 //#include <linux/mutex.h>
 //#include <linux/of_device.h>
 //#include <linux/of_irq.h>
@@ -20,6 +20,7 @@
 #include <linux/spi/spi-mem.h>
 //#include <linux/of_gpio.h>
 #include <linux/gpio/consumer.h>
+#include <linux/gpio.h>
 //#include <linux/pm_runtime.h>
 //#include <linux/pm_domain.h>
 //#include <linux/property.h>
@@ -33,6 +34,7 @@
 //#include <linux/acpi.h>
 //#include <linux/highmem.h>
 #include <linux/idr.h>
+#include <linux/completion.h>
 //#include <linux/platform_data/x86/apple.h>
 
 //#define CREATE_TRACE_POINTS
@@ -52,7 +54,7 @@ static void spidev_release(struct device *dev)
 	if (spi->controller->cleanup)
 		spi->controller->cleanup(spi);
 
-	spi_controller_put(spi->controller);
+//	spi_controller_put(spi->controller);
 	kfree(spi->driver_override);
 	kfree(spi);
 }
@@ -63,9 +65,9 @@ modalias_show(struct device *dev, struct device_attribute *a, char *buf)
 	const struct spi_device	*spi = to_spi_device(dev);
 	int len;
 
-	len = acpi_device_modalias(dev, buf, PAGE_SIZE - 1);
-	if (len != -ENODEV)
-		return len;
+//	len = acpi_device_modalias(dev, buf, PAGE_SIZE - 1);
+//	if (len != -ENODEV)
+//		return len;
 
 	return sprintf(buf, "%s%s\n", SPI_MODULE_PREFIX, spi->modalias);
 }
@@ -510,12 +512,12 @@ struct spi_device *spi_alloc_device(struct spi_controller *ctlr)
 {
 	struct spi_device	*spi;
 
-	if (!spi_controller_get(ctlr))
-		return NULL;
+//	if (!spi_controller_get(ctlr))
+//		return NULL;
 
 	spi = kzalloc(sizeof(*spi), GFP_KERNEL);
 	if (!spi) {
-		spi_controller_put(ctlr);
+//		spi_controller_put(ctlr);
 		return NULL;
 	}
 
@@ -695,7 +697,7 @@ err_remove_props:
 //	if (chip->properties)
 //		device_remove_properties(&proxy->dev);
 err_dev_put:
-	spi_dev_put(proxy);
+//	spi_dev_put(proxy);
 	return NULL;
 }
 EXPORT_SYMBOL_GPL(spi_new_device);
@@ -1419,7 +1421,7 @@ static void __spi_pump_messages(struct spi_controller *ctlr, bool in_kthread)
 				kthread_queue_work(ctlr->kworker,
 						   &ctlr->pump_messages);
 			}
-			spin_unlock_irqrestore(&ctlr->queue_lock, flags);
+//			spin_unlock_irqrestore(&ctlr->queue_lock, flags);
 			return;
 		}
 
@@ -2457,7 +2459,7 @@ EXPORT_SYMBOL_GPL(__spi_alloc_controller);
 
 static void devm_spi_release_controller(struct device *dev, void *ctlr)
 {
-	spi_controller_put(*(struct spi_controller **)ctlr);
+//	spi_controller_put(*(struct spi_controller **)ctlr);
 }
 
 /**

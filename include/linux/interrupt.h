@@ -8,10 +8,7 @@
 #include <linux/irqreturn.h>
 #include <linux/irqnr.h>
 #include <linux/irqflags.h>
-//#include <linux/kref.h>
-struct kref {
-	int refcount;
-};
+#include <linux/kref.h>
 #include <linux/errno.h>
 
 /*
