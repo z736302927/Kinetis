@@ -595,6 +595,7 @@ struct spi_controller {
 //	struct kthread_worker		*kworker;
 //	struct kthread_work		pump_messages;
 //	spinlock_t			queue_lock;
+    void (*pump_messages)(struct spi_controller *ctlr);
 	struct list_head		queue;
 	struct spi_message		*cur_msg;
 	bool				idling;
@@ -1559,5 +1560,7 @@ of_find_spi_device_by_node(struct device_node *node)
 #define devm_spi_register_master(_dev, _ctlr) \
 	devm_spi_register_controller(_dev, _ctlr)
 #define spi_unregister_master(_ctlr)	spi_unregister_controller(_ctlr)
+
+int __init spi_init(void);
 
 #endif /* __LINUX_SPI_H */

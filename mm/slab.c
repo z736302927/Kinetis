@@ -239,6 +239,43 @@ void *krealloc(const void *p, size_t new_size, gfp_t flags)
 EXPORT_SYMBOL(krealloc);
 
 /**
+ * vmalloc - allocate virtually contiguous memory
+ * @size:    allocation size
+ *
+ * Allocate enough pages to cover @size from the page level
+ * allocator and map them into contiguous kernel virtual space.
+ *
+ * For tight control over page level allocator and protection flags
+ * use __vmalloc() instead.
+ *
+ * Return: pointer to the allocated memory or %NULL on error
+ */
+void *vmalloc(unsigned long size)
+{
+	return kmalloc(size, GFP_KERNEL);
+}
+EXPORT_SYMBOL(vmalloc);
+
+/**
+ * vzalloc - allocate virtually contiguous memory with zero fill
+ * @size:    allocation size
+ *
+ * Allocate enough pages to cover @size from the page level
+ * allocator and map them into contiguous kernel virtual space.
+ * The memory allocated is set to zero.
+ *
+ * For tight control over page level allocator and protection flags
+ * use __vmalloc() instead.
+ *
+ * Return: pointer to the allocated memory or %NULL on error
+ */
+void *vzalloc(unsigned long size)
+{
+	return kzalloc(size, GFP_KERNEL);
+}
+EXPORT_SYMBOL(vzalloc);
+
+/**
  * kmem_cache_alloc - Allocate an object
  * @cachep: The cache to allocate from.
  * @flags: See kmalloc().

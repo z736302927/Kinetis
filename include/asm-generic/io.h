@@ -906,7 +906,7 @@ static inline void iowrite64_rep(volatile void __iomem *addr,
 #endif /* CONFIG_64BIT */
 #endif /* CONFIG_GENERIC_IOMAP */
 
-#ifdef __KERNEL__
+//#ifdef __KERNEL__
 
 #include <linux/vmalloc.h>
 #define __io_virt(x) ((void __force *)(x))
@@ -1137,6 +1137,6 @@ static inline void memcpy_toio(volatile void __iomem *addr, const void *buffer,
 }
 #endif
 
-#endif /* __KERNEL__ */
+//#endif /* __KERNEL__ */
 
 #endif /* __ASM_GENERIC_IO_H */

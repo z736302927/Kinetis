@@ -7,16 +7,17 @@
  * Copyright © 2000-2010 David Woodhouse <dwmw2@infradead.org>
  */
 
-#include <linux/module.h>
+//#include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/list.h>
-#include <linux/kmod.h>
+//#include <linux/kmod.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 #include <linux/err.h>
-#include <linux/of.h>
+#include <linux/string.h>
+//#include <linux/of.h>
 
 #include "mtdcore.h"
 
@@ -78,10 +79,10 @@ static struct mtd_info *allocate_partition(struct mtd_info *parent,
 	 * will have device nodes etc only if this is set, so make the
 	 * parent conditional on that option. Note, this is a way to
 	 * distinguish between the parent and its partitions in sysfs.
-	 */
-	child->dev.parent = IS_ENABLED(CONFIG_MTD_PARTITIONED_MASTER) || mtd_is_partition(parent) ?
+	 *///IS_ENABLED(CONFIG_MTD_PARTITIONED_MASTER) || 
+	child->dev.parent = mtd_is_partition(parent) ?
 			    &parent->dev : parent->dev.parent;
-	child->dev.of_node = part->of_node;
+//	child->dev.of_node = part->of_node;
 	child->parent = parent;
 	child->part.offset = part->offset;
 	INIT_LIST_HEAD(&child->partitions);
@@ -227,14 +228,14 @@ static const struct attribute *mtd_partition_attrs[] = {
 	NULL
 };
 
-static int mtd_add_partition_attrs(struct mtd_info *new)
-{
-	int ret = sysfs_create_files(&new->dev.kobj, mtd_partition_attrs);
-	if (ret)
-		printk(KERN_WARNING
-		       "mtd: failed to create partition attrs, err=%d\n", ret);
-	return ret;
-}
+//static int mtd_add_partition_attrs(struct mtd_info *new)
+//{
+//	int ret = sysfs_create_files(&new->dev.kobj, mtd_partition_attrs);
+//	if (ret)
+//		printk(KERN_WARNING
+//		       "mtd: failed to create partition attrs, err=%d\n", ret);
+//	return ret;
+//}
 
 int mtd_add_partition(struct mtd_info *parent, const char *name,
 		      long long offset, long long length)
@@ -266,22 +267,22 @@ int mtd_add_partition(struct mtd_info *parent, const char *name,
 	if (IS_ERR(child))
 		return PTR_ERR(child);
 
-	mutex_lock(&master->master.partitions_lock);
+//	mutex_lock(&master->master.partitions_lock);
 	list_add_tail(&child->part.node, &parent->partitions);
-	mutex_unlock(&master->master.partitions_lock);
+//	mutex_unlock(&master->master.partitions_lock);
 
 	ret = add_mtd_device(child);
 	if (ret)
 		goto err_remove_part;
 
-	mtd_add_partition_attrs(child);
+//	mtd_add_partition_attrs(child);
 
 	return 0;
 
 err_remove_part:
-	mutex_lock(&master->master.partitions_lock);
+//	mutex_lock(&master->master.partitions_lock);
 	list_del(&child->part.node);
-	mutex_unlock(&master->master.partitions_lock);
+//	mutex_unlock(&master->master.partitions_lock);
 
 	free_partition(child);
 
@@ -307,7 +308,7 @@ static int __mtd_del_partition(struct mtd_info *mtd)
 			return err;
 	}
 
-	sysfs_remove_files(&mtd->dev.kobj, mtd_partition_attrs);
+//	sysfs_remove_files(&mtd->dev.kobj, mtd_partition_attrs);
 
 	err = del_mtd_device(mtd);
 	if (err)
@@ -356,9 +357,9 @@ int del_mtd_partitions(struct mtd_info *mtd)
 
 	pr_info("Deleting MTD partitions on \"%s\":\n", mtd->name);
 
-	mutex_lock(&master->master.partitions_lock);
+//	mutex_lock(&master->master.partitions_lock);
 	ret = __del_mtd_partitions(mtd);
-	mutex_unlock(&master->master.partitions_lock);
+//	mutex_unlock(&master->master.partitions_lock);
 
 	return ret;
 }
@@ -368,14 +369,14 @@ int mtd_del_partition(struct mtd_info *mtd, int partno)
 	struct mtd_info *child, *master = mtd_get_master(mtd);
 	int ret = -EINVAL;
 
-	mutex_lock(&master->master.partitions_lock);
+//	mutex_lock(&master->master.partitions_lock);
 	list_for_each_entry(child, &mtd->partitions, part.node) {
 		if (child->index == partno) {
 			ret = __mtd_del_partition(child);
 			break;
 		}
 	}
-	mutex_unlock(&master->master.partitions_lock);
+//	mutex_unlock(&master->master.partitions_lock);
 
 	return ret;
 }
@@ -408,21 +409,21 @@ int add_mtd_partitions(struct mtd_info *parent,
 			goto err_del_partitions;
 		}
 
-		mutex_lock(&master->master.partitions_lock);
+//		mutex_lock(&master->master.partitions_lock);
 		list_add_tail(&child->part.node, &parent->partitions);
-		mutex_unlock(&master->master.partitions_lock);
+//		mutex_unlock(&master->master.partitions_lock);
 
 		ret = add_mtd_device(child);
 		if (ret) {
-			mutex_lock(&master->master.partitions_lock);
+//			mutex_lock(&master->master.partitions_lock);
 			list_del(&child->part.node);
-			mutex_unlock(&master->master.partitions_lock);
+//			mutex_unlock(&master->master.partitions_lock);
 
 			free_partition(child);
 			goto err_del_partitions;
 		}
 
-		mtd_add_partition_attrs(child);
+//		mtd_add_partition_attrs(child);
 
 		/* Look for subpartitions */
 		parse_mtd_partitions(child, parts[i].types, NULL);
@@ -445,22 +446,22 @@ static struct mtd_part_parser *mtd_part_parser_get(const char *name)
 {
 	struct mtd_part_parser *p, *ret = NULL;
 
-	spin_lock(&part_parser_lock);
+//	spin_lock(&part_parser_lock);
 
 	list_for_each_entry(p, &part_parsers, list)
-		if (!strcmp(p->name, name) && try_module_get(p->owner)) {
+		if (!strcmp(p->name, name)) {
 			ret = p;
 			break;
 		}
 
-	spin_unlock(&part_parser_lock);
+//	spin_unlock(&part_parser_lock);
 
 	return ret;
 }
 
 static inline void mtd_part_parser_put(const struct mtd_part_parser *p)
 {
-	module_put(p->owner);
+//	module_put(p->owner);
 }
 
 /*
@@ -480,9 +481,9 @@ int __register_mtd_parser(struct mtd_part_parser *p, struct module *owner)
 	if (!p->cleanup)
 		p->cleanup = &mtd_part_parser_cleanup_default;
 
-	spin_lock(&part_parser_lock);
+//	spin_lock(&part_parser_lock);
 	list_add(&p->list, &part_parsers);
-	spin_unlock(&part_parser_lock);
+//	spin_unlock(&part_parser_lock);
 
 	return 0;
 }
@@ -490,9 +491,9 @@ EXPORT_SYMBOL_GPL(__register_mtd_parser);
 
 void deregister_mtd_parser(struct mtd_part_parser *p)
 {
-	spin_lock(&part_parser_lock);
+//	spin_lock(&part_parser_lock);
 	list_del(&p->list);
-	spin_unlock(&part_parser_lock);
+//	spin_unlock(&part_parser_lock);
 }
 EXPORT_SYMBOL_GPL(deregister_mtd_parser);
 
@@ -542,66 +543,65 @@ static int mtd_part_do_parse(struct mtd_part_parser *parser,
  * compatibility strings. This function finds a parser that advertises support
  * for a passed value of "compatible".
  */
-static struct mtd_part_parser *mtd_part_get_compatible_parser(const char *compat)
-{
-	struct mtd_part_parser *p, *ret = NULL;
+//static struct mtd_part_parser *mtd_part_get_compatible_parser(const char *compat)
+//{
+//	struct mtd_part_parser *p, *ret = NULL;
 
-	spin_lock(&part_parser_lock);
+////	spin_lock(&part_parser_lock);
 
-	list_for_each_entry(p, &part_parsers, list) {
-		const struct of_device_id *matches;
+//	list_for_each_entry(p, &part_parsers, list) {
+//		const struct of_device_id *matches;
 
-		matches = p->of_match_table;
-		if (!matches)
-			continue;
+//		matches = p->of_match_table;
+//		if (!matches)
+//			continue;
 
-		for (; matches->compatible[0]; matches++) {
-			if (!strcmp(matches->compatible, compat) &&
-			    try_module_get(p->owner)) {
-				ret = p;
-				break;
-			}
-		}
+//		for (; matches->compatible[0]; matches++) {
+//			if (!strcmp(matches->compatible, compat)) {
+//				ret = p;
+//				break;
+//			}
+//		}
 
-		if (ret)
-			break;
-	}
+//		if (ret)
+//			break;
+//	}
 
-	spin_unlock(&part_parser_lock);
+////	spin_unlock(&part_parser_lock);
 
-	return ret;
-}
+//	return ret;
+//}
 
 static int mtd_part_of_parse(struct mtd_info *master,
 			     struct mtd_partitions *pparts)
 {
 	struct mtd_part_parser *parser;
-	struct device_node *np;
-	struct property *prop;
-	const char *compat;
+//	struct device_node *np;
+//	struct property *prop;
+//	const char *compat;
 	const char *fixed = "fixed-partitions";
 	int ret, err = 0;
 
-	np = mtd_get_of_node(master);
-	if (mtd_is_partition(master))
-		of_node_get(np);
-	else
-		np = of_get_child_by_name(np, "partitions");
+//	np = mtd_get_of_node(master);
+//	if (mtd_is_partition(master))
+//		of_node_get(np);
+//	else
+//		np = of_get_child_by_name(np, "partitions");
 
-	of_property_for_each_string(np, "compatible", prop, compat) {
-		parser = mtd_part_get_compatible_parser(compat);
-		if (!parser)
-			continue;
-		ret = mtd_part_do_parse(parser, master, pparts, NULL);
-		if (ret > 0) {
-			of_node_put(np);
-			return ret;
-		}
-		mtd_part_parser_put(parser);
-		if (ret < 0 && !err)
-			err = ret;
-	}
-	of_node_put(np);
+//	of_property_for_each_string(np, "compatible", prop, compat) {
+//		parser = mtd_part_get_compatible_parser(compat);
+//		if (!parser)
+//			continue;
+//		ret = mtd_part_do_parse(parser, master, pparts, NULL);
+//		if (ret > 0) {
+//			of_node_put(np);
+//			return ret;
+//		}
+//		mtd_part_parser_put(parser);
+//		if (ret < 0 && !err)
+//			err = ret;
+//	}
+//	of_node_put(np);
 
 	/*
 	 * For backward compatibility we have to try the "fixed-partitions"
@@ -610,7 +610,7 @@ static int mtd_part_of_parse(struct mtd_info *master,
 	 * specified we could match.
 	 */
 	parser = mtd_part_parser_get(fixed);
-	if (!parser && !request_module("%s", fixed))
+	if (!parser)
 		parser = mtd_part_parser_get(fixed);
 	if (parser) {
 		ret = mtd_part_do_parse(parser, master, pparts, NULL);
@@ -665,7 +665,7 @@ int parse_mtd_partitions(struct mtd_info *master, const char *const *types,
 			pr_debug("%s: parsing partitions %s\n", master->name,
 				 *types);
 			parser = mtd_part_parser_get(*types);
-			if (!parser && !request_module("%s", *types))
+			if (!parser)
 				parser = mtd_part_parser_get(*types);
 			pr_debug("%s: got parser %s\n", master->name,
 				parser ? parser->name : NULL);

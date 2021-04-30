@@ -64,7 +64,7 @@ struct spi_gpio {
  */
 
 #ifndef DRIVER_NAME
-#define DRIVER_NAME	"spi_gpio"
+#define DRIVER_NAME	"spi-gpio"
 
 #define GENERIC_BITBANG	/* vs tight inlines */
 

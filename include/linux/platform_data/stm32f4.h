@@ -50,5 +50,7 @@ struct stm32f4_i2c_dev {
 
 int __init i2c_stm32f4_init(void);
 void __exit i2c_stm32f4_exit(void);
+int __init stm32_spi_init(void);
+void __exit stm32_spi_exit(void);
 
 #endif /* _LINUX_STM32F4_H */

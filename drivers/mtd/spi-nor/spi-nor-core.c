@@ -9,20 +9,21 @@
 
 #include <linux/err.h>
 #include <linux/errno.h>
-#include <linux/module.h>
+//#include <linux/module.h>
 #include <linux/device.h>
-#include <linux/mutex.h>
+//#include <linux/mutex.h>
 #include <linux/math64.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
+#include <linux/jiffies.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/of_platform.h>
-#include <linux/sched/task_stack.h>
+//#include <linux/sched/task_stack.h>
 #include <linux/spi/flash.h>
 #include <linux/mtd/spi-nor.h>
 
-#include "spi-nor-core.h"
+#include "core.h"
 
 /* Define max times to check status register before we give up. */
 
@@ -128,13 +129,13 @@ void spi_nor_spimem_setup_op(const struct spi_nor *nor,
 static bool spi_nor_spimem_bounce(struct spi_nor *nor, struct spi_mem_op *op)
 {
 	/* op->data.buf.in occupies the same memory as op->data.buf.out */
-	if (object_is_on_stack(op->data.buf.in) ||
-	    !virt_addr_valid(op->data.buf.in)) {
+//	if (object_is_on_stack(op->data.buf.in) ||
+//	    !virt_addr_valid(op->data.buf.in)) {
 		if (op->data.nbytes > nor->bouncebuf_size)
 			op->data.nbytes = nor->bouncebuf_size;
 		op->data.buf.in = nor->bouncebuf;
 		return true;
-	}
+//	}
 
 	return false;
 }
@@ -832,7 +833,7 @@ static int spi_nor_wait_till_ready_with_timeout(struct spi_nor *nor,
 		if (ret)
 			return 0;
 
-		cond_resched();
+//		cond_resched();
 	}
 
 	dev_dbg(nor->dev, "flash operation timed out\n");
@@ -1251,12 +1252,12 @@ int spi_nor_lock_and_prep(struct spi_nor *nor)
 {
 	int ret = 0;
 
-	mutex_lock(&nor->lock);
+//	mutex_lock(&nor->lock);
 
 	if (nor->controller_ops &&  nor->controller_ops->prepare) {
 		ret = nor->controller_ops->prepare(nor);
 		if (ret) {
-			mutex_unlock(&nor->lock);
+//			mutex_unlock(&nor->lock);
 			return ret;
 		}
 	}
@@ -1267,7 +1268,7 @@ void spi_nor_unlock_and_unprep(struct spi_nor *nor)
 {
 	if (nor->controller_ops && nor->controller_ops->unprepare)
 		nor->controller_ops->unprepare(nor);
-	mutex_unlock(&nor->lock);
+//	mutex_unlock(&nor->lock);
 }
 
 static u32 spi_nor_convert_addr(struct spi_nor *nor, loff_t addr)
@@ -2876,7 +2877,7 @@ static void spi_nor_info_init_params(struct spi_nor *nor)
 	struct spi_nor_flash_parameter *params = nor->params;
 	struct spi_nor_erase_map *map = &params->erase_map;
 	const struct flash_info *info = nor->info;
-	struct device_node *np = spi_nor_get_flash_node(nor);
+//	struct device_node *np = spi_nor_get_flash_node(nor);
 	u8 i, erase_mask;
 
 	/* Initialize legacy flash parameters and settings. */
@@ -2895,9 +2896,9 @@ static void spi_nor_info_init_params(struct spi_nor *nor)
 		/* Default to Fast Read for DT and non-DT platform devices. */
 		params->hwcaps.mask |= SNOR_HWCAPS_READ_FAST;
 
-		/* Mask out Fast Read if not requested at DT instantiation. */
-		if (np && !of_property_read_bool(np, "m25p,fast-read"))
-			params->hwcaps.mask &= ~SNOR_HWCAPS_READ_FAST;
+//		/* Mask out Fast Read if not requested at DT instantiation. */
+//		if (np && !of_property_read_bool(np, "m25p,fast-read"))
+//			params->hwcaps.mask &= ~SNOR_HWCAPS_READ_FAST;
 	}
 
 	/* (Fast) Read settings. */
@@ -3175,9 +3176,10 @@ static int spi_nor_init(struct spi_nor *nor)
 	 * protection bits are volatile. The latter is indicated by
 	 * SNOR_F_SWP_IS_VOLATILE.
 	 */
-	if (IS_ENABLED(CONFIG_MTD_SPI_NOR_SWP_DISABLE) ||
-	    (IS_ENABLED(CONFIG_MTD_SPI_NOR_SWP_DISABLE_ON_VOLATILE) &&
-	     nor->flags & SNOR_F_SWP_IS_VOLATILE))
+//	if (IS_ENABLED(CONFIG_MTD_SPI_NOR_SWP_DISABLE) ||
+//	    (IS_ENABLED(CONFIG_MTD_SPI_NOR_SWP_DISABLE_ON_VOLATILE) &&
+//	     nor->flags & SNOR_F_SWP_IS_VOLATILE))
+	if (nor->flags & SNOR_F_SWP_IS_VOLATILE)
 		spi_nor_try_unlock_all(nor);
 
 	if (nor->addr_width == 4 &&
@@ -3392,7 +3394,7 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 	const struct flash_info *info;
 	struct device *dev = nor->dev;
 	struct mtd_info *mtd = &nor->mtd;
-	struct device_node *np = spi_nor_get_flash_node(nor);
+//	struct device_node *np = spi_nor_get_flash_node(nor);
 	int ret;
 	int i;
 
@@ -3427,7 +3429,7 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 
 	spi_nor_debugfs_init(nor, info);
 
-	mutex_init(&nor->lock);
+//	mutex_init(&nor->lock);
 
 	/*
 	 * Make sure the XSR_RDY flag is set before calling
@@ -3493,8 +3495,8 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 	nor->page_size = nor->params->page_size;
 	mtd->writebufsize = nor->page_size;
 
-	if (of_property_read_bool(np, "broken-flash-reset"))
-		nor->flags |= SNOR_F_BROKEN_RESET;
+//	if (of_property_read_bool(np, "broken-flash-reset"))
+//		nor->flags |= SNOR_F_BROKEN_RESET;
 
 	/*
 	 * Configure the SPI memory:
@@ -3623,7 +3625,7 @@ static int spi_nor_probe(struct spi_mem *spimem)
 
 	nor->spimem = spimem;
 	nor->dev = &spi->dev;
-	spi_nor_set_flash_node(nor, spi->dev.of_node);
+//	spi_nor_set_flash_node(nor, spi->dev.of_node);
 
 	spi_mem_set_drvdata(spimem, nor);
 
@@ -3749,7 +3751,7 @@ static const struct spi_device_id spi_nor_dev_ids[] = {
 
 	{ },
 };
-MODULE_DEVICE_TABLE(spi, spi_nor_dev_ids);
+//MODULE_DEVICE_TABLE(spi, spi_nor_dev_ids);
 
 static const struct of_device_id spi_nor_of_table[] = {
 	/*
@@ -3759,7 +3761,7 @@ static const struct of_device_id spi_nor_of_table[] = {
 	{ .compatible = "jedec,spi-nor" },
 	{ /* sentinel */ },
 };
-MODULE_DEVICE_TABLE(of, spi_nor_of_table);
+//MODULE_DEVICE_TABLE(of, spi_nor_of_table);
 
 /*
  * REVISIT: many of these chips have deep power-down modes, which
@@ -3778,9 +3780,25 @@ static struct spi_mem_driver spi_nor_driver = {
 	.remove = spi_nor_remove,
 	.shutdown = spi_nor_shutdown,
 };
-module_spi_mem_driver(spi_nor_driver);
+//module_spi_mem_driver(spi_nor_driver);
 
-MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Huang Shijie <shijie8@gmail.com>");
-MODULE_AUTHOR("Mike Lavender");
-MODULE_DESCRIPTION("framework for SPI NOR");
+int __init spi_nor_driver_init(void)
+{
+	int ret;
+
+	ret = spi_mem_driver_register(&spi_nor_driver);
+	if (ret)
+		printk(KERN_ERR "spi_nor_driver: probe failed: %d\n", ret);
+    
+	return ret;
+}
+
+void __exit spi_nor_driver_exit(void)
+{
+	spi_mem_driver_unregister(&spi_nor_driver);
+}
+
+//MODULE_LICENSE("GPL v2");
+//MODULE_AUTHOR("Huang Shijie <shijie8@gmail.com>");
+//MODULE_AUTHOR("Mike Lavender");
+//MODULE_DESCRIPTION("framework for SPI NOR");

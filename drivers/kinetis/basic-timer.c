@@ -1,7 +1,5 @@
 #include "kinetis/basic-timer.h"
 
-#include "tim.h"
-
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /**
@@ -83,18 +81,9 @@ u64 basic_timer_get_us(void)
     return timer_tick_ss * 1000000 + basic_timer_get_timer_cnt();
 }
 
-/**
-  * @brief Provide a timer value in microsecond.
-  * @note You need to set the timer resolution to 1us
-  * @retval tick value
-  */
-u32 basic_timer_get_timer_cnt(void)
+u64 basic_timer_get_ns(void)
 {
-#ifdef BASIC_16BIT_TIMER
-    return timer_tick_us;
-#else
-    return (u32)htim2.Instance->CNT;
-#endif
+    return timer_tick_ss * 1000000000 + basic_timer_get_timer_cnt() * 1000;
 }
 
 /**

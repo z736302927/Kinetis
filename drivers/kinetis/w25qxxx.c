@@ -9,6 +9,7 @@
 #include <linux/errno.h>
 #include <linux/printk.h>
 
+#undef abs
 #include "stdlib.h"
 #include "string.h"
 
@@ -127,14 +128,14 @@ static inline void w25qxxx_cs_high(u8 w25qxxx)
     }
 }
 
-void w25qxxx_HardReset(u8 w25qxxx)
+void w25qxxx_hard_reset(u8 w25qxxx)
 {
 
 }
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-#define _PAGE_SIZE                       256
+#define W25Q_PAGE_SIZE                       256
 #define SECTOR_SIZE                     4096
 #define DUMMY_BYTE                      0xFF
 #define WRITE_ENABLE                    0x06
@@ -813,36 +814,36 @@ static int w25qxxx_multi_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 lengt
 {
     u8 num_of_page = 0, num_of_single = 0, sub_addr = 0, cnt = 0, remain_of_single = 0;
 
-    /* Mod operation, if addr is an integer multiple of _PAGE_SIZE, sub_addr value is 0 */
-    sub_addr = addr % _PAGE_SIZE;
+    /* Mod operation, if addr is an integer multiple of W25Q_PAGE_SIZE, sub_addr value is 0 */
+    sub_addr = addr % W25Q_PAGE_SIZE;
 
     /* The difference count is just enough to line up to the page addr */
-    cnt = _PAGE_SIZE - sub_addr;
+    cnt = W25Q_PAGE_SIZE - sub_addr;
     /* Figure out how many integer pages to write */
-    num_of_page =  length / _PAGE_SIZE;
+    num_of_page =  length / W25Q_PAGE_SIZE;
     /* mod operation is used to calculate the num of bytes less than one page */
-    num_of_single = length % _PAGE_SIZE;
+    num_of_single = length % W25Q_PAGE_SIZE;
 
     /* sub_addr=0, then addr is just aligned by page */
     if (sub_addr == 0) {
-        /* length < _PAGE_SIZE */
+        /* length < W25Q_PAGE_SIZE */
         if (num_of_page == 0)
             w25qxxx_page_program(w25qxxx, addr, pdata, length);
-        else { /* length > _PAGE_SIZE */
+        else { /* length > W25Q_PAGE_SIZE */
             /* Let me write down all the integer pages */
             while (num_of_page--) {
-                w25qxxx_page_program(w25qxxx, addr, pdata, _PAGE_SIZE);
+                w25qxxx_page_program(w25qxxx, addr, pdata, W25Q_PAGE_SIZE);
 
-                addr +=  _PAGE_SIZE;
-                pdata += _PAGE_SIZE;
+                addr +=  W25Q_PAGE_SIZE;
+                pdata += W25Q_PAGE_SIZE;
             }
 
             /* If you have more than one page of data, write it down*/
             if (num_of_single != 0)
                 w25qxxx_page_program(w25qxxx, addr, pdata, num_of_single);
         }
-    } else { /* If the addr is not aligned with _PAGE_SIZE */
-        /* length < _PAGE_SIZE */
+    } else { /* If the addr is not aligned with W25Q_PAGE_SIZE */
+        /* length < W25Q_PAGE_SIZE */
         if (num_of_page == 0) {
             /* The remaining count positions on the current page are smaller than num_of_single */
             if (num_of_single > cnt) {
@@ -858,11 +859,11 @@ static int w25qxxx_multi_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 lengt
                 w25qxxx_page_program(w25qxxx, addr, pdata, remain_of_single);
             } else  /* The remaining count position of the current page can write num_of_single data */
                 w25qxxx_page_program(w25qxxx, addr, pdata, length);
-        } else { /* length > _PAGE_SIZE */
+        } else { /* length > W25Q_PAGE_SIZE */
             /* The addr is not aligned and the extra count is treated separately, not added to the operation */
             length -= cnt;
-            num_of_page =  length / _PAGE_SIZE;
-            num_of_single = length % _PAGE_SIZE;
+            num_of_page =  length / W25Q_PAGE_SIZE;
+            num_of_single = length % W25Q_PAGE_SIZE;
 
             w25qxxx_page_program(w25qxxx, addr, pdata, cnt);
 
@@ -871,10 +872,10 @@ static int w25qxxx_multi_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 lengt
 
             /* Write all the integer pages */
             while (num_of_page--) {
-                w25qxxx_page_program(w25qxxx, addr, pdata, _PAGE_SIZE);
+                w25qxxx_page_program(w25qxxx, addr, pdata, W25Q_PAGE_SIZE);
 
-                addr +=  _PAGE_SIZE;
-                pdata += _PAGE_SIZE;
+                addr +=  W25Q_PAGE_SIZE;
+                pdata += W25Q_PAGE_SIZE;
             }
 
             /* If you have more than one page of data, write it down */

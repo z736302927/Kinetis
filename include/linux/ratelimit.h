@@ -3,15 +3,17 @@
 #define _LINUX_RATELIMIT_H
 
 #include <linux/ratelimit_types.h>
-#include <linux/sched.h>
-#include <linux/spinlock.h>
+#include <linux/string.h>
+#include <linux/printk.h>
+//#include <linux/sched.h>
+//#include <linux/spinlock.h>
 
 static inline void ratelimit_state_init(struct ratelimit_state *rs,
 					int interval, int burst)
 {
 	memset(rs, 0, sizeof(*rs));
 
-	raw_spin_lock_init(&rs->lock);
+//	raw_spin_lock_init(&rs->lock);
 	rs->interval	= interval;
 	rs->burst	= burst;
 }
@@ -28,8 +30,10 @@ static inline void ratelimit_state_exit(struct ratelimit_state *rs)
 		return;
 
 	if (rs->missed) {
+//		pr_warn("%s: %d output lines suppressed due to ratelimiting\n",
+//			current->comm, rs->missed);
 		pr_warn("%s: %d output lines suppressed due to ratelimiting\n",
-			current->comm, rs->missed);
+			__func__, rs->missed);
 		rs->missed = 0;
 	}
 }

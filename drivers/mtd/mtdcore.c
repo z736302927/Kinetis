@@ -7,26 +7,27 @@
  * Copyright © 2006      Red Hat UK Limited 
  */
 
-#include <linux/module.h>
+//#include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/ptrace.h>
-#include <linux/seq_file.h>
+//#include <linux/ptrace.h>
+//#include <linux/seq_file.h>
 #include <linux/string.h>
 #include <linux/timer.h>
 #include <linux/major.h>
-#include <linux/fs.h>
+//#include <linux/fs.h>
 #include <linux/err.h>
-#include <linux/ioctl.h>
+//#include <linux/ioctl.h>
 #include <linux/init.h>
-#include <linux/of.h>
-#include <linux/proc_fs.h>
+//#include <linux/of.h>
+//#include <linux/proc_fs.h>
 #include <linux/idr.h>
-#include <linux/backing-dev.h>
+//#include <linux/backing-dev.h>
 #include <linux/gfp.h>
 #include <linux/slab.h>
-#include <linux/reboot.h>
+//#include <linux/reboot.h>
 #include <linux/leds.h>
-#include <linux/debugfs.h>
+#include <linux/kdev_t.h>
+//#include <linux/debugfs.h>
 #include <linux/nvmem-provider.h>
 
 #include <linux/mtd/mtd.h>
@@ -70,7 +71,7 @@ static DEFINE_IDR(mtd_idr);
 
 /* These are exported solely for the purpose of mtd_blkdevs.c. You
    should not use them for _anything_ else */
-DEFINE_MUTEX(mtd_table_mutex);
+//DEFINE_MUTEX(mtd_table_mutex);
 EXPORT_SYMBOL_GPL(mtd_table_mutex);
 
 struct mtd_info *__mtd_next_device(int i)
@@ -335,77 +336,77 @@ static const struct device_type mtd_devtype = {
 	.release	= mtd_release,
 };
 
-static int mtd_partid_debug_show(struct seq_file *s, void *p)
-{
-	struct mtd_info *mtd = s->private;
+//static int mtd_partid_debug_show(struct seq_file *s, void *p)
+//{
+//	struct mtd_info *mtd = s->private;
 
-	seq_printf(s, "%s\n", mtd->dbg.partid);
+//	seq_printf(s, "%s\n", mtd->dbg.partid);
 
-	return 0;
-}
+//	return 0;
+//}
 
-DEFINE_SHOW_ATTRIBUTE(mtd_partid_debug);
+//DEFINE_SHOW_ATTRIBUTE(mtd_partid_debug);
 
-static int mtd_partname_debug_show(struct seq_file *s, void *p)
-{
-	struct mtd_info *mtd = s->private;
+//static int mtd_partname_debug_show(struct seq_file *s, void *p)
+//{
+//	struct mtd_info *mtd = s->private;
 
-	seq_printf(s, "%s\n", mtd->dbg.partname);
+//	seq_printf(s, "%s\n", mtd->dbg.partname);
 
-	return 0;
-}
+//	return 0;
+//}
 
-DEFINE_SHOW_ATTRIBUTE(mtd_partname_debug);
+//DEFINE_SHOW_ATTRIBUTE(mtd_partname_debug);
 
-static struct dentry *dfs_dir_mtd;
+//static struct dentry *dfs_dir_mtd;
 
-static void mtd_debugfs_populate(struct mtd_info *mtd)
-{
-	struct device *dev = &mtd->dev;
-	struct dentry *root;
+//static void mtd_debugfs_populate(struct mtd_info *mtd)
+//{
+//	struct device *dev = &mtd->dev;
+//	struct dentry *root;
 
-	if (IS_ERR_OR_NULL(dfs_dir_mtd))
-		return;
+//	if (IS_ERR_OR_NULL(dfs_dir_mtd))
+//		return;
 
-	root = debugfs_create_dir(dev_name(dev), dfs_dir_mtd);
-	mtd->dbg.dfs_dir = root;
+//	root = debugfs_create_dir(dev_name(dev), dfs_dir_mtd);
+//	mtd->dbg.dfs_dir = root;
 
-	if (mtd->dbg.partid)
-		debugfs_create_file("partid", 0400, root, mtd,
-				    &mtd_partid_debug_fops);
+//	if (mtd->dbg.partid)
+//		debugfs_create_file("partid", 0400, root, mtd,
+//				    &mtd_partid_debug_fops);
 
-	if (mtd->dbg.partname)
-		debugfs_create_file("partname", 0400, root, mtd,
-				    &mtd_partname_debug_fops);
-}
+//	if (mtd->dbg.partname)
+//		debugfs_create_file("partname", 0400, root, mtd,
+//				    &mtd_partname_debug_fops);
+//}
 
-#ifndef CONFIG_MMU
-unsigned mtd_mmap_capabilities(struct mtd_info *mtd)
-{
-	switch (mtd->type) {
-	case MTD_RAM:
-		return NOMMU_MAP_COPY | NOMMU_MAP_DIRECT | NOMMU_MAP_EXEC |
-			NOMMU_MAP_READ | NOMMU_MAP_WRITE;
-	case MTD_ROM:
-		return NOMMU_MAP_COPY | NOMMU_MAP_DIRECT | NOMMU_MAP_EXEC |
-			NOMMU_MAP_READ;
-	default:
-		return NOMMU_MAP_COPY;
-	}
-}
-EXPORT_SYMBOL_GPL(mtd_mmap_capabilities);
-#endif
+//#ifndef CONFIG_MMU
+//unsigned mtd_mmap_capabilities(struct mtd_info *mtd)
+//{
+//	switch (mtd->type) {
+//	case MTD_RAM:
+//		return NOMMU_MAP_COPY | NOMMU_MAP_DIRECT | NOMMU_MAP_EXEC |
+//			NOMMU_MAP_READ | NOMMU_MAP_WRITE;
+//	case MTD_ROM:
+//		return NOMMU_MAP_COPY | NOMMU_MAP_DIRECT | NOMMU_MAP_EXEC |
+//			NOMMU_MAP_READ;
+//	default:
+//		return NOMMU_MAP_COPY;
+//	}
+//}
+//EXPORT_SYMBOL_GPL(mtd_mmap_capabilities);
+//#endif
 
-static int mtd_reboot_notifier(struct notifier_block *n, unsigned long state,
-			       void *cmd)
-{
-	struct mtd_info *mtd;
+//static int mtd_reboot_notifier(struct notifier_block *n, unsigned long state,
+//			       void *cmd)
+//{
+//	struct mtd_info *mtd;
 
-	mtd = container_of(n, struct mtd_info, reboot_notifier);
-	mtd->_reboot(mtd);
+//	mtd = container_of(n, struct mtd_info, reboot_notifier);
+//	mtd->_reboot(mtd);
 
-	return NOTIFY_DONE;
-}
+//	return NOTIFY_DONE;
+//}
 
 /**
  * mtd_wunit_to_pairing_info - get pairing information of a wunit
@@ -610,7 +611,7 @@ int add_mtd_device(struct mtd_info *mtd)
 	     !master->pairing || master->_writev))
 		return -EINVAL;
 
-	mutex_lock(&mtd_table_mutex);
+//	mutex_lock(&mtd_table_mutex);
 
 	i = idr_alloc(&mtd_idr, mtd, 0, 0, GFP_KERNEL);
 	if (i < 0) {
@@ -665,7 +666,7 @@ int add_mtd_device(struct mtd_info *mtd)
 	mtd->dev.devt = MTD_DEVT(i);
 	dev_set_name(&mtd->dev, "mtd%d", i);
 	dev_set_drvdata(&mtd->dev, mtd);
-	of_node_get(mtd_get_of_node(mtd));
+//	of_node_get(mtd_get_of_node(mtd));
 	error = device_register(&mtd->dev);
 	if (error)
 		goto fail_added;
@@ -675,10 +676,10 @@ int add_mtd_device(struct mtd_info *mtd)
 	if (error)
 		goto fail_nvmem_add;
 
-	mtd_debugfs_populate(mtd);
+//	mtd_debugfs_populate(mtd);
 
-	device_create(&mtd_class, mtd->dev.parent, MTD_DEVT(i) + 1, NULL,
-		      "mtd%dro", i);
+//	device_create(&mtd_class, mtd->dev.parent, MTD_DEVT(i) + 1, NULL,
+//		      "mtd%dro", i);
 
 	pr_debug("mtd: Giving out device %d to %s\n", i, mtd->name);
 	/* No need to get a refcount on the module containing
@@ -686,21 +687,21 @@ int add_mtd_device(struct mtd_info *mtd)
 	list_for_each_entry(not, &mtd_notifiers, list)
 		not->add(mtd);
 
-	mutex_unlock(&mtd_table_mutex);
+//	mutex_unlock(&mtd_table_mutex);
 	/* We _know_ we aren't being removed, because
 	   our caller is still holding us here. So none
 	   of this try_ nonsense, and no bitching about it
 	   either. :) */
-	__module_get(THIS_MODULE);
+//	__module_get(THIS_MODULE);
 	return 0;
 
 fail_nvmem_add:
 	device_unregister(&mtd->dev);
 fail_added:
-	of_node_put(mtd_get_of_node(mtd));
+//	of_node_put(mtd_get_of_node(mtd));
 	idr_remove(&mtd_idr, i);
 fail_locked:
-	mutex_unlock(&mtd_table_mutex);
+//	mutex_unlock(&mtd_table_mutex);
 	return error;
 }
 
@@ -719,9 +720,9 @@ int del_mtd_device(struct mtd_info *mtd)
 	int ret;
 	struct mtd_notifier *not;
 
-	mutex_lock(&mtd_table_mutex);
+//	mutex_lock(&mtd_table_mutex);
 
-	debugfs_remove_recursive(mtd->dbg.dfs_dir);
+//	debugfs_remove_recursive(mtd->dbg.dfs_dir);
 
 	if (idr_find(&mtd_idr, mtd->index) != mtd) {
 		ret = -ENODEV;
@@ -745,14 +746,14 @@ int del_mtd_device(struct mtd_info *mtd)
 		device_unregister(&mtd->dev);
 
 		idr_remove(&mtd_idr, mtd->index);
-		of_node_put(mtd_get_of_node(mtd));
+//		of_node_put(mtd_get_of_node(mtd));
 
-		module_put(THIS_MODULE);
+//		module_put(THIS_MODULE);
 		ret = 0;
 	}
 
 out_error:
-	mutex_unlock(&mtd_table_mutex);
+//	mutex_unlock(&mtd_table_mutex);
 	return ret;
 }
 
@@ -763,8 +764,8 @@ out_error:
 static void mtd_set_dev_defaults(struct mtd_info *mtd)
 {
 	if (mtd->dev.parent) {
-		if (!mtd->owner && mtd->dev.parent->driver)
-			mtd->owner = mtd->dev.parent->driver->owner;
+//		if (!mtd->owner && mtd->dev.parent->driver)
+//			mtd->owner = mtd->dev.parent->driver->owner;
 		if (!mtd->name)
 			mtd->name = dev_name(mtd->dev.parent);
 	} else {
@@ -772,7 +773,7 @@ static void mtd_set_dev_defaults(struct mtd_info *mtd)
 	}
 
 	INIT_LIST_HEAD(&mtd->partitions);
-	mutex_init(&mtd->master.partitions_lock);
+//	mutex_init(&mtd->master.partitions_lock);
 }
 
 /**
@@ -812,11 +813,11 @@ int mtd_device_parse_register(struct mtd_info *mtd, const char * const *types,
 
 	mtd_set_dev_defaults(mtd);
 
-	if (IS_ENABLED(CONFIG_MTD_PARTITIONED_MASTER)) {
-		ret = add_mtd_device(mtd);
-		if (ret)
-			return ret;
-	}
+#ifdef CONFIG_MTD_PARTITIONED_MASTER
+    ret = add_mtd_device(mtd);
+    if (ret)
+        return ret;
+#endif
 
 	/* Prefer parsed partitions over driver-provided fallback */
 	ret = parse_mtd_partitions(mtd, types, parser_data);
@@ -840,12 +841,12 @@ int mtd_device_parse_register(struct mtd_info *mtd, const char * const *types,
 	 * does cause problems with parse_mtd_partitions() above (e.g.,
 	 * cmdlineparts will register partitions more than once).
 	 */
-	WARN_ONCE(mtd->_reboot && mtd->reboot_notifier.notifier_call,
-		  "MTD already registered\n");
-	if (mtd->_reboot && !mtd->reboot_notifier.notifier_call) {
-		mtd->reboot_notifier.notifier_call = mtd_reboot_notifier;
-		register_reboot_notifier(&mtd->reboot_notifier);
-	}
+//	WARN_ONCE(mtd->_reboot && mtd->reboot_notifier.notifier_call,
+//		  "MTD already registered\n");
+//	if (mtd->_reboot && !mtd->reboot_notifier.notifier_call) {
+//		mtd->reboot_notifier.notifier_call = mtd_reboot_notifier;
+//		register_reboot_notifier(&mtd->reboot_notifier);
+//	}
 
 out:
 	if (ret && device_is_registered(&mtd->dev))
@@ -865,8 +866,8 @@ int mtd_device_unregister(struct mtd_info *master)
 {
 	int err;
 
-	if (master->_reboot)
-		unregister_reboot_notifier(&master->reboot_notifier);
+//	if (master->_reboot)
+//		unregister_reboot_notifier(&master->reboot_notifier);
 
 	err = del_mtd_partitions(master);
 	if (err)
@@ -891,16 +892,16 @@ void register_mtd_user (struct mtd_notifier *new)
 {
 	struct mtd_info *mtd;
 
-	mutex_lock(&mtd_table_mutex);
+//	mutex_lock(&mtd_table_mutex);
 
 	list_add(&new->list, &mtd_notifiers);
 
-	__module_get(THIS_MODULE);
+//	__module_get(THIS_MODULE);
 
 	mtd_for_each_device(mtd)
 		new->add(mtd);
 
-	mutex_unlock(&mtd_table_mutex);
+//	mutex_unlock(&mtd_table_mutex);
 }
 EXPORT_SYMBOL_GPL(register_mtd_user);
 
@@ -917,15 +918,15 @@ int unregister_mtd_user (struct mtd_notifier *old)
 {
 	struct mtd_info *mtd;
 
-	mutex_lock(&mtd_table_mutex);
+//	mutex_lock(&mtd_table_mutex);
 
-	module_put(THIS_MODULE);
+//	module_put(THIS_MODULE);
 
 	mtd_for_each_device(mtd)
 		old->remove(mtd);
 
 	list_del(&old->list);
-	mutex_unlock(&mtd_table_mutex);
+//	mutex_unlock(&mtd_table_mutex);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(unregister_mtd_user);
@@ -946,7 +947,7 @@ struct mtd_info *get_mtd_device(struct mtd_info *mtd, int num)
 	struct mtd_info *ret = NULL, *other;
 	int err = -ENODEV;
 
-	mutex_lock(&mtd_table_mutex);
+//	mutex_lock(&mtd_table_mutex);
 
 	if (num == -1) {
 		mtd_for_each_device(other) {
@@ -970,7 +971,7 @@ struct mtd_info *get_mtd_device(struct mtd_info *mtd, int num)
 	if (err)
 		ret = ERR_PTR(err);
 out:
-	mutex_unlock(&mtd_table_mutex);
+//	mutex_unlock(&mtd_table_mutex);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(get_mtd_device);
@@ -981,14 +982,14 @@ int __get_mtd_device(struct mtd_info *mtd)
 	struct mtd_info *master = mtd_get_master(mtd);
 	int err;
 
-	if (!try_module_get(master->owner))
-		return -ENODEV;
+//	if (!try_module_get(master->owner))
+//		return -ENODEV;
 
 	if (master->_get_device) {
 		err = master->_get_device(mtd);
 
 		if (err) {
-			module_put(master->owner);
+//			module_put(master->owner);
 			return err;
 		}
 	}
@@ -1017,7 +1018,7 @@ struct mtd_info *get_mtd_device_nm(const char *name)
 	int err = -ENODEV;
 	struct mtd_info *mtd = NULL, *other;
 
-	mutex_lock(&mtd_table_mutex);
+//	mutex_lock(&mtd_table_mutex);
 
 	mtd_for_each_device(other) {
 		if (!strcmp(name, other->name)) {
@@ -1033,20 +1034,20 @@ struct mtd_info *get_mtd_device_nm(const char *name)
 	if (err)
 		goto out_unlock;
 
-	mutex_unlock(&mtd_table_mutex);
+//	mutex_unlock(&mtd_table_mutex);
 	return mtd;
 
 out_unlock:
-	mutex_unlock(&mtd_table_mutex);
+//	mutex_unlock(&mtd_table_mutex);
 	return ERR_PTR(err);
 }
 EXPORT_SYMBOL_GPL(get_mtd_device_nm);
 
 void put_mtd_device(struct mtd_info *mtd)
 {
-	mutex_lock(&mtd_table_mutex);
+//	mutex_lock(&mtd_table_mutex);
 	__put_mtd_device(mtd);
-	mutex_unlock(&mtd_table_mutex);
+//	mutex_unlock(&mtd_table_mutex);
 
 }
 EXPORT_SYMBOL_GPL(put_mtd_device);
@@ -1066,7 +1067,7 @@ void __put_mtd_device(struct mtd_info *mtd)
 	if (master->_put_device)
 		master->_put_device(master);
 
-	module_put(master->owner);
+//	module_put(master->owner);
 }
 EXPORT_SYMBOL_GPL(__put_mtd_device);
 
@@ -2172,29 +2173,29 @@ static int mtd_proc_show(struct seq_file *m, void *v)
 /*====================================================================*/
 /* Init code */
 
-static struct backing_dev_info * __init mtd_bdi_init(char *name)
-{
-	struct backing_dev_info *bdi;
-	int ret;
+//static struct backing_dev_info * __init mtd_bdi_init(char *name)
+//{
+//	struct backing_dev_info *bdi;
+//	int ret;
 
-	bdi = bdi_alloc(NUMA_NO_NODE);
-	if (!bdi)
-		return ERR_PTR(-ENOMEM);
-	bdi->ra_pages = 0;
-	bdi->io_pages = 0;
+//	bdi = bdi_alloc(NUMA_NO_NODE);
+//	if (!bdi)
+//		return ERR_PTR(-ENOMEM);
+//	bdi->ra_pages = 0;
+//	bdi->io_pages = 0;
 
-	/*
-	 * We put '-0' suffix to the name to get the same name format as we
-	 * used to get. Since this is called only once, we get a unique name. 
-	 */
-	ret = bdi_register(bdi, "%.28s-0", name);
-	if (ret)
-		bdi_put(bdi);
+//	/*
+//	 * We put '-0' suffix to the name to get the same name format as we
+//	 * used to get. Since this is called only once, we get a unique name. 
+//	 */
+//	ret = bdi_register(bdi, "%.28s-0", name);
+//	if (ret)
+//		bdi_put(bdi);
 
-	return ret ? ERR_PTR(ret) : bdi;
-}
+//	return ret ? ERR_PTR(ret) : bdi;
+//}
 
-static struct proc_dir_entry *proc_mtd;
+//static struct proc_dir_entry *proc_mtd;
 
 static int __init init_mtd(void)
 {
@@ -2204,26 +2205,26 @@ static int __init init_mtd(void)
 	if (ret)
 		goto err_reg;
 
-	mtd_bdi = mtd_bdi_init("mtd");
-	if (IS_ERR(mtd_bdi)) {
-		ret = PTR_ERR(mtd_bdi);
-		goto err_bdi;
-	}
+//	mtd_bdi = mtd_bdi_init("mtd");
+//	if (IS_ERR(mtd_bdi)) {
+//		ret = PTR_ERR(mtd_bdi);
+//		goto err_bdi;
+//	}
 
-	proc_mtd = proc_create_single("mtd", 0, NULL, mtd_proc_show);
+//	proc_mtd = proc_create_single("mtd", 0, NULL, mtd_proc_show);
 
-	ret = init_mtdchar();
-	if (ret)
-		goto out_procfs;
+//	ret = init_mtdchar();
+//	if (ret)
+//		goto out_procfs;
 
-	dfs_dir_mtd = debugfs_create_dir("mtd", NULL);
+//	dfs_dir_mtd = debugfs_create_dir("mtd", NULL);
 
 	return 0;
 
-out_procfs:
-	if (proc_mtd)
-		remove_proc_entry("mtd", NULL);
-	bdi_put(mtd_bdi);
+//out_procfs:
+//	if (proc_mtd)
+//		remove_proc_entry("mtd", NULL);
+//	bdi_put(mtd_bdi);
 err_bdi:
 	class_unregister(&mtd_class);
 err_reg:
@@ -2233,18 +2234,18 @@ err_reg:
 
 static void __exit cleanup_mtd(void)
 {
-	debugfs_remove_recursive(dfs_dir_mtd);
-	cleanup_mtdchar();
-	if (proc_mtd)
-		remove_proc_entry("mtd", NULL);
+//	debugfs_remove_recursive(dfs_dir_mtd);
+//	cleanup_mtdchar();
+//	if (proc_mtd)
+//		remove_proc_entry("mtd", NULL);
 	class_unregister(&mtd_class);
-	bdi_put(mtd_bdi);
+//	bdi_put(mtd_bdi);
 	idr_destroy(&mtd_idr);
 }
 
-module_init(init_mtd);
-module_exit(cleanup_mtd);
+//module_init(init_mtd);
+//module_exit(cleanup_mtd);
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("David Woodhouse <dwmw2@infradead.org>");
-MODULE_DESCRIPTION("Core MTD registration and access routines");
+//MODULE_LICENSE("GPL");
+//MODULE_AUTHOR("David Woodhouse <dwmw2@infradead.org>");
+//MODULE_DESCRIPTION("Core MTD registration and access routines");

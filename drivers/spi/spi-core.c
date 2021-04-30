@@ -1398,7 +1398,8 @@ static void __spi_pump_messages(struct spi_controller *ctlr, bool in_kthread)
 
 	/* If another context is idling the device then defer */
 	if (ctlr->idling) {
-		kthread_queue_work(ctlr->kworker, &ctlr->pump_messages);
+//		kthread_queue_work(ctlr->kworker, &ctlr->pump_messages);
+        ctlr->pump_messages(ctlr);
 //		spin_unlock_irqrestore(&ctlr->queue_lock, flags);
 		return;
 	}
@@ -1418,8 +1419,9 @@ static void __spi_pump_messages(struct spi_controller *ctlr, bool in_kthread)
 				ctlr->busy = false;
 //				trace_spi_controller_idle(ctlr);
 			} else {
-				kthread_queue_work(ctlr->kworker,
-						   &ctlr->pump_messages);
+//				kthread_queue_work(ctlr->kworker,
+//						   &ctlr->pump_messages);
+                ctlr->pump_messages(ctlr);
 			}
 //			spin_unlock_irqrestore(&ctlr->queue_lock, flags);
 			return;
@@ -1539,11 +1541,8 @@ out:
  * spi_pump_messages - kthread work function which processes spi message queue
  * @work: pointer to kthread work struct contained in the controller struct
  */
-static void spi_pump_messages(struct kthread_work *work)
+static void spi_pump_messages(struct spi_controller *ctlr)
 {
-	struct spi_controller *ctlr =
-		container_of(work, struct spi_controller, pump_messages);
-
 	__spi_pump_messages(ctlr, true);
 }
 
@@ -1659,13 +1658,14 @@ static int spi_init_queue(struct spi_controller *ctlr)
 	ctlr->running = false;
 	ctlr->busy = false;
 
-	ctlr->kworker = kthread_create_worker(0, dev_name(&ctlr->dev));
-	if (IS_ERR(ctlr->kworker)) {
-		dev_err(&ctlr->dev, "failed to create message pump kworker\n");
-		return PTR_ERR(ctlr->kworker);
-	}
-
-	kthread_init_work(&ctlr->pump_messages, spi_pump_messages);
+//	ctlr->kworker = kthread_create_worker(0, dev_name(&ctlr->dev));
+//	if (IS_ERR(ctlr->kworker)) {
+//		dev_err(&ctlr->dev, "failed to create message pump kworker\n");
+//		return PTR_ERR(ctlr->kworker);
+//	}
+//
+//	kthread_init_work(&ctlr->pump_messages, spi_pump_messages);
+	ctlr->pump_messages = spi_pump_messages;
 
 	/*
 	 * Controller config will indicate if this controller should run the
@@ -1755,7 +1755,9 @@ void spi_finalize_current_message(struct spi_controller *ctlr)
 	ctlr->cur_msg = NULL;
 	ctlr->cur_msg_prepared = false;
 	ctlr->fallback = false;
-	kthread_queue_work(ctlr->kworker, &ctlr->pump_messages);
+//	kthread_queue_work(ctlr->kworker, &ctlr->pump_messages);
+    ctlr->pump_messages(ctlr);
+
 //	spin_unlock_irqrestore(&ctlr->queue_lock, flags);
 
 //	trace_spi_message_done(mesg);
@@ -1781,7 +1783,8 @@ static int spi_start_queue(struct spi_controller *ctlr)
 	ctlr->cur_msg = NULL;
 //	spin_unlock_irqrestore(&ctlr->queue_lock, flags);
 
-	kthread_queue_work(ctlr->kworker, &ctlr->pump_messages);
+//	kthread_queue_work(ctlr->kworker, &ctlr->pump_messages);
+    ctlr->pump_messages(ctlr);
 
 	return 0;
 }
@@ -1837,7 +1840,7 @@ static int spi_destroy_queue(struct spi_controller *ctlr)
 		return ret;
 	}
 
-	kthread_destroy_worker(ctlr->kworker);
+//	kthread_destroy_worker(ctlr->kworker);
 
 	return 0;
 }
@@ -1860,7 +1863,8 @@ static int __spi_queued_transfer(struct spi_device *spi,
 
 	list_add_tail(&msg->queue, &ctlr->queue);
 	if (!ctlr->busy && need_pump)
-		kthread_queue_work(ctlr->kworker, &ctlr->pump_messages);
+        ctlr->pump_messages(ctlr);
+//		kthread_queue_work(ctlr->kworker, &ctlr->pump_messages);
 
 //	spin_unlock_irqrestore(&ctlr->queue_lock, flags);
 	return 0;
@@ -2445,10 +2449,11 @@ struct spi_controller *__spi_alloc_controller(struct device *dev,
 	ctlr->bus_num = -1;
 	ctlr->num_chipselect = 1;
 	ctlr->slave = slave;
-	if (IS_ENABLED(CONFIG_SPI_SLAVE) && slave)
-		ctlr->dev.class = &spi_slave_class;
-	else
-		ctlr->dev.class = &spi_master_class;
+#ifdef CONFIG_SPI_SLAVE
+	ctlr->dev.class = &spi_slave_class;
+#else
+	ctlr->dev.class = &spi_master_class;
+#endif
 	ctlr->dev.parent = dev;
 //	pm_suspend_ignore_children(&ctlr->dev, true);
 	spi_controller_set_devdata(ctlr, (void *)ctlr + ctlr_size);
@@ -2698,15 +2703,15 @@ int spi_register_controller(struct spi_controller *ctlr)
 //		}
 //	}
 	if (ctlr->bus_num < 0) {
-		first_dynamic = of_alias_get_highest_id("spi");
-		if (first_dynamic < 0)
-			first_dynamic = 0;
-		else
-			first_dynamic++;
+//		first_dynamic = of_alias_get_highest_id("spi");
+//		if (first_dynamic < 0)
+//			first_dynamic = 0;
+//		else
+//			first_dynamic++;
 
 //		mutex_lock(&board_lock);
-		id = idr_alloc(&spi_master_idr, ctlr, first_dynamic,
-			       0, GFP_KERNEL);
+		id = idr_alloc(&spi_master_idr, ctlr, 0,
+			       10, GFP_KERNEL);
 //		mutex_unlock(&board_lock);
 		if (WARN(id < 0, "couldn't get idr"))
 			return id;
@@ -2890,7 +2895,8 @@ void spi_unregister_controller(struct spi_controller *ctlr)
 	 */
 	if (!devres_find(ctlr->dev.parent, devm_spi_release_controller,
 			 devm_spi_match_controller, ctlr))
-		put_device(&ctlr->dev);
+		;
+//		put_device(&ctlr->dev);
 
 	/* free bus id */
 //	mutex_lock(&board_lock);
@@ -4193,7 +4199,7 @@ static struct notifier_block spi_acpi_notifier = {
 extern struct notifier_block spi_acpi_notifier;
 #endif
 
-static int __init spi_init(void)
+int __init spi_init(void)
 {
 	int	status;
 
@@ -4211,11 +4217,11 @@ static int __init spi_init(void)
 	if (status < 0)
 		goto err2;
 
-	if (IS_ENABLED(CONFIG_SPI_SLAVE)) {
-		status = class_register(&spi_slave_class);
-		if (status < 0)
-			goto err3;
-	}
+#ifdef CONFIG_SPI_SLAVE
+    status = class_register(&spi_slave_class);
+    if (status < 0)
+        goto err3;
+#endif
 
 //	if (IS_ENABLED(CONFIG_OF_DYNAMIC))
 //		WARN_ON(of_reconfig_notifier_register(&spi_of_notifier));

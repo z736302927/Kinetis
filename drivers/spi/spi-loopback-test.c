@@ -930,8 +930,8 @@ int spi_test_execute_msg(struct spi_device *spi, struct spi_test *test,
 			dev_info(&spi->dev,
 				 "spi-message timed out - rerunning...\n");
 			/* rerun after a few explicit schedules */
-			for (i = 0; i < 16; i++)
-				schedule();
+//			for (i = 0; i < 16; i++)
+//				schedule();
 			ret = spi_sync(spi, msg);
 		}
 		if (ret) {
@@ -1086,7 +1086,7 @@ int spi_test_run_tests(struct spi_device *spi,
 		 * we also add scheduling to avoid potential spi_timeouts...
 		 */
 		mdelay(100);
-		schedule();
+//		schedule();
 	}
 
 out:

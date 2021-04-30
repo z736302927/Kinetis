@@ -13,7 +13,7 @@
 #include <asm/vmalloc.h>
 
 struct vm_area_struct;		/* vma defining user mapping in mm_types.h */
-struct notifier_block;		/* in notifier.h */
+//struct notifier_block;		/* in notifier.h */
 
 /* bits in flags of vmalloc's vm_struct below */
 #define VM_IOREMAP		0x00000001	/* ioremap() and friends */
@@ -245,7 +245,7 @@ pcpu_free_vm_areas(struct vm_struct **vms, int nr_vms)
 #define VMALLOC_TOTAL 0UL
 #endif
 
-int register_vmap_purge_notifier(struct notifier_block *nb);
-int unregister_vmap_purge_notifier(struct notifier_block *nb);
+//int register_vmap_purge_notifier(struct notifier_block *nb);
+//int unregister_vmap_purge_notifier(struct notifier_block *nb);
 
 #endif /* _LINUX_VMALLOC_H */

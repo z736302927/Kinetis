@@ -326,11 +326,13 @@ struct device {
 #ifdef CONFIG_NUMA
 	int		numa_node;	/* NUMA node this device is close to */
 #endif
-
+	dev_t			devt;	/* dev_t, creates the sysfs "dev" */
 	u32			id;	/* device instance */
 	struct list_head	devres_head;
 
 	struct class		*class;
+	const struct attribute_group **groups;	/* optional groups */
+
 	void	(*release)(struct device *dev);
 };
 
@@ -383,6 +385,11 @@ static inline void dev_set_drvdata(struct device *dev, void *data)
 	dev->driver_data = data;
 }
 
+static inline int device_is_registered(struct device *dev)
+{
+	return !!dev->p;
+}
+
 /*
  * High level routines for use by the bus drivers
  */
@@ -418,6 +425,20 @@ void device_initial_probe(struct device *dev);
 int __must_check device_reprobe(struct device *dev);
 
 bool device_is_bound(struct device *dev);
+
+/*
+ * Easy functions for dynamically creating devices on the fly
+ */
+extern __printf(5, 6)
+struct device *device_create(struct class *cls, struct device *parent,
+			     dev_t devt, void *drvdata,
+			     const char *fmt, ...);
+extern __printf(6, 7)
+struct device *device_create_with_groups(struct class *cls,
+			     struct device *parent, dev_t devt, void *drvdata,
+			     const struct attribute_group **groups,
+			     const char *fmt, ...);
+extern void device_destroy(struct class *cls, dev_t devt);
 
 /**
  * struct device_private - structure to hold the private to the driver core portions of the device structure.
