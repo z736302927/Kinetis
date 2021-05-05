@@ -40,7 +40,7 @@ static inline time64_t rtc_tm_sub(struct rtc_time *lhs, struct rtc_time *rhs)
 #include <linux/cdev.h>
 #include <linux/poll.h>
 //#include <linux/mutex.h>
-//#include <linux/timerqueue.h>
+#include <linux/timerqueue.h>
 //#include <linux/workqueue.h>
 
 extern struct class *rtc_class;
@@ -72,7 +72,7 @@ struct rtc_class_ops {
 struct rtc_device;
 
 struct rtc_timer {
-//	struct timerqueue_node node;
+	struct timerqueue_node node;
 	ktime_t period;
 	void (*func)(struct rtc_device *rtc);
 	struct rtc_device *rtc;
@@ -231,6 +231,8 @@ extern int rtc_hctosys_ret;
 #define rtc_hctosys_ret -ENODEV
 #endif
 
+#define CONFIG_RTC_NVMEM
+
 #ifdef CONFIG_RTC_NVMEM
 int devm_rtc_nvmem_register(struct rtc_device *rtc,
 			    struct nvmem_config *nvmem_config);
@@ -258,4 +260,7 @@ int rtc_add_groups(struct rtc_device *rtc, const struct attribute_group **grps)
 	return 0;
 }
 #endif
+
+int __init rtc_init(void);
+
 #endif /* _LINUX_RTC_H_ */

@@ -11,7 +11,7 @@
  *  License.  See the file COPYING in the main directory of this archive for
  *  more details.
  */
-#include <linux/module.h>
+//#include <linux/module.h>
 #include <linux/string.h>
 #include <linux/fb.h>
 #include <asm/types.h>
@@ -330,6 +330,6 @@ void sys_fillrect(struct fb_info *p, const struct fb_fillrect *rect)
 
 EXPORT_SYMBOL(sys_fillrect);
 
-MODULE_AUTHOR("Antonino Daplas <adaplas@pol.net>");
-MODULE_DESCRIPTION("Generic fill rectangle (sys-to-sys)");
-MODULE_LICENSE("GPL");
+//MODULE_AUTHOR("Antonino Daplas <adaplas@pol.net>");
+//MODULE_DESCRIPTION("Generic fill rectangle (sys-to-sys)");
+//MODULE_LICENSE("GPL");

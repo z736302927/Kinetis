@@ -124,31 +124,38 @@ void udelay(u64 usecs)
     while (time_before64(basic_timer_get_us(), timeout));
 }
 
-/*
- * The latency ranges from 0 to (2^32 / 1000), but this leads to an increase in the number
- * of iterations and eventually causes a stack overflow.Therefore, try to enter
- * smaller parameters.
- */
-void msleep(unsigned long msecs)
-{
-    unsigned long timeout = jiffies + msecs;
+///*
+// * The latency ranges from 0 to (2^32 / 1000), but this leads to an increase in the number
+// * of iterations and eventually causes a stack overflow.Therefore, try to enter
+// * smaller parameters.
+// */
+//void msleep(unsigned long msecs)
+//{
+//    unsigned long timeout = jiffies + msecs;
 
-    while (time_before(jiffies, timeout));
-}
+//    while (time_before(jiffies, timeout));
+//}
 
-/**
- * usleep_range - Sleep for an approximate time
- * @min: Minimum time in usecs to sleep
- * @max: Maximum time in usecs to sleep
- *
- */
-void usleep_range(unsigned long min, unsigned long max)
-{
-	u32 delta = get_random_range(min, max);
+///**
+// * usleep_range - Sleep for an approximate time
+// * @min: Minimum time in usecs to sleep
+// * @max: Maximum time in usecs to sleep
+// *
+// */
+//void usleep_range(unsigned long min, unsigned long max)
+//{
+//	u32 delta = get_random_range(min, max);
 
-	udelay(delta);
-}
+//	udelay(delta);
+//}
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
+
+int read_current_timer(unsigned long *timer_val)
+{
+	*timer_val = basic_timer_get_us();
+	return 0;
+}
+EXPORT_SYMBOL_GPL(read_current_timer);
 
 #ifdef DESIGN_VERIFICATION_DELAY
 #include "kinetis/test-kinetis.h"

@@ -15,8 +15,8 @@
 #include <linux/slab.h>
 #include <linux/fb.h>
 #include <linux/fbcon.h>
-#include <linux/console.h>
-#include <linux/module.h>
+//#include <linux/console.h>
+//#include <linux/module.h>
 
 #define FB_SYSFS_FLAG_ATTR 1
 
@@ -57,8 +57,8 @@ struct fb_info *framebuffer_alloc(size_t size, struct device *dev)
 	info->device = dev;
 	info->fbcon_rotate_hint = -1;
 
-#if IS_ENABLED(CONFIG_FB_BACKLIGHT)
-	mutex_init(&info->bl_curve_mutex);
+#ifdef CONFIG_FB_BACKLIGHT
+//	mutex_init(&info->bl_curve_mutex);
 #endif
 
 	return info;
@@ -90,11 +90,11 @@ static int activate(struct fb_info *fb_info, struct fb_var_screeninfo *var)
 	int err;
 
 	var->activate |= FB_ACTIVATE_FORCE;
-	console_lock();
+//	console_lock();
 	err = fb_set_var(fb_info, var);
 	if (!err)
 		fbcon_update_vcs(fb_info, var->activate & FB_ACTIVATE_ALL);
-	console_unlock();
+//	console_unlock();
 	if (err)
 		return err;
 	return 0;
@@ -175,8 +175,8 @@ static ssize_t store_modes(struct device *device,
 	if (i * sizeof(struct fb_videomode) != count)
 		return -EINVAL;
 
-	console_lock();
-	lock_fb_info(fb_info);
+//	console_lock();
+//	lock_fb_info(fb_info);
 
 	list_splice(&fb_info->modelist, &old_list);
 	fb_videomode_to_modelist((const struct fb_videomode *)buf, i,
@@ -187,8 +187,8 @@ static ssize_t store_modes(struct device *device,
 	} else
 		fb_destroy_modelist(&old_list);
 
-	unlock_fb_info(fb_info);
-	console_unlock();
+//	unlock_fb_info(fb_info);
+//	console_unlock();
 
 	return 0;
 }
@@ -305,11 +305,11 @@ static ssize_t store_blank(struct device *device,
 	int err, arg;
 
 	arg = simple_strtoul(buf, &last, 0);
-	console_lock();
+//	console_lock();
 	err = fb_blank(fb_info, arg);
 	/* might again call into fb_blank */
 	fbcon_fb_blanked(fb_info, arg);
-	console_unlock();
+//	console_unlock();
 	if (err < 0)
 		return err;
 	return count;
@@ -368,9 +368,9 @@ static ssize_t store_pan(struct device *device,
 		return -EINVAL;
 	var.yoffset = simple_strtoul(last, &last, 0);
 
-	console_lock();
+//	console_lock();
 	err = fb_pan_display(fb_info, &var);
-	console_unlock();
+//	console_unlock();
 
 	if (err < 0)
 		return err;
@@ -403,13 +403,13 @@ static ssize_t store_fbstate(struct device *device,
 
 	state = simple_strtoul(buf, &last, 0);
 
-	console_lock();
-	lock_fb_info(fb_info);
+//	console_lock();
+//	lock_fb_info(fb_info);
 
 	fb_set_suspend(fb_info, (int)state);
 
-	unlock_fb_info(fb_info);
-	console_unlock();
+//	unlock_fb_info(fb_info);
+//	console_unlock();
 
 	return count;
 }
@@ -421,7 +421,7 @@ static ssize_t show_fbstate(struct device *device,
 	return snprintf(buf, PAGE_SIZE, "%d\n", fb_info->state);
 }
 
-#if IS_ENABLED(CONFIG_FB_BACKLIGHT)
+#ifdef CONFIG_FB_BACKLIGHT
 static ssize_t store_bl_curve(struct device *device,
 			      struct device_attribute *attr,
 			      const char *buf, size_t count)
@@ -455,10 +455,10 @@ static ssize_t store_bl_curve(struct device *device,
 	/* If there has been an error in the input data, we won't
 	 * reach this loop.
 	 */
-	mutex_lock(&fb_info->bl_curve_mutex);
+//	mutex_lock(&fb_info->bl_curve_mutex);
 	for (i = 0; i < FB_BACKLIGHT_LEVELS; ++i)
 		fb_info->bl_curve[i] = tmp_curve[i];
-	mutex_unlock(&fb_info->bl_curve_mutex);
+//	mutex_unlock(&fb_info->bl_curve_mutex);
 
 	return count;
 }
@@ -476,11 +476,11 @@ static ssize_t show_bl_curve(struct device *device,
 	if (!fb_info || !fb_info->bl_dev)
 		return -ENODEV;
 
-	mutex_lock(&fb_info->bl_curve_mutex);
+//	mutex_lock(&fb_info->bl_curve_mutex);
 	for (i = 0; i < FB_BACKLIGHT_LEVELS; i += 8)
 		len += scnprintf(&buf[len], PAGE_SIZE - len, "%8ph\n",
 				fb_info->bl_curve + i);
-	mutex_unlock(&fb_info->bl_curve_mutex);
+//	mutex_unlock(&fb_info->bl_curve_mutex);
 
 	return len;
 }
@@ -502,7 +502,7 @@ static struct device_attribute device_attrs[] = {
 	__ATTR(stride, S_IRUGO, show_stride, NULL),
 	__ATTR(rotate, S_IRUGO|S_IWUSR, show_rotate, store_rotate),
 	__ATTR(state, S_IRUGO|S_IWUSR, show_fbstate, store_fbstate),
-#if IS_ENABLED(CONFIG_FB_BACKLIGHT)
+#ifdef CONFIG_FB_BACKLIGHT
 	__ATTR(bl_curve, S_IRUGO|S_IWUSR, show_bl_curve, store_bl_curve),
 #endif
 };
@@ -515,18 +515,18 @@ int fb_init_device(struct fb_info *fb_info)
 
 	fb_info->class_flag |= FB_SYSFS_FLAG_ATTR;
 
-	for (i = 0; i < ARRAY_SIZE(device_attrs); i++) {
-		error = device_create_file(fb_info->dev, &device_attrs[i]);
+//	for (i = 0; i < ARRAY_SIZE(device_attrs); i++) {
+//		error = device_create_file(fb_info->dev, &device_attrs[i]);
 
-		if (error)
-			break;
-	}
+//		if (error)
+//			break;
+//	}
 
-	if (error) {
-		while (--i >= 0)
-			device_remove_file(fb_info->dev, &device_attrs[i]);
-		fb_info->class_flag &= ~FB_SYSFS_FLAG_ATTR;
-	}
+//	if (error) {
+//		while (--i >= 0)
+//			device_remove_file(fb_info->dev, &device_attrs[i]);
+//		fb_info->class_flag &= ~FB_SYSFS_FLAG_ATTR;
+//	}
 
 	return 0;
 }
@@ -536,14 +536,14 @@ void fb_cleanup_device(struct fb_info *fb_info)
 	unsigned int i;
 
 	if (fb_info->class_flag & FB_SYSFS_FLAG_ATTR) {
-		for (i = 0; i < ARRAY_SIZE(device_attrs); i++)
-			device_remove_file(fb_info->dev, &device_attrs[i]);
+//		for (i = 0; i < ARRAY_SIZE(device_attrs); i++)
+//			device_remove_file(fb_info->dev, &device_attrs[i]);
 
 		fb_info->class_flag &= ~FB_SYSFS_FLAG_ATTR;
 	}
 }
 
-#if IS_ENABLED(CONFIG_FB_BACKLIGHT)
+#ifdef CONFIG_FB_BACKLIGHT
 /* This function generates a linear backlight curve
  *
  *     0: off
@@ -554,7 +554,7 @@ void fb_bl_default_curve(struct fb_info *fb_info, u8 off, u8 min, u8 max)
 {
 	unsigned int i, flat, count, range = (max - min);
 
-	mutex_lock(&fb_info->bl_curve_mutex);
+//	mutex_lock(&fb_info->bl_curve_mutex);
 
 	fb_info->bl_curve[0] = off;
 
@@ -565,7 +565,7 @@ void fb_bl_default_curve(struct fb_info *fb_info, u8 off, u8 min, u8 max)
 	for (i = 0; i < count; ++i)
 		fb_info->bl_curve[flat + i] = min + (range * (i + 1) / count);
 
-	mutex_unlock(&fb_info->bl_curve_mutex);
+//	mutex_unlock(&fb_info->bl_curve_mutex);
 }
 EXPORT_SYMBOL_GPL(fb_bl_default_curve);
 #endif

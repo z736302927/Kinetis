@@ -10,7 +10,7 @@
  *  License.  See the file COPYING in the main directory of this archive for
  *  more details.
  */
-#include <linux/module.h>
+//#include <linux/module.h>
 #include <linux/string.h>
 #include <linux/fb.h>
 #include <asm/types.h>
@@ -58,7 +58,7 @@ static void color_imageblit(const struct fb_image *image, struct fb_info *p,
 	int i, n, bpp = p->var.bits_per_pixel;
 	u32 null_bits = 32 - bpp;
 	u32 *palette = (u32 *) p->pseudo_palette;
-	const u8 *src = image->data;
+	const u8 *src = (u8 *)image->data;
 
 	dst2 = dst1;
 	for (i = image->height; i--; ) {
@@ -117,7 +117,7 @@ static void slow_imageblit(const struct fb_image *image, struct fb_info *p,
 	u32 val, pitch = p->fix.line_length;
 	u32 null_bits = 32 - bpp;
 	u32 spitch = (image->width+7)/8;
-	const u8 *src = image->data, *s;
+	const u8 *src = (u8 *)image->data, *s;
 	u32 i, j, l;
 
 	dst2 = dst1;
@@ -282,7 +282,7 @@ void sys_imageblit(struct fb_info *p, const struct fb_image *image)
 
 EXPORT_SYMBOL(sys_imageblit);
 
-MODULE_AUTHOR("Antonino Daplas <adaplas@pol.net>");
-MODULE_DESCRIPTION("1-bit/8-bit to 1-32 bit color expansion (sys-to-sys)");
-MODULE_LICENSE("GPL");
+//MODULE_AUTHOR("Antonino Daplas <adaplas@pol.net>");
+//MODULE_DESCRIPTION("1-bit/8-bit to 1-32 bit color expansion (sys-to-sys)");
+//MODULE_LICENSE("GPL");
 

@@ -8,15 +8,16 @@
  * class skeleton from drivers/hwmon/hwmon.c
  */
 
+#define KBUILD_MODNAME "rtc"
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
-#include <linux/module.h>
-#include <linux/of.h>
+//#include <linux/module.h>
+//#include <linux/of.h>
 #include <linux/rtc.h>
 #include <linux/kdev_t.h>
 #include <linux/idr.h>
 #include <linux/slab.h>
-#include <linux/workqueue.h>
+//#include <linux/workqueue.h>
 
 #include "rtc-core.h"
 
@@ -28,7 +29,7 @@ static void rtc_device_release(struct device *dev)
 	struct rtc_device *rtc = to_rtc_device(dev);
 
 	ida_simple_remove(&rtc_ida, rtc->id);
-	mutex_destroy(&rtc->ops_lock);
+//	mutex_destroy(&rtc->ops_lock);
 	kfree(rtc);
 }
 
@@ -215,20 +216,20 @@ static struct rtc_device *rtc_allocate_device(void)
 	rtc->dev.groups = rtc_get_dev_attribute_groups();
 	rtc->dev.release = rtc_device_release;
 
-	mutex_init(&rtc->ops_lock);
-	spin_lock_init(&rtc->irq_lock);
-	init_waitqueue_head(&rtc->irq_queue);
+//	mutex_init(&rtc->ops_lock);
+//	spin_lock_init(&rtc->irq_lock);
+//	init_waitqueue_head(&rtc->irq_queue);
 
 	/* Init timerqueue */
-	timerqueue_init_head(&rtc->timerqueue);
-	INIT_WORK(&rtc->irqwork, rtc_timer_do_work);
-	/* Init aie timer */
-	rtc_timer_init(&rtc->aie_timer, rtc_aie_update_irq, rtc);
-	/* Init uie timer */
-	rtc_timer_init(&rtc->uie_rtctimer, rtc_uie_update_irq, rtc);
-	/* Init pie timer */
-	hrtimer_init(&rtc->pie_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	rtc->pie_timer.function = rtc_pie_update_irq;
+//	timerqueue_init_head(&rtc->timerqueue);
+//	INIT_WORK(&rtc->irqwork, rtc_timer_do_work);
+//	/* Init aie timer */
+//	rtc_timer_init(&rtc->aie_timer, rtc_aie_update_irq, rtc);
+//	/* Init uie timer */
+//	rtc_timer_init(&rtc->uie_rtctimer, rtc_uie_update_irq, rtc);
+//	/* Init pie timer */
+//	hrtimer_init(&rtc->pie_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+//	rtc->pie_timer.function = rtc_pie_update_irq;
 	rtc->pie_enabled = 0;
 
 	return rtc;
@@ -238,10 +239,11 @@ static int rtc_device_get_id(struct device *dev)
 {
 	int of_id = -1, id = -1;
 
-	if (dev->of_node)
-		of_id = of_alias_get_id(dev->of_node, "rtc");
-	else if (dev->parent && dev->parent->of_node)
-		of_id = of_alias_get_id(dev->parent->of_node, "rtc");
+//	if (dev->of_node)
+//		of_id = of_alias_get_id(dev->of_node, "rtc");
+//	else if (dev->parent && dev->parent->of_node)
+//		of_id = of_alias_get_id(dev->parent->of_node, "rtc");
+    of_id = 1;
 
 	if (of_id >= 0) {
 		id = ida_simple_get(&rtc_ida, of_id, of_id + 1, GFP_KERNEL);
@@ -259,7 +261,7 @@ static void rtc_device_get_offset(struct rtc_device *rtc)
 {
 	time64_t range_secs;
 	u32 start_year;
-	int ret;
+	int ret = 0;
 
 	/*
 	 * If RTC driver did not implement the range of RTC hardware device,
@@ -269,8 +271,9 @@ static void rtc_device_get_offset(struct rtc_device *rtc)
 	if (rtc->range_min == rtc->range_max)
 		return;
 
-	ret = device_property_read_u32(rtc->dev.parent, "start-year",
-				       &start_year);
+//	ret = device_property_read_u32(rtc->dev.parent, "start-year",
+//				       &start_year);
+    start_year = 1970;
 	if (!ret) {
 		rtc->start_secs = mktime64(start_year, 1, 1, 0, 0, 0);
 		rtc->set_start_time = true;
@@ -331,22 +334,22 @@ static void devm_rtc_unregister_device(void *data)
 {
 	struct rtc_device *rtc = data;
 
-	mutex_lock(&rtc->ops_lock);
+//	mutex_lock(&rtc->ops_lock);
 	/*
 	 * Remove innards of this RTC, then disable it, before
 	 * letting any rtc_class_open() users access it again
 	 */
 	rtc_proc_del_device(rtc);
-	cdev_device_del(&rtc->char_dev, &rtc->dev);
+//	cdev_device_del(&rtc->char_dev, &rtc->dev);
 	rtc->ops = NULL;
-	mutex_unlock(&rtc->ops_lock);
+//	mutex_unlock(&rtc->ops_lock);
 }
 
 static void devm_rtc_release_device(void *res)
 {
 	struct rtc_device *rtc = res;
 
-	put_device(&rtc->dev);
+//	put_device(&rtc->dev);
 }
 
 struct rtc_device *devm_rtc_allocate_device(struct device *dev)
@@ -396,13 +399,13 @@ int __devm_rtc_register_device(struct module *owner, struct rtc_device *rtc)
 
 	rtc_dev_prepare(rtc);
 
-	err = cdev_device_add(&rtc->char_dev, &rtc->dev);
-	if (err)
-		dev_warn(rtc->dev.parent, "failed to add char device %d:%d\n",
-			 MAJOR(rtc->dev.devt), rtc->id);
-	else
-		dev_dbg(rtc->dev.parent, "char device (%d:%d)\n",
-			MAJOR(rtc->dev.devt), rtc->id);
+//	err = cdev_device_add(&rtc->char_dev, &rtc->dev);
+//	if (err)
+//		dev_warn(rtc->dev.parent, "failed to add char device %d:%d\n",
+//			 MAJOR(rtc->dev.devt), rtc->id);
+//	else
+//		dev_dbg(rtc->dev.parent, "char device (%d:%d)\n",
+//			MAJOR(rtc->dev.devt), rtc->id);
 
 	rtc_proc_add_device(rtc);
 
@@ -455,7 +458,7 @@ struct rtc_device *devm_rtc_device_register(struct device *dev,
 }
 EXPORT_SYMBOL_GPL(devm_rtc_device_register);
 
-static int __init rtc_init(void)
+int __init rtc_init(void)
 {
 	rtc_class = class_create(THIS_MODULE, "rtc");
 	if (IS_ERR(rtc_class)) {

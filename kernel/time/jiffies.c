@@ -9,7 +9,6 @@
 #include <linux/init.h>
 
 unsigned long volatile jiffies = 0;
-u64 volatile jiffies_64 = 0;
 
 /* Since jiffies uses a simple TICK_NSEC multiplier
  * conversion, the .shift value could be zero. However

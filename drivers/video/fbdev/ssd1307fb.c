@@ -11,10 +11,10 @@
 #include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
 #include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/property.h>
+//#include <linux/module.h>
+//#include <linux/property.h>
 #include <linux/pwm.h>
-#include <linux/uaccess.h>
+//#include <linux/uaccess.h>
 #include <linux/regulator/consumer.h>
 
 #define SSD1307FB_DATA			0x40
@@ -46,7 +46,7 @@
 #define REFRESHRATE 1
 
 static u_int refreshrate = REFRESHRATE;
-module_param(refreshrate, uint, 0);
+//module_param(refreshrate, uint, 0);
 
 struct ssd1307fb_deviceinfo {
 	u32 default_vcomh;
@@ -126,7 +126,7 @@ static int ssd1307fb_write_array(struct i2c_client *client,
 
 	len += sizeof(struct ssd1307fb_array);
 
-	ret = i2c_master_send(client, (u8 *)array, len);
+	ret = i2c_master_send(client, (void *)array, len);
 	if (ret != len) {
 		dev_err(&client->dev, "Couldn't send I2C command.\n");
 		return ret;
@@ -155,7 +155,7 @@ static inline int ssd1307fb_write_cmd(struct i2c_client *client, u8 cmd)
 static void ssd1307fb_update_display(struct ssd1307fb_par *par)
 {
 	struct ssd1307fb_array *array;
-	u8 *vmem = par->info->screen_buffer;
+	u8 *vmem = (u8 *)par->info->screen_buffer;
 	unsigned int line_length = par->info->fix.line_length;
 	unsigned int pages = DIV_ROUND_UP(par->height, 8);
 	int i, j, k;
@@ -236,7 +236,7 @@ static ssize_t ssd1307fb_write(struct fb_info *info, const char __user *buf,
 
 	dst = info->screen_buffer + p;
 
-	if (copy_from_user(dst, buf, count))
+	if (memcpy(dst, buf, count))
 		return -EFAULT;
 
 	ssd1307fb_update_display(par);
@@ -575,7 +575,7 @@ static const struct of_device_id ssd1307fb_of_match[] = {
 	},
 	{},
 };
-MODULE_DEVICE_TABLE(of, ssd1307fb_of_match);
+//MODULE_DEVICE_TABLE(of, ssd1307fb_of_match);
 
 static int ssd1307fb_probe(struct i2c_client *client)
 {
@@ -597,7 +597,7 @@ static int ssd1307fb_probe(struct i2c_client *client)
 	par->info = info;
 	par->client = client;
 
-	par->device_info = device_get_match_data(dev);
+//	par->device_info = device_get_match_data(dev);
 
 	par->reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(par->reset)) {
@@ -618,74 +618,88 @@ static int ssd1307fb_probe(struct i2c_client *client)
 		}
 	}
 
-	if (device_property_read_u32(dev, "solomon,width", &par->width))
-		par->width = 96;
+//	if (device_property_read_u32(dev, "solomon,width", &par->width))
+//		par->width = 96;
 
-	if (device_property_read_u32(dev, "solomon,height", &par->height))
-		par->height = 16;
+//	if (device_property_read_u32(dev, "solomon,height", &par->height))
+//		par->height = 16;
 
-	if (device_property_read_u32(dev, "solomon,page-offset", &par->page_offset))
-		par->page_offset = 1;
+//	if (device_property_read_u32(dev, "solomon,page-offset", &par->page_offset))
+//		par->page_offset = 1;
 
-	if (device_property_read_u32(dev, "solomon,col-offset", &par->col_offset))
-		par->col_offset = 0;
+//	if (device_property_read_u32(dev, "solomon,col-offset", &par->col_offset))
+//		par->col_offset = 0;
 
-	if (device_property_read_u32(dev, "solomon,com-offset", &par->com_offset))
-		par->com_offset = 0;
+//	if (device_property_read_u32(dev, "solomon,com-offset", &par->com_offset))
+//		par->com_offset = 0;
 
-	if (device_property_read_u32(dev, "solomon,prechargep1", &par->prechargep1))
-		par->prechargep1 = 2;
+//	if (device_property_read_u32(dev, "solomon,prechargep1", &par->prechargep1))
+//		par->prechargep1 = 2;
 
-	if (device_property_read_u32(dev, "solomon,prechargep2", &par->prechargep2))
-		par->prechargep2 = 2;
+//	if (device_property_read_u32(dev, "solomon,prechargep2", &par->prechargep2))
+//		par->prechargep2 = 2;
 
-	if (!device_property_read_u8_array(dev, "solomon,lookup-table",
-					   par->lookup_table,
-					   ARRAY_SIZE(par->lookup_table)))
-		par->lookup_table_set = 1;
+//	if (!device_property_read_u8_array(dev, "solomon,lookup-table",
+//					   par->lookup_table,
+//					   ARRAY_SIZE(par->lookup_table)))
+//		par->lookup_table_set = 1;
 
-	par->seg_remap = !device_property_read_bool(dev, "solomon,segment-no-remap");
-	par->com_seq = device_property_read_bool(dev, "solomon,com-seq");
-	par->com_lrremap = device_property_read_bool(dev, "solomon,com-lrremap");
-	par->com_invdir = device_property_read_bool(dev, "solomon,com-invdir");
-	par->area_color_enable =
-		device_property_read_bool(dev, "solomon,area-color-enable");
-	par->low_power = device_property_read_bool(dev, "solomon,low-power");
+//	par->seg_remap = !device_property_read_bool(dev, "solomon,segment-no-remap");
+//	par->com_seq = device_property_read_bool(dev, "solomon,com-seq");
+//	par->com_lrremap = device_property_read_bool(dev, "solomon,com-lrremap");
+//	par->com_invdir = device_property_read_bool(dev, "solomon,com-invdir");
+//	par->area_color_enable =
+//		device_property_read_bool(dev, "solomon,area-color-enable");
+//	par->low_power = device_property_read_bool(dev, "solomon,low-power");
+
+    par->width = 128;
+    par->height = 32;
+    par->page_offset = 0;
+    par->col_offset = 0;
+    par->com_offset = 0;
+    par->prechargep1 = 2;
+    par->prechargep2 = 2;
+	par->lookup_table_set = 1;
+
+	par->seg_remap = true;
+	par->com_seq = true;
+	par->com_lrremap = true;
+	par->com_invdir = true;
+	par->area_color_enable = true;
+	par->low_power = true;
 
 	par->contrast = 127;
 	par->vcomh = par->device_info->default_vcomh;
 
 	/* Setup display timing */
-	if (device_property_read_u32(dev, "solomon,dclk-div", &par->dclk_div))
-		par->dclk_div = par->device_info->default_dclk_div;
-	if (device_property_read_u32(dev, "solomon,dclk-frq", &par->dclk_frq))
-		par->dclk_frq = par->device_info->default_dclk_frq;
+	par->dclk_div = par->device_info->default_dclk_div;
+	par->dclk_frq = par->device_info->default_dclk_frq;
 
 	vmem_size = DIV_ROUND_UP(par->width, 8) * par->height;
 
-	vmem = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO,
-					get_order(vmem_size));
-	if (!vmem) {
-		dev_err(dev, "Couldn't allocate graphical memory.\n");
-		ret = -ENOMEM;
-		goto fb_alloc_error;
-	}
+//	vmem = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO,
+//					get_order(vmem_size));
+//	if (!vmem) {
+//		dev_err(dev, "Couldn't allocate graphical memory.\n");
+//		ret = -ENOMEM;
+//		goto fb_alloc_error;
+//	}
 
-	ssd1307fb_defio = devm_kzalloc(dev, sizeof(*ssd1307fb_defio),
-				       GFP_KERNEL);
-	if (!ssd1307fb_defio) {
-		dev_err(dev, "Couldn't allocate deferred io.\n");
-		ret = -ENOMEM;
-		goto fb_alloc_error;
-	}
+//	ssd1307fb_defio = devm_kzalloc(dev, sizeof(*ssd1307fb_defio),
+//				       GFP_KERNEL);
+//	if (!ssd1307fb_defio) {
+//		dev_err(dev, "Couldn't allocate deferred io.\n");
+//		ret = -ENOMEM;
+//		goto fb_alloc_error;
+//	}
 
-	ssd1307fb_defio->delay = HZ / refreshrate;
-	ssd1307fb_defio->deferred_io = ssd1307fb_deferred_io;
+//	ssd1307fb_defio->delay = HZ / refreshrate;
+//	ssd1307fb_defio->deferred_io = ssd1307fb_deferred_io;
 
 	info->fbops = &ssd1307fb_ops;
 	info->fix = ssd1307fb_fix;
 	info->fix.line_length = DIV_ROUND_UP(par->width, 8);
-	info->fbdefio = ssd1307fb_defio;
+//	info->fbdefio = ssd1307fb_defio;
 
 	info->var = ssd1307fb_var;
 	info->var.xres = par->width;
@@ -697,7 +711,7 @@ static int ssd1307fb_probe(struct i2c_client *client)
 	info->fix.smem_start = __pa(vmem);
 	info->fix.smem_len = vmem_size;
 
-	fb_deferred_io_init(info);
+//	fb_deferred_io_init(info);
 
 	i2c_set_clientdata(client, info);
 
@@ -755,7 +769,7 @@ regulator_enable_error:
 	if (par->vbat_reg)
 		regulator_disable(par->vbat_reg);
 reset_oled_error:
-	fb_deferred_io_cleanup(info);
+//	fb_deferred_io_cleanup(info);
 fb_alloc_error:
 	framebuffer_release(info);
 	return ret;
@@ -777,8 +791,8 @@ static int ssd1307fb_remove(struct i2c_client *client)
 	}
 	if (par->vbat_reg)
 		regulator_disable(par->vbat_reg);
-	fb_deferred_io_cleanup(info);
-	__free_pages(__va(info->fix.smem_start), get_order(info->fix.smem_len));
+//	fb_deferred_io_cleanup(info);
+//	__free_pages(__va(info->fix.smem_start), get_order(info->fix.smem_len));
 	framebuffer_release(info);
 
 	return 0;
@@ -791,7 +805,7 @@ static const struct i2c_device_id ssd1307fb_i2c_id[] = {
 	{ "ssd1309fb", 0 },
 	{ }
 };
-MODULE_DEVICE_TABLE(i2c, ssd1307fb_i2c_id);
+//MODULE_DEVICE_TABLE(i2c, ssd1307fb_i2c_id);
 
 static struct i2c_driver ssd1307fb_driver = {
 	.probe_new = ssd1307fb_probe,
@@ -803,8 +817,24 @@ static struct i2c_driver ssd1307fb_driver = {
 	},
 };
 
-module_i2c_driver(ssd1307fb_driver);
+//module_i2c_driver(ssd1307fb_driver);
 
-MODULE_DESCRIPTION("FB driver for the Solomon SSD1307 OLED controller");
-MODULE_AUTHOR("Maxime Ripard <maxime.ripard@free-electrons.com>");
-MODULE_LICENSE("GPL");
+int __init ssd1307fb_driver_init(void)
+{
+	int ret;
+
+	ret = i2c_add_driver(&ssd1307fb_driver);
+	if (ret)
+		printk(KERN_ERR "ssd1307fb_driver: probe failed: %d\n", ret);
+    
+	return ret;
+}
+
+void __exit ssd1307fb_driver_exit(void)
+{
+	i2c_del_driver(&ssd1307fb_driver);
+}
+
+//MODULE_DESCRIPTION("FB driver for the Solomon SSD1307 OLED controller");
+//MODULE_AUTHOR("Maxime Ripard <maxime.ripard@free-electrons.com>");
+//MODULE_LICENSE("GPL");

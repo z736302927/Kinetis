@@ -2,14 +2,14 @@
 #ifndef _LINUX_SWAP_H
 #define _LINUX_SWAP_H
 
-#include <linux/spinlock.h>
+//#include <linux/spinlock.h>
 #include <linux/linkage.h>
-#include <linux/mmzone.h>
+//#include <linux/mmzone.h>
 #include <linux/list.h>
-#include <linux/memcontrol.h>
-#include <linux/sched.h>
-#include <linux/node.h>
-#include <linux/fs.h>
+//#include <linux/memcontrol.h>
+//#include <linux/sched.h>
+//#include <linux/node.h>
+//#include <linux/fs.h>
 #include <linux/atomic.h>
 #include <linux/page-flags.h>
 #include <asm/page.h>
@@ -32,10 +32,10 @@ struct pagevec;
 				 SWAP_FLAG_DISCARD_PAGES)
 #define SWAP_BATCH 64
 
-static inline int current_is_kswapd(void)
-{
-	return current->flags & PF_KSWAPD;
-}
+//static inline int current_is_kswapd(void)
+//{
+//	return current->flags & PF_KSWAPD;
+//}
 
 /*
  * MAX_SWAPFILES defines the maximum number of swaptypes: things which can

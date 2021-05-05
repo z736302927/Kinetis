@@ -52,7 +52,7 @@ void rtc_time64_to_tm(time64_t time, struct rtc_time *tm)
 	int days;
 
 	/* time must be positive */
-	days = div_s64_rem(time, 86400, &secs);
+	days = div_s64_rem(time, 86400, (int *)&secs);
 
 	/* day of the week, 1970-01-01 was a Thursday */
 	tm->tm_wday = (days + 4) % 7;

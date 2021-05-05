@@ -9,13 +9,13 @@
  */
 
 #include <linux/rtc.h>
-#include <linux/sched.h>
-#include <linux/module.h>
+//#include <linux/sched.h>
+//#include <linux/module.h>
 #include <linux/log2.h>
-#include <linux/workqueue.h>
+//#include <linux/workqueue.h>
 
-#define CREATE_TRACE_POINTS
-#include <trace/events/rtc.h>
+//#define CREATE_TRACE_POINTS
+//#include <trace/events/rtc.h>
 
 static int rtc_timer_enqueue(struct rtc_device *rtc, struct rtc_timer *timer);
 static void rtc_timer_remove(struct rtc_device *rtc, struct rtc_timer *timer);
@@ -111,14 +111,14 @@ int rtc_read_time(struct rtc_device *rtc, struct rtc_time *tm)
 {
 	int err;
 
-	err = mutex_lock_interruptible(&rtc->ops_lock);
-	if (err)
-		return err;
+//	err = mutex_lock_interruptible(&rtc->ops_lock);
+//	if (err)
+//		return err;
 
 	err = __rtc_read_time(rtc, tm);
-	mutex_unlock(&rtc->ops_lock);
+//	mutex_unlock(&rtc->ops_lock);
 
-	trace_rtc_read_time(rtc_tm_to_time64(tm), err);
+//	trace_rtc_read_time(rtc_tm_to_time64(tm), err);
 	return err;
 }
 EXPORT_SYMBOL_GPL(rtc_read_time);
@@ -148,9 +148,9 @@ int rtc_set_time(struct rtc_device *rtc, struct rtc_time *tm)
 			return err;
 	}
 
-	err = mutex_lock_interruptible(&rtc->ops_lock);
-	if (err)
-		return err;
+//	err = mutex_lock_interruptible(&rtc->ops_lock);
+//	if (err)
+//		return err;
 
 	if (!rtc->ops)
 		err = -ENODEV;
@@ -159,10 +159,10 @@ int rtc_set_time(struct rtc_device *rtc, struct rtc_time *tm)
 	else
 		err = -EINVAL;
 
-	pm_stay_awake(rtc->dev.parent);
-	mutex_unlock(&rtc->ops_lock);
-	/* A timer might have just expired */
-	schedule_work(&rtc->irqwork);
+//	pm_stay_awake(rtc->dev.parent);
+//	mutex_unlock(&rtc->ops_lock);
+//	/* A timer might have just expired */
+//	schedule_work(&rtc->irqwork);
 
 	if (uie) {
 		err = rtc_update_irq_enable(rtc, 1);
@@ -170,7 +170,7 @@ int rtc_set_time(struct rtc_device *rtc, struct rtc_time *tm)
 			return err;
 	}
 
-	trace_rtc_set_time(rtc_tm_to_time64(tm), err);
+//	trace_rtc_set_time(rtc_tm_to_time64(tm), err);
 	return err;
 }
 EXPORT_SYMBOL_GPL(rtc_set_time);
@@ -180,9 +180,9 @@ static int rtc_read_alarm_internal(struct rtc_device *rtc,
 {
 	int err;
 
-	err = mutex_lock_interruptible(&rtc->ops_lock);
-	if (err)
-		return err;
+//	err = mutex_lock_interruptible(&rtc->ops_lock);
+//	if (err)
+//		return err;
 
 	if (!rtc->ops) {
 		err = -ENODEV;
@@ -203,9 +203,9 @@ static int rtc_read_alarm_internal(struct rtc_device *rtc,
 		err = rtc->ops->read_alarm(rtc->dev.parent, alarm);
 	}
 
-	mutex_unlock(&rtc->ops_lock);
+//	mutex_unlock(&rtc->ops_lock);
 
-	trace_rtc_read_alarm(rtc_tm_to_time64(&alarm->time), err);
+//	trace_rtc_read_alarm(rtc_tm_to_time64(&alarm->time), err);
 	return err;
 }
 
@@ -387,9 +387,9 @@ int rtc_read_alarm(struct rtc_device *rtc, struct rtc_wkalrm *alarm)
 {
 	int err;
 
-	err = mutex_lock_interruptible(&rtc->ops_lock);
-	if (err)
-		return err;
+//	err = mutex_lock_interruptible(&rtc->ops_lock);
+//	if (err)
+//		return err;
 	if (!rtc->ops) {
 		err = -ENODEV;
 	} else if (!rtc->ops->read_alarm) {
@@ -399,9 +399,9 @@ int rtc_read_alarm(struct rtc_device *rtc, struct rtc_wkalrm *alarm)
 		alarm->enabled = rtc->aie_timer.enabled;
 		alarm->time = rtc_ktime_to_tm(rtc->aie_timer.node.expires);
 	}
-	mutex_unlock(&rtc->ops_lock);
+//	mutex_unlock(&rtc->ops_lock);
 
-	trace_rtc_read_alarm(rtc_tm_to_time64(&alarm->time), err);
+//	trace_rtc_read_alarm(rtc_tm_to_time64(&alarm->time), err);
 	return err;
 }
 EXPORT_SYMBOL_GPL(rtc_read_alarm);
@@ -441,7 +441,7 @@ static int __rtc_set_alarm(struct rtc_device *rtc, struct rtc_wkalrm *alarm)
 	else
 		err = rtc->ops->set_alarm(rtc->dev.parent, alarm);
 
-	trace_rtc_set_alarm(rtc_tm_to_time64(&alarm->time), err);
+//	trace_rtc_set_alarm(rtc_tm_to_time64(&alarm->time), err);
 	return err;
 }
 
@@ -462,9 +462,9 @@ int rtc_set_alarm(struct rtc_device *rtc, struct rtc_wkalrm *alarm)
 	if (err)
 		return err;
 
-	err = mutex_lock_interruptible(&rtc->ops_lock);
-	if (err)
-		return err;
+//	err = mutex_lock_interruptible(&rtc->ops_lock);
+//	if (err)
+//		return err;
 	if (rtc->aie_timer.enabled)
 		rtc_timer_remove(rtc, &rtc->aie_timer);
 
@@ -473,7 +473,7 @@ int rtc_set_alarm(struct rtc_device *rtc, struct rtc_wkalrm *alarm)
 	if (alarm->enabled)
 		err = rtc_timer_enqueue(rtc, &rtc->aie_timer);
 
-	mutex_unlock(&rtc->ops_lock);
+//	mutex_unlock(&rtc->ops_lock);
 
 	return err;
 }
@@ -493,9 +493,9 @@ int rtc_initialize_alarm(struct rtc_device *rtc, struct rtc_wkalrm *alarm)
 	if (err)
 		return err;
 
-	err = mutex_lock_interruptible(&rtc->ops_lock);
-	if (err)
-		return err;
+//	err = mutex_lock_interruptible(&rtc->ops_lock);
+//	if (err)
+//		return err;
 
 	rtc->aie_timer.node.expires = rtc_tm_to_ktime(alarm->time);
 	rtc->aie_timer.period = 0;
@@ -504,10 +504,10 @@ int rtc_initialize_alarm(struct rtc_device *rtc, struct rtc_wkalrm *alarm)
 	if (alarm->enabled && (rtc_tm_to_ktime(now) <
 			 rtc->aie_timer.node.expires)) {
 		rtc->aie_timer.enabled = 1;
-		timerqueue_add(&rtc->timerqueue, &rtc->aie_timer.node);
-		trace_rtc_timer_enqueue(&rtc->aie_timer);
+//		timerqueue_add(&rtc->timerqueue, &rtc->aie_timer.node);
+//		trace_rtc_timer_enqueue(&rtc->aie_timer);
 	}
-	mutex_unlock(&rtc->ops_lock);
+//	mutex_unlock(&rtc->ops_lock);
 	return err;
 }
 EXPORT_SYMBOL_GPL(rtc_initialize_alarm);
@@ -516,9 +516,9 @@ int rtc_alarm_irq_enable(struct rtc_device *rtc, unsigned int enabled)
 {
 	int err;
 
-	err = mutex_lock_interruptible(&rtc->ops_lock);
-	if (err)
-		return err;
+//	err = mutex_lock_interruptible(&rtc->ops_lock);
+//	if (err)
+//		return err;
 
 	if (rtc->aie_timer.enabled != enabled) {
 		if (enabled)
@@ -536,9 +536,9 @@ int rtc_alarm_irq_enable(struct rtc_device *rtc, unsigned int enabled)
 	else
 		err = rtc->ops->alarm_irq_enable(rtc->dev.parent, enabled);
 
-	mutex_unlock(&rtc->ops_lock);
+//	mutex_unlock(&rtc->ops_lock);
 
-	trace_rtc_alarm_irq_enable(enabled, err);
+//	trace_rtc_alarm_irq_enable(enabled, err);
 	return err;
 }
 EXPORT_SYMBOL_GPL(rtc_alarm_irq_enable);
@@ -547,9 +547,9 @@ int rtc_update_irq_enable(struct rtc_device *rtc, unsigned int enabled)
 {
 	int rc = 0, err;
 
-	err = mutex_lock_interruptible(&rtc->ops_lock);
-	if (err)
-		return err;
+//	err = mutex_lock_interruptible(&rtc->ops_lock);
+//	if (err)
+//		return err;
 
 #ifdef CONFIG_RTC_INTF_DEV_UIE_EMUL
 	if (enabled == 0 && rtc->uie_irq_active) {
@@ -583,7 +583,7 @@ int rtc_update_irq_enable(struct rtc_device *rtc, unsigned int enabled)
 	}
 
 out:
-	mutex_unlock(&rtc->ops_lock);
+//	mutex_unlock(&rtc->ops_lock);
 
 	/*
 	 * __rtc_read_time() failed, this probably means that the RTC time has
@@ -619,15 +619,15 @@ EXPORT_SYMBOL_GPL(rtc_update_irq_enable);
  */
 void rtc_handle_legacy_irq(struct rtc_device *rtc, int num, int mode)
 {
-	unsigned long flags;
+//	unsigned long flags;
 
 	/* mark one irq of the appropriate mode */
-	spin_lock_irqsave(&rtc->irq_lock, flags);
+//	spin_lock_irqsave(&rtc->irq_lock, flags);
 	rtc->irq_data = (rtc->irq_data + (num << 8)) | (RTC_IRQF | mode);
-	spin_unlock_irqrestore(&rtc->irq_lock, flags);
+//	spin_unlock_irqrestore(&rtc->irq_lock, flags);
 
-	wake_up_interruptible(&rtc->irq_queue);
-	kill_fasync(&rtc->async_queue, SIGIO, POLL_IN);
+//	wake_up_interruptible(&rtc->irq_queue);
+//	kill_fasync(&rtc->async_queue, SIGIO, POLL_IN);
 }
 
 /**
@@ -660,21 +660,21 @@ void rtc_uie_update_irq(struct rtc_device *rtc)
  * using an hrtimer. This function is called when the periodic
  * hrtimer expires.
  */
-enum hrtimer_restart rtc_pie_update_irq(struct hrtimer *timer)
-{
-	struct rtc_device *rtc;
-	ktime_t period;
-	u64 count;
+//enum hrtimer_restart rtc_pie_update_irq(struct hrtimer *timer)
+//{
+//	struct rtc_device *rtc;
+//	ktime_t period;
+//	u64 count;
 
-	rtc = container_of(timer, struct rtc_device, pie_timer);
+//	rtc = container_of(timer, struct rtc_device, pie_timer);
 
-	period = NSEC_PER_SEC / rtc->irq_freq;
-	count = hrtimer_forward_now(timer, period);
+//	period = NSEC_PER_SEC / rtc->irq_freq;
+//	count = hrtimer_forward_now(timer, period);
 
-	rtc_handle_legacy_irq(rtc, count, RTC_PF);
+//	rtc_handle_legacy_irq(rtc, count, RTC_PF);
 
-	return HRTIMER_RESTART;
-}
+//	return HRTIMER_RESTART;
+//}
 
 /**
  * rtc_update_irq - Triggered when a RTC interrupt occurs.
@@ -689,8 +689,8 @@ void rtc_update_irq(struct rtc_device *rtc,
 	if (IS_ERR_OR_NULL(rtc))
 		return;
 
-	pm_stay_awake(rtc->dev.parent);
-	schedule_work(&rtc->irqwork);
+//	pm_stay_awake(rtc->dev.parent);
+//	schedule_work(&rtc->irqwork);
 }
 EXPORT_SYMBOL_GPL(rtc_update_irq);
 
@@ -703,12 +703,12 @@ struct rtc_device *rtc_class_open(const char *name)
 	if (dev)
 		rtc = to_rtc_device(dev);
 
-	if (rtc) {
-		if (!try_module_get(rtc->owner)) {
-			put_device(dev);
-			rtc = NULL;
-		}
-	}
+//	if (rtc) {
+//		if (!try_module_get(rtc->owner)) {
+//			put_device(dev);
+//			rtc = NULL;
+//		}
+//	}
 
 	return rtc;
 }
@@ -716,33 +716,33 @@ EXPORT_SYMBOL_GPL(rtc_class_open);
 
 void rtc_class_close(struct rtc_device *rtc)
 {
-	module_put(rtc->owner);
-	put_device(&rtc->dev);
+//	module_put(rtc->owner);
+//	put_device(&rtc->dev);
 }
 EXPORT_SYMBOL_GPL(rtc_class_close);
 
-static int rtc_update_hrtimer(struct rtc_device *rtc, int enabled)
-{
-	/*
-	 * We always cancel the timer here first, because otherwise
-	 * we could run into BUG_ON(timer->state != HRTIMER_STATE_CALLBACK);
-	 * when we manage to start the timer before the callback
-	 * returns HRTIMER_RESTART.
-	 *
-	 * We cannot use hrtimer_cancel() here as a running callback
-	 * could be blocked on rtc->irq_task_lock and hrtimer_cancel()
-	 * would spin forever.
-	 */
-	if (hrtimer_try_to_cancel(&rtc->pie_timer) < 0)
-		return -1;
+//static int rtc_update_hrtimer(struct rtc_device *rtc, int enabled)
+//{
+//	/*
+//	 * We always cancel the timer here first, because otherwise
+//	 * we could run into BUG_ON(timer->state != HRTIMER_STATE_CALLBACK);
+//	 * when we manage to start the timer before the callback
+//	 * returns HRTIMER_RESTART.
+//	 *
+//	 * We cannot use hrtimer_cancel() here as a running callback
+//	 * could be blocked on rtc->irq_task_lock and hrtimer_cancel()
+//	 * would spin forever.
+//	 */
+//	if (hrtimer_try_to_cancel(&rtc->pie_timer) < 0)
+//		return -1;
 
-	if (enabled) {
-		ktime_t period = NSEC_PER_SEC / rtc->irq_freq;
+//	if (enabled) {
+//		ktime_t period = NSEC_PER_SEC / rtc->irq_freq;
 
-		hrtimer_start(&rtc->pie_timer, period, HRTIMER_MODE_REL);
-	}
-	return 0;
-}
+//		hrtimer_start(&rtc->pie_timer, period, HRTIMER_MODE_REL);
+//	}
+//	return 0;
+//}
 
 /**
  * rtc_irq_set_state - enable/disable 2^N Hz periodic IRQs
@@ -753,18 +753,18 @@ static int rtc_update_hrtimer(struct rtc_device *rtc, int enabled)
  * Note that rtc_irq_set_freq() should previously have been used to
  * specify the desired frequency of periodic IRQ.
  */
-int rtc_irq_set_state(struct rtc_device *rtc, int enabled)
-{
-	int err = 0;
+//int rtc_irq_set_state(struct rtc_device *rtc, int enabled)
+//{
+//	int err = 0;
 
-	while (rtc_update_hrtimer(rtc, enabled) < 0)
-		cpu_relax();
+//	while (rtc_update_hrtimer(rtc, enabled) < 0)
+//		cpu_relax();
 
-	rtc->pie_enabled = enabled;
+//	rtc->pie_enabled = enabled;
 
-	trace_rtc_irq_set_state(enabled, err);
-	return err;
-}
+//	trace_rtc_irq_set_state(enabled, err);
+//	return err;
+//}
 
 /**
  * rtc_irq_set_freq - set 2^N Hz periodic IRQ frequency for IRQ
@@ -775,20 +775,20 @@ int rtc_irq_set_state(struct rtc_device *rtc, int enabled)
  * Note that rtc_irq_set_state() is used to enable or disable the
  * periodic IRQs.
  */
-int rtc_irq_set_freq(struct rtc_device *rtc, int freq)
-{
-	int err = 0;
+//int rtc_irq_set_freq(struct rtc_device *rtc, int freq)
+//{
+//	int err = 0;
 
-	if (freq <= 0 || freq > RTC_MAX_FREQ)
-		return -EINVAL;
+//	if (freq <= 0 || freq > RTC_MAX_FREQ)
+//		return -EINVAL;
 
-	rtc->irq_freq = freq;
-	while (rtc->pie_enabled && rtc_update_hrtimer(rtc, 1) < 0)
-		cpu_relax();
+//	rtc->irq_freq = freq;
+//	while (rtc->pie_enabled && rtc_update_hrtimer(rtc, 1) < 0)
+//		cpu_relax();
 
-	trace_rtc_irq_set_freq(freq, err);
-	return err;
-}
+//	trace_rtc_irq_set_freq(freq, err);
+//	return err;
+//}
 
 /**
  * rtc_timer_enqueue - Adds a rtc_timer to the rtc_device timerqueue
@@ -804,40 +804,40 @@ int rtc_irq_set_freq(struct rtc_device *rtc, int freq)
  */
 static int rtc_timer_enqueue(struct rtc_device *rtc, struct rtc_timer *timer)
 {
-	struct timerqueue_node *next = timerqueue_getnext(&rtc->timerqueue);
-	struct rtc_time tm;
-	ktime_t now;
+//	struct timerqueue_node *next = timerqueue_getnext(&rtc->timerqueue);
+//	struct rtc_time tm;
+//	ktime_t now;
 
-	timer->enabled = 1;
-	__rtc_read_time(rtc, &tm);
-	now = rtc_tm_to_ktime(tm);
+//	timer->enabled = 1;
+//	__rtc_read_time(rtc, &tm);
+//	now = rtc_tm_to_ktime(tm);
 
-	/* Skip over expired timers */
-	while (next) {
-		if (next->expires >= now)
-			break;
-		next = timerqueue_iterate_next(next);
-	}
+//	/* Skip over expired timers */
+//	while (next) {
+//		if (next->expires >= now)
+//			break;
+//		next = timerqueue_iterate_next(next);
+//	}
 
-	timerqueue_add(&rtc->timerqueue, &timer->node);
-	trace_rtc_timer_enqueue(timer);
-	if (!next || ktime_before(timer->node.expires, next->expires)) {
-		struct rtc_wkalrm alarm;
-		int err;
+//	timerqueue_add(&rtc->timerqueue, &timer->node);
+//	trace_rtc_timer_enqueue(timer);
+//	if (!next || ktime_before(timer->node.expires, next->expires)) {
+//		struct rtc_wkalrm alarm;
+//		int err;
 
-		alarm.time = rtc_ktime_to_tm(timer->node.expires);
-		alarm.enabled = 1;
-		err = __rtc_set_alarm(rtc, &alarm);
-		if (err == -ETIME) {
-			pm_stay_awake(rtc->dev.parent);
-			schedule_work(&rtc->irqwork);
-		} else if (err) {
-			timerqueue_del(&rtc->timerqueue, &timer->node);
-			trace_rtc_timer_dequeue(timer);
-			timer->enabled = 0;
-			return err;
-		}
-	}
+//		alarm.time = rtc_ktime_to_tm(timer->node.expires);
+//		alarm.enabled = 1;
+//		err = __rtc_set_alarm(rtc, &alarm);
+//		if (err == -ETIME) {
+//			pm_stay_awake(rtc->dev.parent);
+//			schedule_work(&rtc->irqwork);
+//		} else if (err) {
+//			timerqueue_del(&rtc->timerqueue, &timer->node);
+//			trace_rtc_timer_dequeue(timer);
+//			timer->enabled = 0;
+//			return err;
+//		}
+//	}
 	return 0;
 }
 
@@ -847,7 +847,7 @@ static void rtc_alarm_disable(struct rtc_device *rtc)
 		return;
 
 	rtc->ops->alarm_irq_enable(rtc->dev.parent, false);
-	trace_rtc_alarm_irq_enable(0, 0);
+//	trace_rtc_alarm_irq_enable(0, 0);
 }
 
 /**
@@ -864,28 +864,28 @@ static void rtc_alarm_disable(struct rtc_device *rtc)
  */
 static void rtc_timer_remove(struct rtc_device *rtc, struct rtc_timer *timer)
 {
-	struct timerqueue_node *next = timerqueue_getnext(&rtc->timerqueue);
+//	struct timerqueue_node *next = timerqueue_getnext(&rtc->timerqueue);
 
-	timerqueue_del(&rtc->timerqueue, &timer->node);
-	trace_rtc_timer_dequeue(timer);
-	timer->enabled = 0;
-	if (next == &timer->node) {
-		struct rtc_wkalrm alarm;
-		int err;
+//	timerqueue_del(&rtc->timerqueue, &timer->node);
+//	trace_rtc_timer_dequeue(timer);
+//	timer->enabled = 0;
+//	if (next == &timer->node) {
+//		struct rtc_wkalrm alarm;
+//		int err;
 
-		next = timerqueue_getnext(&rtc->timerqueue);
-		if (!next) {
-			rtc_alarm_disable(rtc);
-			return;
-		}
-		alarm.time = rtc_ktime_to_tm(next->expires);
-		alarm.enabled = 1;
-		err = __rtc_set_alarm(rtc, &alarm);
-		if (err == -ETIME) {
-			pm_stay_awake(rtc->dev.parent);
-			schedule_work(&rtc->irqwork);
-		}
-	}
+//		next = timerqueue_getnext(&rtc->timerqueue);
+//		if (!next) {
+//			rtc_alarm_disable(rtc);
+//			return;
+//		}
+//		alarm.time = rtc_ktime_to_tm(next->expires);
+//		alarm.enabled = 1;
+//		err = __rtc_set_alarm(rtc, &alarm);
+//		if (err == -ETIME) {
+//			pm_stay_awake(rtc->dev.parent);
+//			schedule_work(&rtc->irqwork);
+//		}
+//	}
 }
 
 /**
@@ -897,73 +897,73 @@ static void rtc_timer_remove(struct rtc_device *rtc, struct rtc_timer *timer)
  *
  * Serializes access to timerqueue via ops_lock mutex
  */
-void rtc_timer_do_work(struct work_struct *work)
-{
-	struct rtc_timer *timer;
-	struct timerqueue_node *next;
-	ktime_t now;
-	struct rtc_time tm;
+//void rtc_timer_do_work(struct work_struct *work)
+//{
+//	struct rtc_timer *timer;
+//	struct timerqueue_node *next;
+//	ktime_t now;
+//	struct rtc_time tm;
 
-	struct rtc_device *rtc =
-		container_of(work, struct rtc_device, irqwork);
+//	struct rtc_device *rtc =
+//		container_of(work, struct rtc_device, irqwork);
 
-	mutex_lock(&rtc->ops_lock);
-again:
-	__rtc_read_time(rtc, &tm);
-	now = rtc_tm_to_ktime(tm);
-	while ((next = timerqueue_getnext(&rtc->timerqueue))) {
-		if (next->expires > now)
-			break;
+//	mutex_lock(&rtc->ops_lock);
+//again:
+//	__rtc_read_time(rtc, &tm);
+//	now = rtc_tm_to_ktime(tm);
+//	while ((next = timerqueue_getnext(&rtc->timerqueue))) {
+//		if (next->expires > now)
+//			break;
 
-		/* expire timer */
-		timer = container_of(next, struct rtc_timer, node);
-		timerqueue_del(&rtc->timerqueue, &timer->node);
-		trace_rtc_timer_dequeue(timer);
-		timer->enabled = 0;
-		if (timer->func)
-			timer->func(timer->rtc);
+//		/* expire timer */
+//		timer = container_of(next, struct rtc_timer, node);
+//		timerqueue_del(&rtc->timerqueue, &timer->node);
+//		trace_rtc_timer_dequeue(timer);
+//		timer->enabled = 0;
+//		if (timer->func)
+//			timer->func(timer->rtc);
 
-		trace_rtc_timer_fired(timer);
-		/* Re-add/fwd periodic timers */
-		if (ktime_to_ns(timer->period)) {
-			timer->node.expires = ktime_add(timer->node.expires,
-							timer->period);
-			timer->enabled = 1;
-			timerqueue_add(&rtc->timerqueue, &timer->node);
-			trace_rtc_timer_enqueue(timer);
-		}
-	}
+//		trace_rtc_timer_fired(timer);
+//		/* Re-add/fwd periodic timers */
+//		if (ktime_to_ns(timer->period)) {
+//			timer->node.expires = ktime_add(timer->node.expires,
+//							timer->period);
+//			timer->enabled = 1;
+//			timerqueue_add(&rtc->timerqueue, &timer->node);
+//			trace_rtc_timer_enqueue(timer);
+//		}
+//	}
 
-	/* Set next alarm */
-	if (next) {
-		struct rtc_wkalrm alarm;
-		int err;
-		int retry = 3;
+//	/* Set next alarm */
+//	if (next) {
+//		struct rtc_wkalrm alarm;
+//		int err;
+//		int retry = 3;
 
-		alarm.time = rtc_ktime_to_tm(next->expires);
-		alarm.enabled = 1;
-reprogram:
-		err = __rtc_set_alarm(rtc, &alarm);
-		if (err == -ETIME) {
-			goto again;
-		} else if (err) {
-			if (retry-- > 0)
-				goto reprogram;
+//		alarm.time = rtc_ktime_to_tm(next->expires);
+//		alarm.enabled = 1;
+//reprogram:
+//		err = __rtc_set_alarm(rtc, &alarm);
+//		if (err == -ETIME) {
+//			goto again;
+//		} else if (err) {
+//			if (retry-- > 0)
+//				goto reprogram;
 
-			timer = container_of(next, struct rtc_timer, node);
-			timerqueue_del(&rtc->timerqueue, &timer->node);
-			trace_rtc_timer_dequeue(timer);
-			timer->enabled = 0;
-			dev_err(&rtc->dev, "__rtc_set_alarm: err=%d\n", err);
-			goto again;
-		}
-	} else {
-		rtc_alarm_disable(rtc);
-	}
+//			timer = container_of(next, struct rtc_timer, node);
+//			timerqueue_del(&rtc->timerqueue, &timer->node);
+//			trace_rtc_timer_dequeue(timer);
+//			timer->enabled = 0;
+//			dev_err(&rtc->dev, "__rtc_set_alarm: err=%d\n", err);
+//			goto again;
+//		}
+//	} else {
+//		rtc_alarm_disable(rtc);
+//	}
 
-	pm_relax(rtc->dev.parent);
-	mutex_unlock(&rtc->ops_lock);
-}
+//	pm_relax(rtc->dev.parent);
+//	mutex_unlock(&rtc->ops_lock);
+//}
 
 /* rtc_timer_init - Initializes an rtc_timer
  * @timer: timer to be intiialized
@@ -975,7 +975,7 @@ reprogram:
 void rtc_timer_init(struct rtc_timer *timer, void (*f)(struct rtc_device *r),
 		    struct rtc_device *rtc)
 {
-	timerqueue_init(&timer->node);
+//	timerqueue_init(&timer->node);
 	timer->enabled = 0;
 	timer->func = f;
 	timer->rtc = rtc;
@@ -994,7 +994,7 @@ int rtc_timer_start(struct rtc_device *rtc, struct rtc_timer *timer,
 {
 	int ret = 0;
 
-	mutex_lock(&rtc->ops_lock);
+//	mutex_lock(&rtc->ops_lock);
 	if (timer->enabled)
 		rtc_timer_remove(rtc, timer);
 
@@ -1003,7 +1003,7 @@ int rtc_timer_start(struct rtc_device *rtc, struct rtc_timer *timer,
 
 	ret = rtc_timer_enqueue(rtc, timer);
 
-	mutex_unlock(&rtc->ops_lock);
+//	mutex_unlock(&rtc->ops_lock);
 	return ret;
 }
 
@@ -1015,10 +1015,10 @@ int rtc_timer_start(struct rtc_device *rtc, struct rtc_timer *timer,
  */
 void rtc_timer_cancel(struct rtc_device *rtc, struct rtc_timer *timer)
 {
-	mutex_lock(&rtc->ops_lock);
+//	mutex_lock(&rtc->ops_lock);
 	if (timer->enabled)
 		rtc_timer_remove(rtc, timer);
-	mutex_unlock(&rtc->ops_lock);
+//	mutex_unlock(&rtc->ops_lock);
 }
 
 /**
@@ -1042,11 +1042,11 @@ int rtc_read_offset(struct rtc_device *rtc, long *offset)
 	if (!rtc->ops->read_offset)
 		return -EINVAL;
 
-	mutex_lock(&rtc->ops_lock);
+//	mutex_lock(&rtc->ops_lock);
 	ret = rtc->ops->read_offset(rtc->dev.parent, offset);
-	mutex_unlock(&rtc->ops_lock);
+//	mutex_unlock(&rtc->ops_lock);
 
-	trace_rtc_read_offset(*offset, ret);
+//	trace_rtc_read_offset(*offset, ret);
 	return ret;
 }
 
@@ -1077,10 +1077,10 @@ int rtc_set_offset(struct rtc_device *rtc, long offset)
 	if (!rtc->ops->set_offset)
 		return -EINVAL;
 
-	mutex_lock(&rtc->ops_lock);
+//	mutex_lock(&rtc->ops_lock);
 	ret = rtc->ops->set_offset(rtc->dev.parent, offset);
-	mutex_unlock(&rtc->ops_lock);
+//	mutex_unlock(&rtc->ops_lock);
 
-	trace_rtc_set_offset(offset, ret);
+//	trace_rtc_set_offset(offset, ret);
 	return ret;
 }

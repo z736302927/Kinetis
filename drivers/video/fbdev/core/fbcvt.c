@@ -215,7 +215,7 @@ static void fb_cvt_print_name(struct fb_cvt_data *cvt)
 {
 	u32 pixcount, pixcount_mod;
 	int cnt = 255, offset = 0, read = 0;
-	u8 *buf = kzalloc(256, GFP_KERNEL);
+	char *buf = kzalloc(256, GFP_KERNEL);
 
 	if (!buf)
 		return;

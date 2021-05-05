@@ -12,10 +12,10 @@
  */
 
 #include <linux/string.h>
-#include <linux/module.h>
+//#include <linux/module.h>
 #include <linux/fb.h>
 #include <linux/slab.h>
-#include <linux/uaccess.h>
+//#include <linux/uaccess.h>
 
 static u16 red2[] __read_mostly = {
     0x0000, 0xaaaa
@@ -205,14 +205,14 @@ int fb_cmap_to_user(const struct fb_cmap *from, struct fb_cmap_user *to)
 		return -EINVAL;
 	size *= sizeof(u16);
 
-	if (copy_to_user(to->red+tooff, from->red+fromoff, size))
+	if (memcpy(to->red+tooff, from->red+fromoff, size))
 		return -EFAULT;
-	if (copy_to_user(to->green+tooff, from->green+fromoff, size))
+	if (memcpy(to->green+tooff, from->green+fromoff, size))
 		return -EFAULT;
-	if (copy_to_user(to->blue+tooff, from->blue+fromoff, size))
+	if (memcpy(to->blue+tooff, from->blue+fromoff, size))
 		return -EFAULT;
 	if (from->transp && to->transp)
-		if (copy_to_user(to->transp+tooff, from->transp+fromoff, size))
+		if (memcpy(to->transp+tooff, from->transp+fromoff, size))
 			return -EFAULT;
 	return 0;
 }
@@ -277,17 +277,17 @@ int fb_set_user_cmap(struct fb_cmap_user *cmap, struct fb_info *info)
 				GFP_KERNEL);
 	if (rc)
 		return rc;
-	if (copy_from_user(umap.red, cmap->red, size) ||
-	    copy_from_user(umap.green, cmap->green, size) ||
-	    copy_from_user(umap.blue, cmap->blue, size) ||
-	    (cmap->transp && copy_from_user(umap.transp, cmap->transp, size))) {
+	if (memcpy(umap.red, cmap->red, size) ||
+	    memcpy(umap.green, cmap->green, size) ||
+	    memcpy(umap.blue, cmap->blue, size) ||
+	    (cmap->transp && memcpy(umap.transp, cmap->transp, size))) {
 		rc = -EFAULT;
 		goto out;
 	}
 	umap.start = cmap->start;
-	lock_fb_info(info);
+//	lock_fb_info(info);
 	rc = fb_set_cmap(&umap, info);
-	unlock_fb_info(info);
+//	unlock_fb_info(info);
 out:
 	fb_dealloc_cmap(&umap);
 	return rc;

@@ -22,29 +22,39 @@
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/errname.h>
-#include <linux/module.h>	/* for KSYM_SYMBOL_LEN */
+//#include <linux/module.h>	/* for KSYM_SYMBOL_LEN */
 #include <linux/types.h>
 #include <linux/string.h>
 #include <linux/ctype.h>
 #include <linux/kernel.h>
-#include <linux/kallsyms.h>
+//#include <linux/kallsyms.h>
 #include <linux/math64.h>
+//#include <linux/uaccess.h>
 #include <linux/ioport.h>
-#include <linux/dcache.h>
-#include <linux/cred.h>
+//#include <linux/dcache.h>
+//#include <linux/cred.h>
 #include <linux/rtc.h>
 #include <linux/time.h>
 #include <linux/uuid.h>
-#include <linux/of.h>
+//#include <linux/of.h>
 #include <net/addrconf.h>
+#include <linux/netdev_features.h>
 #include <linux/siphash.h>
 #include <linux/compiler.h>
-#include <linux/property.h>
+#include <linux/in.h>
+#include <linux/in6.h>
+#include <linux/socket.h>
+#include <linux/page-flags.h>
+#include <linux/hash.h>
+#include <linux/bitmap.h>
+//#include <linux/property.h>
 #ifdef CONFIG_BLOCK
 #include <linux/blkdev.h>
 #endif
 
-#include "../mm/internal.h"	/* For the trace_print_flags arrays */
+#include <linux/tracepoint-defs.h>
+#include <linux/mm.h>
+//#include "../mm/internal.h"	/* For the trace_print_flags arrays */
 
 #include <asm/page.h>		/* for PAGE_SIZE */
 #include <asm/byteorder.h>	/* cpu_to_le16 */
@@ -75,6 +85,7 @@ unsigned long long simple_strtoull(const char *cp, char **endp, unsigned int bas
 
 	return result;
 }
+EXPORT_SYMBOL(simple_strtoull);
 
 /**
  * simple_strtoul - convert a string to an unsigned long
@@ -88,6 +99,7 @@ unsigned long simple_strtoul(const char *cp, char **endp, unsigned int base)
 {
 	return simple_strtoull(cp, endp, base);
 }
+EXPORT_SYMBOL(simple_strtoul);
 
 /**
  * simple_strtol - convert a string to a signed long
@@ -104,6 +116,7 @@ long simple_strtol(const char *cp, char **endp, unsigned int base)
 
 	return simple_strtoul(cp, endp, base);
 }
+EXPORT_SYMBOL(simple_strtol);
 
 /**
  * simple_strtoll - convert a string to a signed long long
@@ -120,6 +133,7 @@ long long simple_strtoll(const char *cp, char **endp, unsigned int base)
 
 	return simple_strtoull(cp, endp, base);
 }
+EXPORT_SYMBOL(simple_strtoll);
 
 static noinline_for_stack
 int skip_atoi(const char **s)
@@ -713,59 +727,59 @@ static int __init debug_boot_weak_hash_enable(char *str)
 }
 early_param("debug_boot_weak_hash", debug_boot_weak_hash_enable);
 
-static DEFINE_STATIC_KEY_TRUE(not_filled_random_ptr_key);
+//static DEFINE_STATIC_KEY_TRUE(not_filled_random_ptr_key);
 static siphash_key_t ptr_key __read_mostly;
 
-static void enable_ptr_key_workfn(struct work_struct *work)
-{
-	get_random_bytes(&ptr_key, sizeof(ptr_key));
-	/* Needs to run from preemptible context */
-	static_branch_disable(&not_filled_random_ptr_key);
-}
+//static void enable_ptr_key_workfn(struct work_struct *work)
+//{
+//	get_random_bytes(&ptr_key, sizeof(ptr_key));
+//	/* Needs to run from preemptible context */
+//	static_branch_disable(&not_filled_random_ptr_key);
+//}
 
-static DECLARE_WORK(enable_ptr_key_work, enable_ptr_key_workfn);
+//static DECLARE_WORK(enable_ptr_key_work, enable_ptr_key_workfn);
 
-static void fill_random_ptr_key(struct random_ready_callback *unused)
-{
-	/* This may be in an interrupt handler. */
-	queue_work(system_unbound_wq, &enable_ptr_key_work);
-}
+//static void fill_random_ptr_key(struct random_ready_callback *unused)
+//{
+//	/* This may be in an interrupt handler. */
+//	queue_work(system_unbound_wq, &enable_ptr_key_work);
+//}
 
-static struct random_ready_callback random_ready = {
-	.func = fill_random_ptr_key
-};
+//static struct random_ready_callback random_ready = {
+//	.func = fill_random_ptr_key
+//};
 
-static int __init initialize_ptr_random(void)
-{
-	int key_size = sizeof(ptr_key);
-	int ret;
+//static int __init initialize_ptr_random(void)
+//{
+//	int key_size = sizeof(ptr_key);
+//	int ret;
 
-	/* Use hw RNG if available. */
-	if (get_random_bytes_arch(&ptr_key, key_size) == key_size) {
-		static_branch_disable(&not_filled_random_ptr_key);
-		return 0;
-	}
+//	/* Use hw RNG if available. */
+//	if (get_random_bytes_arch(&ptr_key, key_size) == key_size) {
+////		static_branch_disable(&not_filled_random_ptr_key);
+//		return 0;
+//	}
 
-	ret = add_random_ready_callback(&random_ready);
-	if (!ret) {
-		return 0;
-	} else if (ret == -EALREADY) {
-		/* This is in preemptible context */
-		enable_ptr_key_workfn(&enable_ptr_key_work);
-		return 0;
-	}
+//	ret = add_random_ready_callback(&random_ready);
+//	if (!ret) {
+//		return 0;
+//	} else if (ret == -EALREADY) {
+//		/* This is in preemptible context */
+////		enable_ptr_key_workfn(&enable_ptr_key_work);
+//		return 0;
+//	}
 
-	return ret;
-}
-early_initcall(initialize_ptr_random);
+//	return ret;
+//}
+//early_initcall(initialize_ptr_random);
 
 /* Maps a pointer to a 32 bit unique identifier. */
 static inline int __ptr_to_hashval(const void *ptr, unsigned long *hashval_out)
 {
 	unsigned long hashval;
 
-	if (static_branch_unlikely(&not_filled_random_ptr_key))
-		return -EAGAIN;
+//	if (static_branch_unlikely(&not_filled_random_ptr_key))
+//		return -EAGAIN;
 
 #ifdef CONFIG_64BIT
 	hashval = (unsigned long)siphash_1u64((u64)ptr, &ptr_key);
@@ -833,11 +847,11 @@ char *restricted_pointer(char *buf, char *end, const void *ptr,
 		 * kptr_restrict==1 cannot be used in IRQ context
 		 * because its test for CAP_SYSLOG would be meaningless.
 		 */
-		if (in_irq() || in_serving_softirq() || in_nmi()) {
+//		if (in_irq() || in_serving_softirq() || in_nmi()) {
 			if (spec.field_width == -1)
 				spec.field_width = 2 * sizeof(ptr);
 			return error_string(buf, end, "pK-error", spec);
-		}
+//		}
 
 		/*
 		 * Only print the real pointer value if the current
@@ -848,11 +862,11 @@ char *restricted_pointer(char *buf, char *end, const void *ptr,
 		 * leak pointer values if a binary opens a file using
 		 * %pK and then elevates privileges before reading it.
 		 */
-		cred = current_cred();
-		if (!has_capability_noaudit(current, CAP_SYSLOG) ||
-		    !uid_eq(cred->euid, cred->uid) ||
-		    !gid_eq(cred->egid, cred->gid))
-			ptr = NULL;
+//		cred = current_cred();
+//		if (!has_capability_noaudit(current, CAP_SYSLOG) ||
+//		    !uid_eq(cred->euid, cred->uid) ||
+//		    !gid_eq(cred->egid, cred->gid))
+//			ptr = NULL;
 		break;
 	}
 	case 2:
@@ -865,64 +879,64 @@ char *restricted_pointer(char *buf, char *end, const void *ptr,
 	return pointer_string(buf, end, ptr, spec);
 }
 
-static noinline_for_stack
-char *dentry_name(char *buf, char *end, const struct dentry *d, struct printf_spec spec,
-		  const char *fmt)
-{
-	const char *array[4], *s;
-	const struct dentry *p;
-	int depth;
-	int i, n;
+//static noinline_for_stack
+//char *dentry_name(char *buf, char *end, const struct dentry *d, struct printf_spec spec,
+//		  const char *fmt)
+//{
+//	const char *array[4], *s;
+//	const struct dentry *p;
+//	int depth;
+//	int i, n;
 
-	switch (fmt[1]) {
-		case '2': case '3': case '4':
-			depth = fmt[1] - '0';
-			break;
-		default:
-			depth = 1;
-	}
+//	switch (fmt[1]) {
+//		case '2': case '3': case '4':
+//			depth = fmt[1] - '0';
+//			break;
+//		default:
+//			depth = 1;
+//	}
 
-	rcu_read_lock();
-	for (i = 0; i < depth; i++, d = p) {
-		if (check_pointer(&buf, end, d, spec)) {
-			rcu_read_unlock();
-			return buf;
-		}
+//	rcu_read_lock();
+//	for (i = 0; i < depth; i++, d = p) {
+//		if (check_pointer(&buf, end, d, spec)) {
+//			rcu_read_unlock();
+//			return buf;
+//		}
 
-		p = READ_ONCE(d->d_parent);
-		array[i] = READ_ONCE(d->d_name.name);
-		if (p == d) {
-			if (i)
-				array[i] = "";
-			i++;
-			break;
-		}
-	}
-	s = array[--i];
-	for (n = 0; n != spec.precision; n++, buf++) {
-		char c = *s++;
-		if (!c) {
-			if (!i)
-				break;
-			c = '/';
-			s = array[--i];
-		}
-		if (buf < end)
-			*buf = c;
-	}
-	rcu_read_unlock();
-	return widen_string(buf, n, end, spec);
-}
+//		p = READ_ONCE(d->d_parent);
+//		array[i] = READ_ONCE(d->d_name.name);
+//		if (p == d) {
+//			if (i)
+//				array[i] = "";
+//			i++;
+//			break;
+//		}
+//	}
+//	s = array[--i];
+//	for (n = 0; n != spec.precision; n++, buf++) {
+//		char c = *s++;
+//		if (!c) {
+//			if (!i)
+//				break;
+//			c = '/';
+//			s = array[--i];
+//		}
+//		if (buf < end)
+//			*buf = c;
+//	}
+//	rcu_read_unlock();
+//	return widen_string(buf, n, end, spec);
+//}
 
-static noinline_for_stack
-char *file_dentry_name(char *buf, char *end, const struct file *f,
-			struct printf_spec spec, const char *fmt)
-{
-	if (check_pointer(&buf, end, f, spec))
-		return buf;
+//static noinline_for_stack
+//char *file_dentry_name(char *buf, char *end, const struct file *f,
+//			struct printf_spec spec, const char *fmt)
+//{
+//	if (check_pointer(&buf, end, f, spec))
+//		return buf;
 
-	return dentry_name(buf, end, f->f_path.dentry, spec, fmt);
-}
+//	return dentry_name(buf, end, f->f_path.dentry, spec, fmt);
+//}
 #ifdef CONFIG_BLOCK
 static noinline_for_stack
 char *bdev_name(char *buf, char *end, struct block_device *bdev,
@@ -1240,352 +1254,352 @@ char *bitmap_list_string(char *buf, char *end, unsigned long *bitmap,
 	return buf;
 }
 
-static noinline_for_stack
-char *mac_address_string(char *buf, char *end, u8 *addr,
-			 struct printf_spec spec, const char *fmt)
-{
-	char mac_addr[sizeof("xx:xx:xx:xx:xx:xx")];
-	char *p = mac_addr;
-	int i;
-	char separator;
-	bool reversed = false;
+//static noinline_for_stack
+//char *mac_address_string(char *buf, char *end, u8 *addr,
+//			 struct printf_spec spec, const char *fmt)
+//{
+//	char mac_addr[sizeof("xx:xx:xx:xx:xx:xx")];
+//	char *p = mac_addr;
+//	int i;
+//	char separator;
+//	bool reversed = false;
 
-	if (check_pointer(&buf, end, addr, spec))
-		return buf;
+//	if (check_pointer(&buf, end, addr, spec))
+//		return buf;
 
-	switch (fmt[1]) {
-	case 'F':
-		separator = '-';
-		break;
+//	switch (fmt[1]) {
+//	case 'F':
+//		separator = '-';
+//		break;
 
-	case 'R':
-		reversed = true;
-		/* fall through */
+//	case 'R':
+//		reversed = true;
+//		/* fall through */
 
-	default:
-		separator = ':';
-		break;
-	}
+//	default:
+//		separator = ':';
+//		break;
+//	}
 
-	for (i = 0; i < 6; i++) {
-		if (reversed)
-			p = hex_byte_pack(p, addr[5 - i]);
-		else
-			p = hex_byte_pack(p, addr[i]);
+//	for (i = 0; i < 6; i++) {
+//		if (reversed)
+//			p = hex_byte_pack(p, addr[5 - i]);
+//		else
+//			p = hex_byte_pack(p, addr[i]);
 
-		if (fmt[0] == 'M' && i != 5)
-			*p++ = separator;
-	}
-	*p = '\0';
+//		if (fmt[0] == 'M' && i != 5)
+//			*p++ = separator;
+//	}
+//	*p = '\0';
 
-	return string_nocheck(buf, end, mac_addr, spec);
-}
+//	return string_nocheck(buf, end, mac_addr, spec);
+//}
 
-static noinline_for_stack
-char *ip4_string(char *p, const u8 *addr, const char *fmt)
-{
-	int i;
-	bool leading_zeros = (fmt[0] == 'i');
-	int index;
-	int step;
+//static noinline_for_stack
+//char *ip4_string(char *p, const u8 *addr, const char *fmt)
+//{
+//	int i;
+//	bool leading_zeros = (fmt[0] == 'i');
+//	int index;
+//	int step;
 
-	switch (fmt[2]) {
-	case 'h':
-#ifdef __BIG_ENDIAN
-		index = 0;
-		step = 1;
-#else
-		index = 3;
-		step = -1;
-#endif
-		break;
-	case 'l':
-		index = 3;
-		step = -1;
-		break;
-	case 'n':
-	case 'b':
-	default:
-		index = 0;
-		step = 1;
-		break;
-	}
-	for (i = 0; i < 4; i++) {
-		char temp[4] __aligned(2);	/* hold each IP quad in reverse order */
-		int digits = put_dec_trunc8(temp, addr[index]) - temp;
-		if (leading_zeros) {
-			if (digits < 3)
-				*p++ = '0';
-			if (digits < 2)
-				*p++ = '0';
-		}
-		/* reverse the digits in the quad */
-		while (digits--)
-			*p++ = temp[digits];
-		if (i < 3)
-			*p++ = '.';
-		index += step;
-	}
-	*p = '\0';
+//	switch (fmt[2]) {
+//	case 'h':
+//#ifdef __BIG_ENDIAN
+//		index = 0;
+//		step = 1;
+//#else
+//		index = 3;
+//		step = -1;
+//#endif
+//		break;
+//	case 'l':
+//		index = 3;
+//		step = -1;
+//		break;
+//	case 'n':
+//	case 'b':
+//	default:
+//		index = 0;
+//		step = 1;
+//		break;
+//	}
+//	for (i = 0; i < 4; i++) {
+//		char temp[4] __aligned(2);	/* hold each IP quad in reverse order */
+//		int digits = put_dec_trunc8(temp, addr[index]) - temp;
+//		if (leading_zeros) {
+//			if (digits < 3)
+//				*p++ = '0';
+//			if (digits < 2)
+//				*p++ = '0';
+//		}
+//		/* reverse the digits in the quad */
+//		while (digits--)
+//			*p++ = temp[digits];
+//		if (i < 3)
+//			*p++ = '.';
+//		index += step;
+//	}
+//	*p = '\0';
 
-	return p;
-}
+//	return p;
+//}
 
-static noinline_for_stack
-char *ip6_compressed_string(char *p, const char *addr)
-{
-	int i, j, range;
-	unsigned char zerolength[8];
-	int longest = 1;
-	int colonpos = -1;
-	u16 word;
-	u8 hi, lo;
-	bool needcolon = false;
-	bool useIPv4;
-	struct in6_addr in6;
+//static noinline_for_stack
+//char *ip6_compressed_string(char *p, const char *addr)
+//{
+//	int i, j, range;
+//	unsigned char zerolength[8];
+//	int longest = 1;
+//	int colonpos = -1;
+//	u16 word;
+//	u8 hi, lo;
+//	bool needcolon = false;
+//	bool useIPv4;
+//	struct in6_addr in6;
 
-	memcpy(&in6, addr, sizeof(struct in6_addr));
+//	memcpy(&in6, addr, sizeof(struct in6_addr));
 
-	useIPv4 = ipv6_addr_v4mapped(&in6) || ipv6_addr_is_isatap(&in6);
+//	useIPv4 = ipv6_addr_v4mapped(&in6) || ipv6_addr_is_isatap(&in6);
 
-	memset(zerolength, 0, sizeof(zerolength));
+//	memset(zerolength, 0, sizeof(zerolength));
 
-	if (useIPv4)
-		range = 6;
-	else
-		range = 8;
+//	if (useIPv4)
+//		range = 6;
+//	else
+//		range = 8;
 
-	/* find position of longest 0 run */
-	for (i = 0; i < range; i++) {
-		for (j = i; j < range; j++) {
-			if (in6.s6_addr16[j] != 0)
-				break;
-			zerolength[i]++;
-		}
-	}
-	for (i = 0; i < range; i++) {
-		if (zerolength[i] > longest) {
-			longest = zerolength[i];
-			colonpos = i;
-		}
-	}
-	if (longest == 1)		/* don't compress a single 0 */
-		colonpos = -1;
+//	/* find position of longest 0 run */
+//	for (i = 0; i < range; i++) {
+//		for (j = i; j < range; j++) {
+//			if (in6.s6_addr16[j] != 0)
+//				break;
+//			zerolength[i]++;
+//		}
+//	}
+//	for (i = 0; i < range; i++) {
+//		if (zerolength[i] > longest) {
+//			longest = zerolength[i];
+//			colonpos = i;
+//		}
+//	}
+//	if (longest == 1)		/* don't compress a single 0 */
+//		colonpos = -1;
 
-	/* emit address */
-	for (i = 0; i < range; i++) {
-		if (i == colonpos) {
-			if (needcolon || i == 0)
-				*p++ = ':';
-			*p++ = ':';
-			needcolon = false;
-			i += longest - 1;
-			continue;
-		}
-		if (needcolon) {
-			*p++ = ':';
-			needcolon = false;
-		}
-		/* hex u16 without leading 0s */
-		word = ntohs(in6.s6_addr16[i]);
-		hi = word >> 8;
-		lo = word & 0xff;
-		if (hi) {
-			if (hi > 0x0f)
-				p = hex_byte_pack(p, hi);
-			else
-				*p++ = hex_asc_lo(hi);
-			p = hex_byte_pack(p, lo);
-		}
-		else if (lo > 0x0f)
-			p = hex_byte_pack(p, lo);
-		else
-			*p++ = hex_asc_lo(lo);
-		needcolon = true;
-	}
+//	/* emit address */
+//	for (i = 0; i < range; i++) {
+//		if (i == colonpos) {
+//			if (needcolon || i == 0)
+//				*p++ = ':';
+//			*p++ = ':';
+//			needcolon = false;
+//			i += longest - 1;
+//			continue;
+//		}
+//		if (needcolon) {
+//			*p++ = ':';
+//			needcolon = false;
+//		}
+//		/* hex u16 without leading 0s */
+//		word = ntohs(in6.s6_addr16[i]);
+//		hi = word >> 8;
+//		lo = word & 0xff;
+//		if (hi) {
+//			if (hi > 0x0f)
+//				p = hex_byte_pack(p, hi);
+//			else
+//				*p++ = hex_asc_lo(hi);
+//			p = hex_byte_pack(p, lo);
+//		}
+//		else if (lo > 0x0f)
+//			p = hex_byte_pack(p, lo);
+//		else
+//			*p++ = hex_asc_lo(lo);
+//		needcolon = true;
+//	}
 
-	if (useIPv4) {
-		if (needcolon)
-			*p++ = ':';
-		p = ip4_string(p, &in6.s6_addr[12], "I4");
-	}
-	*p = '\0';
+//	if (useIPv4) {
+//		if (needcolon)
+//			*p++ = ':';
+//		p = ip4_string(p, &in6.s6_addr[12], "I4");
+//	}
+//	*p = '\0';
 
-	return p;
-}
+//	return p;
+//}
 
-static noinline_for_stack
-char *ip6_string(char *p, const char *addr, const char *fmt)
-{
-	int i;
+//static noinline_for_stack
+//char *ip6_string(char *p, const char *addr, const char *fmt)
+//{
+//	int i;
 
-	for (i = 0; i < 8; i++) {
-		p = hex_byte_pack(p, *addr++);
-		p = hex_byte_pack(p, *addr++);
-		if (fmt[0] == 'I' && i != 7)
-			*p++ = ':';
-	}
-	*p = '\0';
+//	for (i = 0; i < 8; i++) {
+//		p = hex_byte_pack(p, *addr++);
+//		p = hex_byte_pack(p, *addr++);
+//		if (fmt[0] == 'I' && i != 7)
+//			*p++ = ':';
+//	}
+//	*p = '\0';
 
-	return p;
-}
+//	return p;
+//}
 
-static noinline_for_stack
-char *ip6_addr_string(char *buf, char *end, const u8 *addr,
-		      struct printf_spec spec, const char *fmt)
-{
-	char ip6_addr[sizeof("xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:255.255.255.255")];
+//static noinline_for_stack
+//char *ip6_addr_string(char *buf, char *end, const u8 *addr,
+//		      struct printf_spec spec, const char *fmt)
+//{
+//	char ip6_addr[sizeof("xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:255.255.255.255")];
 
-	if (fmt[0] == 'I' && fmt[2] == 'c')
-		ip6_compressed_string(ip6_addr, addr);
-	else
-		ip6_string(ip6_addr, addr, fmt);
+//	if (fmt[0] == 'I' && fmt[2] == 'c')
+//		ip6_compressed_string(ip6_addr, addr);
+//	else
+//		ip6_string(ip6_addr, addr, fmt);
 
-	return string_nocheck(buf, end, ip6_addr, spec);
-}
+//	return string_nocheck(buf, end, ip6_addr, spec);
+//}
 
-static noinline_for_stack
-char *ip4_addr_string(char *buf, char *end, const u8 *addr,
-		      struct printf_spec spec, const char *fmt)
-{
-	char ip4_addr[sizeof("255.255.255.255")];
+//static noinline_for_stack
+//char *ip4_addr_string(char *buf, char *end, const u8 *addr,
+//		      struct printf_spec spec, const char *fmt)
+//{
+//	char ip4_addr[sizeof("255.255.255.255")];
 
-	ip4_string(ip4_addr, addr, fmt);
+//	ip4_string(ip4_addr, addr, fmt);
 
-	return string_nocheck(buf, end, ip4_addr, spec);
-}
+//	return string_nocheck(buf, end, ip4_addr, spec);
+//}
 
-static noinline_for_stack
-char *ip6_addr_string_sa(char *buf, char *end, const struct sockaddr_in6 *sa,
-			 struct printf_spec spec, const char *fmt)
-{
-	bool have_p = false, have_s = false, have_f = false, have_c = false;
-	char ip6_addr[sizeof("[xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:255.255.255.255]") +
-		      sizeof(":12345") + sizeof("/123456789") +
-		      sizeof("%1234567890")];
-	char *p = ip6_addr, *pend = ip6_addr + sizeof(ip6_addr);
-	const u8 *addr = (const u8 *) &sa->sin6_addr;
-	char fmt6[2] = { fmt[0], '6' };
-	u8 off = 0;
+//static noinline_for_stack
+//char *ip6_addr_string_sa(char *buf, char *end, const struct sockaddr_in6 *sa,
+//			 struct printf_spec spec, const char *fmt)
+//{
+//	bool have_p = false, have_s = false, have_f = false, have_c = false;
+//	char ip6_addr[sizeof("[xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:255.255.255.255]") +
+//		      sizeof(":12345") + sizeof("/123456789") +
+//		      sizeof("%1234567890")];
+//	char *p = ip6_addr, *pend = ip6_addr + sizeof(ip6_addr);
+//	const u8 *addr = (const u8 *) &sa->sin6_addr;
+//	char fmt6[2] = { fmt[0], '6' };
+//	u8 off = 0;
 
-	fmt++;
-	while (isalpha(*++fmt)) {
-		switch (*fmt) {
-		case 'p':
-			have_p = true;
-			break;
-		case 'f':
-			have_f = true;
-			break;
-		case 's':
-			have_s = true;
-			break;
-		case 'c':
-			have_c = true;
-			break;
-		}
-	}
+//	fmt++;
+//	while (isalpha(*++fmt)) {
+//		switch (*fmt) {
+//		case 'p':
+//			have_p = true;
+//			break;
+//		case 'f':
+//			have_f = true;
+//			break;
+//		case 's':
+//			have_s = true;
+//			break;
+//		case 'c':
+//			have_c = true;
+//			break;
+//		}
+//	}
 
-	if (have_p || have_s || have_f) {
-		*p = '[';
-		off = 1;
-	}
+//	if (have_p || have_s || have_f) {
+//		*p = '[';
+//		off = 1;
+//	}
 
-	if (fmt6[0] == 'I' && have_c)
-		p = ip6_compressed_string(ip6_addr + off, addr);
-	else
-		p = ip6_string(ip6_addr + off, addr, fmt6);
+//	if (fmt6[0] == 'I' && have_c)
+//		p = ip6_compressed_string(ip6_addr + off, addr);
+//	else
+//		p = ip6_string(ip6_addr + off, addr, fmt6);
 
-	if (have_p || have_s || have_f)
-		*p++ = ']';
+//	if (have_p || have_s || have_f)
+//		*p++ = ']';
 
-	if (have_p) {
-		*p++ = ':';
-		p = number(p, pend, ntohs(sa->sin6_port), spec);
-	}
-	if (have_f) {
-		*p++ = '/';
-		p = number(p, pend, ntohl(sa->sin6_flowinfo &
-					  IPV6_FLOWINFO_MASK), spec);
-	}
-	if (have_s) {
-		*p++ = '%';
-		p = number(p, pend, sa->sin6_scope_id, spec);
-	}
-	*p = '\0';
+//	if (have_p) {
+//		*p++ = ':';
+//		p = number(p, pend, ntohs(sa->sin6_port), spec);
+//	}
+//	if (have_f) {
+//		*p++ = '/';
+//		p = number(p, pend, ntohl(sa->sin6_flowinfo &
+//					  IPV6_FLOWINFO_MASK), spec);
+//	}
+//	if (have_s) {
+//		*p++ = '%';
+//		p = number(p, pend, sa->sin6_scope_id, spec);
+//	}
+//	*p = '\0';
 
-	return string_nocheck(buf, end, ip6_addr, spec);
-}
+//	return string_nocheck(buf, end, ip6_addr, spec);
+//}
 
-static noinline_for_stack
-char *ip4_addr_string_sa(char *buf, char *end, const struct sockaddr_in *sa,
-			 struct printf_spec spec, const char *fmt)
-{
-	bool have_p = false;
-	char *p, ip4_addr[sizeof("255.255.255.255") + sizeof(":12345")];
-	char *pend = ip4_addr + sizeof(ip4_addr);
-	const u8 *addr = (const u8 *) &sa->sin_addr.s_addr;
-	char fmt4[3] = { fmt[0], '4', 0 };
+//static noinline_for_stack
+//char *ip4_addr_string_sa(char *buf, char *end, const struct sockaddr_in *sa,
+//			 struct printf_spec spec, const char *fmt)
+//{
+//	bool have_p = false;
+//	char *p, ip4_addr[sizeof("255.255.255.255") + sizeof(":12345")];
+//	char *pend = ip4_addr + sizeof(ip4_addr);
+//	const u8 *addr = (const u8 *) &sa->sin_addr.s_addr;
+//	char fmt4[3] = { fmt[0], '4', 0 };
 
-	fmt++;
-	while (isalpha(*++fmt)) {
-		switch (*fmt) {
-		case 'p':
-			have_p = true;
-			break;
-		case 'h':
-		case 'l':
-		case 'n':
-		case 'b':
-			fmt4[2] = *fmt;
-			break;
-		}
-	}
+//	fmt++;
+//	while (isalpha(*++fmt)) {
+//		switch (*fmt) {
+//		case 'p':
+//			have_p = true;
+//			break;
+//		case 'h':
+//		case 'l':
+//		case 'n':
+//		case 'b':
+//			fmt4[2] = *fmt;
+//			break;
+//		}
+//	}
 
-	p = ip4_string(ip4_addr, addr, fmt4);
-	if (have_p) {
-		*p++ = ':';
-		p = number(p, pend, ntohs(sa->sin_port), spec);
-	}
-	*p = '\0';
+//	p = ip4_string(ip4_addr, addr, fmt4);
+//	if (have_p) {
+//		*p++ = ':';
+//		p = number(p, pend, ntohs(sa->sin_port), spec);
+//	}
+//	*p = '\0';
 
-	return string_nocheck(buf, end, ip4_addr, spec);
-}
+//	return string_nocheck(buf, end, ip4_addr, spec);
+//}
 
-static noinline_for_stack
-char *ip_addr_string(char *buf, char *end, const void *ptr,
-		     struct printf_spec spec, const char *fmt)
-{
-	char *err_fmt_msg;
+//static noinline_for_stack
+//char *ip_addr_string(char *buf, char *end, const void *ptr,
+//		     struct printf_spec spec, const char *fmt)
+//{
+//	char *err_fmt_msg;
 
-	if (check_pointer(&buf, end, ptr, spec))
-		return buf;
+//	if (check_pointer(&buf, end, ptr, spec))
+//		return buf;
 
-	switch (fmt[1]) {
-	case '6':
-		return ip6_addr_string(buf, end, ptr, spec, fmt);
-	case '4':
-		return ip4_addr_string(buf, end, ptr, spec, fmt);
-	case 'S': {
-		const union {
-			struct sockaddr		raw;
-			struct sockaddr_in	v4;
-			struct sockaddr_in6	v6;
-		} *sa = ptr;
+//	switch (fmt[1]) {
+//	case '6':
+//		return ip6_addr_string(buf, end, ptr, spec, fmt);
+//	case '4':
+//		return ip4_addr_string(buf, end, ptr, spec, fmt);
+//	case 'S': {
+//		const union {
+//			struct sockaddr		raw;
+//			struct sockaddr_in	v4;
+//			struct sockaddr_in6	v6;
+//		} *sa = ptr;
 
-		switch (sa->raw.sa_family) {
-		case AF_INET:
-			return ip4_addr_string_sa(buf, end, &sa->v4, spec, fmt);
-		case AF_INET6:
-			return ip6_addr_string_sa(buf, end, &sa->v6, spec, fmt);
-		default:
-			return error_string(buf, end, "(einval)", spec);
-		}}
-	}
+//		switch (sa->raw.sa_family) {
+//		case AF_INET:
+//			return ip4_addr_string_sa(buf, end, &sa->v4, spec, fmt);
+//		case AF_INET6:
+//			return ip6_addr_string_sa(buf, end, &sa->v6, spec, fmt);
+//		default:
+//			return error_string(buf, end, "(einval)", spec);
+//		}}
+//	}
 
-	err_fmt_msg = fmt[0] == 'i' ? "(%pi?)" : "(%pI?)";
-	return error_string(buf, end, err_fmt_msg, spec);
-}
+//	err_fmt_msg = fmt[0] == 'i' ? "(%pi?)" : "(%pI?)";
+//	return error_string(buf, end, err_fmt_msg, spec);
+//}
 
 static noinline_for_stack
 char *escaped_string(char *buf, char *end, u8 *addr, struct printf_spec spec,
@@ -1641,7 +1655,7 @@ char *escaped_string(char *buf, char *end, u8 *addr, struct printf_spec spec,
 	 * the given buffer, and returns the total size of the output
 	 * had the buffer been big enough.
 	 */
-	buf += string_escape_mem(addr, len, buf, buf < end ? end - buf : 0, flags, NULL);
+	buf += string_escape_mem((char *)addr, len, buf, buf < end ? end - buf : 0, flags, NULL);
 
 	return buf;
 }
@@ -1867,8 +1881,9 @@ static noinline_for_stack
 char *clock(char *buf, char *end, struct clk *clk, struct printf_spec spec,
 	    const char *fmt)
 {
-	if (!IS_ENABLED(CONFIG_HAVE_CLK))
-		return error_string(buf, end, "(%pC?)", spec);
+#ifndef CONFIG_HAVE_CLK
+	return error_string(buf, end, "(%pC?)", spec);
+#endif
 
 	if (check_pointer(&buf, end, clk, spec))
 		return buf;
@@ -1910,6 +1925,124 @@ char *format_flags(char *buf, char *end, unsigned long flags,
 
 	return buf;
 }
+/*
+ * The order of these masks is important. Matching masks will be seen
+ * first and the left over flags will end up showing by themselves.
+ *
+ * For example, if we have GFP_KERNEL before GFP_USER we wil get:
+ *
+ *  GFP_KERNEL|GFP_HARDWALL
+ *
+ * Thus most bits set go first.
+ */
+
+#define __def_gfpflag_names						\
+	{(unsigned long)GFP_TRANSHUGE,		"GFP_TRANSHUGE"},	\
+	{(unsigned long)GFP_TRANSHUGE_LIGHT,	"GFP_TRANSHUGE_LIGHT"}, \
+	{(unsigned long)GFP_HIGHUSER_MOVABLE,	"GFP_HIGHUSER_MOVABLE"},\
+	{(unsigned long)GFP_HIGHUSER,		"GFP_HIGHUSER"},	\
+	{(unsigned long)GFP_USER,		"GFP_USER"},		\
+	{(unsigned long)GFP_KERNEL_ACCOUNT,	"GFP_KERNEL_ACCOUNT"},	\
+	{(unsigned long)GFP_KERNEL,		"GFP_KERNEL"},		\
+	{(unsigned long)GFP_NOFS,		"GFP_NOFS"},		\
+	{(unsigned long)GFP_ATOMIC,		"GFP_ATOMIC"},		\
+	{(unsigned long)GFP_NOIO,		"GFP_NOIO"},		\
+	{(unsigned long)GFP_NOWAIT,		"GFP_NOWAIT"},		\
+	{(unsigned long)GFP_DMA,		"GFP_DMA"},		\
+	{(unsigned long)__GFP_HIGHMEM,		"__GFP_HIGHMEM"},	\
+	{(unsigned long)GFP_DMA32,		"GFP_DMA32"},		\
+	{(unsigned long)__GFP_HIGH,		"__GFP_HIGH"},		\
+	{(unsigned long)__GFP_ATOMIC,		"__GFP_ATOMIC"},	\
+	{(unsigned long)__GFP_IO,		"__GFP_IO"},		\
+	{(unsigned long)__GFP_FS,		"__GFP_FS"},		\
+	{(unsigned long)__GFP_NOWARN,		"__GFP_NOWARN"},	\
+	{(unsigned long)__GFP_RETRY_MAYFAIL,	"__GFP_RETRY_MAYFAIL"},	\
+	{(unsigned long)__GFP_NOFAIL,		"__GFP_NOFAIL"},	\
+	{(unsigned long)__GFP_NORETRY,		"__GFP_NORETRY"},	\
+	{(unsigned long)__GFP_COMP,		"__GFP_COMP"},		\
+	{(unsigned long)__GFP_ZERO,		"__GFP_ZERO"},		\
+	{(unsigned long)__GFP_NOMEMALLOC,	"__GFP_NOMEMALLOC"},	\
+	{(unsigned long)__GFP_MEMALLOC,		"__GFP_MEMALLOC"},	\
+	{(unsigned long)__GFP_HARDWALL,		"__GFP_HARDWALL"},	\
+	{(unsigned long)__GFP_THISNODE,		"__GFP_THISNODE"},	\
+	{(unsigned long)__GFP_RECLAIMABLE,	"__GFP_RECLAIMABLE"},	\
+	{(unsigned long)__GFP_MOVABLE,		"__GFP_MOVABLE"},	\
+	{(unsigned long)__GFP_ACCOUNT,		"__GFP_ACCOUNT"},	\
+	{(unsigned long)__GFP_WRITE,		"__GFP_WRITE"},		\
+	{(unsigned long)__GFP_RECLAIM,		"__GFP_RECLAIM"},	\
+	{(unsigned long)__GFP_DIRECT_RECLAIM,	"__GFP_DIRECT_RECLAIM"},\
+	{(unsigned long)__GFP_KSWAPD_RECLAIM,	"__GFP_KSWAPD_RECLAIM"}\
+
+#define __def_pageflag_names						\
+	{1UL << PG_locked,		"locked"	},		\
+	{1UL << PG_waiters,		"waiters"	},		\
+	{1UL << PG_error,		"error"		},		\
+	{1UL << PG_referenced,		"referenced"	},		\
+	{1UL << PG_uptodate,		"uptodate"	},		\
+	{1UL << PG_dirty,		"dirty"		},		\
+	{1UL << PG_lru,			"lru"		},		\
+	{1UL << PG_active,		"active"	},		\
+	{1UL << PG_workingset,		"workingset"	},		\
+	{1UL << PG_slab,		"slab"		},		\
+	{1UL << PG_owner_priv_1,	"owner_priv_1"	},		\
+	{1UL << PG_arch_1,		"arch_1"	},		\
+	{1UL << PG_reserved,		"reserved"	},		\
+	{1UL << PG_private,		"private"	},		\
+	{1UL << PG_private_2,		"private_2"	},		\
+	{1UL << PG_writeback,		"writeback"	},		\
+	{1UL << PG_head,		"head"		},		\
+	{1UL << PG_mappedtodisk,	"mappedtodisk"	},		\
+	{1UL << PG_reclaim,		"reclaim"	},		\
+	{1UL << PG_swapbacked,		"swapbacked"	},		\
+	{1UL << PG_unevictable,		"unevictable"	}
+
+#define __def_vmaflag_names						\
+	{VM_READ,			"read"		},		\
+	{VM_WRITE,			"write"		},		\
+	{VM_EXEC,			"exec"		},		\
+	{VM_SHARED,			"shared"	},		\
+	{VM_MAYREAD,			"mayread"	},		\
+	{VM_MAYWRITE,			"maywrite"	},		\
+	{VM_MAYEXEC,			"mayexec"	},		\
+	{VM_MAYSHARE,			"mayshare"	},		\
+	{VM_GROWSDOWN,			"growsdown"	},		\
+	{VM_UFFD_MISSING,		"uffd_missing"	},		\
+	{VM_PFNMAP,			"pfnmap"	},		\
+	{VM_DENYWRITE,			"denywrite"	},		\
+	{VM_UFFD_WP,			"uffd_wp"	},		\
+	{VM_LOCKED,			"locked"	},		\
+	{VM_IO,				"io"		},		\
+	{VM_SEQ_READ,			"seqread"	},		\
+	{VM_RAND_READ,			"randread"	},		\
+	{VM_DONTCOPY,			"dontcopy"	},		\
+	{VM_DONTEXPAND,			"dontexpand"	},		\
+	{VM_LOCKONFAULT,		"lockonfault"	},		\
+	{VM_ACCOUNT,			"account"	},		\
+	{VM_NORESERVE,			"noreserve"	},		\
+	{VM_HUGETLB,			"hugetlb"	},		\
+	{VM_SYNC,			"sync"		},		\
+	{VM_WIPEONFORK,			"wipeonfork"	},		\
+	{VM_DONTDUMP,			"dontdump"	},		\
+	{VM_SOFTDIRTY,	"softdirty"	},		\
+	{VM_MIXEDMAP,			"mixedmap"	},		\
+	{VM_HUGEPAGE,			"hugepage"	},		\
+	{VM_NOHUGEPAGE,			"nohugepage"	},		\
+	{VM_MERGEABLE,			"mergeable"	}		\
+
+const struct trace_print_flags pageflag_names[] = {
+	__def_pageflag_names,
+	{0, NULL}
+};
+
+const struct trace_print_flags gfpflag_names[] = {
+	__def_gfpflag_names,
+	{0, NULL}
+};
+
+const struct trace_print_flags vmaflag_names[] = {
+	__def_vmaflag_names,
+	{0, NULL}
+};
 
 static noinline_for_stack
 char *flags_string(char *buf, char *end, void *flags_ptr,
@@ -1925,7 +2058,7 @@ char *flags_string(char *buf, char *end, void *flags_ptr,
 	case 'p':
 		flags = *(unsigned long *)flags_ptr;
 		/* Remove zone id */
-		flags &= (1UL << NR_PAGEFLAGS) - 1;
+		flags &= (1UL << __NR_PAGEFLAGS) - 1;
 		names = pageflag_names;
 		break;
 	case 'v':
@@ -1943,147 +2076,147 @@ char *flags_string(char *buf, char *end, void *flags_ptr,
 	return format_flags(buf, end, flags, names);
 }
 
-static noinline_for_stack
-char *fwnode_full_name_string(struct fwnode_handle *fwnode, char *buf,
-			      char *end)
-{
-	int depth;
+//static noinline_for_stack
+//char *fwnode_full_name_string(struct fwnode_handle *fwnode, char *buf,
+//			      char *end)
+//{
+//	int depth;
 
-	/* Loop starting from the root node to the current node. */
-	for (depth = fwnode_count_parents(fwnode); depth >= 0; depth--) {
-		struct fwnode_handle *__fwnode =
-			fwnode_get_nth_parent(fwnode, depth);
+//	/* Loop starting from the root node to the current node. */
+//	for (depth = fwnode_count_parents(fwnode); depth >= 0; depth--) {
+//		struct fwnode_handle *__fwnode =
+//			fwnode_get_nth_parent(fwnode, depth);
 
-		buf = string(buf, end, fwnode_get_name_prefix(__fwnode),
-			     default_str_spec);
-		buf = string(buf, end, fwnode_get_name(__fwnode),
-			     default_str_spec);
+//		buf = string(buf, end, fwnode_get_name_prefix(__fwnode),
+//			     default_str_spec);
+//		buf = string(buf, end, fwnode_get_name(__fwnode),
+//			     default_str_spec);
 
-		fwnode_handle_put(__fwnode);
-	}
+//		fwnode_handle_put(__fwnode);
+//	}
 
-	return buf;
-}
+//	return buf;
+//}
 
-static noinline_for_stack
-char *device_node_string(char *buf, char *end, struct device_node *dn,
-			 struct printf_spec spec, const char *fmt)
-{
-	char tbuf[sizeof("xxxx") + 1];
-	const char *p;
-	int ret;
-	char *buf_start = buf;
-	struct property *prop;
-	bool has_mult, pass;
+//static noinline_for_stack
+//char *device_node_string(char *buf, char *end, struct device_node *dn,
+//			 struct printf_spec spec, const char *fmt)
+//{
+//	char tbuf[sizeof("xxxx") + 1];
+//	const char *p;
+//	int ret;
+//	char *buf_start = buf;
+//	struct property *prop;
+//	bool has_mult, pass;
 
-	struct printf_spec str_spec = spec;
-	str_spec.field_width = -1;
+//	struct printf_spec str_spec = spec;
+//	str_spec.field_width = -1;
 
-	if (fmt[0] != 'F')
-		return error_string(buf, end, "(%pO?)", spec);
+//	if (fmt[0] != 'F')
+//		return error_string(buf, end, "(%pO?)", spec);
 
-	if (!IS_ENABLED(CONFIG_OF))
-		return error_string(buf, end, "(%pOF?)", spec);
+////	if (!IS_ENABLED(CONFIG_OF))
+////		return error_string(buf, end, "(%pOF?)", spec);
 
-	if (check_pointer(&buf, end, dn, spec))
-		return buf;
+//	if (check_pointer(&buf, end, dn, spec))
+//		return buf;
 
-	/* simple case without anything any more format specifiers */
-	fmt++;
-	if (fmt[0] == '\0' || strcspn(fmt,"fnpPFcC") > 0)
-		fmt = "f";
+//	/* simple case without anything any more format specifiers */
+//	fmt++;
+//	if (fmt[0] == '\0' || strcspn(fmt,"fnpPFcC") > 0)
+//		fmt = "f";
 
-	for (pass = false; strspn(fmt,"fnpPFcC"); fmt++, pass = true) {
-		int precision;
-		if (pass) {
-			if (buf < end)
-				*buf = ':';
-			buf++;
-		}
+//	for (pass = false; strspn(fmt,"fnpPFcC"); fmt++, pass = true) {
+//		int precision;
+//		if (pass) {
+//			if (buf < end)
+//				*buf = ':';
+//			buf++;
+//		}
 
-		switch (*fmt) {
-		case 'f':	/* full_name */
-			buf = fwnode_full_name_string(of_fwnode_handle(dn), buf,
-						      end);
-			break;
-		case 'n':	/* name */
-			p = fwnode_get_name(of_fwnode_handle(dn));
-			precision = str_spec.precision;
-			str_spec.precision = strchrnul(p, '@') - p;
-			buf = string(buf, end, p, str_spec);
-			str_spec.precision = precision;
-			break;
-		case 'p':	/* phandle */
-			buf = number(buf, end, (unsigned int)dn->phandle, default_dec_spec);
-			break;
-		case 'P':	/* path-spec */
-			p = fwnode_get_name(of_fwnode_handle(dn));
-			if (!p[1])
-				p = "/";
-			buf = string(buf, end, p, str_spec);
-			break;
-		case 'F':	/* flags */
-			tbuf[0] = of_node_check_flag(dn, OF_DYNAMIC) ? 'D' : '-';
-			tbuf[1] = of_node_check_flag(dn, OF_DETACHED) ? 'd' : '-';
-			tbuf[2] = of_node_check_flag(dn, OF_POPULATED) ? 'P' : '-';
-			tbuf[3] = of_node_check_flag(dn, OF_POPULATED_BUS) ? 'B' : '-';
-			tbuf[4] = 0;
-			buf = string_nocheck(buf, end, tbuf, str_spec);
-			break;
-		case 'c':	/* major compatible string */
-			ret = of_property_read_string(dn, "compatible", &p);
-			if (!ret)
-				buf = string(buf, end, p, str_spec);
-			break;
-		case 'C':	/* full compatible string */
-			has_mult = false;
-			of_property_for_each_string(dn, "compatible", prop, p) {
-				if (has_mult)
-					buf = string_nocheck(buf, end, ",", str_spec);
-				buf = string_nocheck(buf, end, "\"", str_spec);
-				buf = string(buf, end, p, str_spec);
-				buf = string_nocheck(buf, end, "\"", str_spec);
+//		switch (*fmt) {
+//		case 'f':	/* full_name */
+//			buf = fwnode_full_name_string(of_fwnode_handle(dn), buf,
+//						      end);
+//			break;
+//		case 'n':	/* name */
+//			p = fwnode_get_name(of_fwnode_handle(dn));
+//			precision = str_spec.precision;
+//			str_spec.precision = strchrnul(p, '@') - p;
+//			buf = string(buf, end, p, str_spec);
+//			str_spec.precision = precision;
+//			break;
+//		case 'p':	/* phandle */
+//			buf = number(buf, end, (unsigned int)dn->phandle, default_dec_spec);
+//			break;
+//		case 'P':	/* path-spec */
+//			p = fwnode_get_name(of_fwnode_handle(dn));
+//			if (!p[1])
+//				p = "/";
+//			buf = string(buf, end, p, str_spec);
+//			break;
+//		case 'F':	/* flags */
+//			tbuf[0] = of_node_check_flag(dn, OF_DYNAMIC) ? 'D' : '-';
+//			tbuf[1] = of_node_check_flag(dn, OF_DETACHED) ? 'd' : '-';
+//			tbuf[2] = of_node_check_flag(dn, OF_POPULATED) ? 'P' : '-';
+//			tbuf[3] = of_node_check_flag(dn, OF_POPULATED_BUS) ? 'B' : '-';
+//			tbuf[4] = 0;
+//			buf = string_nocheck(buf, end, tbuf, str_spec);
+//			break;
+//		case 'c':	/* major compatible string */
+//			ret = of_property_read_string(dn, "compatible", &p);
+//			if (!ret)
+//				buf = string(buf, end, p, str_spec);
+//			break;
+//		case 'C':	/* full compatible string */
+//			has_mult = false;
+//			of_property_for_each_string(dn, "compatible", prop, p) {
+//				if (has_mult)
+//					buf = string_nocheck(buf, end, ",", str_spec);
+//				buf = string_nocheck(buf, end, "\"", str_spec);
+//				buf = string(buf, end, p, str_spec);
+//				buf = string_nocheck(buf, end, "\"", str_spec);
 
-				has_mult = true;
-			}
-			break;
-		default:
-			break;
-		}
-	}
+//				has_mult = true;
+//			}
+//			break;
+//		default:
+//			break;
+//		}
+//	}
 
-	return widen_string(buf, buf - buf_start, end, spec);
-}
+//	return widen_string(buf, buf - buf_start, end, spec);
+//}
 
-static noinline_for_stack
-char *fwnode_string(char *buf, char *end, struct fwnode_handle *fwnode,
-		    struct printf_spec spec, const char *fmt)
-{
-	struct printf_spec str_spec = spec;
-	char *buf_start = buf;
+//static noinline_for_stack
+//char *fwnode_string(char *buf, char *end, struct fwnode_handle *fwnode,
+//		    struct printf_spec spec, const char *fmt)
+//{
+//	struct printf_spec str_spec = spec;
+//	char *buf_start = buf;
 
-	str_spec.field_width = -1;
+//	str_spec.field_width = -1;
 
-	if (*fmt != 'w')
-		return error_string(buf, end, "(%pf?)", spec);
+//	if (*fmt != 'w')
+//		return error_string(buf, end, "(%pf?)", spec);
 
-	if (check_pointer(&buf, end, fwnode, spec))
-		return buf;
+//	if (check_pointer(&buf, end, fwnode, spec))
+//		return buf;
 
-	fmt++;
+//	fmt++;
 
-	switch (*fmt) {
-	case 'P':	/* name */
-		buf = string(buf, end, fwnode_get_name(fwnode), str_spec);
-		break;
-	case 'f':	/* full_name */
-	default:
-		buf = fwnode_full_name_string(fwnode, buf, end);
-		break;
-	}
+//	switch (*fmt) {
+//	case 'P':	/* name */
+//		buf = string(buf, end, fwnode_get_name(fwnode), str_spec);
+//		break;
+//	case 'f':	/* full_name */
+//	default:
+//		buf = fwnode_full_name_string(fwnode, buf, end);
+//		break;
+//	}
 
-	return widen_string(buf, buf - buf_start, end, spec);
-}
+//	return widen_string(buf, buf - buf_start, end, spec);
+//}
 
 /*
  * Show a '%p' thing.  A kernel extension is that the '%p' is followed
@@ -2211,9 +2344,9 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 	      struct printf_spec spec)
 {
 	switch (*fmt) {
-	case 'S':
-	case 's':
-		ptr = dereference_symbol_descriptor(ptr);
+//	case 'S':
+//	case 's':
+//		ptr = dereference_symbol_descriptor(ptr);
 		/* fall through */
 	case 'B':
 		return symbol_string(buf, end, ptr, spec, fmt);
@@ -2229,21 +2362,21 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 		default:
 			return bitmap_string(buf, end, ptr, spec, fmt);
 		}
-	case 'M':			/* Colon separated: 00:01:02:03:04:05 */
-	case 'm':			/* Contiguous: 000102030405 */
-					/* [mM]F (FDDI) */
-					/* [mM]R (Reverse order; Bluetooth) */
-		return mac_address_string(buf, end, ptr, spec, fmt);
-	case 'I':			/* Formatted IP supported
-					 * 4:	1.2.3.4
-					 * 6:	0001:0203:...:0708
-					 * 6c:	1::708 or 1::1.2.3.4
-					 */
-	case 'i':			/* Contiguous:
-					 * 4:	001.002.003.004
-					 * 6:   000102...0f
-					 */
-		return ip_addr_string(buf, end, ptr, spec, fmt);
+//	case 'M':			/* Colon separated: 00:01:02:03:04:05 */
+//	case 'm':			/* Contiguous: 000102030405 */
+//					/* [mM]F (FDDI) */
+//					/* [mM]R (Reverse order; Bluetooth) */
+//		return mac_address_string(buf, end, ptr, spec, fmt);
+//	case 'I':			/* Formatted IP supported
+//					 * 4:	1.2.3.4
+//					 * 6:	0001:0203:...:0708
+//					 * 6c:	1::708 or 1::1.2.3.4
+//					 */
+//	case 'i':			/* Contiguous:
+//					 * 4:	001.002.003.004
+//					 * 6:   000102...0f
+//					 */
+//		return ip_addr_string(buf, end, ptr, spec, fmt);
 	case 'E':
 		return escaped_string(buf, end, ptr, spec, fmt);
 	case 'U':
@@ -2256,14 +2389,14 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 		return netdev_bits(buf, end, ptr, spec, fmt);
 	case 'a':
 		return address_val(buf, end, ptr, spec, fmt);
-	case 'd':
-		return dentry_name(buf, end, ptr, spec, fmt);
+//	case 'd':
+//		return dentry_name(buf, end, ptr, spec, fmt);
 	case 't':
 		return time_and_date(buf, end, ptr, spec, fmt);
 	case 'C':
 		return clock(buf, end, ptr, spec, fmt);
-	case 'D':
-		return file_dentry_name(buf, end, ptr, spec, fmt);
+//	case 'D':
+//		return file_dentry_name(buf, end, ptr, spec, fmt);
 #ifdef CONFIG_BLOCK
 	case 'g':
 		return bdev_name(buf, end, ptr, spec, fmt);
@@ -2271,10 +2404,10 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 
 	case 'G':
 		return flags_string(buf, end, ptr, spec, fmt);
-	case 'O':
-		return device_node_string(buf, end, ptr, spec, fmt + 1);
-	case 'f':
-		return fwnode_string(buf, end, ptr, spec, fmt + 1);
+//	case 'O':
+//		return device_node_string(buf, end, ptr, spec, fmt + 1);
+//	case 'f':
+//		return fwnode_string(buf, end, ptr, spec, fmt + 1);
 	case 'x':
 		return pointer_string(buf, end, ptr, spec);
 	case 'e':
@@ -2692,6 +2825,7 @@ out:
 	return str-buf;
 
 }
+EXPORT_SYMBOL(vsnprintf);
 
 /**
  * vscnprintf - Format a string and place it in a buffer
@@ -2720,6 +2854,7 @@ int vscnprintf(char *buf, size_t size, const char *fmt, va_list args)
 		return size - 1;
 	return 0;
 }
+EXPORT_SYMBOL(vscnprintf);
 
 /**
  * snprintf - Format a string and place it in a buffer
@@ -2746,6 +2881,7 @@ int snprintf(char *buf, size_t size, const char *fmt, ...)
 
 	return i;
 }
+EXPORT_SYMBOL(snprintf);
 
 /**
  * scnprintf - Format a string and place it in a buffer
@@ -2769,6 +2905,7 @@ int scnprintf(char *buf, size_t size, const char *fmt, ...)
 
 	return i;
 }
+EXPORT_SYMBOL(scnprintf);
 
 /**
  * vsprintf - Format a string and place it in a buffer
@@ -2788,6 +2925,7 @@ int vsprintf(char *buf, const char *fmt, va_list args)
 {
 	return vsnprintf(buf, INT_MAX, fmt, args);
 }
+EXPORT_SYMBOL(vsprintf);
 
 /**
  * sprintf - Format a string and place it in a buffer
@@ -2812,6 +2950,9 @@ int sprintf(char *buf, const char *fmt, ...)
 
 	return i;
 }
+EXPORT_SYMBOL(sprintf);
+
+#define CONFIG_BINARY_PRINTF
 
 #ifdef CONFIG_BINARY_PRINTF
 /*
@@ -2972,6 +3113,7 @@ out:
 	return (u32 *)(PTR_ALIGN(str, sizeof(u32))) - bin_buf;
 #undef save_arg
 }
+EXPORT_SYMBOL_GPL(vbin_printf);
 
 /**
  * bstr_printf - Format a string from binary arguments and place it in a buffer
@@ -3184,6 +3326,7 @@ out:
 	/* the trailing null byte doesn't count towards the total */
 	return str - buf;
 }
+EXPORT_SYMBOL_GPL(bstr_printf);
 
 /**
  * bprintf - Parse a format string and place args' binary value in a buffer
@@ -3206,6 +3349,7 @@ int bprintf(u32 *bin_buf, size_t size, const char *fmt, ...)
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(bprintf);
 
 #endif /* CONFIG_BINARY_PRINTF */
 
@@ -3494,6 +3638,7 @@ int vsscanf(const char *buf, const char *fmt, va_list args)
 
 	return num;
 }
+EXPORT_SYMBOL(vsscanf);
 
 /**
  * sscanf - Unformat a buffer into a list of arguments
@@ -3512,3 +3657,4 @@ int sscanf(const char *buf, const char *fmt, ...)
 
 	return i;
 }
+EXPORT_SYMBOL(sscanf);

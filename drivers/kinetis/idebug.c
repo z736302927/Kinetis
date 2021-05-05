@@ -138,55 +138,84 @@ int printk(const char *fmt, ...)
     return text_len;
 }
 
-/**
- * vscnprintf - Format a string and place it in a buffer
- * @buf: The buffer to place the result into
- * @size: The size of the buffer, including the trailing null space
- * @fmt: The format string to use
- * @args: Arguments for the format string
- *
- * The return value is the number of characters which have been written into
- * the @buf not including the trailing '\0'. If @size is == 0 the function
- * returns 0.
- *
- * If you're not already dealing with a va_list consider using scnprintf().
- *
- * See the vsnprintf() documentation for format string extensions over C99.
- */
-int vscnprintf(char *buf, size_t size, const char *fmt, va_list args)
+int printk_deferred(const char *fmt, ...)
 {
-	int i;
+    static char time[32];
+    size_t pre_len = 0;
+    static char textbuf[LOG_LINE_MAX];
+    char *text = textbuf;
+    size_t text_len;
+    int lflags = 0;
+    va_list args;
+    int level = LOGLEVEL_DEFAULT, kern_level;
+    
+    va_start(args, fmt);
+    text_len = vsnprintf(textbuf, LOG_LINE_MAX - 2, fmt, args);
+    va_end(args);
 
-	i = vsnprintf(buf, size, fmt, args);
+    /* mark and strip a trailing newline */
+    if (text_len && text[text_len - 1] == '\n') {
+        text_len--;
+        lflags |= LOG_NEWLINE;
+    }
 
-	if (likely(i < size))
-		return i;
-	if (size != 0)
-		return size - 1;
-	return 0;
-}
+    while ((kern_level = printk_get_level(text)) != 0) {
+        switch (kern_level) {
+            case '0' ... '7':
+                if (level == LOGLEVEL_DEFAULT)
+                    level = kern_level - '0';
 
-/**
- * scnprintf - Format a string and place it in a buffer
- * @buf: The buffer to place the result into
- * @size: The size of the buffer, including the trailing null space
- * @fmt: The format string to use
- * @...: Arguments for the format string
- *
- * The return value is the number of characters written into @buf not including
- * the trailing '\0'. If @size is == 0 the function returns 0.
- */
+                break;
 
-int scnprintf(char *buf, size_t size, const char *fmt, ...)
-{
-	va_list args;
-	int i;
+            case 'c':	/* KERN_CONT */
+                lflags |= LOG_CONT;
+                lflags &= ~LOG_NEWLINE;
+                text_len++;
+        }
 
-	va_start(args, fmt);
-	i = vscnprintf(buf, size, fmt, args);
-	va_end(args);
+        text_len -= 2;
+        text += 2;
+    }
 
-	return i;
+    if (level > LOGLEVEL_DEFAULT)
+        return -EINVAL;
+
+    switch (level) {
+        case LOGLEVEL_DEFAULT:
+            break;
+
+        case LOGLEVEL_EMERG:
+        case LOGLEVEL_ALERT:
+        case LOGLEVEL_CRIT:
+        case LOGLEVEL_ERR:
+            break;
+
+        case LOGLEVEL_WARNING:
+            break;
+
+        case LOGLEVEL_NOTICE:
+        case LOGLEVEL_INFO:
+        case LOGLEVEL_DEBUG:
+            break;
+    }
+    
+    if (lflags & LOG_NEWLINE) {
+        snprintf(time, sizeof(time), "[%5d.%06d] ",
+            basic_timer_get_ss(), basic_timer_get_timer_cnt());
+        pre_len = strlen(time);
+        
+        memmove(text + pre_len, text, text_len);
+        memmove(text, time, pre_len);
+        text_len += pre_len;
+        
+        text[text_len] = '\n';
+        text[text_len + 1] = '\r';
+        text_len += 2;
+    }
+    
+    HAL_UART_Transmit(&huart1, (u8 *)text, text_len, 0xFFFF);
+    
+    return text_len;
 }
 
 int dev_vprintk_emit(int level, const struct device *dev,

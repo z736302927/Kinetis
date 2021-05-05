@@ -706,4 +706,7 @@ static inline int mtd_is_bitflip_or_eccerr(int err) {
 
 unsigned mtd_mmap_capabilities(struct mtd_info *mtd);
 
+int __init init_mtd(void);
+void __exit cleanup_mtd(void);
+
 #endif /* __MTD_MTD_H__ */

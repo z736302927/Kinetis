@@ -1657,10 +1657,10 @@ static int ds3231_clks_register(struct ds1307 *ds1307)
 		init.name = ds3231_clks_names[i];
 		ds1307->clks[i].init = &init;
 
-		onecell->clks[i] = devm_clk_register(ds1307->dev,
-						     &ds1307->clks[i]);
-		if (IS_ERR(onecell->clks[i]))
-			return PTR_ERR(onecell->clks[i]);
+//		onecell->clks[i] = devm_clk_register(ds1307->dev,
+//						     &ds1307->clks[i]);
+//		if (IS_ERR(onecell->clks[i]))
+//			return PTR_ERR(onecell->clks[i]);
 	}
 
 //	if (node)
@@ -1992,18 +1992,18 @@ static int ds1307_probe(struct i2c_client *client,
 	}
 
 	if (want_irq) {
-		err = devm_request_threaded_irq(ds1307->dev, client->irq, NULL,
-						chip->irq_handler ?: ds1307_irq,
-						IRQF_SHARED | IRQF_ONESHOT,
-						ds1307->name, ds1307);
-		if (err) {
-			client->irq = 0;
-//			device_set_wakeup_capable(ds1307->dev, false);
-			clear_bit(HAS_ALARM, &ds1307->flags);
-			dev_err(ds1307->dev, "unable to request IRQ!\n");
-		} else {
-			dev_dbg(ds1307->dev, "got IRQ %d\n", client->irq);
-		}
+//		err = devm_request_threaded_irq(ds1307->dev, client->irq, NULL,
+//						chip->irq_handler ?: ds1307_irq,
+//						IRQF_SHARED | IRQF_ONESHOT,
+//						ds1307->name, ds1307);
+//		if (err) {
+//			client->irq = 0;
+////			device_set_wakeup_capable(ds1307->dev, false);
+//			clear_bit(HAS_ALARM, &ds1307->flags);
+//			dev_err(ds1307->dev, "unable to request IRQ!\n");
+//		} else {
+//			dev_dbg(ds1307->dev, "got IRQ %d\n", client->irq);
+//		}
 	}
 
 	ds1307->rtc->ops = chip->rtc_ops ?: &ds13xx_rtc_ops;

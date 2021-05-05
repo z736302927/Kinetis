@@ -2197,7 +2197,7 @@ static int mtd_proc_show(struct seq_file *m, void *v)
 
 //static struct proc_dir_entry *proc_mtd;
 
-static int __init init_mtd(void)
+int __init init_mtd(void)
 {
 	int ret;
 
@@ -2232,7 +2232,7 @@ err_reg:
 	return ret;
 }
 
-static void __exit cleanup_mtd(void)
+void __exit cleanup_mtd(void)
 {
 //	debugfs_remove_recursive(dfs_dir_mtd);
 //	cleanup_mtdchar();
