@@ -64,12 +64,12 @@ static inline void my9221_port_multi_receive(u16 *pdata, u32 Length)
 
 static inline void my9221_di_low(void)
 {
-    HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET);
 }
 
 static inline void my9221_di_high(void)
 {
-    HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_SET);
 }
 
 static inline void my9221_delay_70ns(void)

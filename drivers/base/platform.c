@@ -17,7 +17,7 @@
 //#include <linux/module.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
-//#include <linux/ioport.h>
+#include <linux/ioport.h>
 //#include <linux/dma-mapping.h>
 //#include <linux/memblock.h>
 #include <linux/err.h>
@@ -43,28 +43,28 @@ struct device platform_bus = {
 };
 EXPORT_SYMBOL_GPL(platform_bus);
 
-///**
-// * platform_get_resource - get a resource for a device
-// * @dev: platform device
-// * @type: resource type
-// * @num: resource index
-// *
-// * Return: a pointer to the resource or NULL on failure.
-// */
-//struct resource *platform_get_resource(struct platform_device *dev,
-//				       unsigned int type, unsigned int num)
-//{
-//	u32 i;
+/**
+ * platform_get_resource - get a resource for a device
+ * @dev: platform device
+ * @type: resource type
+ * @num: resource index
+ *
+ * Return: a pointer to the resource or NULL on failure.
+ */
+struct resource *platform_get_resource(struct platform_device *dev,
+				       unsigned int type, unsigned int num)
+{
+	u32 i;
 
-//	for (i = 0; i < dev->num_resources; i++) {
-//		struct resource *r = &dev->resource[i];
+	for (i = 0; i < dev->num_resources; i++) {
+		struct resource *r = &dev->resource[i];
 
-//		if (type == resource_type(r) && num-- == 0)
-//			return r;
-//	}
-//	return NULL;
-//}
-//EXPORT_SYMBOL_GPL(platform_get_resource);
+		if (type == resource_type(r) && num-- == 0)
+			return r;
+	}
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(platform_get_resource);
 
 //struct resource *platform_get_mem_or_io(struct platform_device *dev,
 //					unsigned int num)

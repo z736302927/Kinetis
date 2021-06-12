@@ -37,7 +37,7 @@ extern "C" {
 //#define DESIGN_VERIFICATION_IIC
 //#define DESIGN_VERIFICATION_MAX30205
 //#define DESIGN_VERIFICATION_MEMORY
-#define DESIGN_VERIFICATION_RNG
+//#define DESIGN_VERIFICATION_RNG
 //#define DESIGN_VERIFICATION_MPU6050
 //#define DESIGN_VERIFICATION_MT29F4G08
 //#define DESIGN_VERIFICATION_MY9221
@@ -48,7 +48,7 @@ extern "C" {
 //#define DESIGN_VERIFICATION_SPL06
 //#define DESIGN_VERIFICATION_SSD1306
 //#define DESIGN_VERIFICATION_TLC5971
-#define DESIGN_VERIFICATION_W25QXXX
+//#define DESIGN_VERIFICATION_W25QXXX
 //#define DESIGN_VERIFICATION_XMODEM
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */

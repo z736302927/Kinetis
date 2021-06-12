@@ -12,18 +12,26 @@
 #ifndef _DEVICE_H_
 #define _DEVICE_H_
 
-#include <linux/kernel.h>
-#include <linux/klist.h>
-#include <linux/numa.h>
 #include <linux/dev_printk.h>
-#include <linux/overflow.h>
+//#include <linux/energy_model.h>
+#include <linux/ioport.h>
+//#include <linux/kobject.h>
+#include <linux/klist.h>
+#include <linux/list.h>
+//#include <linux/lockdep.h>
+#include <linux/compiler.h>
+#include <linux/types.h>
+#include <linux/mutex.h>
+#include <linux/pm.h>
+#include <linux/atomic.h>
+#include <linux/uidgid.h>
 #include <linux/gfp.h>
-#include <linux/sysfs.h>
-#include <linux/slab.h>
-#include <linux/err.h>
+#include <linux/overflow.h>
+#include <linux/numa.h>
 #include <linux/device/bus.h>
 #include <linux/device/class.h>
 #include <linux/device/driver.h>
+
 
 struct device;
 struct device_private;
@@ -123,10 +131,10 @@ unsigned long devm_get_free_pages(struct device *dev,
 				  gfp_t gfp_mask, unsigned int order);
 void devm_free_pages(struct device *dev, unsigned long addr);
 
-//void __iomem *devm_ioremap_resource(struct device *dev,
-//				    const struct resource *res);
-//void __iomem *devm_ioremap_resource_wc(struct device *dev,
-//				       const struct resource *res);
+void __iomem *devm_ioremap_resource(struct device *dev,
+				    const struct resource *res);
+void __iomem *devm_ioremap_resource_wc(struct device *dev,
+				       const struct resource *res);
 
 //void __iomem *devm_of_iomap(struct device *dev,
 //			    struct device_node *node, int index,
@@ -314,7 +322,7 @@ struct device {
 	struct device		*parent;
 	struct device_private	*p;
     const char		init_name[48]; /* initial name of the device */
-	const struct device_type *type;    
+	const struct device_type *type;
 
 	struct bus_type	*bus;		/* type of bus device is on */
 	struct device_driver *driver;	/* which driver has allocated this
@@ -323,6 +331,20 @@ struct device {
 					   core doesn't touch it */
 	void		*driver_data;	/* Driver data, set and get with
 					   dev_set_drvdata/dev_get_drvdata */
+#ifdef CONFIG_PROVE_LOCKING
+	struct mutex		lockdep_mutex;
+#endif
+	struct mutex		mutex;	/* mutex to synchronize calls to
+					 * its driver.
+					 */
+
+//	struct dev_links_info	links;
+	struct dev_pm_info	power;
+	struct dev_pm_domain	*pm_domain;
+
+//#ifdef CONFIG_PINCTRL
+	struct dev_pin_info	*pins;
+//#endif
 #ifdef CONFIG_NUMA
 	int		numa_node;	/* NUMA node this device is close to */
 #endif
@@ -481,8 +503,17 @@ struct device_private {
 	container_of(obj, struct device_private, knode_bus)
 #define to_device_private_class(obj)	\
 	container_of(obj, struct device_private, knode_class)
-    
+
+/*
+ * get_device - atomically increment the reference count for the device.
+ *
+ */
+#define get_device(dev)     dev
+#define put_device(dev)
+
 extern __printf(3, 4)
 int dev_err_probe(const struct device *dev, int err, const char *fmt, ...);
+
+#include <linux/pm_wakeup.h>
 
 #endif /* _DEVICE_H_ */

@@ -33,9 +33,9 @@ static inline void w25qxxx_port_transmmit(u8 w25qxxx, u8 tmp)
             HAL_SPI_Transmit(&hspi1, &tmp, 1, 1000);
             break;
 
-        case W25Q256:
-            HAL_SPI_Transmit(&hspi2, &tmp, 1, 1000);
-            break;
+//        case W25Q256:
+//            HAL_SPI_Transmit(&hspi2, &tmp, 1, 1000);
+//            break;
 
         default:
             break;
@@ -51,9 +51,9 @@ static inline u8 w25qxxx_port_receive(u8 w25qxxx)
             HAL_SPI_Receive(&hspi1, &tmp, 1, 1000);
             break;
 
-        case W25Q256:
-            HAL_SPI_Receive(&hspi2, &tmp, 1, 1000);
-            break;
+//        case W25Q256:
+//            HAL_SPI_Receive(&hspi2, &tmp, 1, 1000);
+//            break;
 
         default:
             break;
@@ -70,9 +70,9 @@ static inline void w25qxxx_port_multi_transmmit(u8 w25qxxx,
             HAL_SPI_Transmit(&hspi1, pdata, length, 1000);
             break;
 
-        case W25Q256:
-            HAL_SPI_Transmit(&hspi2, pdata, length, 1000);
-            break;
+//        case W25Q256:
+//            HAL_SPI_Transmit(&hspi2, pdata, length, 1000);
+//            break;
 
         default:
             break;
@@ -87,9 +87,9 @@ static inline void w25qxxx_port_multi_receive(u8 w25qxxx,
             HAL_SPI_Receive(&hspi1, pdata, length, 1000);
             break;
 
-        case W25Q256:
-            HAL_SPI_Receive(&hspi2, pdata, length, 1000);
-            break;
+//        case W25Q256:
+//            HAL_SPI_Receive(&hspi2, pdata, length, 1000);
+//            break;
 
         default:
             break;
@@ -103,9 +103,9 @@ static inline void w25qxxx_cs_low(u8 w25qxxx)
             HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
             break;
 
-        case W25Q256:
-            HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_RESET);
-            break;
+//        case W25Q256:
+//            HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_RESET);
+//            break;
 
         default:
             break;
@@ -119,9 +119,9 @@ static inline void w25qxxx_cs_high(u8 w25qxxx)
             HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
             break;
 
-        case W25Q256:
-            HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_SET);
-            break;
+//        case W25Q256:
+//            HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_SET);
+//            break;
 
         default:
             break;

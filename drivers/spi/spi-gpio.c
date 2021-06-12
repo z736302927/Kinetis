@@ -64,7 +64,7 @@ struct spi_gpio {
  */
 
 #ifndef DRIVER_NAME
-#define DRIVER_NAME	"spi-gpio"
+#define DRIVER_NAME	"spi_gpio"
 
 #define GENERIC_BITBANG	/* vs tight inlines */
 
@@ -340,12 +340,12 @@ static int spi_gpio_probe_pdata(struct platform_device *pdev,
 	if (!spi_gpio->cs_gpios)
 		return -ENOMEM;
 
-	for (i = 0; i < master->num_chipselect; i++) {
-		spi_gpio->cs_gpios[i] = devm_gpiod_get_index(dev, "cs", i,
-							     GPIOD_OUT_HIGH);
-		if (IS_ERR(spi_gpio->cs_gpios[i]))
-			return PTR_ERR(spi_gpio->cs_gpios[i]);
-	}
+//	for (i = 0; i < master->num_chipselect; i++) {
+//		spi_gpio->cs_gpios[i] = devm_gpiod_get_index(dev, "cs", i,
+//							     GPIOD_OUT_HIGH);
+//		if (IS_ERR(spi_gpio->cs_gpios[i]))
+//			return PTR_ERR(spi_gpio->cs_gpios[i]);
+//	}
 
 	return 0;
 }
@@ -372,9 +372,9 @@ static int spi_gpio_probe(struct platform_device *pdev)
 
 	spi_gpio = spi_master_get_devdata(master);
 
-	status = spi_gpio_request(dev, spi_gpio);
-	if (status)
-		return status;
+//	status = spi_gpio_request(dev, spi_gpio);
+//	if (status)
+//		return status;
 
 	master->bits_per_word_mask = SPI_BPW_RANGE_MASK(1, 32);
 	master->mode_bits = SPI_3WIRE | SPI_3WIRE_HIZ | SPI_CPHA | SPI_CPOL |

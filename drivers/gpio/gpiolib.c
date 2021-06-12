@@ -3823,8 +3823,8 @@ struct gpio_desc *__must_check gpiod_get_index(struct device *dev,
 
 	dev_dbg(dev, "GPIO lookup for consumer %s\n", con_id);
 
-	if (dev) {
-		/* Using device tree? */
+//	if (dev) {
+//		/* Using device tree? */
 //		if (IS_ENABLED(CONFIG_OF) && dev->of_node) {
 //			dev_dbg(dev, "using device tree for GPIO lookup\n");
 //			desc = of_find_gpio(dev, con_id, idx, &lookupflags);
@@ -3832,7 +3832,7 @@ struct gpio_desc *__must_check gpiod_get_index(struct device *dev,
 //			dev_dbg(dev, "using ACPI for GPIO lookup\n");
 //			desc = acpi_find_gpio(dev, con_id, idx, &flags, &lookupflags);
 //		}
-	}
+//	}
 
 	/*
 	 * Either we are not using DT or ACPI, or their lookup did not return

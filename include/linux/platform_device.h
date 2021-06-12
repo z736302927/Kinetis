@@ -26,6 +26,7 @@ struct platform_device {
 	struct device	dev;
 	u64		platform_dma_mask;
 	u32		num_resources;
+	struct resource	*resource;
 
 	const struct platform_device_id	*id_entry;
 	char *driver_override; /* Driver name to force a match */
@@ -39,6 +40,9 @@ extern void platform_device_unregister(struct platform_device *);
 
 extern struct bus_type platform_bus_type;
 extern struct device platform_bus;
+
+extern struct resource *platform_get_resource(struct platform_device *,
+					      unsigned int, unsigned int);
 
 struct platform_device_info {
 		struct device *parent;

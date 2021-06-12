@@ -27,7 +27,7 @@
 //#include <linux/sysrq.h>
 #include <linux/init.h>
 //#include <linux/nmi.h>
-//#include <linux/console.h>
+#include <linux/console.h>
 #include <linux/bug.h>
 //#include <linux/ratelimit.h>
 //#include <linux/debugfs.h>
@@ -301,7 +301,7 @@ void panic(const char *fmt, ...)
 //	 * panic() is not being callled from OOPS.
 //	 */
 //	debug_locks_off();
-//	console_flush_on_panic(CONSOLE_FLUSH_PENDING);
+	console_flush_on_panic(CONSOLE_FLUSH_PENDING);
 
 //	panic_print_sys_info();
 

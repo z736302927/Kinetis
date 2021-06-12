@@ -5,7 +5,11 @@
 
 #include <linux/compiler.h>
 #include <linux/ktime.h>
+#include <linux/wait.h>
 #include <linux/string.h>
+//#include <linux/fs.h>
+//#include <linux/sysctl.h>
+//#include <linux/uaccess.h>
 #include <uapi/linux/poll.h>
 #include <uapi/linux/eventpoll.h>
 
@@ -25,21 +29,21 @@
 
 //#define DEFAULT_POLLMASK (EPOLLIN | EPOLLOUT | EPOLLRDNORM | EPOLLWRNORM)
 
-//struct poll_table_struct;
+struct poll_table_struct;
 
-///* 
-// * structures and helpers for f_op->poll implementations
-// */
-//typedef void (*poll_queue_proc)(struct file *, wait_queue_head_t *, struct poll_table_struct *);
+/* 
+ * structures and helpers for f_op->poll implementations
+ */
+typedef void (*poll_queue_proc)(wait_queue_head_t *, struct poll_table_struct *);
 
-///*
-// * Do not touch the structure directly, use the access functions
-// * poll_does_not_wait() and poll_requested_events() instead.
-// */
-//typedef struct poll_table_struct {
-//	poll_queue_proc _qproc;
-//	__poll_t _key;
-//} poll_table;
+/*
+ * Do not touch the structure directly, use the access functions
+ * poll_does_not_wait() and poll_requested_events() instead.
+ */
+typedef struct poll_table_struct {
+	poll_queue_proc _qproc;
+	__poll_t _key;
+} poll_table;
 
 //static inline void poll_wait(struct file * filp, wait_queue_head_t * wait_address, poll_table *p)
 //{

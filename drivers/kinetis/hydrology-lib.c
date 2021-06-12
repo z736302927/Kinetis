@@ -28,7 +28,7 @@
   * @step 5:
   */
 
-#include "fs/fatfs/ff.h"
+#include "../fs/fatfs/ff.h"
 
 int hydrology_read_file_size(char *file_name, u32 *Size)
 {

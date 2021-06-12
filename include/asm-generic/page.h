@@ -69,9 +69,8 @@
 #define _PAGE_OFFSET		(0)
 #endif
 
-#ifndef ARCH_PFN_OFFSET
+#undef ARCH_PFN_OFFSET
 #define ARCH_PFN_OFFSET		(_PAGE_OFFSET >> _PAGE_SHIFT)
-#endif
 
 #ifndef __ASSEMBLY__
 
@@ -84,9 +83,8 @@
 #define virt_to_page(addr)	pfn_to_page(virt_to_pfn(addr))
 #define page_to_virt(page)	pfn_to_virt(page_to_pfn(page))
 
-#ifndef page_to_phys
+#undef page_to_phys
 #define page_to_phys(page)      ((dma_addr_t)page_to_pfn(page) << _PAGE_SHIFT)
-#endif
 
 #define pfn_valid(pfn)		((pfn) >= ARCH_PFN_OFFSET && ((pfn) - ARCH_PFN_OFFSET) < max_mapnr)
 

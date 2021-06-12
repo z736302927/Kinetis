@@ -3,9 +3,9 @@
 #include "kinetis/basic-timer.h"
 #include "kinetis/idebug.h"
 
-#include "fs/fatfs/diskio.h"     /* Declarations of disk functions */
-#include "fs/fatfs/ff_gen_drv.h"
-#include "fs/fatfs/drivers/flash_diskio.h"
+#include "../fs/fatfs/diskio.h"     /* Declarations of disk functions */
+#include "../fs/fatfs/ff_gen_drv.h"
+#include "../fs/fatfs/drivers/flash_diskio.h"
 
 #include <linux/printk.h>
 #include <linux/errno.h>

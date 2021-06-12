@@ -47,7 +47,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include <string.h>
 
-#include "fs/fatfs/ff_gen_drv.h"
+#include "../fs/fatfs/ff_gen_drv.h"
 
 #include "kinetis/w25qxxx.h"
 

@@ -74,10 +74,10 @@ u32 serial_port_get_baud(struct serial_port *serial_port)
 
     if (serial_port->port_nbr == 1)
         retval = huart1.Init.BaudRate;
-    else if (serial_port->port_nbr == 2)
-        retval = huart2.Init.BaudRate;
-    else if (serial_port->port_nbr == 3)
-        retval = huart3.Init.BaudRate;
+//    else if (serial_port->port_nbr == 2)
+//        retval = huart2.Init.BaudRate;
+//    else if (serial_port->port_nbr == 3)
+//        retval = huart3.Init.BaudRate;
 
     return retval;
 }
@@ -100,10 +100,10 @@ u8 serial_port_open(struct serial_port *serial_port)
 
     if (serial_port->port_nbr == 1)
         HAL_UART_Receive_DMA(&huart1, (u8 *)serial_port->tmp_buffer, serial_port->tmp_buffer_size);
-    else if (serial_port->port_nbr == 2)
-        HAL_UART_Receive_DMA(&huart2, (u8 *)serial_port->tmp_buffer, serial_port->tmp_buffer_size);
-    else if (serial_port->port_nbr == 3)
-        HAL_UART_Receive_DMA(&huart3, (u8 *)serial_port->tmp_buffer, serial_port->tmp_buffer_size);
+//    else if (serial_port->port_nbr == 2)
+//        HAL_UART_Receive_DMA(&huart2, (u8 *)serial_port->tmp_buffer, serial_port->tmp_buffer_size);
+//    else if (serial_port->port_nbr == 3)
+//        HAL_UART_Receive_DMA(&huart3, (u8 *)serial_port->tmp_buffer, serial_port->tmp_buffer_size);
 
     return true;
 }
@@ -123,10 +123,10 @@ void serial_port_send(struct serial_port *serial_port)
 {
     if (serial_port->port_nbr == 1)
         HAL_UART_Transmit_IT(&huart1, serial_port->tx_buffer, serial_port->tx_buffer_size);
-    else if (serial_port->port_nbr == 2)
-        HAL_UART_Transmit_IT(&huart2, serial_port->tx_buffer, serial_port->tx_buffer_size);
-    else if (serial_port->port_nbr == 3)
-        HAL_UART_Transmit_IT(&huart3, serial_port->tx_buffer, serial_port->tx_buffer_size);
+//    else if (serial_port->port_nbr == 2)
+//        HAL_UART_Transmit_IT(&huart2, serial_port->tx_buffer, serial_port->tx_buffer_size);
+//    else if (serial_port->port_nbr == 3)
+//        HAL_UART_Transmit_IT(&huart3, serial_port->tx_buffer, serial_port->tx_buffer_size);
 }
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */

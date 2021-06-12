@@ -10,7 +10,7 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include "kinetis/core_common.h"
 
-#include "fs/fatfs/ff.h"         /* Declarations of sector size */
+#include "../fs/fatfs/ff.h"         /* Declarations of sector size */
 
 int fatfs_init(void);
 int process_fatfs_err(FRESULT fresult);

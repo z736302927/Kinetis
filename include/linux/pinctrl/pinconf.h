@@ -16,6 +16,8 @@
 struct pinctrl_dev;
 struct seq_file;
 
+#define CONFIG_GENERIC_PINCONF
+
 /**
  * struct pinconf_ops - pin config operations, to be implemented by
  * pin configuration capable drivers.

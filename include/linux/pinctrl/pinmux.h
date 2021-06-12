@@ -12,7 +12,7 @@
 #define __LINUX_PINCTRL_PINMUX_H
 
 #include <linux/list.h>
-#include <linux/seq_file.h>
+//#include <linux/seq_file.h>
 #include <linux/pinctrl/pinctrl.h>
 
 struct pinctrl_dev;

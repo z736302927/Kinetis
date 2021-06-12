@@ -2,10 +2,10 @@
 /*
 * Copyright (C) 2015 Intel Corporation Inc.
 */
-#include <linux/module.h>
-#include <linux/acpi.h>
-#include <linux/of.h>
-#include <linux/property.h>
+//#include <linux/module.h>
+//#include <linux/acpi.h>
+//#include <linux/of.h>
+//#include <linux/property.h>
 #include <linux/spi/spi.h>
 #include <linux/regmap.h>
 #include <linux/iio/iio.h>
@@ -44,9 +44,9 @@ static int inv_mpu_probe(struct spi_device *spi)
 	if ((spi_id = spi_get_device_id(spi))) {
 		chip_type = (enum inv_devices)spi_id->driver_data;
 		name = spi_id->name;
-	} else if ((match = device_get_match_data(&spi->dev))) {
-		chip_type = (enum inv_devices)match;
-		name = dev_name(&spi->dev);
+//	} else if ((match = device_get_match_data(&spi->dev))) {
+//		chip_type = (enum inv_devices)match;
+//		name = dev_name(&spi->dev);
 	} else {
 		return -ENODEV;
 	}
@@ -81,7 +81,7 @@ static const struct spi_device_id inv_mpu_id[] = {
 	{}
 };
 
-MODULE_DEVICE_TABLE(spi, inv_mpu_id);
+//MODULE_DEVICE_TABLE(spi, inv_mpu_id);
 
 static const struct of_device_id inv_of_match[] = {
 	{
@@ -130,27 +130,27 @@ static const struct of_device_id inv_of_match[] = {
 	},
 	{ }
 };
-MODULE_DEVICE_TABLE(of, inv_of_match);
+//MODULE_DEVICE_TABLE(of, inv_of_match);
 
 static const struct acpi_device_id inv_acpi_match[] = {
 	{"INVN6000", INV_MPU6000},
 	{ },
 };
-MODULE_DEVICE_TABLE(acpi, inv_acpi_match);
+//MODULE_DEVICE_TABLE(acpi, inv_acpi_match);
 
 static struct spi_driver inv_mpu_driver = {
 	.probe		=	inv_mpu_probe,
 	.id_table	=	inv_mpu_id,
 	.driver = {
 		.of_match_table = inv_of_match,
-		.acpi_match_table = ACPI_PTR(inv_acpi_match),
+//		.acpi_match_table = ACPI_PTR(inv_acpi_match),
 		.name	=	"inv-mpu6000-spi",
 		.pm     =       &inv_mpu_pmops,
 	},
 };
 
-module_spi_driver(inv_mpu_driver);
+//module_spi_driver(inv_mpu_driver);
 
-MODULE_AUTHOR("Adriana Reus <adriana.reus@intel.com>");
-MODULE_DESCRIPTION("Invensense device MPU6000 driver");
-MODULE_LICENSE("GPL");
+//MODULE_AUTHOR("Adriana Reus <adriana.reus@intel.com>");
+//MODULE_DESCRIPTION("Invensense device MPU6000 driver");
+//MODULE_LICENSE("GPL");

@@ -10,9 +10,9 @@
   * @step 5:
   */
 
-#include "rng.h"
+//#include "rng.h"
 
-#define USING_HARDWARE_RNG
+//#define USING_HARDWARE_RNG
 #define USING_C_LIBRARY
 
 static inline u32 random_get_int(void)

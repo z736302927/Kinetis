@@ -24,7 +24,7 @@ static inline void led_init(struct led *led)
     GPIO_InitTypeDef  GPIO_InitStruct;
 
     /* Enable the GPIO_LED Clock */
-    __HAL_RCC_GPIOG_CLK_ENABLE();
+    __HAL_RCC_GPIOC_CLK_ENABLE();
 
     /* Configure the GPIO_LED pin */
     GPIO_InitStruct.Pin = led->num;
@@ -134,12 +134,12 @@ int t_led_add(int argc, char **argv)
 {
     int ret;
 
-    ret = led_add(1, RED, GPIOF, GPIO_PIN_9);
+    ret = led_add(1, RED, GPIOC, GPIO_PIN_4);
 
     if (ret)
         return FAIL;
 
-    ret = led_add(2, RED, GPIOF, GPIO_PIN_10);
+    ret = led_add(2, RED, GPIOC, GPIO_PIN_5);
 
     if (ret)
         return FAIL;

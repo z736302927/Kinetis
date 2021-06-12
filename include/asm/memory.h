@@ -129,6 +129,7 @@ extern unsigned long vectors_base;
 /*
  * Convert a page to/from a physical address
  */
+#undef page_to_phys
 #define page_to_phys(page)	(__pfn_to_phys(page_to_pfn(page)))
 #define phys_to_page(phys)	(pfn_to_page(__phys_to_pfn(phys)))
 
@@ -368,6 +369,7 @@ static inline unsigned long __virt_to_idmap(unsigned long x)
  *  virt_to_page(k)	convert a _valid_ virtual address to struct page *
  *  virt_addr_valid(k)	indicates whether a virtual address is valid
  */
+#undef ARCH_PFN_OFFSET
 #define ARCH_PFN_OFFSET		PHYS_PFN_OFFSET
 
 //#define virt_to_page(kaddr)	pfn_to_page(virt_to_pfn(kaddr))
