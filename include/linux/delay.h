@@ -23,7 +23,7 @@
 
 extern unsigned long loops_per_jiffy;
 
-void udelay(u64 usecs);
+#include <asm/delay.h>
 
 /*
  * Using udelay() for intervals greater than a few milliseconds can

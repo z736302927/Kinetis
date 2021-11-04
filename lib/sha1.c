@@ -6,6 +6,7 @@
  * This was based on the git SHA1 implementation.
  */
 
+#include <generated/deconfig.h>
 #include <linux/kernel.h>
 #include <linux/export.h>
 #include <linux/bitops.h>

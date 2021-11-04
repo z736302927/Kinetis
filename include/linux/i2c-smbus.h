@@ -9,6 +9,8 @@
 #define _LINUX_I2C_SMBUS_H
 
 #include <linux/i2c.h>
+#include <linux/spinlock.h>
+#include <linux/workqueue.h>
 
 
 /**
@@ -28,7 +30,7 @@ struct i2c_client *i2c_new_smbus_alert_device(struct i2c_adapter *adapter,
 					      struct i2c_smbus_alert_setup *setup);
 int i2c_handle_smbus_alert(struct i2c_client *ara);
 
-#if CONFIG_I2C_SMBUS && CONFIG_OF
+#if IS_ENABLED(CONFIG_I2C_SMBUS) && IS_ENABLED(CONFIG_OF)
 int of_i2c_setup_smbus_alert(struct i2c_adapter *adap);
 #else
 static inline int of_i2c_setup_smbus_alert(struct i2c_adapter *adap)
@@ -36,7 +38,7 @@ static inline int of_i2c_setup_smbus_alert(struct i2c_adapter *adap)
 	return 0;
 }
 #endif
-#if CONFIG_I2C_SMBUS && CONFIG_I2C_SLAVE
+#if IS_ENABLED(CONFIG_I2C_SMBUS) && IS_ENABLED(CONFIG_I2C_SLAVE)
 struct i2c_client *i2c_new_slave_host_notify_device(struct i2c_adapter *adapter);
 void i2c_free_slave_host_notify_device(struct i2c_client *client);
 #else
@@ -49,7 +51,7 @@ static inline void i2c_free_slave_host_notify_device(struct i2c_client *client)
 }
 #endif
 
-#if CONFIG_I2C_SMBUS && CONFIG_DMI
+#if IS_ENABLED(CONFIG_I2C_SMBUS) && IS_ENABLED(CONFIG_DMI)
 void i2c_register_spd(struct i2c_adapter *adap);
 #else
 static inline void i2c_register_spd(struct i2c_adapter *adap) { }

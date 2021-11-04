@@ -13,12 +13,12 @@
 #define _DEVICE_H_
 
 #include <linux/dev_printk.h>
-//#include <linux/energy_model.h>
+#include <linux/energy_model.h>
 #include <linux/ioport.h>
-//#include <linux/kobject.h>
+#include <linux/kobject.h>
 #include <linux/klist.h>
 #include <linux/list.h>
-//#include <linux/lockdep.h>
+#include <linux/lockdep.h>
 #include <linux/compiler.h>
 #include <linux/types.h>
 #include <linux/mutex.h>
@@ -27,15 +27,24 @@
 #include <linux/uidgid.h>
 #include <linux/gfp.h>
 #include <linux/overflow.h>
-#include <linux/numa.h>
 #include <linux/device/bus.h>
 #include <linux/device/class.h>
 #include <linux/device/driver.h>
-
+#include <asm/device.h>
 
 struct device;
 struct device_private;
 struct device_driver;
+struct driver_private;
+struct module;
+struct class;
+struct subsys_private;
+struct device_node;
+struct fwnode_handle;
+struct iommu_ops;
+struct iommu_group;
+struct dev_pin_info;
+struct dev_iommu;
 
 /**
  * struct subsys_interface - interfaces to device functions
@@ -58,104 +67,13 @@ struct subsys_interface {
 	void (*remove_dev)(struct device *dev, struct subsys_interface *sif);
 };
 
-/* device resource management */
-typedef void (*dr_release_t)(struct device *dev, void *res);
-typedef int (*dr_match_t)(struct device *dev, void *res, void *match_data);
+int subsys_interface_register(struct subsys_interface *sif);
+void subsys_interface_unregister(struct subsys_interface *sif);
 
-#ifdef CONFIG_DEBUG_DEVRES
-void *__devres_alloc_node(dr_release_t release, size_t size, gfp_t gfp,
-			  int nid, const char *name) __malloc;
-#define devres_alloc(release, size, gfp) \
-	__devres_alloc_node(release, size, gfp, NUMA_NO_NODE, #release)
-#define devres_alloc_node(release, size, gfp, nid) \
-	__devres_alloc_node(release, size, gfp, nid, #release)
-#else
-void *devres_alloc_node(dr_release_t release, size_t size,
-			gfp_t gfp, int nid) __malloc;
-static inline void *devres_alloc(dr_release_t release, size_t size, gfp_t gfp)
-{
-	return devres_alloc_node(release, size, gfp, NUMA_NO_NODE);
-}
-#endif
-
-void devres_for_each_res(struct device *dev, dr_release_t release,
-			 dr_match_t match, void *match_data,
-			 void (*fn)(struct device *, void *, void *),
-			 void *data);
-void devres_free(void *res);
-void devres_add(struct device *dev, void *res);
-void *devres_find(struct device *dev, dr_release_t release,
-		  dr_match_t match, void *match_data);
-void *devres_get(struct device *dev, void *new_res,
-		 dr_match_t match, void *match_data);
-void *devres_remove(struct device *dev, dr_release_t release,
-		    dr_match_t match, void *match_data);
-int devres_destroy(struct device *dev, dr_release_t release,
-		   dr_match_t match, void *match_data);
-int devres_release(struct device *dev, dr_release_t release,
-		   dr_match_t match, void *match_data);
-
-/* managed devm_k.alloc/kfree for device drivers */
-void *devm_kmalloc(struct device *dev, size_t size, gfp_t gfp) __malloc;
-void *devm_krealloc(struct device *dev, void *ptr, size_t size,
-		    gfp_t gfp) __must_check;
-__printf(3, 0) char *devm_kvasprintf(struct device *dev, gfp_t gfp,
-				     const char *fmt, va_list ap) __malloc;
-__printf(3, 4) char *devm_kasprintf(struct device *dev, gfp_t gfp,
-				    const char *fmt, ...) __malloc;
-static inline void *devm_kzalloc(struct device *dev, size_t size, gfp_t gfp)
-{
-	return devm_kmalloc(dev, size, gfp | __GFP_ZERO);
-}
-static inline void *devm_kmalloc_array(struct device *dev,
-				       size_t n, size_t size, gfp_t flags)
-{
-	size_t bytes;
-
-	if (unlikely(check_mul_overflow(n, size, &bytes)))
-		return NULL;
-
-	return devm_kmalloc(dev, bytes, flags);
-}
-static inline void *devm_kcalloc(struct device *dev,
-				 size_t n, size_t size, gfp_t flags)
-{
-	return devm_kmalloc_array(dev, n, size, flags | __GFP_ZERO);
-}
-void devm_kfree(struct device *dev, const void *p);
-char *devm_kstrdup(struct device *dev, const char *s, gfp_t gfp) __malloc;
-const char *devm_kstrdup_const(struct device *dev, const char *s, gfp_t gfp);
-void *devm_kmemdup(struct device *dev, const void *src, size_t len, gfp_t gfp);
-
-unsigned long devm_get_free_pages(struct device *dev,
-				  gfp_t gfp_mask, unsigned int order);
-void devm_free_pages(struct device *dev, unsigned long addr);
-
-void __iomem *devm_ioremap_resource(struct device *dev,
-				    const struct resource *res);
-void __iomem *devm_ioremap_resource_wc(struct device *dev,
-				       const struct resource *res);
-
-//void __iomem *devm_of_iomap(struct device *dev,
-//			    struct device_node *node, int index,
-//			    resource_size_t *size);
-
-/* allows to add/remove a custom action to devres stack */
-int devm_add_action(struct device *dev, void (*action)(void *), void *data);
-void devm_remove_action(struct device *dev, void (*action)(void *), void *data);
-void devm_release_action(struct device *dev, void (*action)(void *), void *data);
-
-static inline int devm_add_action_or_reset(struct device *dev,
-					   void (*action)(void *), void *data)
-{
-	int ret;
-
-	ret = devm_add_action(dev, action, data);
-	if (ret)
-		action(data);
-
-	return ret;
-}
+int subsys_system_register(struct bus_type *subsys,
+			   const struct attribute_group **groups);
+int subsys_virtual_register(struct bus_type *subsys,
+			    const struct attribute_group **groups);
 
 /*
  * The type of device, "struct device" is embedded in. A class
@@ -169,7 +87,12 @@ static inline int devm_add_action_or_reset(struct device *dev,
 struct device_type {
 	const char *name;
 	const struct attribute_group **groups;
+	int (*uevent)(struct device *dev, struct kobj_uevent_env *env);
+	char *(*devnode)(struct device *dev, umode_t *mode,
+			 kuid_t *uid, kgid_t *gid);
 	void (*release)(struct device *dev);
+
+	const struct dev_pm_ops *pm;
 };
 
 /* interface for exporting device attributes */
@@ -226,6 +149,224 @@ ssize_t device_store_bool(struct device *dev, struct device_attribute *attr,
 #define DEVICE_ATTR_IGNORE_LOCKDEP(_name, _mode, _show, _store) \
 	struct device_attribute dev_attr_##_name =		\
 		__ATTR_IGNORE_LOCKDEP(_name, _mode, _show, _store)
+
+int device_create_file(struct device *device,
+		       const struct device_attribute *entry);
+void device_remove_file(struct device *dev,
+			const struct device_attribute *attr);
+bool device_remove_file_self(struct device *dev,
+			     const struct device_attribute *attr);
+int __must_check device_create_bin_file(struct device *dev,
+					const struct bin_attribute *attr);
+void device_remove_bin_file(struct device *dev,
+			    const struct bin_attribute *attr);
+
+/* device resource management */
+typedef void (*dr_release_t)(struct device *dev, void *res);
+typedef int (*dr_match_t)(struct device *dev, void *res, void *match_data);
+
+#ifdef CONFIG_DEBUG_DEVRES
+void *__devres_alloc_node(dr_release_t release, size_t size, gfp_t gfp,
+			  int nid, const char *name) __malloc;
+#define devres_alloc(release, size, gfp) \
+	__devres_alloc_node(release, size, gfp, NUMA_NO_NODE, #release)
+#define devres_alloc_node(release, size, gfp, nid) \
+	__devres_alloc_node(release, size, gfp, nid, #release)
+#else
+void *devres_alloc_node(dr_release_t release, size_t size,
+			gfp_t gfp, int nid) __malloc;
+static inline void *devres_alloc(dr_release_t release, size_t size, gfp_t gfp)
+{
+	return devres_alloc_node(release, size, gfp, NUMA_NO_NODE);
+}
+#endif
+
+void devres_for_each_res(struct device *dev, dr_release_t release,
+			 dr_match_t match, void *match_data,
+			 void (*fn)(struct device *, void *, void *),
+			 void *data);
+void devres_free(void *res);
+void devres_add(struct device *dev, void *res);
+void *devres_find(struct device *dev, dr_release_t release,
+		  dr_match_t match, void *match_data);
+void *devres_get(struct device *dev, void *new_res,
+		 dr_match_t match, void *match_data);
+void *devres_remove(struct device *dev, dr_release_t release,
+		    dr_match_t match, void *match_data);
+int devres_destroy(struct device *dev, dr_release_t release,
+		   dr_match_t match, void *match_data);
+int devres_release(struct device *dev, dr_release_t release,
+		   dr_match_t match, void *match_data);
+
+/* devres group */
+void * __must_check devres_open_group(struct device *dev, void *id, gfp_t gfp);
+void devres_close_group(struct device *dev, void *id);
+void devres_remove_group(struct device *dev, void *id);
+int devres_release_group(struct device *dev, void *id);
+
+/* managed devm_k.alloc/kfree for device drivers */
+void *devm_kmalloc(struct device *dev, size_t size, gfp_t gfp) __malloc;
+void *devm_krealloc(struct device *dev, void *ptr, size_t size,
+		    gfp_t gfp) __must_check;
+__printf(3, 0) char *devm_kvasprintf(struct device *dev, gfp_t gfp,
+				     const char *fmt, va_list ap) __malloc;
+__printf(3, 4) char *devm_kasprintf(struct device *dev, gfp_t gfp,
+				    const char *fmt, ...) __malloc;
+static inline void *devm_kzalloc(struct device *dev, size_t size, gfp_t gfp)
+{
+	return devm_kmalloc(dev, size, gfp | __GFP_ZERO);
+}
+static inline void *devm_kmalloc_array(struct device *dev,
+				       size_t n, size_t size, gfp_t flags)
+{
+	size_t bytes;
+
+	if (unlikely(check_mul_overflow(n, size, &bytes)))
+		return NULL;
+
+	return devm_kmalloc(dev, bytes, flags);
+}
+static inline void *devm_kcalloc(struct device *dev,
+				 size_t n, size_t size, gfp_t flags)
+{
+	return devm_kmalloc_array(dev, n, size, flags | __GFP_ZERO);
+}
+void devm_kfree(struct device *dev, const void *p);
+char *devm_kstrdup(struct device *dev, const char *s, gfp_t gfp) __malloc;
+const char *devm_kstrdup_const(struct device *dev, const char *s, gfp_t gfp);
+void *devm_kmemdup(struct device *dev, const void *src, size_t len, gfp_t gfp);
+
+unsigned long devm_get_free_pages(struct device *dev,
+				  gfp_t gfp_mask, unsigned int order);
+void devm_free_pages(struct device *dev, unsigned long addr);
+
+void __iomem *devm_ioremap_resource(struct device *dev,
+				    const struct resource *res);
+void __iomem *devm_ioremap_resource_wc(struct device *dev,
+				       const struct resource *res);
+
+void __iomem *devm_of_iomap(struct device *dev,
+			    struct device_node *node, int index,
+			    resource_size_t *size);
+
+/* allows to add/remove a custom action to devres stack */
+int devm_add_action(struct device *dev, void (*action)(void *), void *data);
+void devm_remove_action(struct device *dev, void (*action)(void *), void *data);
+void devm_release_action(struct device *dev, void (*action)(void *), void *data);
+
+static inline int devm_add_action_or_reset(struct device *dev,
+					   void (*action)(void *), void *data)
+{
+	int ret;
+
+	ret = devm_add_action(dev, action, data);
+	if (ret)
+		action(data);
+
+	return ret;
+}
+
+/**
+ * devm_alloc_percpu - Resource-managed alloc_percpu
+ * @dev: Device to allocate per-cpu memory for
+ * @type: Type to allocate per-cpu memory for
+ *
+ * Managed alloc_percpu. Per-cpu memory allocated with this function is
+ * automatically freed on driver detach.
+ *
+ * RETURNS:
+ * Pointer to allocated memory on success, NULL on failure.
+ */
+#define devm_alloc_percpu(dev, type)      \
+	((typeof(type) __percpu *)__devm_alloc_percpu((dev), sizeof(type), \
+						      __alignof__(type)))
+
+void __percpu *__devm_alloc_percpu(struct device *dev, size_t size,
+				   size_t align);
+void devm_free_percpu(struct device *dev, void __percpu *pdata);
+
+struct device_dma_parameters {
+	/*
+	 * a low level driver may set these to teach IOMMU code about
+	 * sg limitations.
+	 */
+	unsigned int max_segment_size;
+	unsigned int min_align_mask;
+	unsigned long segment_boundary_mask;
+};
+
+/**
+ * enum device_link_state - Device link states.
+ * @DL_STATE_NONE: The presence of the drivers is not being tracked.
+ * @DL_STATE_DORMANT: None of the supplier/consumer drivers is present.
+ * @DL_STATE_AVAILABLE: The supplier driver is present, but the consumer is not.
+ * @DL_STATE_CONSUMER_PROBE: The consumer is probing (supplier driver present).
+ * @DL_STATE_ACTIVE: Both the supplier and consumer drivers are present.
+ * @DL_STATE_SUPPLIER_UNBIND: The supplier driver is unbinding.
+ */
+enum device_link_state {
+	DL_STATE_NONE = -1,
+	DL_STATE_DORMANT = 0,
+	DL_STATE_AVAILABLE,
+	DL_STATE_CONSUMER_PROBE,
+	DL_STATE_ACTIVE,
+	DL_STATE_SUPPLIER_UNBIND,
+};
+
+/*
+ * Device link flags.
+ *
+ * STATELESS: The core will not remove this link automatically.
+ * AUTOREMOVE_CONSUMER: Remove the link automatically on consumer driver unbind.
+ * PM_RUNTIME: If set, the runtime PM framework will use this link.
+ * RPM_ACTIVE: Run pm_runtime_get_sync() on the supplier during link creation.
+ * AUTOREMOVE_SUPPLIER: Remove the link automatically on supplier driver unbind.
+ * AUTOPROBE_CONSUMER: Probe consumer driver automatically after supplier binds.
+ * MANAGED: The core tracks presence of supplier/consumer drivers (internal).
+ * SYNC_STATE_ONLY: Link only affects sync_state() behavior.
+ */
+#define DL_FLAG_STATELESS		BIT(0)
+#define DL_FLAG_AUTOREMOVE_CONSUMER	BIT(1)
+#define DL_FLAG_PM_RUNTIME		BIT(2)
+#define DL_FLAG_RPM_ACTIVE		BIT(3)
+#define DL_FLAG_AUTOREMOVE_SUPPLIER	BIT(4)
+#define DL_FLAG_AUTOPROBE_CONSUMER	BIT(5)
+#define DL_FLAG_MANAGED			BIT(6)
+#define DL_FLAG_SYNC_STATE_ONLY		BIT(7)
+
+/**
+ * enum dl_dev_state - Device driver presence tracking information.
+ * @DL_DEV_NO_DRIVER: There is no driver attached to the device.
+ * @DL_DEV_PROBING: A driver is probing.
+ * @DL_DEV_DRIVER_BOUND: The driver has been bound to the device.
+ * @DL_DEV_UNBINDING: The driver is unbinding from the device.
+ */
+enum dl_dev_state {
+	DL_DEV_NO_DRIVER = 0,
+	DL_DEV_PROBING,
+	DL_DEV_DRIVER_BOUND,
+	DL_DEV_UNBINDING,
+};
+
+/**
+ * struct dev_links_info - Device data related to device links.
+ * @suppliers: List of links to supplier devices.
+ * @consumers: List of links to consumer devices.
+ * @needs_suppliers: Hook to global list of devices waiting for suppliers.
+ * @defer_hook: Hook to global list of devices that have deferred sync_state or
+ *		deferred fw_devlink.
+ * @need_for_probe: If needs_suppliers is on a list, this indicates if the
+ *		    suppliers are needed for probe or not.
+ * @status: Driver status information.
+ */
+struct dev_links_info {
+	struct list_head suppliers;
+	struct list_head consumers;
+	struct list_head needs_suppliers;
+	struct list_head defer_hook;
+	bool need_for_probe;
+	enum dl_dev_state status;
+};
 
 /**
  * struct device - The basic device structure
@@ -319,9 +460,12 @@ ssize_t device_store_bool(struct device *dev, struct device_attribute *attr,
  * a higher-level representation of the device.
  */
 struct device {
+	struct kobject kobj;
 	struct device		*parent;
+
 	struct device_private	*p;
-    const char		init_name[48]; /* initial name of the device */
+
+	const char		*init_name; /* initial name of the device */
 	const struct device_type *type;
 
 	struct bus_type	*bus;		/* type of bus device is on */
@@ -338,30 +482,136 @@ struct device {
 					 * its driver.
 					 */
 
-//	struct dev_links_info	links;
+	struct dev_links_info	links;
 	struct dev_pm_info	power;
 	struct dev_pm_domain	*pm_domain;
 
-//#ifdef CONFIG_PINCTRL
+#ifdef CONFIG_ENERGY_MODEL
+	struct em_perf_domain	*em_pd;
+#endif
+
+#ifdef CONFIG_GENERIC_MSI_IRQ_DOMAIN
+	struct irq_domain	*msi_domain;
+#endif
+#ifdef CONFIG_PINCTRL
 	struct dev_pin_info	*pins;
-//#endif
+#endif
+#ifdef CONFIG_GENERIC_MSI_IRQ
+	struct list_head	msi_list;
+#endif
+#ifdef CONFIG_DMA_OPS
+	const struct dma_map_ops *dma_ops;
+#endif
+	u64		*dma_mask;	/* dma mask (if dma'able device) */
+	u64		coherent_dma_mask;/* Like dma_mask, but for
+					     alloc_coherent mappings as
+					     not all hardware supports
+					     64 bit addresses for consistent
+					     allocations such descriptors. */
+	u64		bus_dma_limit;	/* upstream dma constraint */
+	const struct bus_dma_region *dma_range_map;
+
+	struct device_dma_parameters *dma_parms;
+
+	struct list_head	dma_pools;	/* dma pools (if dma'ble) */
+
+#ifdef CONFIG_DMA_DECLARE_COHERENT
+	struct dma_coherent_mem	*dma_mem; /* internal for coherent mem
+					     override */
+#endif
+#ifdef CONFIG_DMA_CMA
+	struct cma *cma_area;		/* contiguous memory area for dma
+					   allocations */
+#endif
+	/* arch specific additions */
+	struct dev_archdata	archdata;
+
+	struct device_node	*of_node; /* associated device tree node */
+	struct fwnode_handle	*fwnode; /* firmware device node */
+
 #ifdef CONFIG_NUMA
 	int		numa_node;	/* NUMA node this device is close to */
 #endif
 	dev_t			devt;	/* dev_t, creates the sysfs "dev" */
 	u32			id;	/* device instance */
+
+	spinlock_t		devres_lock;
 	struct list_head	devres_head;
 
 	struct class		*class;
 	const struct attribute_group **groups;	/* optional groups */
 
 	void	(*release)(struct device *dev);
+	struct iommu_group	*iommu_group;
+	struct dev_iommu	*iommu;
+
+	bool			offline_disabled:1;
+	bool			offline:1;
+	bool			of_node_reused:1;
+	bool			state_synced:1;
+#if defined(CONFIG_ARCH_HAS_SYNC_DMA_FOR_DEVICE) || \
+    defined(CONFIG_ARCH_HAS_SYNC_DMA_FOR_CPU) || \
+    defined(CONFIG_ARCH_HAS_SYNC_DMA_FOR_CPU_ALL)
+	bool			dma_coherent:1;
+#endif
+#ifdef CONFIG_DMA_OPS_BYPASS
+	bool			dma_ops_bypass : 1;
+#endif
 };
+
+/**
+ * struct device_link - Device link representation.
+ * @supplier: The device on the supplier end of the link.
+ * @s_node: Hook to the supplier device's list of links to consumers.
+ * @consumer: The device on the consumer end of the link.
+ * @c_node: Hook to the consumer device's list of links to suppliers.
+ * @link_dev: device used to expose link details in sysfs
+ * @status: The state of the link (with respect to the presence of drivers).
+ * @flags: Link flags.
+ * @rpm_active: Whether or not the consumer device is runtime-PM-active.
+ * @kref: Count repeated addition of the same link.
+ * @rm_work: Work structure used for removing the link.
+ * @supplier_preactivated: Supplier has been made active before consumer probe.
+ */
+struct device_link {
+	struct device *supplier;
+	struct list_head s_node;
+	struct device *consumer;
+	struct list_head c_node;
+	struct device link_dev;
+	enum device_link_state status;
+	u32 flags;
+	refcount_t rpm_active;
+	struct kref kref;
+	struct work_struct rm_work;
+	bool supplier_preactivated; /* Owned by consumer probe. */
+};
+
+static inline struct device *kobj_to_dev(struct kobject *kobj)
+{
+	return container_of(kobj, struct device, kobj);
+}
+
+/**
+ * device_iommu_mapped - Returns true when the device DMA is translated
+ *			 by an IOMMU
+ * @dev: Device to perform the check on
+ */
+static inline bool device_iommu_mapped(struct device *dev)
+{
+	return (dev->iommu_group != NULL);
+}
+
+/* Get the wakeup routines, which depend on struct device */
+#include <linux/pm_wakeup.h>
 
 static inline const char *dev_name(const struct device *dev)
 {
 	/* Use the init name until the kobject becomes available */
-	return dev->init_name;
+	if (dev->init_name)
+		return dev->init_name;
+
+	return kobject_name(&dev->kobj);
 }
 
 /**
@@ -373,7 +623,7 @@ static inline const char *dev_name(const struct device *dev)
  */
 static inline const char *dev_bus_name(const struct device *dev)
 {
-	return dev->bus ? dev->bus->name : "";
+	return dev->bus ? dev->bus->name : (dev->class ? dev->class->name : "");
 }
 
 __printf(2, 3) int dev_set_name(struct device *dev, const char *name, ...);
@@ -397,6 +647,22 @@ static inline void set_dev_node(struct device *dev, int node)
 }
 #endif
 
+static inline struct irq_domain *dev_get_msi_domain(const struct device *dev)
+{
+#ifdef CONFIG_GENERIC_MSI_IRQ_DOMAIN
+	return dev->msi_domain;
+#else
+	return NULL;
+#endif
+}
+
+static inline void dev_set_msi_domain(struct device *dev, struct irq_domain *d)
+{
+#ifdef CONFIG_GENERIC_MSI_IRQ_DOMAIN
+	dev->msi_domain = d;
+#endif
+}
+
 static inline void *dev_get_drvdata(const struct device *dev)
 {
 	return dev->driver_data;
@@ -407,9 +673,111 @@ static inline void dev_set_drvdata(struct device *dev, void *data)
 	dev->driver_data = data;
 }
 
+static inline struct pm_subsys_data *dev_to_psd(struct device *dev)
+{
+	return dev ? dev->power.subsys_data : NULL;
+}
+
+static inline unsigned int dev_get_uevent_suppress(const struct device *dev)
+{
+	return dev->kobj.uevent_suppress;
+}
+
+static inline void dev_set_uevent_suppress(struct device *dev, int val)
+{
+	dev->kobj.uevent_suppress = val;
+}
+
 static inline int device_is_registered(struct device *dev)
 {
-	return !!dev->p;
+	return dev->kobj.state_in_sysfs;
+}
+
+static inline void device_enable_async_suspend(struct device *dev)
+{
+	if (!dev->power.is_prepared)
+		dev->power.async_suspend = true;
+}
+
+static inline void device_disable_async_suspend(struct device *dev)
+{
+	if (!dev->power.is_prepared)
+		dev->power.async_suspend = false;
+}
+
+static inline bool device_async_suspend_enabled(struct device *dev)
+{
+	return !!dev->power.async_suspend;
+}
+
+static inline bool device_pm_not_required(struct device *dev)
+{
+	return dev->power.no_pm;
+}
+
+static inline void device_set_pm_not_required(struct device *dev)
+{
+	dev->power.no_pm = true;
+}
+
+static inline void dev_pm_syscore_device(struct device *dev, bool val)
+{
+#ifdef CONFIG_PM_SLEEP
+	dev->power.syscore = val;
+#endif
+}
+
+static inline void dev_pm_set_driver_flags(struct device *dev, u32 flags)
+{
+	dev->power.driver_flags = flags;
+}
+
+static inline bool dev_pm_test_driver_flags(struct device *dev, u32 flags)
+{
+	return !!(dev->power.driver_flags & flags);
+}
+
+static inline void device_lock(struct device *dev)
+{
+	mutex_lock(&dev->mutex);
+}
+
+static inline int device_lock_interruptible(struct device *dev)
+{
+	return mutex_lock_interruptible(&dev->mutex);
+}
+
+static inline int device_trylock(struct device *dev)
+{
+	return mutex_trylock(&dev->mutex);
+}
+
+static inline void device_unlock(struct device *dev)
+{
+	mutex_unlock(&dev->mutex);
+}
+
+static inline void device_lock_assert(struct device *dev)
+{
+	lockdep_assert_held(&dev->mutex);
+}
+
+static inline struct device_node *dev_of_node(struct device *dev)
+{
+	if (!IS_ENABLED(CONFIG_OF) || !dev)
+		return NULL;
+	return dev->of_node;
+}
+
+static inline bool dev_has_sync_state(struct device *dev)
+{
+	if (!dev)
+		return false;
+	if (dev->driver && dev->driver->sync_state)
+		return true;
+	if (dev->bus && dev->bus->sync_state)
+		return true;
+	return false;
 }
 
 /*
@@ -429,6 +797,44 @@ struct device *device_find_child(struct device *dev, void *data,
 struct device *device_find_child_by_name(struct device *parent,
 					 const char *name);
 int device_rename(struct device *dev, const char *new_name);
+int device_move(struct device *dev, struct device *new_parent,
+		enum dpm_order dpm_order);
+int device_change_owner(struct device *dev, kuid_t kuid, kgid_t kgid);
+const char *device_get_devnode(struct device *dev, umode_t *mode, kuid_t *uid,
+			       kgid_t *gid, const char **tmp);
+int device_is_dependent(struct device *dev, void *target);
+
+static inline bool device_supports_offline(struct device *dev)
+{
+	return dev->bus && dev->bus->offline && dev->bus->online;
+}
+
+void lock_device_hotplug(void);
+void unlock_device_hotplug(void);
+int lock_device_hotplug_sysfs(void);
+int device_offline(struct device *dev);
+int device_online(struct device *dev);
+void set_primary_fwnode(struct device *dev, struct fwnode_handle *fwnode);
+void set_secondary_fwnode(struct device *dev, struct fwnode_handle *fwnode);
+void device_set_of_node_from_dev(struct device *dev, const struct device *dev2);
+
+static inline int dev_num_vf(struct device *dev)
+{
+	if (dev->bus && dev->bus->num_vf)
+		return dev->bus->num_vf(dev);
+	return 0;
+}
+
+/*
+ * Root device objects for grouping under /sys/devices
+ */
+struct device *__root_device_register(const char *name, struct module *owner);
+
+/* This is a macro to avoid include problems with THIS_MODULE */
+#define root_device_register(name) \
+	__root_device_register(name, THIS_MODULE)
+
+void root_device_unregister(struct device *root);
 
 static inline void *dev_get_platdata(const struct device *dev)
 {
@@ -451,69 +857,97 @@ bool device_is_bound(struct device *dev);
 /*
  * Easy functions for dynamically creating devices on the fly
  */
-extern __printf(5, 6)
-struct device *device_create(struct class *cls, struct device *parent,
-			     dev_t devt, void *drvdata,
-			     const char *fmt, ...);
-extern __printf(6, 7)
-struct device *device_create_with_groups(struct class *cls,
-			     struct device *parent, dev_t devt, void *drvdata,
-			     const struct attribute_group **groups,
-			     const char *fmt, ...);
-extern void device_destroy(struct class *cls, dev_t devt);
+__printf(5, 6) struct device *
+device_create(struct class *cls, struct device *parent, dev_t devt,
+	      void *drvdata, const char *fmt, ...);
+__printf(6, 7) struct device *
+device_create_with_groups(struct class *cls, struct device *parent, dev_t devt,
+			  void *drvdata, const struct attribute_group **groups,
+			  const char *fmt, ...);
+void device_destroy(struct class *cls, dev_t devt);
 
-/**
- * struct device_private - structure to hold the private to the driver core portions of the device structure.
- *
- * @klist_children - klist containing all children of this device
- * @knode_parent - node in sibling list
- * @knode_driver - node in driver list
- * @knode_bus - node in bus list
- * @knode_class - node in class list
- * @deferred_probe - entry in deferred_probe_list which is used to retry the
- *	binding of drivers which were unable to get all the resources needed by
- *	the device; typically because it depends on another driver getting
- *	probed first.
- * @async_driver - pointer to device driver awaiting probe via async_probe
- * @device - pointer back to the struct device that this structure is
- * associated with.
- * @dead - This device is currently either in the process of or has been
- *	removed from the system. Any asynchronous events scheduled for this
- *	device should exit without taking any action.
- *
- * Nothing outside of the driver core should ever touch these fields.
+int __must_check device_add_groups(struct device *dev,
+				   const struct attribute_group **groups);
+void device_remove_groups(struct device *dev,
+			  const struct attribute_group **groups);
+
+static inline int __must_check device_add_group(struct device *dev,
+					const struct attribute_group *grp)
+{
+	const struct attribute_group *groups[] = { grp, NULL };
+
+	return device_add_groups(dev, groups);
+}
+
+static inline void device_remove_group(struct device *dev,
+				       const struct attribute_group *grp)
+{
+	const struct attribute_group *groups[] = { grp, NULL };
+
+	return device_remove_groups(dev, groups);
+}
+
+int __must_check devm_device_add_groups(struct device *dev,
+					const struct attribute_group **groups);
+void devm_device_remove_groups(struct device *dev,
+			       const struct attribute_group **groups);
+int __must_check devm_device_add_group(struct device *dev,
+				       const struct attribute_group *grp);
+void devm_device_remove_group(struct device *dev,
+			      const struct attribute_group *grp);
+
+/*
+ * Platform "fixup" functions - allow the platform to have their say
+ * about devices and actions that the general device layer doesn't
+ * know about.
  */
-struct device_private {
-	struct klist klist_children;
-	struct klist_node knode_parent;
-	struct klist_node knode_driver;
-	struct klist_node knode_bus;
-	struct klist_node knode_class;
-	struct list_head deferred_probe;
-	struct device_driver *async_driver;
-	char *deferred_probe_reason;
-	struct device *device;
-	u8 dead:1;
-};
-#define to_device_private_parent(obj)	\
-	container_of(obj, struct device_private, knode_parent)
-#define to_device_private_driver(obj)	\
-	container_of(obj, struct device_private, knode_driver)
-#define to_device_private_bus(obj)	\
-	container_of(obj, struct device_private, knode_bus)
-#define to_device_private_class(obj)	\
-	container_of(obj, struct device_private, knode_class)
+/* Notify platform of device discovery */
+extern int (*platform_notify)(struct device *dev);
+
+extern int (*platform_notify_remove)(struct device *dev);
+
 
 /*
  * get_device - atomically increment the reference count for the device.
  *
  */
-#define get_device(dev)     dev
-#define put_device(dev)
+struct device *get_device(struct device *dev);
+void put_device(struct device *dev);
+bool kill_device(struct device *dev);
+
+#ifdef CONFIG_DEVTMPFS
+int devtmpfs_mount(void);
+#else
+static inline int devtmpfs_mount(void) { return 0; }
+#endif
+
+/* drivers/base/power/shutdown.c */
+void device_shutdown(void);
+
+/* debugging and troubleshooting/diagnostic helpers. */
+const char *dev_driver_string(const struct device *dev);
+
+/* Device links interface. */
+struct device_link *device_link_add(struct device *consumer,
+				    struct device *supplier, u32 flags);
+void device_link_del(struct device_link *link);
+void device_link_remove(void *consumer, struct device *supplier);
+void device_links_supplier_sync_state_pause(void);
+void device_links_supplier_sync_state_resume(void);
 
 extern __printf(3, 4)
 int dev_err_probe(const struct device *dev, int err, const char *fmt, ...);
 
-#include <linux/pm_wakeup.h>
+/* Create alias, so I can be autoloaded. */
+#define MODULE_ALIAS_CHARDEV(major,minor) \
+	MODULE_ALIAS("char-major-" __stringify(major) "-" __stringify(minor))
+#define MODULE_ALIAS_CHARDEV_MAJOR(major) \
+	MODULE_ALIAS("char-major-" __stringify(major) "-*")
+
+#ifdef CONFIG_SYSFS_DEPRECATED
+extern long sysfs_deprecated;
+#else
+#define sysfs_deprecated 0
+#endif
 
 #endif /* _DEVICE_H_ */

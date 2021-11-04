@@ -8,6 +8,7 @@
 
 #include <linux/regmap.h>
 #include <linux/i2c.h>
+#include <linux/module.h>
 
 #include "internal.h"
 
@@ -364,3 +365,4 @@ struct regmap *__devm_regmap_init_i2c(struct i2c_client *i2c,
 }
 EXPORT_SYMBOL_GPL(__devm_regmap_init_i2c);
 
+MODULE_LICENSE("GPL");

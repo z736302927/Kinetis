@@ -9,18 +9,19 @@
  * Copyright (C) 2016 Intel, Ross Zwisler
  */
 
+#include <generated/deconfig.h> 
 #include <linux/bitmap.h>
 #include <linux/bitops.h>
 #include <linux/bug.h>
-//#include <linux/cpu.h>
+#include <linux/cpu.h>
 #include <linux/errno.h>
 #include <linux/export.h>
 #include <linux/idr.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
-//#include <linux/kmemleak.h>
-//#include <linux/percpu.h>
-//#include <linux/preempt.h>		/* in_interrupt() */
+#include <linux/kmemleak.h>
+#include <linux/percpu.h>
+#include <linux/preempt.h>		/* in_interrupt() */
 #include <linux/radix-tree.h>
 #include <linux/rcupdate.h>
 #include <linux/slab.h>
@@ -57,7 +58,10 @@ struct kmem_cache *radix_tree_node_cachep;
 /*
  * Per-cpu pool of preloaded nodes
  */
-struct radix_tree_preload radix_tree_preloads;
+DEFINE_PER_CPU(struct radix_tree_preload, radix_tree_preloads) = {
+	.lock = INIT_LOCAL_LOCK(lock),
+};
+EXPORT_PER_CPU_SYMBOL_GPL(radix_tree_preloads);
 
 static inline struct radix_tree_node *entry_to_node(void *ptr)
 {
@@ -237,7 +241,7 @@ radix_tree_node_alloc(gfp_t gfp_mask, struct radix_tree_node *parent,
 	 * preloading during an interrupt anyway as all the allocations have
 	 * to be atomic. So just do normal allocation when in interrupt.
 	 */
-	if (!gfpflags_allow_blocking(gfp_mask)) {
+	if (!gfpflags_allow_blocking(gfp_mask) && !in_interrupt()) {
 		struct radix_tree_preload *rtp;
 
 		/*
@@ -255,7 +259,7 @@ radix_tree_node_alloc(gfp_t gfp_mask, struct radix_tree_node *parent,
 		 * succeed in getting a node here (and never reach
 		 * kmem_cache_alloc)
 		 */
-		rtp = &radix_tree_preloads;
+		rtp = this_cpu_ptr(&radix_tree_preloads);
 		if (rtp->nr) {
 			ret = rtp->nodes;
 			rtp->nodes = ret->parent;
@@ -265,6 +269,7 @@ radix_tree_node_alloc(gfp_t gfp_mask, struct radix_tree_node *parent,
 		 * Update the allocation stack trace as this is more useful
 		 * for debugging.
 		 */
+		kmemleak_update_trace(ret);
 		goto out;
 	}
 	ret = kmem_cache_alloc(radix_tree_node_cachep, gfp_mask);
@@ -285,7 +290,6 @@ void radix_tree_node_rcu_free(struct rcu_head *head)
 {
 	struct radix_tree_node *node =
 			container_of(head, struct radix_tree_node, rcu_head);
-
 	/*
 	 * Must only free zeroed nodes into the slab.  We can be left with
 	 * non-NULL entries by radix_tree_free_nodes, so clear the entries
@@ -325,12 +329,15 @@ static __must_check int __radix_tree_preload(gfp_t gfp_mask, unsigned nr)
 	 */
 	gfp_mask &= ~__GFP_ACCOUNT;
 
-	rtp = &radix_tree_preloads;
+	local_lock(&radix_tree_preloads.lock);
+	rtp = this_cpu_ptr(&radix_tree_preloads);
 	while (rtp->nr < nr) {
+		local_unlock(&radix_tree_preloads.lock);
 		node = kmem_cache_alloc(radix_tree_node_cachep, gfp_mask);
 		if (node == NULL)
 			goto out;
-		rtp = &radix_tree_preloads;
+		local_lock(&radix_tree_preloads.lock);
+		rtp = this_cpu_ptr(&radix_tree_preloads);
 		if (rtp->nr < nr) {
 			node->parent = rtp->nodes;
 			rtp->nodes = node;
@@ -371,6 +378,7 @@ int radix_tree_maybe_preload(gfp_t gfp_mask)
 	if (gfpflags_allow_blocking(gfp_mask))
 		return __radix_tree_preload(gfp_mask, RADIX_TREE_PRELOAD_SIZE);
 	/* Preloading doesn't help anything with this gfp mask, skip it */
+	local_lock(&radix_tree_preloads.lock);
 	return 0;
 }
 EXPORT_SYMBOL(radix_tree_maybe_preload);
@@ -1459,7 +1467,7 @@ EXPORT_SYMBOL(radix_tree_tagged);
 void idr_preload(gfp_t gfp_mask)
 {
 	if (__radix_tree_preload(gfp_mask, IDR_PRELOAD_SIZE))
-		;
+		local_lock(&radix_tree_preloads.lock);
 }
 EXPORT_SYMBOL(idr_preload);
 
@@ -1571,7 +1579,7 @@ static int radix_tree_cpu_dead(unsigned int cpu)
 	struct radix_tree_node *node;
 
 	/* Free per-cpu pool of preloaded nodes */
-	rtp = &radix_tree_preloads;
+	rtp = &per_cpu(radix_tree_preloads, cpu);
 	while (rtp->nr) {
 		node = rtp->nodes;
 		rtp->nodes = node->parent;
@@ -1583,6 +1591,8 @@ static int radix_tree_cpu_dead(unsigned int cpu)
 
 void __init radix_tree_init(void)
 {
+	int ret;
+
 	BUILD_BUG_ON(RADIX_TREE_MAX_TAGS + __GFP_BITS_SHIFT > 32);
 	BUILD_BUG_ON(ROOT_IS_IDR & ~GFP_ZONEMASK);
 	BUILD_BUG_ON(XA_CHUNK_SIZE > 255);
@@ -1590,4 +1600,7 @@ void __init radix_tree_init(void)
 			sizeof(struct radix_tree_node), 0,
 			SLAB_PANIC | SLAB_RECLAIM_ACCOUNT,
 			radix_tree_node_ctor);
+//	ret = cpuhp_setup_state_nocalls(CPUHP_RADIX_DEAD, "lib/radix:dead",
+//					NULL, radix_tree_cpu_dead);
+	WARN_ON(ret < 0);
 }

@@ -13,7 +13,7 @@
 #include <linux/spinlock.h>
 #include <linux/wait.h>
 #include <linux/timer.h>
-//#include <linux/hrtimer.h>
+#include <linux/hrtimer.h>
 #include <linux/completion.h>
 
 /*
@@ -300,8 +300,6 @@ struct dev_pm_ops {
 	int (*runtime_resume)(struct device *dev);
 	int (*runtime_idle)(struct device *dev);
 };
-
-#define CONFIG_PM_SLEEP
 
 #ifdef CONFIG_PM_SLEEP
 #define SET_SYSTEM_SLEEP_PM_OPS(suspend_fn, resume_fn) \
@@ -602,6 +600,7 @@ struct dev_pm_info {
 	unsigned int		idle_notification:1;
 	unsigned int		request_pending:1;
 	unsigned int		deferred_resume:1;
+	unsigned int		needs_force_resume:1;
 	unsigned int		runtime_auto:1;
 	bool			ignore_children:1;
 	unsigned int		no_callbacks:1;

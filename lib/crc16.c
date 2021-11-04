@@ -3,7 +3,9 @@
  *      crc16.c
  */
 
+#include <generated/deconfig.h> 
 #include <linux/types.h>
+#include <linux/module.h>
 #include <linux/crc16.h>
 
 /** CRC table for the CRC-16. The poly is 0x8005 (x^16 + x^15 + x^2 + 1) */
@@ -41,6 +43,7 @@ u16 const crc16_table[256] = {
 	0x4400, 0x84C1, 0x8581, 0x4540, 0x8701, 0x47C0, 0x4680, 0x8641,
 	0x8201, 0x42C0, 0x4380, 0x8341, 0x4100, 0x81C1, 0x8081, 0x4040
 };
+EXPORT_SYMBOL(crc16_table);
 
 /**
  * crc16 - compute the CRC-16 for the data buffer
@@ -56,4 +59,8 @@ u16 crc16(u16 crc, u8 const *buffer, size_t len)
 		crc = crc16_byte(crc, *buffer++);
 	return crc;
 }
+EXPORT_SYMBOL(crc16);
+
+MODULE_DESCRIPTION("CRC16 calculations");
+MODULE_LICENSE("GPL");
 

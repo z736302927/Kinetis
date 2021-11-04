@@ -14,7 +14,7 @@
 #ifndef _DEVICE_CLASS_H_
 #define _DEVICE_CLASS_H_
 
-//#include <linux/kobject.h>
+#include <linux/kobject.h>
 #include <linux/klist.h>
 #include <linux/pm.h>
 #include <linux/device/bus.h>
@@ -57,9 +57,9 @@ struct class {
 
 	const struct attribute_group	**class_groups;
 	const struct attribute_group	**dev_groups;
-//	struct kobject			*dev_kobj;
+	struct kobject			*dev_kobj;
 
-//	int (*dev_uevent)(struct device *dev, struct kobj_uevent_env *env);
+	int (*dev_uevent)(struct device *dev, struct kobj_uevent_env *env);
 	char *(*devnode)(struct device *dev, umode_t *mode);
 
 	void (*class_release)(struct class *class);
@@ -136,11 +136,11 @@ static inline struct device *class_find_device_by_name(struct class *class,
  * @class: class type
  * @np: of_node of the device to match.
  */
-//static inline struct device *
-//class_find_device_by_of_node(struct class *class, const struct device_node *np)
-//{
-//	return class_find_device(class, NULL, np, device_match_of_node);
-//}
+static inline struct device *
+class_find_device_by_of_node(struct class *class, const struct device_node *np)
+{
+	return class_find_device(class, NULL, np, device_match_of_node);
+}
 
 /**
  * class_find_device_by_fwnode : device iterator for locating a particular device
@@ -256,20 +256,6 @@ extern void class_destroy(struct class *cls);
 
 /* This is a #define to keep the compiler from merging different
  * instances of the __key variable */
-
-/**
- * class_create - create a struct class structure
- * @owner: pointer to the module that is to "own" this struct class
- * @name: pointer to a string for the name of this class.
- *
- * This is used to create a struct class pointer that can then be used
- * in calls to device_create().
- *
- * Returns &struct class pointer on success, or ERR_PTR() on error.
- *
- * Note, the pointer created here is to be destroyed when finished by
- * making a call to class_destroy().
- */
 #define class_create(owner, name)		\
 ({						\
 	static struct lock_class_key __key;	\

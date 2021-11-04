@@ -6,22 +6,22 @@
  */
 
 #include <linux/init.h>
-//#include <linux/module.h>
+#include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/err.h>
 #include <linux/io.h>
-//#include <linux/of.h>
-//#include <linux/of_irq.h>
-//#include <linux/of_gpio.h> /* of_get_named_gpio() */
-//#include <linux/of_address.h>
+#include <linux/of.h>
+#include <linux/of_irq.h>
+#include <linux/of_gpio.h> /* of_get_named_gpio() */
+#include <linux/of_address.h>
 #include <linux/gpio/driver.h>
 #include <linux/regmap.h>
-//#include <linux/mfd/syscon.h>
+#include <linux/mfd/syscon.h>
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinmux.h>
 #include <linux/pinctrl/pinconf.h>
 #include <linux/platform_device.h>
-#include "pincore.h"
+#include "core.h"
 
 /* PIO Block registers */
 /* PIO output */
@@ -810,55 +810,55 @@ static inline const struct st_pctl_group *st_pctl_find_group_by_name(
 	return NULL;
 }
 
-//static int st_pctl_dt_node_to_map(struct pinctrl_dev *pctldev,
-//	struct device_node *np, struct pinctrl_map **map, unsigned *num_maps)
-//{
-//	struct st_pinctrl *info = pinctrl_dev_get_drvdata(pctldev);
-//	const struct st_pctl_group *grp;
-//	struct pinctrl_map *new_map;
-//	struct device_node *parent;
-//	int map_num, i;
+static int st_pctl_dt_node_to_map(struct pinctrl_dev *pctldev,
+	struct device_node *np, struct pinctrl_map **map, unsigned *num_maps)
+{
+	struct st_pinctrl *info = pinctrl_dev_get_drvdata(pctldev);
+	const struct st_pctl_group *grp;
+	struct pinctrl_map *new_map;
+	struct device_node *parent;
+	int map_num, i;
 
-//	grp = st_pctl_find_group_by_name(info, np->name);
-//	if (!grp) {
-//		dev_err(info->dev, "unable to find group for node %pOFn\n",
-//			np);
-//		return -EINVAL;
-//	}
+	grp = st_pctl_find_group_by_name(info, np->name);
+	if (!grp) {
+		dev_err(info->dev, "unable to find group for node %pOFn\n",
+			np);
+		return -EINVAL;
+	}
 
-//	map_num = grp->npins + 1;
-//	new_map = devm_kcalloc(pctldev->dev,
-//				map_num, sizeof(*new_map), GFP_KERNEL);
-//	if (!new_map)
-//		return -ENOMEM;
+	map_num = grp->npins + 1;
+	new_map = devm_kcalloc(pctldev->dev,
+				map_num, sizeof(*new_map), GFP_KERNEL);
+	if (!new_map)
+		return -ENOMEM;
 
-//	parent = of_get_parent(np);
-//	if (!parent) {
-//		devm_kfree(pctldev->dev, new_map);
-//		return -EINVAL;
-//	}
+	parent = of_get_parent(np);
+	if (!parent) {
+		devm_kfree(pctldev->dev, new_map);
+		return -EINVAL;
+	}
 
-//	*map = new_map;
-//	*num_maps = map_num;
-//	new_map[0].type = PIN_MAP_TYPE_MUX_GROUP;
-//	new_map[0].data.mux.function = parent->name;
-//	new_map[0].data.mux.group = np->name;
-//	of_node_put(parent);
+	*map = new_map;
+	*num_maps = map_num;
+	new_map[0].type = PIN_MAP_TYPE_MUX_GROUP;
+	new_map[0].data.mux.function = parent->name;
+	new_map[0].data.mux.group = np->name;
+	of_node_put(parent);
 
-//	/* create config map per pin */
-//	new_map++;
-//	for (i = 0; i < grp->npins; i++) {
-//		new_map[i].type = PIN_MAP_TYPE_CONFIGS_PIN;
-//		new_map[i].data.configs.group_or_pin =
-//				pin_get_name(pctldev, grp->pins[i]);
-//		new_map[i].data.configs.configs = &grp->pin_conf[i].config;
-//		new_map[i].data.configs.num_configs = 1;
-//	}
-//	dev_info(pctldev->dev, "maps: function %s group %s num %d\n",
-//		(*map)->data.mux.function, grp->name, map_num);
+	/* create config map per pin */
+	new_map++;
+	for (i = 0; i < grp->npins; i++) {
+		new_map[i].type = PIN_MAP_TYPE_CONFIGS_PIN;
+		new_map[i].data.configs.group_or_pin =
+				pin_get_name(pctldev, grp->pins[i]);
+		new_map[i].data.configs.configs = &grp->pin_conf[i].config;
+		new_map[i].data.configs.num_configs = 1;
+	}
+	dev_info(pctldev->dev, "maps: function %s group %s num %d\n",
+		(*map)->data.mux.function, grp->name, map_num);
 
-//	return 0;
-//}
+	return 0;
+}
 
 static void st_pctl_dt_free_map(struct pinctrl_dev *pctldev,
 			struct pinctrl_map *map, unsigned num_maps)
@@ -869,7 +869,7 @@ static const struct pinctrl_ops st_pctlops = {
 	.get_groups_count	= st_pctl_get_groups_count,
 	.get_group_pins		= st_pctl_get_group_pins,
 	.get_group_name		= st_pctl_get_group_name,
-//	.dt_node_to_map		= st_pctl_dt_node_to_map,
+	.dt_node_to_map		= st_pctl_dt_node_to_map,
 	.dt_free_map		= st_pctl_dt_free_map,
 };
 
@@ -1004,10 +1004,10 @@ static void st_pinconf_dbg_show(struct pinctrl_dev *pctldev,
 	char f[16];
 	int oe;
 
-//	mutex_unlock(&pctldev->mutex);
+	mutex_unlock(&pctldev->mutex);
 	pc = st_get_pio_control(pctldev, pin_id);
 	st_pinconf_get(pctldev, pin_id, &config);
-//	mutex_lock(&pctldev->mutex);
+	mutex_lock(&pctldev->mutex);
 
 	function = st_pctl_get_pin_function(pc, offset);
 	if (function)
@@ -1016,7 +1016,7 @@ static void st_pinconf_dbg_show(struct pinctrl_dev *pctldev,
 		snprintf(f, 5, "GPIO");
 
 	oe = st_gpio_get_direction(&pc_to_bank(pc)->gpio_chip, offset);
-	printk(KERN_INFO "[OE:%d,PU:%ld,OD:%ld]\t%s\n"
+	seq_printf(s, "[OE:%d,PU:%ld,OD:%ld]\t%s\n"
 		"\t\t[retime:%ld,invclk:%ld,clknotdat:%ld,"
 		"de:%ld,rt-clk:%ld,rt-delay:%ld]",
 		(oe == GPIO_LINE_DIRECTION_OUT),
@@ -1037,19 +1037,19 @@ static const struct pinconf_ops st_confops = {
 	.pin_config_dbg_show	= st_pinconf_dbg_show,
 };
 
-//static void st_pctl_dt_child_count(struct st_pinctrl *info,
-//				     struct device_node *np)
-//{
-//	struct device_node *child;
-//	for_each_child_of_node(np, child) {
-//		if (of_property_read_bool(child, "gpio-controller")) {
-//			info->nbanks++;
-//		} else {
-//			info->nfunctions++;
-//			info->ngroups += of_get_child_count(child);
-//		}
-//	}
-//}
+static void st_pctl_dt_child_count(struct st_pinctrl *info,
+				     struct device_node *np)
+{
+	struct device_node *child;
+	for_each_child_of_node(np, child) {
+		if (of_property_read_bool(child, "gpio-controller")) {
+			info->nbanks++;
+		} else {
+			info->nfunctions++;
+			info->ngroups += of_get_child_count(child);
+		}
+	}
+}
 
 static int st_pctl_dt_setup_retime_packed(struct st_pinctrl *info,
 	int bank, struct st_pio_control *pc)
@@ -1158,7 +1158,7 @@ static void st_parse_syscfgs(struct st_pinctrl *info, int bank,
 
 	/* retime avaiable for all pins by default */
 	pc->rt_pin_mask = 0xff;
-//	of_property_read_u32(np, "st,retime-pin-mask", &pc->rt_pin_mask);
+	of_property_read_u32(np, "st,retime-pin-mask", &pc->rt_pin_mask);
 	st_pctl_dt_setup_retime(info, bank, pc);
 
 	return;
@@ -1168,292 +1168,292 @@ static void st_parse_syscfgs(struct st_pinctrl *info, int bank,
  * Each pin is represented in of the below forms.
  * <bank offset mux direction rt_type rt_delay rt_clk>
  */
-//static int st_pctl_dt_parse_groups(struct device_node *np,
-//	struct st_pctl_group *grp, struct st_pinctrl *info, int idx)
-//{
-//	/* bank pad direction val altfunction */
-//	const __be32 *list;
-//	struct property *pp;
-//	struct st_pinconf *conf;
-//	struct device_node *pins;
-//	int i = 0, npins = 0, nr_props, ret = 0;
+static int st_pctl_dt_parse_groups(struct device_node *np,
+	struct st_pctl_group *grp, struct st_pinctrl *info, int idx)
+{
+	/* bank pad direction val altfunction */
+	const __be32 *list;
+	struct property *pp;
+	struct st_pinconf *conf;
+	struct device_node *pins;
+	int i = 0, npins = 0, nr_props, ret = 0;
 
-//	pins = of_get_child_by_name(np, "st,pins");
-//	if (!pins)
-//		return -ENODATA;
+	pins = of_get_child_by_name(np, "st,pins");
+	if (!pins)
+		return -ENODATA;
 
-//	for_each_property_of_node(pins, pp) {
-//		/* Skip those we do not want to proceed */
-//		if (!strcmp(pp->name, "name"))
-//			continue;
+	for_each_property_of_node(pins, pp) {
+		/* Skip those we do not want to proceed */
+		if (!strcmp(pp->name, "name"))
+			continue;
 
-//		if (pp->length / sizeof(__be32) >= OF_GPIO_ARGS_MIN) {
-//			npins++;
-//		} else {
-//			pr_warn("Invalid st,pins in %pOFn node\n", np);
-//			ret = -EINVAL;
-//			goto out_put_node;
-//		}
-//	}
+		if (pp->length / sizeof(__be32) >= OF_GPIO_ARGS_MIN) {
+			npins++;
+		} else {
+			pr_warn("Invalid st,pins in %pOFn node\n", np);
+			ret = -EINVAL;
+			goto out_put_node;
+		}
+	}
 
-//	grp->npins = npins;
-//	grp->name = np->name;
-//	grp->pins = devm_kcalloc(info->dev, npins, sizeof(u32), GFP_KERNEL);
-//	grp->pin_conf = devm_kcalloc(info->dev,
-//					npins, sizeof(*conf), GFP_KERNEL);
+	grp->npins = npins;
+	grp->name = np->name;
+	grp->pins = devm_kcalloc(info->dev, npins, sizeof(u32), GFP_KERNEL);
+	grp->pin_conf = devm_kcalloc(info->dev,
+					npins, sizeof(*conf), GFP_KERNEL);
 
-//	if (!grp->pins || !grp->pin_conf) {
-//		ret = -ENOMEM;
-//		goto out_put_node;
-//	}
+	if (!grp->pins || !grp->pin_conf) {
+		ret = -ENOMEM;
+		goto out_put_node;
+	}
 
-//	/* <bank offset mux direction rt_type rt_delay rt_clk> */
-//	for_each_property_of_node(pins, pp) {
-//		if (!strcmp(pp->name, "name"))
-//			continue;
-//		nr_props = pp->length/sizeof(u32);
-//		list = pp->value;
-//		conf = &grp->pin_conf[i];
+	/* <bank offset mux direction rt_type rt_delay rt_clk> */
+	for_each_property_of_node(pins, pp) {
+		if (!strcmp(pp->name, "name"))
+			continue;
+		nr_props = pp->length/sizeof(u32);
+		list = pp->value;
+		conf = &grp->pin_conf[i];
 
-//		/* bank & offset */
-//		be32_to_cpup(list++);
-//		be32_to_cpup(list++);
-//		conf->pin = of_get_named_gpio(pins, pp->name, 0);
-//		conf->name = pp->name;
-//		grp->pins[i] = conf->pin;
-//		/* mux */
-//		conf->altfunc = be32_to_cpup(list++);
-//		conf->config = 0;
-//		/* direction */
-//		conf->config |= be32_to_cpup(list++);
-//		/* rt_type rt_delay rt_clk */
-//		if (nr_props >= OF_GPIO_ARGS_MIN + OF_RT_ARGS_MIN) {
-//			/* rt_type */
-//			conf->config |= be32_to_cpup(list++);
-//			/* rt_delay */
-//			conf->config |= be32_to_cpup(list++);
-//			/* rt_clk */
-//			if (nr_props > OF_GPIO_ARGS_MIN + OF_RT_ARGS_MIN)
-//				conf->config |= be32_to_cpup(list++);
-//		}
-//		i++;
-//	}
+		/* bank & offset */
+		be32_to_cpup(list++);
+		be32_to_cpup(list++);
+		conf->pin = of_get_named_gpio(pins, pp->name, 0);
+		conf->name = pp->name;
+		grp->pins[i] = conf->pin;
+		/* mux */
+		conf->altfunc = be32_to_cpup(list++);
+		conf->config = 0;
+		/* direction */
+		conf->config |= be32_to_cpup(list++);
+		/* rt_type rt_delay rt_clk */
+		if (nr_props >= OF_GPIO_ARGS_MIN + OF_RT_ARGS_MIN) {
+			/* rt_type */
+			conf->config |= be32_to_cpup(list++);
+			/* rt_delay */
+			conf->config |= be32_to_cpup(list++);
+			/* rt_clk */
+			if (nr_props > OF_GPIO_ARGS_MIN + OF_RT_ARGS_MIN)
+				conf->config |= be32_to_cpup(list++);
+		}
+		i++;
+	}
 
-//out_put_node:
-//	of_node_put(pins);
+out_put_node:
+	of_node_put(pins);
 
-//	return ret;
-//}
+	return ret;
+}
 
-//static int st_pctl_parse_functions(struct device_node *np,
-//			struct st_pinctrl *info, u32 index, int *grp_index)
-//{
-//	struct device_node *child;
-//	struct st_pmx_func *func;
-//	struct st_pctl_group *grp;
-//	int ret, i;
+static int st_pctl_parse_functions(struct device_node *np,
+			struct st_pinctrl *info, u32 index, int *grp_index)
+{
+	struct device_node *child;
+	struct st_pmx_func *func;
+	struct st_pctl_group *grp;
+	int ret, i;
 
-//	func = &info->functions[index];
-//	func->name = np->name;
-//	func->ngroups = of_get_child_count(np);
-//	if (func->ngroups == 0) {
-//		dev_err(info->dev, "No groups defined\n");
-//		return -EINVAL;
-//	}
-//	func->groups = devm_kcalloc(info->dev,
-//			func->ngroups, sizeof(char *), GFP_KERNEL);
-//	if (!func->groups)
-//		return -ENOMEM;
+	func = &info->functions[index];
+	func->name = np->name;
+	func->ngroups = of_get_child_count(np);
+	if (func->ngroups == 0) {
+		dev_err(info->dev, "No groups defined\n");
+		return -EINVAL;
+	}
+	func->groups = devm_kcalloc(info->dev,
+			func->ngroups, sizeof(char *), GFP_KERNEL);
+	if (!func->groups)
+		return -ENOMEM;
 
-//	i = 0;
-//	for_each_child_of_node(np, child) {
-//		func->groups[i] = child->name;
-//		grp = &info->groups[*grp_index];
-//		*grp_index += 1;
-//		ret = st_pctl_dt_parse_groups(child, grp, info, i++);
-//		if (ret) {
-//			of_node_put(child);
-//			return ret;
-//		}
-//	}
-//	dev_info(info->dev, "Function[%d\t name:%s,\tgroups:%d]\n",
-//				index, func->name, func->ngroups);
+	i = 0;
+	for_each_child_of_node(np, child) {
+		func->groups[i] = child->name;
+		grp = &info->groups[*grp_index];
+		*grp_index += 1;
+		ret = st_pctl_dt_parse_groups(child, grp, info, i++);
+		if (ret) {
+			of_node_put(child);
+			return ret;
+		}
+	}
+	dev_info(info->dev, "Function[%d\t name:%s,\tgroups:%d]\n",
+				index, func->name, func->ngroups);
 
-//	return 0;
-//}
+	return 0;
+}
 
-//static void st_gpio_irq_mask(struct irq_data *d)
-//{
-//	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
-//	struct st_gpio_bank *bank = gpiochip_get_data(gc);
+static void st_gpio_irq_mask(struct irq_data *d)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	struct st_gpio_bank *bank = gpiochip_get_data(gc);
 
-//	writel(BIT(d->hwirq), bank->base + REG_PIO_CLR_PMASK);
-//}
+	writel(BIT(d->hwirq), bank->base + REG_PIO_CLR_PMASK);
+}
 
-//static void st_gpio_irq_unmask(struct irq_data *d)
-//{
-//	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
-//	struct st_gpio_bank *bank = gpiochip_get_data(gc);
+static void st_gpio_irq_unmask(struct irq_data *d)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	struct st_gpio_bank *bank = gpiochip_get_data(gc);
 
-//	writel(BIT(d->hwirq), bank->base + REG_PIO_SET_PMASK);
-//}
+	writel(BIT(d->hwirq), bank->base + REG_PIO_SET_PMASK);
+}
 
-//static int st_gpio_irq_request_resources(struct irq_data *d)
-//{
-//	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+static int st_gpio_irq_request_resources(struct irq_data *d)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 
-//	st_gpio_direction_input(gc, d->hwirq);
+	st_gpio_direction_input(gc, d->hwirq);
 
-//	return gpiochip_lock_as_irq(gc, d->hwirq);
-//}
+	return gpiochip_lock_as_irq(gc, d->hwirq);
+}
 
-//static void st_gpio_irq_release_resources(struct irq_data *d)
-//{
-//	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+static void st_gpio_irq_release_resources(struct irq_data *d)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 
-//	gpiochip_unlock_as_irq(gc, d->hwirq);
-//}
+	gpiochip_unlock_as_irq(gc, d->hwirq);
+}
 
-//static int st_gpio_irq_set_type(struct irq_data *d, unsigned type)
-//{
-//	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
-//	struct st_gpio_bank *bank = gpiochip_get_data(gc);
-//	unsigned long flags;
-//	int comp, pin = d->hwirq;
-//	u32 val;
-//	u32 pin_edge_conf = 0;
+static int st_gpio_irq_set_type(struct irq_data *d, unsigned type)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	struct st_gpio_bank *bank = gpiochip_get_data(gc);
+	unsigned long flags;
+	int comp, pin = d->hwirq;
+	u32 val;
+	u32 pin_edge_conf = 0;
 
-//	switch (type) {
-//	case IRQ_TYPE_LEVEL_HIGH:
-//		comp = 0;
-//		break;
-//	case IRQ_TYPE_EDGE_FALLING:
-//		comp = 0;
-//		pin_edge_conf = ST_IRQ_FALLING_EDGE_CONF(pin);
-//		break;
-//	case IRQ_TYPE_LEVEL_LOW:
-//		comp = 1;
-//		break;
-//	case IRQ_TYPE_EDGE_RISING:
-//		comp = 1;
-//		pin_edge_conf = ST_IRQ_RISING_EDGE_CONF(pin);
-//		break;
-//	case IRQ_TYPE_EDGE_BOTH:
-//		comp = st_gpio_get(&bank->gpio_chip, pin);
-//		pin_edge_conf = ST_IRQ_BOTH_EDGE_CONF(pin);
-//		break;
-//	default:
-//		return -EINVAL;
-//	}
+	switch (type) {
+	case IRQ_TYPE_LEVEL_HIGH:
+		comp = 0;
+		break;
+	case IRQ_TYPE_EDGE_FALLING:
+		comp = 0;
+		pin_edge_conf = ST_IRQ_FALLING_EDGE_CONF(pin);
+		break;
+	case IRQ_TYPE_LEVEL_LOW:
+		comp = 1;
+		break;
+	case IRQ_TYPE_EDGE_RISING:
+		comp = 1;
+		pin_edge_conf = ST_IRQ_RISING_EDGE_CONF(pin);
+		break;
+	case IRQ_TYPE_EDGE_BOTH:
+		comp = st_gpio_get(&bank->gpio_chip, pin);
+		pin_edge_conf = ST_IRQ_BOTH_EDGE_CONF(pin);
+		break;
+	default:
+		return -EINVAL;
+	}
 
-//	spin_lock_irqsave(&bank->lock, flags);
-//	bank->irq_edge_conf &=  ~(ST_IRQ_EDGE_MASK << (
-//				pin * ST_IRQ_EDGE_CONF_BITS_PER_PIN));
-//	bank->irq_edge_conf |= pin_edge_conf;
-//	spin_unlock_irqrestore(&bank->lock, flags);
+	spin_lock_irqsave(&bank->lock, flags);
+	bank->irq_edge_conf &=  ~(ST_IRQ_EDGE_MASK << (
+				pin * ST_IRQ_EDGE_CONF_BITS_PER_PIN));
+	bank->irq_edge_conf |= pin_edge_conf;
+	spin_unlock_irqrestore(&bank->lock, flags);
 
-//	val = readl(bank->base + REG_PIO_PCOMP);
-//	val &= ~BIT(pin);
-//	val |= (comp << pin);
-//	writel(val, bank->base + REG_PIO_PCOMP);
+	val = readl(bank->base + REG_PIO_PCOMP);
+	val &= ~BIT(pin);
+	val |= (comp << pin);
+	writel(val, bank->base + REG_PIO_PCOMP);
 
-//	return 0;
-//}
+	return 0;
+}
 
-///*
-// * As edge triggers are not supported at hardware level, it is supported by
-// * software by exploiting the level trigger support in hardware.
-// *
-// * Steps for detection raising edge interrupt in software.
-// *
-// * Step 1: CONFIGURE pin to detect level LOW interrupts.
-// *
-// * Step 2: DETECT level LOW interrupt and in irqmux/gpio bank interrupt handler,
-// * if the value of pin is low, then CONFIGURE pin for level HIGH interrupt.
-// * IGNORE calling the actual interrupt handler for the pin at this stage.
-// *
-// * Step 3: DETECT level HIGH interrupt and in irqmux/gpio-bank interrupt handler
-// * if the value of pin is HIGH, CONFIGURE pin for level LOW interrupt and then
-// * DISPATCH the interrupt to the interrupt handler of the pin.
-// *
-// *		 step-1  ________     __________
-// *				|     | step - 3
-// *			        |     |
-// *			step -2 |_____|
-// *
-// * falling edge is also detected int the same way.
-// *
-// */
-//static void __gpio_irq_handler(struct st_gpio_bank *bank)
-//{
-//	unsigned long port_in, port_mask, port_comp, active_irqs;
-//	unsigned long bank_edge_mask, flags;
-//	int n, val, ecfg;
+/*
+ * As edge triggers are not supported at hardware level, it is supported by
+ * software by exploiting the level trigger support in hardware.
+ *
+ * Steps for detection raising edge interrupt in software.
+ *
+ * Step 1: CONFIGURE pin to detect level LOW interrupts.
+ *
+ * Step 2: DETECT level LOW interrupt and in irqmux/gpio bank interrupt handler,
+ * if the value of pin is low, then CONFIGURE pin for level HIGH interrupt.
+ * IGNORE calling the actual interrupt handler for the pin at this stage.
+ *
+ * Step 3: DETECT level HIGH interrupt and in irqmux/gpio-bank interrupt handler
+ * if the value of pin is HIGH, CONFIGURE pin for level LOW interrupt and then
+ * DISPATCH the interrupt to the interrupt handler of the pin.
+ *
+ *		 step-1  ________     __________
+ *				|     | step - 3
+ *			        |     |
+ *			step -2 |_____|
+ *
+ * falling edge is also detected int the same way.
+ *
+ */
+static void __gpio_irq_handler(struct st_gpio_bank *bank)
+{
+	unsigned long port_in, port_mask, port_comp, active_irqs;
+	unsigned long bank_edge_mask, flags;
+	int n, val, ecfg;
 
-//	spin_lock_irqsave(&bank->lock, flags);
-//	bank_edge_mask = bank->irq_edge_conf;
-//	spin_unlock_irqrestore(&bank->lock, flags);
+	spin_lock_irqsave(&bank->lock, flags);
+	bank_edge_mask = bank->irq_edge_conf;
+	spin_unlock_irqrestore(&bank->lock, flags);
 
-//	for (;;) {
-//		port_in = readl(bank->base + REG_PIO_PIN);
-//		port_comp = readl(bank->base + REG_PIO_PCOMP);
-//		port_mask = readl(bank->base + REG_PIO_PMASK);
+	for (;;) {
+		port_in = readl(bank->base + REG_PIO_PIN);
+		port_comp = readl(bank->base + REG_PIO_PCOMP);
+		port_mask = readl(bank->base + REG_PIO_PMASK);
 
-//		active_irqs = (port_in ^ port_comp) & port_mask;
+		active_irqs = (port_in ^ port_comp) & port_mask;
 
-//		if (active_irqs == 0)
-//			break;
+		if (active_irqs == 0)
+			break;
 
-//		for_each_set_bit(n, &active_irqs, BITS_PER_LONG) {
-//			/* check if we are detecting fake edges ... */
-//			ecfg = ST_IRQ_EDGE_CONF(bank_edge_mask, n);
+		for_each_set_bit(n, &active_irqs, BITS_PER_LONG) {
+			/* check if we are detecting fake edges ... */
+			ecfg = ST_IRQ_EDGE_CONF(bank_edge_mask, n);
 
-//			if (ecfg) {
-//				/* edge detection. */
-//				val = st_gpio_get(&bank->gpio_chip, n);
+			if (ecfg) {
+				/* edge detection. */
+				val = st_gpio_get(&bank->gpio_chip, n);
 
-//				writel(BIT(n),
-//					val ? bank->base + REG_PIO_SET_PCOMP :
-//					bank->base + REG_PIO_CLR_PCOMP);
+				writel(BIT(n),
+					val ? bank->base + REG_PIO_SET_PCOMP :
+					bank->base + REG_PIO_CLR_PCOMP);
 
-//				if (ecfg != ST_IRQ_EDGE_BOTH &&
-//					!((ecfg & ST_IRQ_EDGE_FALLING) ^ val))
-//					continue;
-//			}
+				if (ecfg != ST_IRQ_EDGE_BOTH &&
+					!((ecfg & ST_IRQ_EDGE_FALLING) ^ val))
+					continue;
+			}
 
-//			generic_handle_irq(irq_find_mapping(bank->gpio_chip.irq.domain, n));
-//		}
-//	}
-//}
+			generic_handle_irq(irq_find_mapping(bank->gpio_chip.irq.domain, n));
+		}
+	}
+}
 
-//static void st_gpio_irq_handler(struct irq_desc *desc)
-//{
-//	/* interrupt dedicated per bank */
-//	struct irq_chip *chip = irq_desc_get_chip(desc);
-//	struct gpio_chip *gc = irq_desc_get_handler_data(desc);
-//	struct st_gpio_bank *bank = gpiochip_get_data(gc);
+static void st_gpio_irq_handler(struct irq_desc *desc)
+{
+	/* interrupt dedicated per bank */
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+	struct gpio_chip *gc = irq_desc_get_handler_data(desc);
+	struct st_gpio_bank *bank = gpiochip_get_data(gc);
 
-//	chained_irq_enter(chip, desc);
-//	__gpio_irq_handler(bank);
-//	chained_irq_exit(chip, desc);
-//}
+	chained_irq_enter(chip, desc);
+	__gpio_irq_handler(bank);
+	chained_irq_exit(chip, desc);
+}
 
-//static void st_gpio_irqmux_handler(struct irq_desc *desc)
-//{
-//	struct irq_chip *chip = irq_desc_get_chip(desc);
-//	struct st_pinctrl *info = irq_desc_get_handler_data(desc);
-//	unsigned long status;
-//	int n;
+static void st_gpio_irqmux_handler(struct irq_desc *desc)
+{
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+	struct st_pinctrl *info = irq_desc_get_handler_data(desc);
+	unsigned long status;
+	int n;
 
-//	chained_irq_enter(chip, desc);
+	chained_irq_enter(chip, desc);
 
-//	status = readl(info->irqmux_base);
+	status = readl(info->irqmux_base);
 
-//	for_each_set_bit(n, &status, info->nbanks)
-//		__gpio_irq_handler(&info->banks[n]);
+	for_each_set_bit(n, &status, info->nbanks)
+		__gpio_irq_handler(&info->banks[n]);
 
-//	chained_irq_exit(chip, desc);
-//}
+	chained_irq_exit(chip, desc);
+}
 
 static const struct gpio_chip st_gpio_template = {
 	.request		= gpiochip_generic_request,
@@ -1466,16 +1466,16 @@ static const struct gpio_chip st_gpio_template = {
 	.ngpio			= ST_GPIO_PINS_PER_BANK,
 };
 
-//static struct irq_chip st_gpio_irqchip = {
-//	.name			= "GPIO",
-//	.irq_request_resources	= st_gpio_irq_request_resources,
-//	.irq_release_resources	= st_gpio_irq_release_resources,
-//	.irq_disable		= st_gpio_irq_mask,
-//	.irq_mask		= st_gpio_irq_mask,
-//	.irq_unmask		= st_gpio_irq_unmask,
-//	.irq_set_type		= st_gpio_irq_set_type,
-//	.flags			= IRQCHIP_SKIP_SET_WAKE,
-//};
+static struct irq_chip st_gpio_irqchip = {
+	.name			= "GPIO",
+	.irq_request_resources	= st_gpio_irq_request_resources,
+	.irq_release_resources	= st_gpio_irq_release_resources,
+	.irq_disable		= st_gpio_irq_mask,
+	.irq_mask		= st_gpio_irq_mask,
+	.irq_unmask		= st_gpio_irq_unmask,
+	.irq_set_type		= st_gpio_irq_set_type,
+	.flags			= IRQCHIP_SKIP_SET_WAKE,
+};
 
 static int st_gpiolib_register_bank(struct st_pinctrl *info,
 	int bank_nr, struct device_node *np)
@@ -1483,25 +1483,25 @@ static int st_gpiolib_register_bank(struct st_pinctrl *info,
 	struct st_gpio_bank *bank = &info->banks[bank_nr];
 	struct pinctrl_gpio_range *range = &bank->range;
 	struct device *dev = info->dev;
-	int bank_num = 0;//of_alias_get_id(np, "gpio");
-//	struct resource res, irq_res;
+	int bank_num = of_alias_get_id(np, "gpio");
+	struct resource res, irq_res;
 	int err;
 
-//	if (of_address_to_resource(np, 0, &res))
-//		return -ENODEV;
+	if (of_address_to_resource(np, 0, &res))
+		return -ENODEV;
 
-//	bank->base = devm_ioremap_resource(dev, &res);
-//	if (IS_ERR(bank->base))
-//		return PTR_ERR(bank->base);
+	bank->base = devm_ioremap_resource(dev, &res);
+	if (IS_ERR(bank->base))
+		return PTR_ERR(bank->base);
 
 	bank->gpio_chip = st_gpio_template;
 	bank->gpio_chip.base = bank_num * ST_GPIO_PINS_PER_BANK;
 	bank->gpio_chip.ngpio = ST_GPIO_PINS_PER_BANK;
-//	bank->gpio_chip.of_node = np;
+	bank->gpio_chip.of_node = np;
 	bank->gpio_chip.parent = dev;
-//	spin_lock_init(&bank->lock);
+	spin_lock_init(&bank->lock);
 
-//	of_property_read_string(np, "st,bank-name", &range->name);
+	of_property_read_string(np, "st,bank-name", &range->name);
 	bank->gpio_chip.label = range->name;
 
 	range->id = bank_num;
@@ -1528,33 +1528,33 @@ static int st_gpiolib_register_bank(struct st_pinctrl *info,
 	 *	[irqN]----> [gpio-bank (n)]
 	 */
 
-//	if (of_irq_to_resource(np, 0, &irq_res) > 0) {
-//		struct gpio_irq_chip *girq;
-//		int gpio_irq = irq_res.start;
+	if (of_irq_to_resource(np, 0, &irq_res) > 0) {
+		struct gpio_irq_chip *girq;
+		int gpio_irq = irq_res.start;
 
-//		/* This is not a valid IRQ */
-//		if (gpio_irq <= 0) {
-//			dev_err(dev, "invalid IRQ for %pOF bank\n", np);
-//			goto skip_irq;
-//		}
-//		/* We need to have a mux as well */
-//		if (!info->irqmux_base) {
-//			dev_err(dev, "no irqmux for %pOF bank\n", np);
-//			goto skip_irq;
-//		}
+		/* This is not a valid IRQ */
+		if (gpio_irq <= 0) {
+			dev_err(dev, "invalid IRQ for %pOF bank\n", np);
+			goto skip_irq;
+		}
+		/* We need to have a mux as well */
+		if (!info->irqmux_base) {
+			dev_err(dev, "no irqmux for %pOF bank\n", np);
+			goto skip_irq;
+		}
 
-//		girq = &bank->gpio_chip.irq;
-//		girq->chip = &st_gpio_irqchip;
-//		girq->parent_handler = st_gpio_irq_handler;
-//		girq->num_parents = 1;
-//		girq->parents = devm_kcalloc(dev, 1, sizeof(*girq->parents),
-//					     GFP_KERNEL);
-//		if (!girq->parents)
-//			return -ENOMEM;
-//		girq->parents[0] = gpio_irq;
-//		girq->default_type = IRQ_TYPE_NONE;
-//		girq->handler = handle_simple_irq;
-//	}
+		girq = &bank->gpio_chip.irq;
+		girq->chip = &st_gpio_irqchip;
+		girq->parent_handler = st_gpio_irq_handler;
+		girq->num_parents = 1;
+		girq->parents = devm_kcalloc(dev, 1, sizeof(*girq->parents),
+					     GFP_KERNEL);
+		if (!girq->parents)
+			return -ENOMEM;
+		girq->parents[0] = gpio_irq;
+		girq->default_type = IRQ_TYPE_NONE;
+		girq->handler = handle_simple_irq;
+	}
 
 skip_irq:
 	err  = gpiochip_add_data(&bank->gpio_chip, bank);
@@ -1567,13 +1567,13 @@ skip_irq:
 	return 0;
 }
 
-//static const struct of_device_id st_pctl_of_match[] = {
-//	{ .compatible = "st,stih407-sbc-pinctrl", .data = &stih407_data},
-//	{ .compatible = "st,stih407-front-pinctrl", .data = &stih407_data},
-//	{ .compatible = "st,stih407-rear-pinctrl", .data = &stih407_data},
-//	{ .compatible = "st,stih407-flash-pinctrl", .data = &stih407_flashdata},
-//	{ /* sentinel */ }
-//};
+static const struct of_device_id st_pctl_of_match[] = {
+	{ .compatible = "st,stih407-sbc-pinctrl", .data = &stih407_data},
+	{ .compatible = "st,stih407-front-pinctrl", .data = &stih407_data},
+	{ .compatible = "st,stih407-rear-pinctrl", .data = &stih407_data},
+	{ .compatible = "st,stih407-flash-pinctrl", .data = &stih407_flashdata},
+	{ /* sentinel */ }
+};
 
 static int st_pctl_probe_dt(struct platform_device *pdev,
 	struct pinctrl_desc *pctl_desc, struct st_pinctrl *info)
@@ -1581,13 +1581,13 @@ static int st_pctl_probe_dt(struct platform_device *pdev,
 	int ret = 0;
 	int i = 0, j = 0, k = 0, bank;
 	struct pinctrl_pin_desc *pdesc;
-//	struct device_node *np = pdev->dev.of_node;
+	struct device_node *np = pdev->dev.of_node;
 	struct device_node *child;
 	int grp_index = 0;
 	int irq = 0;
 	struct resource *res;
 
-//	st_pctl_dt_child_count(info, np);
+	st_pctl_dt_child_count(info, np);
 	if (!info->nbanks) {
 		dev_err(&pdev->dev, "you need atleast one gpio bank\n");
 		return -EINVAL;
@@ -1610,27 +1610,27 @@ static int st_pctl_probe_dt(struct platform_device *pdev,
 	if (!info->functions || !info->groups || !info->banks)
 		return -ENOMEM;
 
-//	info->regmap = syscon_regmap_lookup_by_phandle(np, "st,syscfg");
-//	if (IS_ERR(info->regmap)) {
-//		dev_err(info->dev, "No syscfg phandle specified\n");
-//		return PTR_ERR(info->regmap);
-//	}
-//	info->data = of_match_node(st_pctl_of_match, np)->data;
+	info->regmap = syscon_regmap_lookup_by_phandle(np, "st,syscfg");
+	if (IS_ERR(info->regmap)) {
+		dev_err(info->dev, "No syscfg phandle specified\n");
+		return PTR_ERR(info->regmap);
+	}
+	info->data = of_match_node(st_pctl_of_match, np)->data;
 
-//	irq = platform_get_irq(pdev, 0);
+	irq = platform_get_irq(pdev, 0);
 
-//	if (irq > 0) {
-//		res = platform_get_resource_byname(pdev,
-//					IORESOURCE_MEM, "irqmux");
-//		info->irqmux_base = devm_ioremap_resource(&pdev->dev, res);
+	if (irq > 0) {
+		res = platform_get_resource_byname(pdev,
+					IORESOURCE_MEM, "irqmux");
+		info->irqmux_base = devm_ioremap_resource(&pdev->dev, res);
 
-//		if (IS_ERR(info->irqmux_base))
-//			return PTR_ERR(info->irqmux_base);
+		if (IS_ERR(info->irqmux_base))
+			return PTR_ERR(info->irqmux_base);
 
-//		irq_set_chained_handler_and_data(irq, st_gpio_irqmux_handler,
-//						 info);
+		irq_set_chained_handler_and_data(irq, st_gpio_irqmux_handler,
+						 info);
 
-//	}
+	}
 
 	pctl_desc->npins = info->nbanks * ST_GPIO_PINS_PER_BANK;
 	pdesc =	devm_kcalloc(&pdev->dev,
@@ -1641,35 +1641,35 @@ static int st_pctl_probe_dt(struct platform_device *pdev,
 	pctl_desc->pins = pdesc;
 
 	bank = 0;
-//	for_each_child_of_node(np, child) {
-//		if (of_property_read_bool(child, "gpio-controller")) {
-//			const char *bank_name = NULL;
-//			ret = st_gpiolib_register_bank(info, bank, child);
-//			if (ret) {
-//				of_node_put(child);
-//				return ret;
-//			}
+	for_each_child_of_node(np, child) {
+		if (of_property_read_bool(child, "gpio-controller")) {
+			const char *bank_name = NULL;
+			ret = st_gpiolib_register_bank(info, bank, child);
+			if (ret) {
+				of_node_put(child);
+				return ret;
+			}
 
-//			k = info->banks[bank].range.pin_base;
-//			bank_name = info->banks[bank].range.name;
-//			for (j = 0; j < ST_GPIO_PINS_PER_BANK; j++, k++) {
-//				pdesc->number = k;
-//				pdesc->name = kasprintf(GFP_KERNEL, "%s[%d]",
-//							bank_name, j);
-//				pdesc++;
-//			}
-//			st_parse_syscfgs(info, bank, child);
-//			bank++;
-//		} else {
-//			ret = st_pctl_parse_functions(child, info,
-//							i++, &grp_index);
-//			if (ret) {
-//				dev_err(&pdev->dev, "No functions found.\n");
-//				of_node_put(child);
-//				return ret;
-//			}
-//		}
-//	}
+			k = info->banks[bank].range.pin_base;
+			bank_name = info->banks[bank].range.name;
+			for (j = 0; j < ST_GPIO_PINS_PER_BANK; j++, k++) {
+				pdesc->number = k;
+				pdesc->name = kasprintf(GFP_KERNEL, "%s[%d]",
+							bank_name, j);
+				pdesc++;
+			}
+			st_parse_syscfgs(info, bank, child);
+			bank++;
+		} else {
+			ret = st_pctl_parse_functions(child, info,
+							i++, &grp_index);
+			if (ret) {
+				dev_err(&pdev->dev, "No functions found.\n");
+				of_node_put(child);
+				return ret;
+			}
+		}
+	}
 
 	return 0;
 }
@@ -1680,10 +1680,10 @@ static int st_pctl_probe(struct platform_device *pdev)
 	struct pinctrl_desc *pctl_desc;
 	int ret, i;
 
-//	if (!pdev->dev.of_node) {
-//		dev_err(&pdev->dev, "device node not found.\n");
-//		return -EINVAL;
-//	}
+	if (!pdev->dev.of_node) {
+		dev_err(&pdev->dev, "device node not found.\n");
+		return -EINVAL;
+	}
 
 	pctl_desc = devm_kzalloc(&pdev->dev, sizeof(*pctl_desc), GFP_KERNEL);
 	if (!pctl_desc)
@@ -1720,7 +1720,7 @@ static int st_pctl_probe(struct platform_device *pdev)
 static struct platform_driver st_pctl_driver = {
 	.driver = {
 		.name = "st-pinctrl",
-//		.of_match_table = st_pctl_of_match,
+		.of_match_table = st_pctl_of_match,
 	},
 	.probe = st_pctl_probe,
 };

@@ -5,6 +5,7 @@
  * Copyright (C) 2015 Martin Willi
  */
 
+#include <generated/deconfig.h>
 #include <linux/bug.h>
 #include <linux/kernel.h>
 #include <linux/export.h>

@@ -56,8 +56,6 @@ enum gpiod_flags {
 	GPIOD_OUT_HIGH_OPEN_DRAIN = GPIOD_OUT_HIGH | GPIOD_FLAGS_BIT_OPEN_DRAIN,
 };
 
-#define CONFIG_GPIOLIB
-
 #ifdef CONFIG_GPIOLIB
 
 /* Return the number of GPIOs associated with a device / function */
@@ -160,7 +158,7 @@ int gpiod_set_raw_array_value_cansleep(unsigned int array_size,
 				       unsigned long *value_bitmap);
 
 int gpiod_set_config(struct gpio_desc *desc, unsigned long config);
-int gpiod_set_debounce(struct gpio_desc *desc, unsigned int debounce);
+int gpiod_set_debounce(struct gpio_desc *desc, unsigned debounce);
 int gpiod_set_transitory(struct gpio_desc *desc, bool transitory);
 void gpiod_toggle_active_low(struct gpio_desc *desc);
 
@@ -483,7 +481,7 @@ static inline int gpiod_set_config(struct gpio_desc *desc, unsigned long config)
 	return -ENOSYS;
 }
 
-static inline int gpiod_set_debounce(struct gpio_desc *desc, unsigned int debounce)
+static inline int gpiod_set_debounce(struct gpio_desc *desc, unsigned debounce)
 {
 	/* GPIO can never have been requested */
 	WARN_ON(desc);
@@ -608,7 +606,7 @@ struct gpio_desc *devm_fwnode_get_gpiod_from_child(struct device *dev,
 	return devm_fwnode_gpiod_get_index(dev, child, con_id, 0, flags, label);
 }
 
-#if CONFIG_OF_GPIO
+#if IS_ENABLED(CONFIG_GPIOLIB) && IS_ENABLED(CONFIG_OF_GPIO)
 struct device_node;
 
 struct gpio_desc *gpiod_get_from_of_node(struct device_node *node,
@@ -676,11 +674,13 @@ struct acpi_gpio_mapping {
  * get GpioIo type explicitly, this quirk may be used.
  */
 #define ACPI_GPIO_QUIRK_ONLY_GPIOIO		BIT(1)
+/* Use given pin as an absolute GPIO number in the system */
+#define ACPI_GPIO_QUIRK_ABSOLUTE_NUMBER		BIT(2)
 
 	unsigned int quirks;
 };
 
-#if CONFIG_ACPI
+#if IS_ENABLED(CONFIG_GPIOLIB) && IS_ENABLED(CONFIG_ACPI)
 
 struct acpi_device;
 
@@ -713,7 +713,7 @@ static inline void devm_acpi_dev_remove_driver_gpios(struct device *dev) {}
 #endif /* CONFIG_GPIOLIB && CONFIG_ACPI */
 
 
-#if CONFIG_GPIO_SYSFS
+#if IS_ENABLED(CONFIG_GPIOLIB) && IS_ENABLED(CONFIG_GPIO_SYSFS)
 
 int gpiod_export(struct gpio_desc *desc, bool direction_may_change);
 int gpiod_export_link(struct device *dev, const char *name,

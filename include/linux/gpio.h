@@ -53,8 +53,6 @@ struct gpio {
 	const char	*label;
 };
 
-#define CONFIG_GPIOLIB
-
 #ifdef CONFIG_GPIOLIB
 
 #ifdef CONFIG_ARCH_HAVE_CUSTOM_GPIO_H

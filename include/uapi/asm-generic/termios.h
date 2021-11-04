@@ -9,7 +9,7 @@
  * New architectures should not provide their own version.
  */
 
-#include <asm-generic/termbits.h>
+#include <asm/termbits.h>
 #include <asm/ioctls.h>
 
 struct winsize {

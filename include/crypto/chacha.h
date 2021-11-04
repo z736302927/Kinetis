@@ -41,20 +41,24 @@ void hchacha_block_generic(const u32 *state, u32 *out, int nrounds);
 
 static inline void hchacha_block(const u32 *state, u32 *out, int nrounds)
 {
-#ifdef CONFIG_CRYPTO_ARCH_HAVE_LIB_CHACHA
-    hchacha_block_arch(state, out, nrounds);
-#else
-    hchacha_block_generic(state, out, nrounds);
-#endif
+	if (IS_ENABLED(CONFIG_CRYPTO_ARCH_HAVE_LIB_CHACHA))
+		hchacha_block_arch(state, out, nrounds);
+	else
+		hchacha_block_generic(state, out, nrounds);
 }
 
-void chacha_init_arch(u32 *state, const u32 *key, const u8 *iv);
-static inline void chacha_init_generic(u32 *state, const u32 *key, const u8 *iv)
+static inline void chacha_init_consts(u32 *state)
 {
 	state[0]  = 0x61707865; /* "expa" */
 	state[1]  = 0x3320646e; /* "nd 3" */
 	state[2]  = 0x79622d32; /* "2-by" */
 	state[3]  = 0x6b206574; /* "te k" */
+}
+
+void chacha_init_arch(u32 *state, const u32 *key, const u8 *iv);
+static inline void chacha_init_generic(u32 *state, const u32 *key, const u8 *iv)
+{
+	chacha_init_consts(state);
 	state[4]  = key[0];
 	state[5]  = key[1];
 	state[6]  = key[2];
@@ -71,11 +75,10 @@ static inline void chacha_init_generic(u32 *state, const u32 *key, const u8 *iv)
 
 static inline void chacha_init(u32 *state, const u32 *key, const u8 *iv)
 {
-#ifdef CONFIG_CRYPTO_ARCH_HAVE_LIB_CHACHA
-    chacha_init_arch(state, key, iv);
-#else
-    chacha_init_generic(state, key, iv);
-#endif
+	if (IS_ENABLED(CONFIG_CRYPTO_ARCH_HAVE_LIB_CHACHA))
+		chacha_init_arch(state, key, iv);
+	else
+		chacha_init_generic(state, key, iv);
 }
 
 void chacha_crypt_arch(u32 *state, u8 *dst, const u8 *src,
@@ -86,11 +89,10 @@ void chacha_crypt_generic(u32 *state, u8 *dst, const u8 *src,
 static inline void chacha_crypt(u32 *state, u8 *dst, const u8 *src,
 				unsigned int bytes, int nrounds)
 {
-#ifdef CONFIG_CRYPTO_ARCH_HAVE_LIB_CHACHA
-    chacha_crypt_arch(state, dst, src, bytes, nrounds);
-#else
-    chacha_crypt_generic(state, dst, src, bytes, nrounds);
-#endif
+	if (IS_ENABLED(CONFIG_CRYPTO_ARCH_HAVE_LIB_CHACHA))
+		chacha_crypt_arch(state, dst, src, bytes, nrounds);
+	else
+		chacha_crypt_generic(state, dst, src, bytes, nrounds);
 }
 
 static inline void chacha20_crypt(u32 *state, u8 *dst, const u8 *src,

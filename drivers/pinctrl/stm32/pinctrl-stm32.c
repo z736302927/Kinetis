@@ -8,15 +8,15 @@
  */
 #include <linux/clk.h>
 #include <linux/gpio/driver.h>
-//#include <linux/hwspinlock.h>
+#include <linux/hwspinlock.h>
 #include <linux/io.h>
-//#include <linux/irq.h>
-//#include <linux/mfd/syscon.h>
-//#include <linux/module.h>
-//#include <linux/of.h>
-//#include <linux/of_address.h>
+#include <linux/irq.h>
+#include <linux/mfd/syscon.h>
+#include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/of_device.h>
-//#include <linux/of_irq.h>
+#include <linux/of_irq.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/pinctrl/machine.h>
 #include <linux/pinctrl/pinconf.h>
@@ -28,7 +28,7 @@
 #include <linux/reset.h>
 #include <linux/slab.h>
 
-#include "../pincore.h"
+#include "../core.h"
 #include "../pinconf.h"
 #include "../pinctrl-utils.h"
 #include "pinctrl-stm32.h"
@@ -263,18 +263,18 @@ static int stm32_gpio_direction_output(struct gpio_chip *chip,
 }
 
 
-//static int stm32_gpio_to_irq(struct gpio_chip *chip, unsigned int offset)
-//{
-//	struct stm32_gpio_bank *bank = gpiochip_get_data(chip);
-//	struct irq_fwspec fwspec;
+static int stm32_gpio_to_irq(struct gpio_chip *chip, unsigned int offset)
+{
+	struct stm32_gpio_bank *bank = gpiochip_get_data(chip);
+	struct irq_fwspec fwspec;
 
-//	fwspec.fwnode = bank->fwnode;
-//	fwspec.param_count = 2;
-//	fwspec.param[0] = offset;
-//	fwspec.param[1] = IRQ_TYPE_NONE;
+	fwspec.fwnode = bank->fwnode;
+	fwspec.param_count = 2;
+	fwspec.param[0] = offset;
+	fwspec.param[1] = IRQ_TYPE_NONE;
 
-//	return irq_create_fwspec_mapping(&fwspec);
-//}
+	return irq_create_fwspec_mapping(&fwspec);
+}
 
 static int stm32_gpio_get_direction(struct gpio_chip *chip, unsigned int offset)
 {
@@ -301,198 +301,198 @@ static const struct gpio_chip stm32_gpio_template = {
 	.set			= stm32_gpio_set,
 	.direction_input	= stm32_gpio_direction_input,
 	.direction_output	= stm32_gpio_direction_output,
-//	.to_irq			= stm32_gpio_to_irq,
+	.to_irq			= stm32_gpio_to_irq,
 	.get_direction		= stm32_gpio_get_direction,
 	.set_config		= gpiochip_generic_config,
 };
 
-//static void stm32_gpio_irq_trigger(struct irq_data *d)
-//{
-//	struct stm32_gpio_bank *bank = d->domain->host_data;
-//	int level;
+static void stm32_gpio_irq_trigger(struct irq_data *d)
+{
+	struct stm32_gpio_bank *bank = d->domain->host_data;
+	int level;
 
-//	/* If level interrupt type then retrig */
-//	level = stm32_gpio_get(&bank->gpio_chip, d->hwirq);
-//	if ((level == 0 && bank->irq_type[d->hwirq] == IRQ_TYPE_LEVEL_LOW) ||
-//	    (level == 1 && bank->irq_type[d->hwirq] == IRQ_TYPE_LEVEL_HIGH))
-//		irq_chip_retrigger_hierarchy(d);
-//}
+	/* If level interrupt type then retrig */
+	level = stm32_gpio_get(&bank->gpio_chip, d->hwirq);
+	if ((level == 0 && bank->irq_type[d->hwirq] == IRQ_TYPE_LEVEL_LOW) ||
+	    (level == 1 && bank->irq_type[d->hwirq] == IRQ_TYPE_LEVEL_HIGH))
+		irq_chip_retrigger_hierarchy(d);
+}
 
-//static void stm32_gpio_irq_eoi(struct irq_data *d)
-//{
-//	irq_chip_eoi_parent(d);
-//	stm32_gpio_irq_trigger(d);
-//};
+static void stm32_gpio_irq_eoi(struct irq_data *d)
+{
+	irq_chip_eoi_parent(d);
+	stm32_gpio_irq_trigger(d);
+};
 
-//static int stm32_gpio_set_type(struct irq_data *d, unsigned int type)
-//{
-//	struct stm32_gpio_bank *bank = d->domain->host_data;
-//	u32 parent_type;
+static int stm32_gpio_set_type(struct irq_data *d, unsigned int type)
+{
+	struct stm32_gpio_bank *bank = d->domain->host_data;
+	u32 parent_type;
 
-//	switch (type) {
-//	case IRQ_TYPE_EDGE_RISING:
-//	case IRQ_TYPE_EDGE_FALLING:
-//	case IRQ_TYPE_EDGE_BOTH:
-//		parent_type = type;
-//		break;
-//	case IRQ_TYPE_LEVEL_HIGH:
-//		parent_type = IRQ_TYPE_EDGE_RISING;
-//		break;
-//	case IRQ_TYPE_LEVEL_LOW:
-//		parent_type = IRQ_TYPE_EDGE_FALLING;
-//		break;
-//	default:
-//		return -EINVAL;
-//	}
+	switch (type) {
+	case IRQ_TYPE_EDGE_RISING:
+	case IRQ_TYPE_EDGE_FALLING:
+	case IRQ_TYPE_EDGE_BOTH:
+		parent_type = type;
+		break;
+	case IRQ_TYPE_LEVEL_HIGH:
+		parent_type = IRQ_TYPE_EDGE_RISING;
+		break;
+	case IRQ_TYPE_LEVEL_LOW:
+		parent_type = IRQ_TYPE_EDGE_FALLING;
+		break;
+	default:
+		return -EINVAL;
+	}
 
-//	bank->irq_type[d->hwirq] = type;
+	bank->irq_type[d->hwirq] = type;
 
-//	return irq_chip_set_type_parent(d, parent_type);
-//};
+	return irq_chip_set_type_parent(d, parent_type);
+};
 
-//static int stm32_gpio_irq_request_resources(struct irq_data *irq_data)
-//{
-//	struct stm32_gpio_bank *bank = irq_data->domain->host_data;
-//	struct stm32_pinctrl *pctl = dev_get_drvdata(bank->gpio_chip.parent);
-//	int ret;
+static int stm32_gpio_irq_request_resources(struct irq_data *irq_data)
+{
+	struct stm32_gpio_bank *bank = irq_data->domain->host_data;
+	struct stm32_pinctrl *pctl = dev_get_drvdata(bank->gpio_chip.parent);
+	int ret;
 
-//	ret = stm32_gpio_direction_input(&bank->gpio_chip, irq_data->hwirq);
-//	if (ret)
-//		return ret;
+	ret = stm32_gpio_direction_input(&bank->gpio_chip, irq_data->hwirq);
+	if (ret)
+		return ret;
 
-//	ret = gpiochip_lock_as_irq(&bank->gpio_chip, irq_data->hwirq);
-//	if (ret) {
-//		dev_err(pctl->dev, "unable to lock HW IRQ %lu for IRQ\n",
-//			irq_data->hwirq);
-//		return ret;
-//	}
+	ret = gpiochip_lock_as_irq(&bank->gpio_chip, irq_data->hwirq);
+	if (ret) {
+		dev_err(pctl->dev, "unable to lock HW IRQ %lu for IRQ\n",
+			irq_data->hwirq);
+		return ret;
+	}
 
-//	return 0;
-//}
+	return 0;
+}
 
-//static void stm32_gpio_irq_release_resources(struct irq_data *irq_data)
-//{
-//	struct stm32_gpio_bank *bank = irq_data->domain->host_data;
+static void stm32_gpio_irq_release_resources(struct irq_data *irq_data)
+{
+	struct stm32_gpio_bank *bank = irq_data->domain->host_data;
 
-//	gpiochip_unlock_as_irq(&bank->gpio_chip, irq_data->hwirq);
-//}
+	gpiochip_unlock_as_irq(&bank->gpio_chip, irq_data->hwirq);
+}
 
-//static void stm32_gpio_irq_unmask(struct irq_data *d)
-//{
-//	irq_chip_unmask_parent(d);
-//	stm32_gpio_irq_trigger(d);
-//}
+static void stm32_gpio_irq_unmask(struct irq_data *d)
+{
+	irq_chip_unmask_parent(d);
+	stm32_gpio_irq_trigger(d);
+}
 
-//static struct irq_chip stm32_gpio_irq_chip = {
-//	.name		= "stm32gpio",
-//	.irq_eoi	= stm32_gpio_irq_eoi,
-//	.irq_ack	= irq_chip_ack_parent,
-//	.irq_mask	= irq_chip_mask_parent,
-//	.irq_unmask	= stm32_gpio_irq_unmask,
-//	.irq_set_type	= stm32_gpio_set_type,
-//	.irq_set_wake	= irq_chip_set_wake_parent,
-//	.irq_request_resources = stm32_gpio_irq_request_resources,
-//	.irq_release_resources = stm32_gpio_irq_release_resources,
-//};
+static struct irq_chip stm32_gpio_irq_chip = {
+	.name		= "stm32gpio",
+	.irq_eoi	= stm32_gpio_irq_eoi,
+	.irq_ack	= irq_chip_ack_parent,
+	.irq_mask	= irq_chip_mask_parent,
+	.irq_unmask	= stm32_gpio_irq_unmask,
+	.irq_set_type	= stm32_gpio_set_type,
+	.irq_set_wake	= irq_chip_set_wake_parent,
+	.irq_request_resources = stm32_gpio_irq_request_resources,
+	.irq_release_resources = stm32_gpio_irq_release_resources,
+};
 
-//static int stm32_gpio_domain_translate(struct irq_domain *d,
-//				       struct irq_fwspec *fwspec,
-//				       unsigned long *hwirq,
-//				       unsigned int *type)
-//{
-//	if ((fwspec->param_count != 2) ||
-//	    (fwspec->param[0] >= STM32_GPIO_IRQ_LINE))
-//		return -EINVAL;
+static int stm32_gpio_domain_translate(struct irq_domain *d,
+				       struct irq_fwspec *fwspec,
+				       unsigned long *hwirq,
+				       unsigned int *type)
+{
+	if ((fwspec->param_count != 2) ||
+	    (fwspec->param[0] >= STM32_GPIO_IRQ_LINE))
+		return -EINVAL;
 
-//	*hwirq = fwspec->param[0];
-//	*type = fwspec->param[1];
-//	return 0;
-//}
+	*hwirq = fwspec->param[0];
+	*type = fwspec->param[1];
+	return 0;
+}
 
-//static int stm32_gpio_domain_activate(struct irq_domain *d,
-//				      struct irq_data *irq_data, bool reserve)
-//{
-//	struct stm32_gpio_bank *bank = d->host_data;
-//	struct stm32_pinctrl *pctl = dev_get_drvdata(bank->gpio_chip.parent);
-//	unsigned long flags;
-//	int ret = 0;
+static int stm32_gpio_domain_activate(struct irq_domain *d,
+				      struct irq_data *irq_data, bool reserve)
+{
+	struct stm32_gpio_bank *bank = d->host_data;
+	struct stm32_pinctrl *pctl = dev_get_drvdata(bank->gpio_chip.parent);
+	unsigned long flags;
+	int ret = 0;
 
-//	/*
-//	 * gpio irq mux is shared between several banks, a lock has to be done
-//	 * to avoid overriding.
-//	 */
-//	spin_lock_irqsave(&pctl->irqmux_lock, flags);
+	/*
+	 * gpio irq mux is shared between several banks, a lock has to be done
+	 * to avoid overriding.
+	 */
+	spin_lock_irqsave(&pctl->irqmux_lock, flags);
 
-//	if (pctl->hwlock) {
-//		ret = hwspin_lock_timeout_in_atomic(pctl->hwlock,
-//						    HWSPNLCK_TIMEOUT);
-//		if (ret) {
-//			dev_err(pctl->dev, "Can't get hwspinlock\n");
-//			goto unlock;
-//		}
-//	}
+	if (pctl->hwlock) {
+		ret = hwspin_lock_timeout_in_atomic(pctl->hwlock,
+						    HWSPNLCK_TIMEOUT);
+		if (ret) {
+			dev_err(pctl->dev, "Can't get hwspinlock\n");
+			goto unlock;
+		}
+	}
 
-//	if (pctl->irqmux_map & BIT(irq_data->hwirq)) {
-//		dev_err(pctl->dev, "irq line %ld already requested.\n",
-//			irq_data->hwirq);
-//		ret = -EBUSY;
-//		if (pctl->hwlock)
-//			hwspin_unlock_in_atomic(pctl->hwlock);
-//		goto unlock;
-//	} else {
-//		pctl->irqmux_map |= BIT(irq_data->hwirq);
-//	}
+	if (pctl->irqmux_map & BIT(irq_data->hwirq)) {
+		dev_err(pctl->dev, "irq line %ld already requested.\n",
+			irq_data->hwirq);
+		ret = -EBUSY;
+		if (pctl->hwlock)
+			hwspin_unlock_in_atomic(pctl->hwlock);
+		goto unlock;
+	} else {
+		pctl->irqmux_map |= BIT(irq_data->hwirq);
+	}
 
-//	regmap_field_write(pctl->irqmux[irq_data->hwirq], bank->bank_ioport_nr);
+	regmap_field_write(pctl->irqmux[irq_data->hwirq], bank->bank_ioport_nr);
 
-//	if (pctl->hwlock)
-//		hwspin_unlock_in_atomic(pctl->hwlock);
+	if (pctl->hwlock)
+		hwspin_unlock_in_atomic(pctl->hwlock);
 
-//unlock:
-//	spin_unlock_irqrestore(&pctl->irqmux_lock, flags);
-//	return ret;
-//}
+unlock:
+	spin_unlock_irqrestore(&pctl->irqmux_lock, flags);
+	return ret;
+}
 
-//static void stm32_gpio_domain_deactivate(struct irq_domain *d,
-//					 struct irq_data *irq_data)
-//{
-//	struct stm32_gpio_bank *bank = d->host_data;
-//	struct stm32_pinctrl *pctl = dev_get_drvdata(bank->gpio_chip.parent);
-//	unsigned long flags;
+static void stm32_gpio_domain_deactivate(struct irq_domain *d,
+					 struct irq_data *irq_data)
+{
+	struct stm32_gpio_bank *bank = d->host_data;
+	struct stm32_pinctrl *pctl = dev_get_drvdata(bank->gpio_chip.parent);
+	unsigned long flags;
 
-//	spin_lock_irqsave(&pctl->irqmux_lock, flags);
-//	pctl->irqmux_map &= ~BIT(irq_data->hwirq);
-//	spin_unlock_irqrestore(&pctl->irqmux_lock, flags);
-//}
+	spin_lock_irqsave(&pctl->irqmux_lock, flags);
+	pctl->irqmux_map &= ~BIT(irq_data->hwirq);
+	spin_unlock_irqrestore(&pctl->irqmux_lock, flags);
+}
 
-//static int stm32_gpio_domain_alloc(struct irq_domain *d,
-//				   unsigned int virq,
-//				   unsigned int nr_irqs, void *data)
-//{
-//	struct stm32_gpio_bank *bank = d->host_data;
-//	struct irq_fwspec *fwspec = data;
-//	struct irq_fwspec parent_fwspec;
-//	irq_hw_number_t hwirq;
+static int stm32_gpio_domain_alloc(struct irq_domain *d,
+				   unsigned int virq,
+				   unsigned int nr_irqs, void *data)
+{
+	struct stm32_gpio_bank *bank = d->host_data;
+	struct irq_fwspec *fwspec = data;
+	struct irq_fwspec parent_fwspec;
+	irq_hw_number_t hwirq;
 
-//	hwirq = fwspec->param[0];
-//	parent_fwspec.fwnode = d->parent->fwnode;
-//	parent_fwspec.param_count = 2;
-//	parent_fwspec.param[0] = fwspec->param[0];
-//	parent_fwspec.param[1] = fwspec->param[1];
+	hwirq = fwspec->param[0];
+	parent_fwspec.fwnode = d->parent->fwnode;
+	parent_fwspec.param_count = 2;
+	parent_fwspec.param[0] = fwspec->param[0];
+	parent_fwspec.param[1] = fwspec->param[1];
 
-//	irq_domain_set_hwirq_and_chip(d, virq, hwirq, &stm32_gpio_irq_chip,
-//				      bank);
+	irq_domain_set_hwirq_and_chip(d, virq, hwirq, &stm32_gpio_irq_chip,
+				      bank);
 
-//	return irq_domain_alloc_irqs_parent(d, virq, nr_irqs, &parent_fwspec);
-//}
+	return irq_domain_alloc_irqs_parent(d, virq, nr_irqs, &parent_fwspec);
+}
 
-//static const struct irq_domain_ops stm32_gpio_domain_ops = {
-//	.translate      = stm32_gpio_domain_translate,
-//	.alloc          = stm32_gpio_domain_alloc,
-//	.free           = irq_domain_free_irqs_common,
-//	.activate	= stm32_gpio_domain_activate,
-//	.deactivate	= stm32_gpio_domain_deactivate,
-//};
+static const struct irq_domain_ops stm32_gpio_domain_ops = {
+	.translate      = stm32_gpio_domain_translate,
+	.alloc          = stm32_gpio_domain_alloc,
+	.free           = irq_domain_free_irqs_common,
+	.activate	= stm32_gpio_domain_activate,
+	.deactivate	= stm32_gpio_domain_deactivate,
+};
 
 /* Pinctrl functions */
 static struct stm32_pinctrl_group *
@@ -575,17 +575,17 @@ static int stm32_pctrl_dt_subnode_to_map(struct pinctrl_dev *pctldev,
 
 	pctl = pinctrl_dev_get_drvdata(pctldev);
 
-//	pins = of_find_property(node, "pinmux", NULL);
-//	if (!pins) {
-//		dev_err(pctl->dev, "missing pins property in node %pOFn .\n",
-//				node);
-//		return -EINVAL;
-//	}
+	pins = of_find_property(node, "pinmux", NULL);
+	if (!pins) {
+		dev_err(pctl->dev, "missing pins property in node %pOFn .\n",
+				node);
+		return -EINVAL;
+	}
 
-//	err = pinconf_generic_parse_dt_config(node, pctldev, &configs,
-//		&num_configs);
-//	if (err)
-//		return err;
+	err = pinconf_generic_parse_dt_config(node, pctldev, &configs,
+		&num_configs);
+	if (err)
+		return err;
 
 	if (num_configs)
 		has_config = 1;
@@ -1229,7 +1229,7 @@ static int stm32_gpiolib_register_bank(struct stm32_pinctrl *pctl,
 	struct device *dev = pctl->dev;
 	struct resource res;
 	int npins = STM32_GPIO_PINS_PER_BANK;
-	int bank_nr, err;
+	int bank_nr, err, i = 0;
 
 	if (!IS_ERR(bank->rstc))
 		reset_control_deassert(bank->rstc);
@@ -1251,9 +1251,14 @@ static int stm32_gpiolib_register_bank(struct stm32_pinctrl *pctl,
 
 	of_property_read_string(np, "st,bank-name", &bank->gpio_chip.label);
 
-	if (!of_parse_phandle_with_fixed_args(np, "gpio-ranges", 3, 0, &args)) {
+	if (!of_parse_phandle_with_fixed_args(np, "gpio-ranges", 3, i, &args)) {
 		bank_nr = args.args[1] / STM32_GPIO_PINS_PER_BANK;
 		bank->gpio_chip.base = args.args[1];
+
+		npins = args.args[2];
+		while (!of_parse_phandle_with_fixed_args(np, "gpio-ranges", 3,
+							 ++i, &args))
+			npins += args.args[2];
 	} else {
 		bank_nr = pctl->nbanks;
 		bank->gpio_chip.base = bank_nr * STM32_GPIO_PINS_PER_BANK;

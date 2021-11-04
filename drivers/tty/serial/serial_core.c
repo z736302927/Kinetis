@@ -15,21 +15,19 @@
 #include <linux/init.h>
 #include <linux/console.h>
 #include <linux/gpio/consumer.h>
-//#include <linux/of.h>
-//#include <linux/proc_fs.h>
-//#include <linux/seq_file.h>
+#include <linux/of.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 #include <linux/device.h>
 #include <linux/serial.h> /* for serial_state and serial_icounter_struct */
 #include <linux/serial_core.h>
-//#include <linux/sysrq.h>
+#include <linux/sysrq.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
-#include <linux/circ_buf.h>
-#include <linux/preempt.h>
-//#include <linux/security.h>
+#include <linux/security.h>
 
 #include <linux/irq.h>
-//#include <linux/uaccess.h>
+#include <linux/uaccess.h>
 
 /*
  * This is used to lock changes in serial line configuration.
@@ -89,7 +87,7 @@ static inline void uart_port_deref(struct uart_port *uport)
 
 static inline struct uart_port *uart_port_check(struct uart_state *state)
 {
-//	lockdep_assert_held(&state->port.mutex);
+	lockdep_assert_held(&state->port.mutex);
 	return state->uart_port;
 }
 
@@ -202,7 +200,7 @@ static int uart_port_startup(struct tty_struct *tty, struct uart_state *state,
 	 * Initialise and allocate the transmit and temporary
 	 * buffer.
 	 */
-	page = (unsigned long)kzalloc(PAGE_SIZE, GFP_KERNEL);
+	page = get_zeroed_page(GFP_KERNEL);
 	if (!page)
 		return -ENOMEM;
 
@@ -217,7 +215,7 @@ static int uart_port_startup(struct tty_struct *tty, struct uart_state *state,
 		 * Do not free() the page under the port lock, see
 		 * uart_shutdown().
 		 */
-		kfree((unsigned char *)page);
+		free_page(page);
 	}
 
 	retval = uport->ops->startup(uport);
@@ -244,8 +242,8 @@ static int uart_port_startup(struct tty_struct *tty, struct uart_state *state,
 	 * port/irq/type and then reconfigure the port properly if it failed
 	 * now.
 	 */
-//	if (retval && capable(CAP_SYS_ADMIN))
-//		return 1;
+	if (retval && capable(CAP_SYS_ADMIN))
+		return 1;
 
 	return retval;
 }
@@ -320,7 +318,7 @@ static void uart_shutdown(struct tty_struct *tty, struct uart_state *state)
 	uart_port_unlock(uport, flags);
 
 	if (xmit_buf)
-		kfree(xmit_buf);
+		free_page((unsigned long)xmit_buf);
 }
 
 /**
@@ -851,25 +849,27 @@ static int uart_set_info(struct tty_struct *tty, struct tty_port *port,
 	new_flags = (__force upf_t)new_info->flags;
 	old_custom_divisor = uport->custom_divisor;
 
-//	if (!capable(CAP_SYS_ADMIN)) {
-//		retval = -EPERM;
-//		if (change_irq || change_port ||
-//		    (new_info->baud_base != uport->uartclk / 16) ||
-//		    (close_delay != port->close_delay) ||
-//		    (closing_wait != port->closing_wait) ||
-//		    (new_info->xmit_fifo_size &&
-//		     new_info->xmit_fifo_size != uport->fifosize) ||
-//		    (((new_flags ^ old_flags) & ~UPF_USR_MASK) != 0))
-//			goto exit;
-//		uport->flags = ((uport->flags & ~UPF_USR_MASK) |
-//			       (new_flags & UPF_USR_MASK));
-//		uport->custom_divisor = new_info->custom_divisor;
-//		goto check_and_exit;
-//	}
+	if (!capable(CAP_SYS_ADMIN)) {
+		retval = -EPERM;
+		if (change_irq || change_port ||
+		    (new_info->baud_base != uport->uartclk / 16) ||
+		    (close_delay != port->close_delay) ||
+		    (closing_wait != port->closing_wait) ||
+		    (new_info->xmit_fifo_size &&
+		     new_info->xmit_fifo_size != uport->fifosize) ||
+		    (((new_flags ^ old_flags) & ~UPF_USR_MASK) != 0))
+			goto exit;
+		uport->flags = ((uport->flags & ~UPF_USR_MASK) |
+			       (new_flags & UPF_USR_MASK));
+		uport->custom_divisor = new_info->custom_divisor;
+		goto check_and_exit;
+	}
 
-//	retval = security_locked_down(LOCKDOWN_TIOCSSERIAL);
-//	if (retval && (change_irq || change_port))
-//		goto exit;
+	if (change_irq || change_port) {
+		retval = security_locked_down(LOCKDOWN_TIOCSSERIAL);
+		if (retval)
+			goto exit;
+	}
 
 	/*
 	 * Ask the low level driver to verify the settings.
@@ -1015,7 +1015,7 @@ static int uart_set_info_user(struct tty_struct *tty, struct serial_struct *ss)
 	struct tty_port *port = &state->port;
 	int retval;
 
-//	down_write(&tty->termios_rwsem);
+	down_write(&tty->termios_rwsem);
 	/*
 	 * This semaphore protects port->count.  It is also
 	 * very useful to prevent opens.  Also, take the
@@ -1026,7 +1026,7 @@ static int uart_set_info_user(struct tty_struct *tty, struct serial_struct *ss)
 	mutex_lock(&port->mutex);
 	retval = uart_set_info(tty, port, state, ss);
 	mutex_unlock(&port->mutex);
-//	up_write(&tty->termios_rwsem);
+	up_write(&tty->termios_rwsem);
 	return retval;
 }
 
@@ -1055,9 +1055,7 @@ static int uart_get_lsr_info(struct tty_struct *tty,
 	     !uart_tx_stopped(uport)))
 		result &= ~TIOCSER_TEMT;
 
-//	return put_user(result, value);
-    *value = result;
-	return 0;
+	return put_user(result, value);
 }
 
 static int uart_tiocmget(struct tty_struct *tty)
@@ -1131,8 +1129,8 @@ static int uart_do_autoconfig(struct tty_struct *tty, struct uart_state *state)
 	struct uart_port *uport;
 	int flags, ret;
 
-//	if (!capable(CAP_SYS_ADMIN))
-//		return -EPERM;
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
 
 	/*
 	 * Take the per-port semaphore.  This prevents count from
@@ -1235,11 +1233,11 @@ static int uart_wait_modem_status(struct uart_state *state, unsigned long arg)
 
 		schedule();
 
-//		/* see if a signal did it */
-//		if (signal_pending(current)) {
-//			ret = -ERESTARTSYS;
-//			break;
-//		}
+		/* see if a signal did it */
+		if (signal_pending(current)) {
+			ret = -ERESTARTSYS;
+			break;
+		}
 
 		cprev = cnow;
 	}
@@ -1296,7 +1294,7 @@ static int uart_get_rs485_config(struct uart_port *port,
 	aux = port->rs485;
 	spin_unlock_irqrestore(&port->lock, flags);
 
-	if (memcpy(rs485, &aux, sizeof(aux)))
+	if (copy_to_user(rs485, &aux, sizeof(aux)))
 		return -EFAULT;
 
 	return 0;
@@ -1310,9 +1308,9 @@ static int uart_set_rs485_config(struct uart_port *port,
 	unsigned long flags;
 
 	if (!port->rs485_config)
-		return -ENOIOCTLCMD;
+		return -ENOTTY;
 
-	if (memcpy(&rs485, rs485_user, sizeof(*rs485_user)))
+	if (copy_from_user(&rs485, rs485_user, sizeof(*rs485_user)))
 		return -EFAULT;
 
 	spin_lock_irqsave(&port->lock, flags);
@@ -1321,7 +1319,7 @@ static int uart_set_rs485_config(struct uart_port *port,
 	if (ret)
 		return ret;
 
-	if (memcpy(rs485_user, &port->rs485, sizeof(port->rs485)))
+	if (copy_to_user(rs485_user, &port->rs485, sizeof(port->rs485)))
 		return -EFAULT;
 
 	return 0;
@@ -1334,13 +1332,13 @@ static int uart_get_iso7816_config(struct uart_port *port,
 	struct serial_iso7816 aux;
 
 	if (!port->iso7816_config)
-		return -ENOIOCTLCMD;
+		return -ENOTTY;
 
 	spin_lock_irqsave(&port->lock, flags);
 	aux = port->iso7816;
 	spin_unlock_irqrestore(&port->lock, flags);
 
-	if (memcpy(iso7816, &aux, sizeof(aux)))
+	if (copy_to_user(iso7816, &aux, sizeof(aux)))
 		return -EFAULT;
 
 	return 0;
@@ -1354,9 +1352,9 @@ static int uart_set_iso7816_config(struct uart_port *port,
 	unsigned long flags;
 
 	if (!port->iso7816_config)
-		return -ENOIOCTLCMD;
+		return -ENOTTY;
 
-	if (memcpy(&iso7816, iso7816_user, sizeof(*iso7816_user)))
+	if (copy_from_user(&iso7816, iso7816_user, sizeof(*iso7816_user)))
 		return -EFAULT;
 
 	/*
@@ -1373,7 +1371,7 @@ static int uart_set_iso7816_config(struct uart_port *port,
 	if (ret)
 		return ret;
 
-	if (memcpy(iso7816_user, &port->iso7816, sizeof(port->iso7816)))
+	if (copy_to_user(iso7816_user, &port->iso7816, sizeof(port->iso7816)))
 		return -EFAULT;
 
 	return 0;
@@ -1397,9 +1395,9 @@ uart_ioctl(struct tty_struct *tty, unsigned int cmd, unsigned long arg)
 	 */
 	switch (cmd) {
 	case TIOCSERCONFIG:
-//		down_write(&tty->termios_rwsem);
+		down_write(&tty->termios_rwsem);
 		ret = uart_do_autoconfig(tty, state);
-//		up_write(&tty->termios_rwsem);
+		up_write(&tty->termios_rwsem);
 		break;
 	}
 
@@ -1650,8 +1648,8 @@ static void uart_wait_until_sent(struct tty_struct *tty, int timeout)
 	 */
 	while (!port->ops->tx_empty(port)) {
 		msleep_interruptible(jiffies_to_msecs(char_time));
-//		if (signal_pending(current))
-//			break;
+		if (signal_pending(current))
+			break;
 		if (time_after(jiffies, expire))
 			break;
 	}
@@ -1713,11 +1711,11 @@ static void uart_port_shutdown(struct tty_port *port)
 	if (uport)
 		uport->ops->shutdown(uport);
 
-//	/*
-//	 * Ensure that the IRQ handler isn't running on another CPU.
-//	 */
-//	if (uport)
-//		synchronize_irq(uport->irq);
+	/*
+	 * Ensure that the IRQ handler isn't running on another CPU.
+	 */
+	if (uport)
+		synchronize_irq(uport->irq);
 }
 
 static int uart_carrier_raised(struct tty_port *port)
@@ -1927,10 +1925,10 @@ static inline bool uart_console_enabled(struct uart_port *port)
 static void uart_port_spin_lock_init(struct uart_port *port)
 {
 	spin_lock_init(&port->lock);
-//	lockdep_set_class(&port->lock, &port_lock_key);
+	lockdep_set_class(&port->lock, &port_lock_key);
 }
 
-//#if defined(CONFIG_SERIAL_CORE_CONSOLE) || defined(CONFIG_CONSOLE_POLL)
+#if defined(CONFIG_SERIAL_CORE_CONSOLE) || defined(CONFIG_CONSOLE_POLL)
 /**
  *	uart_console_write - write a console message to a serial port
  *	@port: the port to write the message
@@ -2010,11 +2008,8 @@ int uart_parse_earlycon(char *p, unsigned char *iotype, resource_size_t *addr,
 		*iotype = UPIO_MEM32BE;
 		p += 9;
 	} else if (strncmp(p, "mmio32native,", 13) == 0) {
-#ifdef CONFIG_CPU_BIG_ENDIAN
-		*iotype = UPIO_MEM32BE;
-#else
-		*iotype = UPIO_MEM32;
-#endif
+		*iotype = IS_ENABLED(CONFIG_CPU_BIG_ENDIAN) ?
+			UPIO_MEM32BE : UPIO_MEM32;
 		p += 13;
 	} else if (strncmp(p, "io,", 3) == 0) {
 		*iotype = UPIO_PORT;
@@ -2134,7 +2129,7 @@ uart_set_options(struct uart_port *port, struct console *co,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(uart_set_options);
-//#endif /* CONFIG_SERIAL_CORE_CONSOLE */
+#endif /* CONFIG_SERIAL_CORE_CONSOLE */
 
 /**
  * uart_change_pm - set power state of the port
@@ -2909,8 +2904,8 @@ int uart_add_one_port(struct uart_driver *drv, struct uart_port *uport)
 	if (!uart_console_enabled(uport))
 		uart_port_spin_lock_init(uport);
 
-//	if (uport->cons && uport->dev)
-//		of_console_check(uport->dev->of_node, uport->cons->name, uport->line);
+	if (uport->cons && uport->dev)
+		of_console_check(uport->dev->of_node, uport->cons->name, uport->line);
 
 	tty_port_link_device(port, drv->tty_driver, uport->line);
 	uart_configure_port(drv, state, uport);
@@ -3075,7 +3070,7 @@ void uart_handle_dcd_change(struct uart_port *uport, unsigned int status)
 	struct tty_struct *tty = port->tty;
 	struct tty_ldisc *ld;
 
-//	lockdep_assert_held_once(&uport->lock);
+	lockdep_assert_held_once(&uport->lock);
 
 	if (tty) {
 		ld = tty_ldisc_ref(tty);
@@ -3106,7 +3101,7 @@ EXPORT_SYMBOL_GPL(uart_handle_dcd_change);
  */
 void uart_handle_cts_change(struct uart_port *uport, unsigned int status)
 {
-//	lockdep_assert_held_once(&uport->lock);
+	lockdep_assert_held_once(&uport->lock);
 
 	uport->icount.cts++;
 
@@ -3226,53 +3221,53 @@ EXPORT_SYMBOL(uart_remove_one_port);
  */
 int uart_get_rs485_mode(struct uart_port *port)
 {
-//	struct serial_rs485 *rs485conf = &port->rs485;
-//	struct device *dev = port->dev;
-//	u32 rs485_delay[2];
-//	int ret;
+	struct serial_rs485 *rs485conf = &port->rs485;
+	struct device *dev = port->dev;
+	u32 rs485_delay[2];
+	int ret;
 
-//	ret = device_property_read_u32_array(dev, "rs485-rts-delay",
-//					     rs485_delay, 2);
-//	if (!ret) {
-//		rs485conf->delay_rts_before_send = rs485_delay[0];
-//		rs485conf->delay_rts_after_send = rs485_delay[1];
-//	} else {
-//		rs485conf->delay_rts_before_send = 0;
-//		rs485conf->delay_rts_after_send = 0;
-//	}
+	ret = device_property_read_u32_array(dev, "rs485-rts-delay",
+					     rs485_delay, 2);
+	if (!ret) {
+		rs485conf->delay_rts_before_send = rs485_delay[0];
+		rs485conf->delay_rts_after_send = rs485_delay[1];
+	} else {
+		rs485conf->delay_rts_before_send = 0;
+		rs485conf->delay_rts_after_send = 0;
+	}
 
-//	/*
-//	 * Clear full-duplex and enabled flags, set RTS polarity to active high
-//	 * to get to a defined state with the following properties:
-//	 */
-//	rs485conf->flags &= ~(SER_RS485_RX_DURING_TX | SER_RS485_ENABLED |
-//			      SER_RS485_TERMINATE_BUS |
-//			      SER_RS485_RTS_AFTER_SEND);
-//	rs485conf->flags |= SER_RS485_RTS_ON_SEND;
+	/*
+	 * Clear full-duplex and enabled flags, set RTS polarity to active high
+	 * to get to a defined state with the following properties:
+	 */
+	rs485conf->flags &= ~(SER_RS485_RX_DURING_TX | SER_RS485_ENABLED |
+			      SER_RS485_TERMINATE_BUS |
+			      SER_RS485_RTS_AFTER_SEND);
+	rs485conf->flags |= SER_RS485_RTS_ON_SEND;
 
-//	if (device_property_read_bool(dev, "rs485-rx-during-tx"))
-//		rs485conf->flags |= SER_RS485_RX_DURING_TX;
+	if (device_property_read_bool(dev, "rs485-rx-during-tx"))
+		rs485conf->flags |= SER_RS485_RX_DURING_TX;
 
-//	if (device_property_read_bool(dev, "linux,rs485-enabled-at-boot-time"))
-//		rs485conf->flags |= SER_RS485_ENABLED;
+	if (device_property_read_bool(dev, "linux,rs485-enabled-at-boot-time"))
+		rs485conf->flags |= SER_RS485_ENABLED;
 
-//	if (device_property_read_bool(dev, "rs485-rts-active-low")) {
-//		rs485conf->flags &= ~SER_RS485_RTS_ON_SEND;
-//		rs485conf->flags |= SER_RS485_RTS_AFTER_SEND;
-//	}
+	if (device_property_read_bool(dev, "rs485-rts-active-low")) {
+		rs485conf->flags &= ~SER_RS485_RTS_ON_SEND;
+		rs485conf->flags |= SER_RS485_RTS_AFTER_SEND;
+	}
 
-//	/*
-//	 * Disabling termination by default is the safe choice:  Else if many
-//	 * bus participants enable it, no communication is possible at all.
-//	 * Works fine for short cables and users may enable for longer cables.
-//	 */
-//	port->rs485_term_gpio = devm_gpiod_get_optional(dev, "rs485-term",
-//							GPIOD_OUT_LOW);
-//	if (IS_ERR(port->rs485_term_gpio)) {
-//		ret = PTR_ERR(port->rs485_term_gpio);
-//		port->rs485_term_gpio = NULL;
-//		return dev_err_probe(dev, ret, "Cannot get rs485-term-gpios\n");
-//	}
+	/*
+	 * Disabling termination by default is the safe choice:  Else if many
+	 * bus participants enable it, no communication is possible at all.
+	 * Works fine for short cables and users may enable for longer cables.
+	 */
+	port->rs485_term_gpio = devm_gpiod_get_optional(dev, "rs485-term",
+							GPIOD_OUT_LOW);
+	if (IS_ERR(port->rs485_term_gpio)) {
+		ret = PTR_ERR(port->rs485_term_gpio);
+		port->rs485_term_gpio = NULL;
+		return dev_err_probe(dev, ret, "Cannot get rs485-term-gpios\n");
+	}
 
 	return 0;
 }

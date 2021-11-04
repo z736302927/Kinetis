@@ -8,6 +8,7 @@
  * Copyright (C) 2013, 2018 Wolfram Sang <wsa@kernel.org>
  */
 
+#include <generated/deconfig.h>
 #include <dt-bindings/i2c/i2c.h>
 #include <linux/device.h>
 #include <linux/err.h>

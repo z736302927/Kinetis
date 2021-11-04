@@ -13,55 +13,22 @@
 #include <linux/stat.h>
 #include <linux/compiler.h>
 #include <linux/cache.h>
-//#include <linux/kmod.h>
+#include <linux/kmod.h>
 #include <linux/init.h>
-//#include <linux/elf.h>
+#include <linux/elf.h>
 #include <linux/stringify.h>
-//#include <linux/kobject.h>
-//#include <linux/moduleparam.h>
-//#include <linux/jump_label.h>
+#include <linux/kobject.h>
+#include <linux/moduleparam.h>
+#include <linux/jump_label.h>
 #include <linux/export.h>
-//#include <linux/rbtree_latch.h>
+#include <linux/rbtree_latch.h>
 #include <linux/error-injection.h>
-#include <linux/errno.h>
-#include <linux/sysfs.h>
-//#include <linux/tracepoint-defs.h>
-//#include <linux/srcu.h>
-//#include <linux/static_call_types.h>
+#include <linux/tracepoint-defs.h>
+#include <linux/srcu.h>
+#include <linux/static_call_types.h>
 
-//#include <linux/percpu.h>
-//#include <asm/module.h>
-
-#ifndef KBUILD_MODNAME
-#define KBUILD_MODNAME ""
-#endif
-
-/* You can override this manually, but generally this should match the
-   module name. */
-#ifdef MODULE
-#define MODULE_PARAM_PREFIX /* empty */
-#define __MODULE_INFO_PREFIX /* empty */
-#else
-#define MODULE_PARAM_PREFIX KBUILD_MODNAME "."
-/* We cannot use MODULE_PARAM_PREFIX because some modules override it. */
-#define __MODULE_INFO_PREFIX KBUILD_MODNAME "."
-#endif
-
-/* Chosen so that structs with an unsigned long line up. */
-#define MAX_PARAM_PREFIX_LEN (64 - sizeof(unsigned long))
-
-#define __MODULE_INFO(tag, name, info)					  \
-	static const char __UNIQUE_ID(name)[]				  \
-		__used __section(".modinfo") __aligned(1)		  \
-		= __MODULE_INFO_PREFIX __stringify(tag) "=" info
-
-#define __MODULE_PARM_TYPE(name, _type)					  \
-	__MODULE_INFO(parmtype, name##type, #name ":" _type)
-
-/* One for each parameter, describing how to use it.  Some files do
-   multiple of these per line, so can't just use MODULE_INFO. */
-#define MODULE_PARM_DESC(_parm, desc) \
-	__MODULE_INFO(parm, _parm, #_parm ":" desc)
+#include <linux/percpu.h>
+#include <asm/module.h>
 
 /* Not Yet Implemented */
 #define MODULE_SUPPORTED_DEVICE(name)
@@ -77,7 +44,7 @@ struct module;
 struct exception_table_entry;
 
 struct module_kobject {
-//	struct kobject kobj;
+	struct kobject kobj;
 	struct module *mod;
 	struct kobject *drivers_dir;
 	struct module_param_attrs *mp;
@@ -99,7 +66,7 @@ struct module_version_attribute {
 	struct module_attribute mattr;
 	const char *module_name;
 	const char *version;
-};
+} __attribute__ ((__aligned__(sizeof(void *))));
 
 extern ssize_t __modver_version_show(struct module_attribute *,
 				     struct module_kobject *, char *);
@@ -207,7 +174,7 @@ extern void cleanup_module(void);
  * MODULE_FILE is used for generating modules.builtin
  * So, make it no-op when this is being built as a module
  */
-#ifndef MODULE
+#ifdef MODULE
 #define MODULE_FILE
 #else
 #define MODULE_FILE	MODULE_INFO(file, KBUILD_MODFILE);
@@ -299,20 +266,20 @@ extern typeof(name) __mod_##type##__##name##_device_table		\
 #else
 #define MODULE_VERSION(_version)					\
 	MODULE_INFO(version, _version);					\
-	static struct module_version_attribute __modver_attr		\
-		__used __section("__modver")				\
-		__aligned(__alignof__(struct module_version_attribute)) \
-		= {							\
-			.mattr	= {					\
-				.attr	= {				\
-					.name	= "version",		\
-					.mode	= S_IRUGO,		\
-				},					\
-				.show	= __modver_version_show,	\
+	static struct module_version_attribute ___modver_attr = {	\
+		.mattr	= {						\
+			.attr	= {					\
+				.name	= "version",			\
+				.mode	= S_IRUGO,			\
 			},						\
-			.module_name	= KBUILD_MODNAME,		\
-			.version	= _version,			\
-		}
+			.show	= __modver_version_show,		\
+		},							\
+		.module_name	= KBUILD_MODNAME,			\
+		.version	= _version,				\
+	};								\
+	static const struct module_version_attribute			\
+	__used __section("__modver")					\
+	* __moduleparam_const __modver_attr = &___modver_attr
 #endif
 
 /* Optional firmware file (or files) needed by the module
@@ -507,10 +474,6 @@ struct module {
 #ifdef CONFIG_BPF_EVENTS
 	unsigned int num_bpf_raw_events;
 	struct bpf_raw_event_map *bpf_raw_events;
-#endif
-#ifdef CONFIG_DEBUG_INFO_BTF_MODULES
-	unsigned int btf_data_size;
-	void *btf_data;
 #endif
 #ifdef CONFIG_JUMP_LABEL
 	struct jump_entry *jump_entries;
@@ -895,11 +858,11 @@ void module_bug_cleanup(struct module *);
 
 #else	/* !CONFIG_GENERIC_BUG */
 
-//static inline void module_bug_finalize(const Elf_Ehdr *hdr,
-//					const Elf_Shdr *sechdrs,
-//					struct module *mod)
-//{
-//}
+static inline void module_bug_finalize(const Elf_Ehdr *hdr,
+					const Elf_Shdr *sechdrs,
+					struct module *mod)
+{
+}
 static inline void module_bug_cleanup(struct module *mod) {}
 #endif	/* CONFIG_GENERIC_BUG */
 

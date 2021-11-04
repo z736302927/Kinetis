@@ -10,6 +10,7 @@
 #ifndef _UAPI_IIO_EVENTS_H_
 #define _UAPI_IIO_EVENTS_H_
 
+#include <linux/ioctl.h>
 #include <linux/types.h>
 
 /**

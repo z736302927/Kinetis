@@ -11,8 +11,8 @@
  * happens to be in - so we don't have to care whether we're on 2.2, which
  * has asm/spinlock.h, or 2.4, which has linux/spinlock.h
  */
-//#include <linux/sched.h>
-//#include <linux/mutex.h>
+#include <linux/sched.h>
+#include <linux/mutex.h>
 
 typedef enum {
 	FL_READY,
@@ -73,9 +73,9 @@ struct flchip {
 	unsigned long in_progress_block_addr;
 	unsigned long in_progress_block_mask;
 
-//	struct mutex mutex;
-//	wait_queue_head_t wq; /* Wait on here when we're waiting for the chip
-//			     to be ready */
+	struct mutex mutex;
+	wait_queue_head_t wq; /* Wait on here when we're waiting for the chip
+			     to be ready */
 	int word_write_time;
 	int buffer_write_time;
 	int erase_time;
@@ -90,7 +90,7 @@ struct flchip {
 /* This is used to handle contention on write/erase operations
    between partitions of the same physical chip. */
 struct flchip_shared {
-//	struct mutex lock;
+	struct mutex lock;
 	struct flchip *writing;
 	struct flchip *erasing;
 };

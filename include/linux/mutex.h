@@ -11,14 +11,14 @@
 #ifndef __LINUX_MUTEX_H
 #define __LINUX_MUTEX_H
 
-//#include <asm/current.h>
+#include <asm/current.h>
 #include <linux/list.h>
 #include <linux/spinlock_types.h>
-//#include <linux/lockdep.h>
+#include <linux/lockdep.h>
 #include <linux/atomic.h>
-//#include <asm/processor.h>
-//#include <linux/osq_lock.h>
-//#include <linux/debug_locks.h>
+#include <asm/processor.h>
+#include <linux/osq_lock.h>
+#include <linux/debug_locks.h>
 
 struct ww_acquire_ctx;
 
@@ -185,7 +185,7 @@ extern void mutex_lock_io(struct mutex *lock);
 # define mutex_lock_interruptible_nested(lock, subclass) mutex_lock_interruptible(lock)
 # define mutex_lock_killable_nested(lock, subclass) mutex_lock_killable(lock)
 # define mutex_lock_nest_lock(lock, nest_lock) mutex_lock(lock)
-# define mutex_lock_io_nested(lock, subclass) mutex_lock(lock)
+# define mutex_lock_io_nested(lock, subclass) mutex_lock_io(lock)
 #endif
 
 /*

@@ -11,8 +11,7 @@
 
 #include <linux/err.h>
 #include <linux/errno.h>
-#include <linux/init.h>
-//#include <linux/notifier.h>
+#include <linux/notifier.h>
 
 struct device;
 struct device_node;
@@ -53,9 +52,7 @@ enum {
 	NVMEM_CELL_REMOVE,
 };
 
-#define CONFIG_NVMEM
-
-#ifdef CONFIG_NVMEM
+#if IS_ENABLED(CONFIG_NVMEM)
 
 /* Cell based interface */
 struct nvmem_cell *nvmem_cell_get(struct device *dev, const char *id);
@@ -86,16 +83,13 @@ int nvmem_device_cell_write(struct nvmem_device *nvmem,
 
 const char *nvmem_dev_name(struct nvmem_device *nvmem);
 
-int __init nvmem_init(void);
-void __exit nvmem_exit(void);
-
 void nvmem_add_cell_lookups(struct nvmem_cell_lookup *entries,
 			    size_t nentries);
 void nvmem_del_cell_lookups(struct nvmem_cell_lookup *entries,
 			    size_t nentries);
 
-//int nvmem_register_notifier(struct notifier_block *nb);
-//int nvmem_unregister_notifier(struct notifier_block *nb);
+int nvmem_register_notifier(struct notifier_block *nb);
+int nvmem_unregister_notifier(struct notifier_block *nb);
 
 struct nvmem_device *nvmem_device_find(void *data,
 			int (*match)(struct device *dev, const void *data));
@@ -229,7 +223,7 @@ static inline struct nvmem_device *nvmem_device_find(void *data,
 
 #endif /* CONFIG_NVMEM */
 
-#ifdef CONFIG_NVMEM
+#if IS_ENABLED(CONFIG_NVMEM) && IS_ENABLED(CONFIG_OF)
 struct nvmem_cell *of_nvmem_cell_get(struct device_node *np,
 				     const char *id);
 struct nvmem_device *of_nvmem_device_get(struct device_node *np,

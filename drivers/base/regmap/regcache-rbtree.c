@@ -6,10 +6,11 @@
 //
 // Author: Dimitris Papastamos <dp@opensource.wolfsonmicro.com>
 
+#include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/rbtree.h>
+#include <linux/seq_file.h>
 #include <linux/slab.h>
-#include <linux/bitmap.h>
 
 #include "internal.h"
 
@@ -21,7 +22,7 @@ struct regcache_rbtree_node {
 	/* block of adjacent registers */
 	void *block;
 	/* Which registers are present */
-	unsigned long *cache_present;
+	long *cache_present;
 	/* base register handled by this block */
 	unsigned int base_reg;
 	/* number of registers available in the block */
@@ -54,7 +55,7 @@ static void regcache_rbtree_set_register(struct regmap *map,
 					 struct regcache_rbtree_node *rbnode,
 					 unsigned int idx, unsigned int val)
 {
-	__set_bit(idx, rbnode->cache_present);
+	set_bit(idx, rbnode->cache_present);
 	regcache_set_val(map, rbnode->block, idx, val);
 }
 

@@ -14,6 +14,7 @@
 #ifndef _DEVICE_DRIVER_H_
 #define _DEVICE_DRIVER_H_
 
+#include <linux/kobject.h>
 #include <linux/klist.h>
 #include <linux/pm.h>
 #include <linux/device/bus.h>
@@ -95,6 +96,7 @@ struct device_driver {
 	const char		*name;
 	struct bus_type		*bus;
 
+	struct module		*owner;
 	const char		*mod_name;	/* used for built-in modules */
 
 	bool suppress_bind_attrs;	/* disables bind/unbind via sysfs */
@@ -107,7 +109,7 @@ struct device_driver {
 	void (*sync_state)(struct device *dev);
 	int (*remove) (struct device *dev);
 	void (*shutdown) (struct device *dev);
-	int (*suspend) (struct device *dev, int state);
+	int (*suspend) (struct device *dev, pm_message_t state);
 	int (*resume) (struct device *dev);
 	const struct attribute_group **groups;
 	const struct attribute_group **dev_groups;
@@ -177,7 +179,7 @@ static inline struct device *driver_find_device_by_name(struct device_driver *dr
  */
 static inline struct device *
 driver_find_device_by_of_node(struct device_driver *drv,
-			      const void *np)
+			      const struct device_node *np)
 {
 	return driver_find_device(drv, NULL, np, device_match_of_node);
 }

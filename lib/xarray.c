@@ -6,6 +6,7 @@
  * Author: Matthew Wilcox <willy@infradead.org>
  */
 
+#include <generated/deconfig.h> 
 #include <linux/bitmap.h>
 #include <linux/export.h>
 #include <linux/list.h>
@@ -31,6 +32,26 @@
 static inline unsigned int xa_lock_type(const struct xarray *xa)
 {
 	return (__force unsigned int)xa->xa_flags & 3;
+}
+
+static inline void xas_lock_type(struct xa_state *xas, unsigned int lock_type)
+{
+	if (lock_type == XA_LOCK_IRQ)
+		xas_lock_irq(xas);
+	else if (lock_type == XA_LOCK_BH)
+		xas_lock_bh(xas);
+	else
+		xas_lock(xas);
+}
+
+static inline void xas_unlock_type(struct xa_state *xas, unsigned int lock_type)
+{
+	if (lock_type == XA_LOCK_IRQ)
+		xas_unlock_irq(xas);
+	else if (lock_type == XA_LOCK_BH)
+		xas_unlock_bh(xas);
+	else
+		xas_unlock(xas);
 }
 
 static inline bool xa_track_free(const struct xarray *xa)
@@ -250,7 +271,7 @@ static void xas_destroy(struct xa_state *xas)
 
 	while (node) {
 		XA_NODE_BUG_ON(node, !list_empty(&node->private_list));
-		next = READ_ONCE(node->parent);
+		next = rcu_dereference_raw(node->parent);
 		radix_tree_node_rcu_free(&node->rcu_head);
 		xas->xa_alloc = node = next;
 	}
@@ -313,7 +334,9 @@ static bool __xas_nomem(struct xa_state *xas, gfp_t gfp)
 	if (xas->xa->xa_flags & XA_FLAGS_ACCOUNT)
 		gfp |= __GFP_ACCOUNT;
 	if (gfpflags_allow_blocking(gfp)) {
+		xas_unlock_type(xas, lock_type);
 		xas->xa_alloc = kmem_cache_alloc(radix_tree_node_cachep, gfp);
+		xas_lock_type(xas, lock_type);
 	} else {
 		xas->xa_alloc = kmem_cache_alloc(radix_tree_node_cachep, gfp);
 	}
@@ -989,7 +1012,7 @@ void xas_split_alloc(struct xa_state *xas, void *entry, unsigned int order,
 
 	do {
 		unsigned int i;
-		void *sibling;
+		void *sibling = NULL;
 		struct xa_node *node;
 
 		node = kmem_cache_alloc(radix_tree_node_cachep, gfp);
@@ -999,7 +1022,7 @@ void xas_split_alloc(struct xa_state *xas, void *entry, unsigned int order,
 		for (i = 0; i < XA_CHUNK_SIZE; i++) {
 			if ((i & mask) == 0) {
 				RCU_INIT_POINTER(node->slots[i], entry);
-				sibling = xa_mk_sibling(0);
+				sibling = xa_mk_sibling(i);
 			} else {
 				RCU_INIT_POINTER(node->slots[i], sibling);
 			}
@@ -1428,11 +1451,13 @@ void *xa_load(struct xarray *xa, unsigned long index)
 	XA_STATE(xas, xa, index);
 	void *entry;
 
+	rcu_read_lock();
 	do {
 		entry = xas_load(&xas);
 		if (xa_is_zero(entry))
 			entry = NULL;
 	} while (xas_retry(&xas, entry));
+	rcu_read_unlock();
 
 	return entry;
 }
@@ -1482,7 +1507,9 @@ void *xa_erase(struct xarray *xa, unsigned long index)
 {
 	void *entry;
 
+	xa_lock(xa);
 	entry = __xa_erase(xa, index);
+	xa_unlock(xa);
 
 	return entry;
 }
@@ -1544,7 +1571,9 @@ void *xa_store(struct xarray *xa, unsigned long index, void *entry, gfp_t gfp)
 {
 	void *curr;
 
+	xa_lock(xa);
 	curr = __xa_store(xa, index, entry, gfp);
+	xa_unlock(xa);
 
 	return curr;
 }
@@ -1906,14 +1935,17 @@ bool xa_get_mark(struct xarray *xa, unsigned long index, xa_mark_t mark)
 	XA_STATE(xas, xa, index);
 	void *entry;
 
+	rcu_read_lock();
 	entry = xas_start(&xas);
 	while (xas_get_mark(&xas, mark)) {
 		if (!xa_is_node(entry))
 			goto found;
 		entry = xas_descend(&xas, xa_to_node(entry));
 	}
+	rcu_read_unlock();
 	return false;
  found:
+	rcu_read_unlock();
 	return true;
 }
 EXPORT_SYMBOL(xa_get_mark);
@@ -1930,7 +1962,9 @@ EXPORT_SYMBOL(xa_get_mark);
  */
 void xa_set_mark(struct xarray *xa, unsigned long index, xa_mark_t mark)
 {
+	xa_lock(xa);
 	__xa_set_mark(xa, index, mark);
+	xa_unlock(xa);
 }
 EXPORT_SYMBOL(xa_set_mark);
 
@@ -1946,7 +1980,9 @@ EXPORT_SYMBOL(xa_set_mark);
  */
 void xa_clear_mark(struct xarray *xa, unsigned long index, xa_mark_t mark)
 {
+	xa_lock(xa);
 	__xa_clear_mark(xa, index, mark);
+	xa_unlock(xa);
 }
 EXPORT_SYMBOL(xa_clear_mark);
 
@@ -1973,12 +2009,14 @@ void *xa_find(struct xarray *xa, unsigned long *indexp,
 	XA_STATE(xas, xa, *indexp);
 	void *entry;
 
+	rcu_read_lock();
 	do {
 		if ((__force unsigned int)filter < XA_MAX_MARKS)
 			entry = xas_find_marked(&xas, max, filter);
 		else
 			entry = xas_find(&xas, max);
 	} while (xas_retry(&xas, entry));
+	rcu_read_unlock();
 
 	if (entry)
 		*indexp = xas.xa_index;
@@ -1991,10 +2029,7 @@ static bool xas_sibling(struct xa_state *xas)
 	struct xa_node *node = xas->xa_node;
 	unsigned long mask;
 
-#ifndef CONFIG_XARRAY_MULTI
-    return false;
-#endif
-	if (!node)
+	if (!IS_ENABLED(CONFIG_XARRAY_MULTI) || !node)
 		return false;
 	mask = (XA_CHUNK_SIZE << node->shift) - 1;
 	return (xas->xa_index & mask) >
@@ -2027,6 +2062,7 @@ void *xa_find_after(struct xarray *xa, unsigned long *indexp,
 	if (xas.xa_index == 0)
 		return NULL;
 
+	rcu_read_lock();
 	for (;;) {
 		if ((__force unsigned int)filter < XA_MAX_MARKS)
 			entry = xas_find_marked(&xas, max, filter);
@@ -2040,6 +2076,7 @@ void *xa_find_after(struct xarray *xa, unsigned long *indexp,
 		if (!xas_retry(&xas, entry))
 			break;
 	}
+	rcu_read_unlock();
 
 	if (entry)
 		*indexp = xas.xa_index;
@@ -2053,6 +2090,7 @@ static unsigned int xas_extract_present(struct xa_state *xas, void **dst,
 	void *entry;
 	unsigned int i = 0;
 
+	rcu_read_lock();
 	xas_for_each(xas, entry, max) {
 		if (xas_retry(xas, entry))
 			continue;
@@ -2060,6 +2098,7 @@ static unsigned int xas_extract_present(struct xa_state *xas, void **dst,
 		if (i == n)
 			break;
 	}
+	rcu_read_unlock();
 
 	return i;
 }
@@ -2070,6 +2109,7 @@ static unsigned int xas_extract_marked(struct xa_state *xas, void **dst,
 	void *entry;
 	unsigned int i = 0;
 
+	rcu_read_lock();
 	xas_for_each_marked(xas, entry, max, mark) {
 		if (xas_retry(xas, entry))
 			continue;
@@ -2077,6 +2117,7 @@ static unsigned int xas_extract_marked(struct xa_state *xas, void **dst,
 		if (i == n)
 			break;
 	}
+	rcu_read_unlock();
 
 	return i;
 }
@@ -2163,14 +2204,16 @@ void xa_destroy(struct xarray *xa)
 	void *entry;
 
 	xas.xa_node = NULL;
+	xas_lock_irqsave(&xas, flags);
 	entry = xa_head_locked(xa);
-	WRITE_ONCE(xa->xa_head, NULL);
+	RCU_INIT_POINTER(xa->xa_head, NULL);
 	xas_init_marks(&xas);
 	if (xa_zero_busy(xa))
 		xa_mark_clear(xa, XA_FREE_MARK);
 	/* lockdep checks we're still holding the lock in xas_free_nodes() */
 	if (xa_is_node(entry))
 		xas_free_nodes(&xas, xa_to_node(entry));
+	xas_unlock_irqrestore(&xas, flags);
 }
 EXPORT_SYMBOL(xa_destroy);
 

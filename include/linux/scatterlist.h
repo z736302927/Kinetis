@@ -5,8 +5,7 @@
 #include <linux/string.h>
 #include <linux/types.h>
 #include <linux/bug.h>
-//#include <linux/mm.h>
-#include <asm-generic/page.h>
+#include <linux/mm.h>
 #include <asm/io.h>
 
 struct scatterlist {
@@ -18,6 +17,12 @@ struct scatterlist {
 	unsigned int	dma_length;
 #endif
 };
+
+/*
+ * Since the above length field is an unsigned int, below we define the maximum
+ * length in bytes that can be stored in one scatterlist entry.
+ */
+#define SCATTERLIST_MAX_SEGMENT (UINT_MAX & PAGE_MASK)
 
 /*
  * These macros should be used after a dma_map_sg call has been done
@@ -131,14 +136,14 @@ static inline struct page *sg_page(struct scatterlist *sg)
  * @buflen:	 Data length
  *
  **/
-//static inline void sg_set_buf(struct scatterlist *sg, const void *buf,
-//			      unsigned int buflen)
-//{
-//#ifdef CONFIG_DEBUG_SG
-//	BUG_ON(!virt_addr_valid(buf));
-//#endif
-//	sg_set_page(sg, virt_to_page(buf), buflen, offset_in_page(buf));
-//}
+static inline void sg_set_buf(struct scatterlist *sg, const void *buf,
+			      unsigned int buflen)
+{
+#ifdef CONFIG_DEBUG_SG
+	BUG_ON(!virt_addr_valid(buf));
+#endif
+	sg_set_page(sg, virt_to_page(buf), buflen, offset_in_page(buf));
+}
 
 /*
  * Loop over each sg element, following the pointer to a new list if necessary
@@ -233,10 +238,10 @@ static inline void sg_unmark_end(struct scatterlist *sg)
  *   on the sg page.
  *
  **/
-//static inline dma_addr_t sg_phys(struct scatterlist *sg)
-//{
-//	return page_to_phys(sg_page(sg)) + sg->offset;
-//}
+static inline dma_addr_t sg_phys(struct scatterlist *sg)
+{
+	return page_to_phys(sg_page(sg)) + sg->offset;
+}
 
 /**
  * sg_virt - Return virtual address of an sg entry
@@ -248,10 +253,10 @@ static inline void sg_unmark_end(struct scatterlist *sg)
  *   mapping.
  *
  **/
-//static inline void *sg_virt(struct scatterlist *sg)
-//{
-//	return page_address(sg_page(sg)) + sg->offset;
-//}
+static inline void *sg_virt(struct scatterlist *sg)
+{
+	return page_address(sg_page(sg)) + sg->offset;
+}
 
 /**
  * sg_init_marker - Initialize markers in sg table
@@ -394,10 +399,10 @@ void __sg_page_iter_start(struct sg_page_iter *piter,
  * sg_page_iter_page - get the current page held by the page iterator
  * @piter:	page iterator holding the page
  */
-//static inline struct page *sg_page_iter_page(struct sg_page_iter *piter)
-//{
-//	return nth_page(sg_page(piter->sg), piter->sg_pgoffset);
-//}
+static inline struct page *sg_page_iter_page(struct sg_page_iter *piter)
+{
+	return nth_page(sg_page(piter->sg), piter->sg_pgoffset);
+}
 
 /**
  * sg_page_iter_dma_address - get the dma address of the current page held by

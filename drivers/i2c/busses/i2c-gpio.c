@@ -5,18 +5,32 @@
  * Copyright (C) 2007 Atmel Corporation
  */
 #include <linux/completion.h>
+#include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
 #include <linux/i2c-algo-bit.h>
 #include <linux/i2c.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
+#include <linux/module.h>
+#include <linux/of.h>
 #include <linux/platform_data/i2c-gpio.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
-#include <linux/jiffies.h>
 
-#include "stm32f4xx_hal.h"
+struct i2c_gpio_private_data {
+	struct gpio_desc *sda;
+	struct gpio_desc *scl;
+	struct i2c_adapter adap;
+	struct i2c_algo_bit_data bit_data;
+	struct i2c_gpio_platform_data pdata;
+#ifdef CONFIG_I2C_GPIO_FAULT_INJECTOR
+	struct dentry *debug_dir;
+	/* these must be protected by bus lock */
+	struct completion scl_irq_completion;
+	u64 scl_irq_data;
+#endif
+};
 
 /*
  * Toggle SDA by changing the output value of the pin. This is only
@@ -25,11 +39,9 @@
  */
 static void i2c_gpio_setsda_val(void *data, int state)
 {
-//	struct i2c_gpio_private_data *priv = data;
+	struct i2c_gpio_private_data *priv = data;
 
-//	gpiod_set_value_cansleep(priv->sda, state);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9,
-        state ? GPIO_PIN_SET : GPIO_PIN_RESET);
+	gpiod_set_value_cansleep(priv->sda, state);
 }
 
 /*
@@ -40,27 +52,23 @@ static void i2c_gpio_setsda_val(void *data, int state)
  */
 static void i2c_gpio_setscl_val(void *data, int state)
 {
-//	struct i2c_gpio_private_data *priv = data;
+	struct i2c_gpio_private_data *priv = data;
 
-//	gpiod_set_value_cansleep(priv->scl, state);
-    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8,
-        state ? GPIO_PIN_SET : GPIO_PIN_RESET);
+	gpiod_set_value_cansleep(priv->scl, state);
 }
 
 static int i2c_gpio_getsda(void *data)
 {
-//	struct i2c_gpio_private_data *priv = data;
+	struct i2c_gpio_private_data *priv = data;
 
-//	return gpiod_get_value_cansleep(priv->sda);
-    return HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_9);
+	return gpiod_get_value_cansleep(priv->sda);
 }
 
 static int i2c_gpio_getscl(void *data)
 {
-//	struct i2c_gpio_private_data *priv = data;
+	struct i2c_gpio_private_data *priv = data;
 
-//	return gpiod_get_value_cansleep(priv->scl);
-    return HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_8);
+	return gpiod_get_value_cansleep(priv->scl);
 }
 
 #ifdef CONFIG_I2C_GPIO_FAULT_INJECTOR
@@ -292,15 +300,22 @@ static inline void i2c_gpio_fault_injector_init(struct platform_device *pdev) {}
 static inline void i2c_gpio_fault_injector_exit(struct platform_device *pdev) {}
 #endif /* CONFIG_I2C_GPIO_FAULT_INJECTOR*/
 
-static void of_i2c_gpio_get_props(struct i2c_gpio_platform_data *pdata)
+static void of_i2c_gpio_get_props(struct device_node *np,
+				  struct i2c_gpio_platform_data *pdata)
 {
-	pdata->udelay = 5;
+	u32 reg;
 
-	pdata->timeout = msecs_to_jiffies(100);
+	of_property_read_u32(np, "i2c-gpio,delay-us", &pdata->udelay);
 
-	pdata->sda_is_open_drain = true;
-	pdata->scl_is_open_drain = true;
-	pdata->scl_is_output_only = true;
+	if (!of_property_read_u32(np, "i2c-gpio,timeout-ms", &reg))
+		pdata->timeout = msecs_to_jiffies(reg);
+
+	pdata->sda_is_open_drain =
+		of_property_read_bool(np, "i2c-gpio,sda-open-drain");
+	pdata->scl_is_open_drain =
+		of_property_read_bool(np, "i2c-gpio,scl-open-drain");
+	pdata->scl_is_output_only =
+		of_property_read_bool(np, "i2c-gpio,scl-output-only");
 }
 
 static struct gpio_desc *i2c_gpio_get_desc(struct device *dev,
@@ -346,10 +361,11 @@ static int i2c_gpio_probe(struct platform_device *pdev)
 	struct i2c_algo_bit_data *bit_data;
 	struct i2c_adapter *adap;
 	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
 	enum gpiod_flags gflags;
 	int ret;
 
-	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
 
@@ -357,43 +373,45 @@ static int i2c_gpio_probe(struct platform_device *pdev)
 	bit_data = &priv->bit_data;
 	pdata = &priv->pdata;
 
-    /*
-     * If all platform data settings are zero it is OK
-     * to not provide any platform data from the board.
-     */
-    if (dev_get_platdata(dev))
-        memcpy(pdata, dev_get_platdata(dev), sizeof(*pdata));
-    else
-        of_i2c_gpio_get_props(pdata);
+	if (np) {
+		of_i2c_gpio_get_props(np, pdata);
+	} else {
+		/*
+		 * If all platform data settings are zero it is OK
+		 * to not provide any platform data from the board.
+		 */
+		if (dev_get_platdata(dev))
+			memcpy(pdata, dev_get_platdata(dev), sizeof(*pdata));
+	}
 
-//	/*
-//	 * First get the GPIO pins; if it fails, we'll defer the probe.
-//	 * If the SCL/SDA lines are marked "open drain" by platform data or
-//	 * device tree then this means that something outside of our control is
-//	 * marking these lines to be handled as open drain, and we should just
-//	 * handle them as we handle any other output. Else we enforce open
-//	 * drain as this is required for an I2C bus.
-//	 */
-//	if (pdata->sda_is_open_drain)
-//		gflags = GPIOD_OUT_HIGH;
-//	else
-//		gflags = GPIOD_OUT_HIGH_OPEN_DRAIN;
-//	priv->sda = i2c_gpio_get_desc(dev, "sda", 0, gflags);
-//	if (IS_ERR(priv->sda))
-//		return PTR_ERR(priv->sda);
+	/*
+	 * First get the GPIO pins; if it fails, we'll defer the probe.
+	 * If the SCL/SDA lines are marked "open drain" by platform data or
+	 * device tree then this means that something outside of our control is
+	 * marking these lines to be handled as open drain, and we should just
+	 * handle them as we handle any other output. Else we enforce open
+	 * drain as this is required for an I2C bus.
+	 */
+	if (pdata->sda_is_open_drain)
+		gflags = GPIOD_OUT_HIGH;
+	else
+		gflags = GPIOD_OUT_HIGH_OPEN_DRAIN;
+	priv->sda = i2c_gpio_get_desc(dev, "sda", 0, gflags);
+	if (IS_ERR(priv->sda))
+		return PTR_ERR(priv->sda);
 
-//	if (pdata->scl_is_open_drain)
-//		gflags = GPIOD_OUT_HIGH;
-//	else
-//		gflags = GPIOD_OUT_HIGH_OPEN_DRAIN;
-//	priv->scl = i2c_gpio_get_desc(dev, "scl", 1, gflags);
-//	if (IS_ERR(priv->scl))
-//		return PTR_ERR(priv->scl);
+	if (pdata->scl_is_open_drain)
+		gflags = GPIOD_OUT_HIGH;
+	else
+		gflags = GPIOD_OUT_HIGH_OPEN_DRAIN;
+	priv->scl = i2c_gpio_get_desc(dev, "scl", 1, gflags);
+	if (IS_ERR(priv->scl))
+		return PTR_ERR(priv->scl);
 
-//	if (gpiod_cansleep(priv->sda) || gpiod_cansleep(priv->scl))
-//		dev_warn(dev, "Slow GPIO pins might wreak havoc into I2C/SMBus bus timing");
-//	else
-//		bit_data->can_do_atomic = true;
+	if (gpiod_cansleep(priv->sda) || gpiod_cansleep(priv->scl))
+		dev_warn(dev, "Slow GPIO pins might wreak havoc into I2C/SMBus bus timing");
+	else
+		bit_data->can_do_atomic = true;
 
 	bit_data->setsda = i2c_gpio_setsda_val;
 	bit_data->setscl = i2c_gpio_setscl_val;
@@ -416,11 +434,16 @@ static int i2c_gpio_probe(struct platform_device *pdev)
 
 	bit_data->data = priv;
 
-	snprintf(adap->name, sizeof(adap->name), "i2c-gpio%d", pdev->id);
+	adap->owner = THIS_MODULE;
+	if (np)
+		strlcpy(adap->name, dev_name(dev), sizeof(adap->name));
+	else
+		snprintf(adap->name, sizeof(adap->name), "i2c-gpio%d", pdev->id);
 
 	adap->algo_data = bit_data;
 	adap->class = I2C_CLASS_HWMON | I2C_CLASS_SPD;
 	adap->dev.parent = dev;
+	adap->dev.of_node = np;
 
 	adap->nr = pdev->id;
 	ret = i2c_bit_add_numbered_bus(adap);
@@ -471,23 +494,31 @@ MODULE_DEVICE_TABLE(of, i2c_gpio_dt_ids);
 static struct platform_driver i2c_gpio_driver = {
 	.driver		= {
 		.name	= "i2c-gpio",
+		.of_match_table	= of_match_ptr(i2c_gpio_dt_ids),
 	},
 	.probe		= i2c_gpio_probe,
 	.remove		= i2c_gpio_remove,
 };
 
-int __init i2c_gpio_init(void)
+static int __init i2c_gpio_init(void)
 {
 	int ret;
 
 	ret = platform_driver_register(&i2c_gpio_driver);
 	if (ret)
 		printk(KERN_ERR "i2c-gpio: probe failed: %d\n", ret);
-    
+
 	return ret;
 }
+subsys_initcall(i2c_gpio_init);
 
-void __exit i2c_gpio_exit(void)
+static void __exit i2c_gpio_exit(void)
 {
 	platform_driver_unregister(&i2c_gpio_driver);
 }
+module_exit(i2c_gpio_exit);
+
+MODULE_AUTHOR("Haavard Skinnemoen (Atmel)");
+MODULE_DESCRIPTION("Platform-independent bitbanging I2C driver");
+MODULE_LICENSE("GPL");
+MODULE_ALIAS("platform:i2c-gpio");

@@ -3,7 +3,10 @@
 #define __ASM_GENERIC_CMPXCHG_LOCAL_H
 
 #include <linux/types.h>
-#include <linux/printk.h>
+#include <linux/irqflags.h>
+
+extern unsigned long wrong_size_cmpxchg(volatile void *ptr)
+	__noreturn;
 
 /*
  * Generic version of __cmpxchg_local (disables interrupts). Takes an unsigned
@@ -12,14 +15,15 @@
 static inline unsigned long __cmpxchg_local_generic(volatile void *ptr,
 		unsigned long old, unsigned long new, int size)
 {
-	unsigned long prev;
+	unsigned long flags, prev;
 
 	/*
 	 * Sanity checking, compile-time.
 	 */
 	if (size == 8 && sizeof(unsigned long) != 8)
-		printk("wrong size cmpxchg 0x@%p", ptr);
+		wrong_size_cmpxchg(ptr);
 
+	raw_local_irq_save(flags);
 	switch (size) {
 	case 1: prev = *(u8 *)ptr;
 		if (prev == old)
@@ -38,8 +42,9 @@ static inline unsigned long __cmpxchg_local_generic(volatile void *ptr,
 			*(u64 *)ptr = (u64)new;
 		break;
 	default:
-		printk("wrong size cmpxchg 0x@%p", ptr);
+		wrong_size_cmpxchg(ptr);
 	}
+	raw_local_irq_restore(flags);
 	return prev;
 }
 
@@ -50,10 +55,13 @@ static inline u64 __cmpxchg64_local_generic(volatile void *ptr,
 		u64 old, u64 new)
 {
 	u64 prev;
+	unsigned long flags;
 
+	raw_local_irq_save(flags);
 	prev = *(u64 *)ptr;
 	if (prev == old)
 		*(u64 *)ptr = new;
+	raw_local_irq_restore(flags);
 	return prev;
 }
 

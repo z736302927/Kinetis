@@ -6,6 +6,7 @@
  *	Huang Ying <ying.huang@intel.com>
  */
 
+#include <generated/deconfig.h> 
 #include <linux/kernel.h>
 #include <linux/ctype.h>
 #include <linux/errno.h>

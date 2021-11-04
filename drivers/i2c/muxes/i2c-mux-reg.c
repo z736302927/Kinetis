@@ -6,6 +6,7 @@
  * York Sun  <yorksun@freescale.com>
  */
 
+#include <generated/deconfig.h>
 #include <linux/i2c.h>
 #include <linux/i2c-mux.h>
 #include <linux/init.h>

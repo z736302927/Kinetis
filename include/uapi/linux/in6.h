@@ -25,7 +25,6 @@
 #include <linux/types.h>
 #include <linux/libc-compat.h>
 
-#define __UAPI_DEF_IN6_ADDR 1
 /*
  *	IPv6 address structure
  */

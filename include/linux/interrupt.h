@@ -5,11 +5,19 @@
 
 #include <linux/kernel.h>
 #include <linux/bitops.h>
+#include <linux/cpumask.h>
 #include <linux/irqreturn.h>
 #include <linux/irqnr.h>
+#include <linux/hardirq.h>
 #include <linux/irqflags.h>
+#include <linux/hrtimer.h>
 #include <linux/kref.h>
-#include <linux/errno.h>
+#include <linux/workqueue.h>
+
+#include <linux/atomic.h>
+#include <asm/ptrace.h>
+#include <asm/irq.h>
+#include <asm/sections.h>
 
 /*
  * These correspond to the IORESOURCE_IRQ_* defines in
@@ -224,7 +232,6 @@ extern void devm_free_irq(struct device *dev, unsigned int irq, void *dev_id);
 # define local_irq_enable_in_hardirq()	local_irq_enable()
 #endif
 
-bool irq_has_action(unsigned int irq);
 extern void disable_irq_nosync(unsigned int irq);
 extern bool disable_hardirq(unsigned int irq);
 extern void disable_irq(unsigned int irq);
@@ -263,6 +270,8 @@ extern void rearm_wake_irq(unsigned int irq);
 struct irq_affinity_notify {
 	unsigned int irq;
 	struct kref kref;
+	struct work_struct work;
+	void (*notify)(struct irq_affinity_notify *, const cpumask_t *mask);
 	void (*release)(struct kref *ref);
 };
 
@@ -297,6 +306,7 @@ struct irq_affinity {
  * @is_managed: 1 if the interrupt is managed internally
  */
 struct irq_affinity_desc {
+	struct cpumask	mask;
 	unsigned int	is_managed : 1;
 };
 
@@ -342,8 +352,6 @@ extern int irq_can_set_affinity(unsigned int irq);
 extern int irq_select_affinity(unsigned int irq);
 
 extern int irq_set_affinity_hint(unsigned int irq, const struct cpumask *m);
-extern int irq_update_affinity_desc(unsigned int irq,
-				    struct irq_affinity_desc *affinity);
 
 extern int
 irq_set_affinity_notifier(unsigned int irq, struct irq_affinity_notify *notify);
@@ -356,12 +364,12 @@ unsigned int irq_calc_affinity_vectors(unsigned int minvec, unsigned int maxvec,
 
 #else /* CONFIG_SMP */
 
-static inline int irq_set_affinity(unsigned int irq, void *m)
+static inline int irq_set_affinity(unsigned int irq, const struct cpumask *m)
 {
 	return -EINVAL;
 }
 
-static inline int irq_force_affinity(unsigned int irq, void *cpumask)
+static inline int irq_force_affinity(unsigned int irq, const struct cpumask *cpumask)
 {
 	return 0;
 }
@@ -374,13 +382,7 @@ static inline int irq_can_set_affinity(unsigned int irq)
 static inline int irq_select_affinity(unsigned int irq)  { return 0; }
 
 static inline int irq_set_affinity_hint(unsigned int irq,
-					void *m)
-{
-	return -EINVAL;
-}
-
-static inline int irq_update_affinity_desc(unsigned int irq,
-					   struct irq_affinity_desc *affinity)
+					const struct cpumask *m)
 {
 	return -EINVAL;
 }
@@ -574,6 +576,13 @@ extern void __raise_softirq_irqoff(unsigned int nr);
 extern void raise_softirq_irqoff(unsigned int nr);
 extern void raise_softirq(unsigned int nr);
 
+DECLARE_PER_CPU(struct task_struct *, ksoftirqd);
+
+static inline struct task_struct *this_cpu_ksoftirqd(void)
+{
+	return this_cpu_read(ksoftirqd);
+}
+
 /* Tasklets --- multithreaded analogue of BHs.
 
    This API is deprecated. Please consider using threaded IRQs instead:
@@ -681,6 +690,25 @@ static inline void tasklet_hi_schedule(struct tasklet_struct *t)
 {
 	if (!test_and_set_bit(TASKLET_STATE_SCHED, &t->state))
 		__tasklet_hi_schedule(t);
+}
+
+static inline void tasklet_disable_nosync(struct tasklet_struct *t)
+{
+	atomic_inc(&t->count);
+	smp_mb__after_atomic();
+}
+
+static inline void tasklet_disable(struct tasklet_struct *t)
+{
+	tasklet_disable_nosync(t);
+	tasklet_unlock_wait(t);
+	smp_mb();
+}
+
+static inline void tasklet_enable(struct tasklet_struct *t)
+{
+	smp_mb__before_atomic();
+	atomic_dec(&t->count);
 }
 
 extern void tasklet_kill(struct tasklet_struct *t);

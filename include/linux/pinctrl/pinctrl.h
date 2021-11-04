@@ -13,7 +13,7 @@
 
 #include <linux/radix-tree.h>
 #include <linux/list.h>
-//#include <linux/seq_file.h>
+#include <linux/seq_file.h>
 #include <linux/pinctrl/pinctrl-state.h>
 #include <linux/pinctrl/devinfo.h>
 
@@ -51,8 +51,8 @@ struct pinctrl_pin_desc {
  * @id: an ID number for the chip in this range
  * @base: base offset of the GPIO range
  * @pin_base: base pin number of the GPIO range if pins == NULL
- * @npins: number of pins in the GPIO range, including the base number
  * @pins: enumeration of pins in GPIO range or NULL
+ * @npins: number of pins in the GPIO range, including the base number
  * @gc: an optional pointer to a gpio_chip
  */
 struct pinctrl_gpio_range {
@@ -61,8 +61,8 @@ struct pinctrl_gpio_range {
 	unsigned int id;
 	unsigned int base;
 	unsigned int pin_base;
-	unsigned int npins;
 	unsigned const *pins;
+	unsigned int npins;
 	struct gpio_chip *gc;
 };
 
@@ -93,8 +93,8 @@ struct pinctrl_ops {
 			       unsigned selector,
 			       const unsigned **pins,
 			       unsigned *num_pins);
-//	void (*pin_dbg_show) (struct pinctrl_dev *pctldev, struct seq_file *s,
-//			  unsigned offset);
+	void (*pin_dbg_show) (struct pinctrl_dev *pctldev, struct seq_file *s,
+			  unsigned offset);
 	int (*dt_node_to_map) (struct pinctrl_dev *pctldev,
 			       struct device_node *np_config,
 			       struct pinctrl_map **map, unsigned *num_maps);
@@ -186,7 +186,7 @@ extern int pinctrl_get_group_pins(struct pinctrl_dev *pctldev,
 				const char *pin_group, const unsigned **pins,
 				unsigned *num_pins);
 
-#if CONFIG_OF
+#if IS_ENABLED(CONFIG_OF) && IS_ENABLED(CONFIG_PINCTRL)
 extern struct pinctrl_dev *of_pinctrl_get(struct device_node *np);
 #else
 static inline

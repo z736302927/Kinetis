@@ -47,7 +47,7 @@ static inline const char *printk_skip_headers(const char *buffer)
 #define CONSOLE_EXT_LOG_MAX	8192
 
 /* printk's without a loglevel use this.. */
-#define MESSAGE_LOGLEVEL_DEFAULT 4
+#define MESSAGE_LOGLEVEL_DEFAULT CONFIG_MESSAGE_LOGLEVEL_DEFAULT
 
 /* We show everything that is MORE important than this.. */
 #define CONSOLE_LOGLEVEL_SILENT  0 /* Mum's the word */
@@ -59,8 +59,8 @@ static inline const char *printk_skip_headers(const char *buffer)
  * Default used to be hard-coded at 7, quiet used to be hardcoded at 4,
  * we're now allowing both to be set from kernel config.
  */
-#define CONSOLE_LOGLEVEL_DEFAULT 7
-#define CONSOLE_LOGLEVEL_QUIET	 4
+#define CONSOLE_LOGLEVEL_DEFAULT CONFIG_CONSOLE_LOGLEVEL_DEFAULT
+#define CONSOLE_LOGLEVEL_QUIET	 CONFIG_CONSOLE_LOGLEVEL_QUIET
 
 extern int console_printk[];
 
@@ -162,9 +162,6 @@ static inline void printk_nmi_direct_exit(void) { }
 #endif /* PRINTK_NMI */
 
 struct dev_printk_info;
-
-#define CONFIG_PRINTK
-#define DEBUG
 
 #ifdef CONFIG_PRINTK
 asmlinkage __printf(4, 0)

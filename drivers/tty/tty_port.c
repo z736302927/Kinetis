@@ -3,6 +3,7 @@
  * Tty port functions
  */
 
+#include <generated/deconfig.h>
 #include <linux/types.h>
 #include <linux/errno.h>
 #include <linux/tty.h>
@@ -216,7 +217,7 @@ int tty_port_alloc_xmit_buf(struct tty_port *port)
 	/* We may sleep in get_zeroed_page() */
 	mutex_lock(&port->buf_mutex);
 	if (port->xmit_buf == NULL)
-		port->xmit_buf = (unsigned char *)kzalloc(PAGE_SIZE, GFP_KERNEL);
+		port->xmit_buf = (unsigned char *)get_zeroed_page(GFP_KERNEL);
 	mutex_unlock(&port->buf_mutex);
 	if (port->xmit_buf == NULL)
 		return -ENOMEM;
@@ -228,7 +229,7 @@ void tty_port_free_xmit_buf(struct tty_port *port)
 {
 	mutex_lock(&port->buf_mutex);
 	if (port->xmit_buf != NULL) {
-		kfree(port->xmit_buf);
+		free_page((unsigned long)port->xmit_buf);
 		port->xmit_buf = NULL;
 	}
 	mutex_unlock(&port->buf_mutex);
@@ -258,7 +259,7 @@ static void tty_port_destructor(struct kref *kref)
 	if (WARN_ON(port->itty))
 		return;
 	if (port->xmit_buf)
-		kfree(port->xmit_buf);
+		free_page((unsigned long)port->xmit_buf);
 	tty_port_destroy(port);
 	if (port->ops && port->ops->destruct)
 		port->ops->destruct(port);
@@ -459,86 +460,86 @@ EXPORT_SYMBOL(tty_port_lower_dtr_rts);
  *      NB: May drop and reacquire tty lock when blocking, so tty and tty_port
  *      may have changed state (eg., may have been hung up).
  */
-//int tty_port_block_til_ready(struct tty_port *port,
-//				struct tty_struct *tty, struct file *filp)
-//{
-//	int do_clocal = 0, retval;
-//	unsigned long flags;
-//	DEFINE_WAIT(wait);
+int tty_port_block_til_ready(struct tty_port *port,
+				struct tty_struct *tty, struct file *filp)
+{
+	int do_clocal = 0, retval;
+	unsigned long flags;
+	DEFINE_WAIT(wait);
 
-//	/* if non-blocking mode is set we can pass directly to open unless
-//	   the port has just hung up or is in another error state */
-//	if (tty_io_error(tty)) {
-//		tty_port_set_active(port, 1);
-//		return 0;
-//	}
-//	if (filp == NULL || (filp->f_flags & O_NONBLOCK)) {
-//		/* Indicate we are open */
-//		if (C_BAUD(tty))
-//			tty_port_raise_dtr_rts(port);
-//		tty_port_set_active(port, 1);
-//		return 0;
-//	}
+	/* if non-blocking mode is set we can pass directly to open unless
+	   the port has just hung up or is in another error state */
+	if (tty_io_error(tty)) {
+		tty_port_set_active(port, 1);
+		return 0;
+	}
+	if (filp == NULL || (filp->f_flags & O_NONBLOCK)) {
+		/* Indicate we are open */
+		if (C_BAUD(tty))
+			tty_port_raise_dtr_rts(port);
+		tty_port_set_active(port, 1);
+		return 0;
+	}
 
-//	if (C_CLOCAL(tty))
-//		do_clocal = 1;
+	if (C_CLOCAL(tty))
+		do_clocal = 1;
 
-//	/* Block waiting until we can proceed. We may need to wait for the
-//	   carrier, but we must also wait for any close that is in progress
-//	   before the next open may complete */
+	/* Block waiting until we can proceed. We may need to wait for the
+	   carrier, but we must also wait for any close that is in progress
+	   before the next open may complete */
 
-//	retval = 0;
+	retval = 0;
 
-//	/* The port lock protects the port counts */
-//	spin_lock_irqsave(&port->lock, flags);
-//	port->count--;
-//	port->blocked_open++;
-//	spin_unlock_irqrestore(&port->lock, flags);
+	/* The port lock protects the port counts */
+	spin_lock_irqsave(&port->lock, flags);
+	port->count--;
+	port->blocked_open++;
+	spin_unlock_irqrestore(&port->lock, flags);
 
-//	while (1) {
-//		/* Indicate we are open */
-//		if (C_BAUD(tty) && tty_port_initialized(port))
-//			tty_port_raise_dtr_rts(port);
+	while (1) {
+		/* Indicate we are open */
+		if (C_BAUD(tty) && tty_port_initialized(port))
+			tty_port_raise_dtr_rts(port);
 
-//		prepare_to_wait(&port->open_wait, &wait, TASK_INTERRUPTIBLE);
-//		/* Check for a hangup or uninitialised port.
-//							Return accordingly */
-//		if (tty_hung_up_p(filp) || !tty_port_initialized(port)) {
-//			if (port->flags & ASYNC_HUP_NOTIFY)
-//				retval = -EAGAIN;
-//			else
-//				retval = -ERESTARTSYS;
-//			break;
-//		}
-//		/*
-//		 * Probe the carrier. For devices with no carrier detect
-//		 * tty_port_carrier_raised will always return true.
-//		 * Never ask drivers if CLOCAL is set, this causes troubles
-//		 * on some hardware.
-//		 */
-//		if (do_clocal || tty_port_carrier_raised(port))
-//			break;
-//		if (signal_pending(current)) {
-//			retval = -ERESTARTSYS;
-//			break;
-//		}
-//		tty_unlock(tty);
-//		schedule();
-//		tty_lock(tty);
-//	}
-//	finish_wait(&port->open_wait, &wait);
+		prepare_to_wait(&port->open_wait, &wait, TASK_INTERRUPTIBLE);
+		/* Check for a hangup or uninitialised port.
+							Return accordingly */
+		if (tty_hung_up_p(filp) || !tty_port_initialized(port)) {
+			if (port->flags & ASYNC_HUP_NOTIFY)
+				retval = -EAGAIN;
+			else
+				retval = -ERESTARTSYS;
+			break;
+		}
+		/*
+		 * Probe the carrier. For devices with no carrier detect
+		 * tty_port_carrier_raised will always return true.
+		 * Never ask drivers if CLOCAL is set, this causes troubles
+		 * on some hardware.
+		 */
+		if (do_clocal || tty_port_carrier_raised(port))
+			break;
+		if (signal_pending(current)) {
+			retval = -ERESTARTSYS;
+			break;
+		}
+		tty_unlock(tty);
+		schedule();
+		tty_lock(tty);
+	}
+	finish_wait(&port->open_wait, &wait);
 
-//	/* Update counts. A parallel hangup will have set count to zero and
-//	   we must not mess that up further */
-//	spin_lock_irqsave(&port->lock, flags);
-//	if (!tty_hung_up_p(filp))
-//		port->count++;
-//	port->blocked_open--;
-//	spin_unlock_irqrestore(&port->lock, flags);
-//	if (retval == 0)
-//		tty_port_set_active(port, 1);
-//	return retval;
-//}
+	/* Update counts. A parallel hangup will have set count to zero and
+	   we must not mess that up further */
+	spin_lock_irqsave(&port->lock, flags);
+	if (!tty_hung_up_p(filp))
+		port->count++;
+	port->blocked_open--;
+	spin_unlock_irqrestore(&port->lock, flags);
+	if (retval == 0)
+		tty_port_set_active(port, 1);
+	return retval;
+}
 EXPORT_SYMBOL(tty_port_block_til_ready);
 
 static void tty_port_drain_delay(struct tty_port *port, struct tty_struct *tty)
@@ -623,7 +624,7 @@ void tty_port_close_end(struct tty_port *port, struct tty_struct *tty)
 }
 EXPORT_SYMBOL(tty_port_close_end);
 
-/*
+/**
  * tty_port_close
  *
  * Caller holds tty lock
@@ -659,7 +660,7 @@ int tty_port_install(struct tty_port *port, struct tty_driver *driver,
 }
 EXPORT_SYMBOL_GPL(tty_port_install);
 
-/*
+/**
  * tty_port_open
  *
  * Caller holds tty lock.

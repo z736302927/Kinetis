@@ -2,7 +2,7 @@
 #ifndef _LINUX_TTY_H
 #define _LINUX_TTY_H
 
-//#include <linux/fs.h>
+#include <linux/fs.h>
 #include <linux/major.h>
 #include <linux/termios.h>
 #include <linux/workqueue.h>
@@ -10,9 +10,9 @@
 #include <linux/tty_ldisc.h>
 #include <linux/mutex.h>
 #include <linux/tty_flags.h>
-//#include <linux/seq_file.h>
+#include <linux/seq_file.h>
 #include <uapi/linux/tty.h>
-//#include <linux/rwsem.h>
+#include <linux/rwsem.h>
 #include <linux/llist.h>
 
 
@@ -87,11 +87,11 @@ struct tty_bufhead {
 	struct work_struct work;
 	struct mutex	   lock;
 	atomic_t	   priority;
+	struct tty_buffer sentinel;
 	struct llist_head free;		/* Free queue head */
 	atomic_t	   mem_used;    /* In-use buffers excluding free list */
 	int		   mem_limit;
 	struct tty_buffer *tail;	/* Active buffer */
-	struct tty_buffer sentinel;
 };
 /*
  * When a break, frame error, or parity error happens, these codes are
@@ -228,6 +228,7 @@ struct tty_port_client_operations {
 extern const struct tty_port_client_operations tty_port_default_client_ops;
 
 struct tty_port {
+	struct tty_bufhead	buf;		/* Locked internally */
 	struct tty_struct	*tty;		/* Back pointer */
 	struct tty_struct	*itty;		/* internal back ptr */
 	const struct tty_port_operations *ops;	/* Port operations */
@@ -251,7 +252,6 @@ struct tty_port {
 						   set to size of fifo */
 	struct kref		kref;		/* Ref counter */
 	void 			*client_data;
-	struct tty_bufhead	buf;		/* Locked internally */
 };
 
 /* tty_port::iflags bits -- use atomic bit ops */
@@ -297,7 +297,7 @@ struct tty_struct {
 	struct mutex atomic_write_lock;
 	struct mutex legacy_mutex;
 	struct mutex throttle_mutex;
-//	struct rw_semaphore termios_rwsem;
+	struct rw_semaphore termios_rwsem;
 	struct mutex winsize_mutex;
 	spinlock_t ctrl_lock;
 	spinlock_t flow_lock;
@@ -389,9 +389,10 @@ static inline void tty_set_flow_change(struct tty_struct *tty, int val)
 	smp_mb();
 }
 
-static inline bool tty_io_nonblock(struct tty_struct *tty)
+static inline bool tty_io_nonblock(struct tty_struct *tty, struct file *file)
 {
-	return test_bit(TTY_LDISC_CHANGING, &tty->flags);
+	return file->f_flags & O_NONBLOCK ||
+		test_bit(TTY_LDISC_CHANGING, &tty->flags);
 }
 
 static inline bool tty_io_error(struct tty_struct *tty)
@@ -403,8 +404,6 @@ static inline bool tty_throttled(struct tty_struct *tty)
 {
 	return test_bit(TTY_THROTTLED, &tty->flags);
 }
-
-#define CONFIG_TTY
 
 #ifdef CONFIG_TTY
 extern void tty_kref_put(struct tty_struct *tty);
@@ -422,7 +421,7 @@ extern void tty_kclose(struct tty_struct *tty);
 extern int tty_dev_name_to_number(const char *name, dev_t *number);
 extern int tty_ldisc_lock(struct tty_struct *tty, unsigned long timeout);
 extern void tty_ldisc_unlock(struct tty_struct *tty);
-//extern ssize_t redirected_tty_write(struct kiocb *, struct iov_iter *);
+extern ssize_t redirected_tty_write(struct kiocb *, struct iov_iter *);
 #else
 static inline void tty_kref_put(struct tty_struct *tty)
 { }
@@ -610,64 +609,82 @@ static inline struct tty_port *tty_port_get(struct tty_port *port)
 }
 
 /* If the cts flow control is enabled, return true. */
-static inline bool tty_port_cts_enabled(const struct tty_port *port)
+static inline bool tty_port_cts_enabled(struct tty_port *port)
 {
 	return test_bit(TTY_PORT_CTS_FLOW, &port->iflags);
 }
 
 static inline void tty_port_set_cts_flow(struct tty_port *port, bool val)
 {
-	assign_bit(TTY_PORT_CTS_FLOW, &port->iflags, val);
+	if (val)
+		set_bit(TTY_PORT_CTS_FLOW, &port->iflags);
+	else
+		clear_bit(TTY_PORT_CTS_FLOW, &port->iflags);
 }
 
-static inline bool tty_port_active(const struct tty_port *port)
+static inline bool tty_port_active(struct tty_port *port)
 {
 	return test_bit(TTY_PORT_ACTIVE, &port->iflags);
 }
 
 static inline void tty_port_set_active(struct tty_port *port, bool val)
 {
-	assign_bit(TTY_PORT_ACTIVE, &port->iflags, val);
+	if (val)
+		set_bit(TTY_PORT_ACTIVE, &port->iflags);
+	else
+		clear_bit(TTY_PORT_ACTIVE, &port->iflags);
 }
 
-static inline bool tty_port_check_carrier(const struct tty_port *port)
+static inline bool tty_port_check_carrier(struct tty_port *port)
 {
 	return test_bit(TTY_PORT_CHECK_CD, &port->iflags);
 }
 
 static inline void tty_port_set_check_carrier(struct tty_port *port, bool val)
 {
-	assign_bit(TTY_PORT_CHECK_CD, &port->iflags, val);
+	if (val)
+		set_bit(TTY_PORT_CHECK_CD, &port->iflags);
+	else
+		clear_bit(TTY_PORT_CHECK_CD, &port->iflags);
 }
 
-static inline bool tty_port_suspended(const struct tty_port *port)
+static inline bool tty_port_suspended(struct tty_port *port)
 {
 	return test_bit(TTY_PORT_SUSPENDED, &port->iflags);
 }
 
 static inline void tty_port_set_suspended(struct tty_port *port, bool val)
 {
-	assign_bit(TTY_PORT_SUSPENDED, &port->iflags, val);
+	if (val)
+		set_bit(TTY_PORT_SUSPENDED, &port->iflags);
+	else
+		clear_bit(TTY_PORT_SUSPENDED, &port->iflags);
 }
 
-static inline bool tty_port_initialized(const struct tty_port *port)
+static inline bool tty_port_initialized(struct tty_port *port)
 {
 	return test_bit(TTY_PORT_INITIALIZED, &port->iflags);
 }
 
 static inline void tty_port_set_initialized(struct tty_port *port, bool val)
 {
-	assign_bit(TTY_PORT_INITIALIZED, &port->iflags, val);
+	if (val)
+		set_bit(TTY_PORT_INITIALIZED, &port->iflags);
+	else
+		clear_bit(TTY_PORT_INITIALIZED, &port->iflags);
 }
 
-static inline bool tty_port_kopened(const struct tty_port *port)
+static inline bool tty_port_kopened(struct tty_port *port)
 {
 	return test_bit(TTY_PORT_KOPENED, &port->iflags);
 }
 
 static inline void tty_port_set_kopened(struct tty_port *port, bool val)
 {
-	assign_bit(TTY_PORT_KOPENED, &port->iflags, val);
+	if (val)
+		set_bit(TTY_PORT_KOPENED, &port->iflags);
+	else
+		clear_bit(TTY_PORT_KOPENED, &port->iflags);
 }
 
 extern struct tty_struct *tty_port_tty_get(struct tty_port *port);
@@ -703,7 +720,6 @@ extern int __must_check tty_ldisc_init(struct tty_struct *tty);
 extern void tty_ldisc_deinit(struct tty_struct *tty);
 extern int tty_ldisc_receive_buf(struct tty_ldisc *ld, const unsigned char *p,
 				 char *f, int count);
-extern void tty_sysctl_init(void);
 
 /* n_tty.c */
 extern void n_tty_inherit_ops(struct tty_ldisc_ops *ops);

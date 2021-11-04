@@ -10,6 +10,7 @@
 #include <linux/device.h>
 #include <linux/cdev.h>
 #include <linux/iio/types.h>
+#include <linux/of.h>
 /* IIO TODO LIST */
 /*
  * Provide means of adjusting timer accuracy.
@@ -313,8 +314,6 @@ static inline bool iio_channel_has_available(const struct iio_chan_spec *chan,
 
 s64 iio_get_time_ns(const struct iio_dev *indio_dev);
 unsigned int iio_get_time_res(const struct iio_dev *indio_dev);
-int __init iio_init(void);
-void __exit iio_exit(void);
 
 /* Device operating modes */
 #define INDIO_DIRECT_MODE		0x01
@@ -455,8 +454,8 @@ struct iio_info {
 	int (*debugfs_reg_access)(struct iio_dev *indio_dev,
 				  unsigned reg, unsigned writeval,
 				  unsigned *readval);
-//	int (*of_xlate)(struct iio_dev *indio_dev,
-//			const struct of_phandle_args *iiospec);
+	int (*of_xlate)(struct iio_dev *indio_dev,
+			const struct of_phandle_args *iiospec);
 	int (*hwfifo_set_watermark)(struct iio_dev *indio_dev, unsigned val);
 	int (*hwfifo_flush_to_buffer)(struct iio_dev *indio_dev,
 				      unsigned count);
@@ -529,6 +528,7 @@ struct iio_dev {
 
 	struct iio_buffer		*buffer;
 	int				scan_bytes;
+	struct mutex			mlock;
 
 	const unsigned long		*available_scan_masks;
 	unsigned			masklength;
@@ -547,6 +547,7 @@ struct iio_dev {
 	const char			*label;
 	const struct iio_info		*info;
 	clockid_t			clock_id;
+	struct mutex			info_exist_lock;
 	const struct iio_buffer_setup_ops	*setup_ops;
 	struct cdev			chrdev;
 #define IIO_MAX_GROUPS 6
@@ -596,8 +597,8 @@ extern struct bus_type iio_bus_type;
  **/
 static inline void iio_device_put(struct iio_dev *indio_dev)
 {
-//	if (indio_dev)
-//		put_device(&indio_dev->dev);
+	if (indio_dev)
+		put_device(&indio_dev->dev);
 }
 
 /**
@@ -630,8 +631,7 @@ static inline struct iio_dev *dev_to_iio_dev(struct device *dev)
  **/
 static inline struct iio_dev *iio_device_get(struct iio_dev *indio_dev)
 {
-//	return indio_dev ? dev_to_iio_dev(get_device(&indio_dev->dev)) : NULL;
-	return indio_dev ? dev_to_iio_dev(&indio_dev->dev) : NULL;
+	return indio_dev ? dev_to_iio_dev(get_device(&indio_dev->dev)) : NULL;
 }
 
 /**
@@ -680,7 +680,7 @@ static inline void *iio_device_get_drvdata(const struct iio_dev *indio_dev)
 }
 
 /* Can we make this smaller? */
-#define IIO_ALIGN 32
+#define IIO_ALIGN L1_CACHE_BYTES
 struct iio_dev *iio_device_alloc(struct device *parent, int sizeof_priv);
 
 /* The information at the returned address is guaranteed to be cacheline aligned */

@@ -10,17 +10,21 @@
 #ifndef _LINUX_KLIST_H
 #define _LINUX_KLIST_H
 
+#include <linux/spinlock.h>
+#include <linux/kref.h>
 #include <linux/list.h>
 
 struct klist_node;
 struct klist {
+	spinlock_t		k_lock;
 	struct list_head	k_list;
 	void			(*get)(struct klist_node *);
 	void			(*put)(struct klist_node *);
 } __attribute__ ((aligned (sizeof(void *))));
 
 #define KLIST_INIT(_name, _get, _put)					\
-	{ .k_list	= LIST_HEAD_INIT(_name.k_list),			\
+	{ .k_lock	= __SPIN_LOCK_UNLOCKED(_name.k_lock),		\
+	  .k_list	= LIST_HEAD_INIT(_name.k_list),			\
 	  .get		= _get,						\
 	  .put		= _put, }
 
@@ -33,6 +37,7 @@ extern void klist_init(struct klist *k, void (*get)(struct klist_node *),
 struct klist_node {
 	void			*n_klist;	/* never access directly */
 	struct list_head	n_node;
+	struct kref		n_ref;
 };
 
 extern void klist_add_tail(struct klist_node *n, struct klist *k);

@@ -8,12 +8,14 @@
  * <kmalkki@cc.hut.fi> and Jean Delvare <jdelvare@suse.de>
  */
 
+#include <generated/deconfig.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/errno.h>
+#include <linux/sched.h>
 #include <linux/i2c.h>
 #include <linux/i2c-algo-bit.h>
-#include <linux/jiffies.h>
 
 
 /* ----- global defines ----------------------------------------------- */
@@ -30,14 +32,16 @@
 #endif /* DEBUG */
 
 /* ----- global variables ---------------------------------------------	*/
-/* lines testing - 0 off; 1 report; 2 fail if stuck */
+
 static int bit_test;	/* see if the line-setting functions work	*/
+module_param(bit_test, int, S_IRUGO);
+MODULE_PARM_DESC(bit_test, "lines testing - 0 off; 1 report; 2 fail if stuck");
 
 #ifdef DEBUG
 static int i2c_debug = 1;
-//module_param(i2c_debug, int, S_IRUGO | S_IWUSR);
-//MODULE_PARM_DESC(i2c_debug,
-//		 "debug level - 0 off; 1 normal; 2 verbose; 3 very verbose");
+module_param(i2c_debug, int, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(i2c_debug,
+		 "debug level - 0 off; 1 normal; 2 verbose; 3 very verbose");
 #endif
 
 /* --- setting states on the bus with the right timing: ---------------	*/
@@ -94,6 +98,7 @@ static int sclhi(struct i2c_algo_bit_data *adap)
 				break;
 			return -ETIMEDOUT;
 		}
+		cpu_relax();
 	}
 #ifdef DEBUG
 	if (jiffies != start && i2c_debug >= 3)
@@ -340,6 +345,7 @@ static int try_address(struct i2c_adapter *i2c_adap,
 		bit_dbg(3, &i2c_adap->dev, "emitting stop condition\n");
 		i2c_stop(adap);
 		udelay(adap->udelay);
+		yield();
 		bit_dbg(3, &i2c_adap->dev, "emitting start condition\n");
 		i2c_start(adap);
 	}
@@ -686,3 +692,7 @@ int i2c_bit_add_numbered_bus(struct i2c_adapter *adap)
 	return __i2c_bit_add_bus(adap, i2c_add_numbered_adapter);
 }
 EXPORT_SYMBOL(i2c_bit_add_numbered_bus);
+
+MODULE_AUTHOR("Simon G. Vogl <simon@tk.uni-linz.ac.at>");
+MODULE_DESCRIPTION("I2C-Bus bit-banging algorithm");
+MODULE_LICENSE("GPL");

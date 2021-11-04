@@ -6,7 +6,6 @@
 
 #include <linux/compiler.h>
 #include <linux/log2.h>
-#include <asm/page.h>
 
 /**
  * get_order - Determine the allocation order of a memory size

@@ -11,11 +11,10 @@
 
 
 #ifndef __KERNEL__
-//#include <sys/time.h>
-//#include <sys/ioctl.h>
-//#include <sys/types.h>
+#include <sys/time.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
 #include <linux/types.h>
-#include <linux/time.h>
 #endif
 
 #include "input-event-codes.h"

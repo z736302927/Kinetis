@@ -49,11 +49,11 @@
 #define __SD_DISKIO_H
 
 /* Includes ------------------------------------------------------------------*/
-#include "ff_gen_drv.h"
+#include "../ff_gen_drv.h"
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */
-extern Diskio_drvTypeDef  SD_Driver;
+extern const Diskio_drvTypeDef  SD_Driver;
 
 #endif /* __SD_DISKIO_H */
 

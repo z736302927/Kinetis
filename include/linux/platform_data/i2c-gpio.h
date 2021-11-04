@@ -7,10 +7,6 @@
 #ifndef _LINUX_I2C_GPIO_H
 #define _LINUX_I2C_GPIO_H
 
-#include <linux/init.h>
-#include <linux/i2c.h>
-#include <linux/i2c-algo-bit.h>
-
 /**
  * struct i2c_gpio_platform_data - Platform-dependent data for i2c-gpio
  * @udelay: signal toggle delay. SCL frequency is (500 / udelay) kHz
@@ -31,22 +27,5 @@ struct i2c_gpio_platform_data {
 	unsigned int	scl_is_open_drain:1;
 	unsigned int	scl_is_output_only:1;
 };
-
-struct i2c_gpio_private_data {
-	struct gpio_desc *sda;
-	struct gpio_desc *scl;
-	struct i2c_adapter adap;
-	struct i2c_algo_bit_data bit_data;
-	struct i2c_gpio_platform_data pdata;
-#ifdef CONFIG_I2C_GPIO_FAULT_INJECTOR
-	struct dentry *debug_dir;
-	/* these must be protected by bus lock */
-	struct completion scl_irq_completion;
-	u64 scl_irq_data;
-#endif
-};
-
-int __init i2c_gpio_init(void);
-void __exit i2c_gpio_exit(void);
 
 #endif /* _LINUX_I2C_GPIO_H */

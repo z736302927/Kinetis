@@ -20,8 +20,8 @@
  * under normal circumstances, used to verify that nobody uses
  * non-initialized list entries.
  */
-#define LIST_POISON1  ((void *) (0x100 + POISON_POINTER_DELTA))
-#define LIST_POISON2  ((void *) (0x122 + POISON_POINTER_DELTA))
+#define LIST_POISON1  ((void *) 0x100 + POISON_POINTER_DELTA)
+#define LIST_POISON2  ((void *) 0x122 + POISON_POINTER_DELTA)
 
 /********** include/linux/timer.h **********/
 #define TIMER_ENTRY_STATIC	((void *) 0x300 + POISON_POINTER_DELTA)

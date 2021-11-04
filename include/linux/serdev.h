@@ -190,9 +190,7 @@ static inline int serdev_controller_receive_buf(struct serdev_controller *ctrl,
 	return serdev->ops->receive_buf(serdev, data, count);
 }
 
-#define CONFIG_SERIAL_DEV_BUS
-
-#ifdef CONFIG_SERIAL_DEV_BUS
+#if IS_ENABLED(CONFIG_SERIAL_DEV_BUS)
 
 int serdev_device_open(struct serdev_device *);
 void serdev_device_close(struct serdev_device *);

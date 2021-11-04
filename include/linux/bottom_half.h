@@ -12,6 +12,11 @@ static __always_inline void __local_bh_disable_ip(unsigned long ip, unsigned int
 	preempt_count_add(cnt);
 	barrier();
 }
+static __always_inline void __local_bh_enable_ip(unsigned long ip, unsigned int cnt)
+{
+	preempt_count_sub(cnt);
+	barrier();
+}
 #endif
 
 static inline void local_bh_disable(void)
@@ -20,7 +25,7 @@ static inline void local_bh_disable(void)
 }
 
 extern void _local_bh_enable(void);
-extern void __local_bh_enable_ip(unsigned long ip, unsigned int cnt);
+//extern void __local_bh_enable_ip(unsigned long ip, unsigned int cnt);
 
 static inline void local_bh_enable_ip(unsigned long ip)
 {

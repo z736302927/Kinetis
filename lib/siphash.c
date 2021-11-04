@@ -10,6 +10,7 @@
  * hashtables.
  */
 
+#include <generated/deconfig.h> 
 #include <linux/siphash.h>
 #include <asm/unaligned.h>
 

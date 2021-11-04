@@ -10,13 +10,14 @@
 #include <linux/bug.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
-//#include <linux/once.h>
+#include <linux/once.h>
 
 #include <uapi/linux/random.h>
 
 struct random_ready_callback {
 	struct list_head list;
 	void (*func)(struct random_ready_callback *rdy);
+	struct module *owner;
 };
 
 extern void add_device_randomness(const void *, unsigned int);
@@ -116,8 +117,6 @@ unsigned long randomize_page(unsigned long start, unsigned long range);
  */
 #include <linux/prandom.h>
 
-//#define CONFIG_ARCH_RANDOM
-
 #ifdef CONFIG_ARCH_RANDOM
 # include <asm/archrandom.h>
 #else
@@ -146,7 +145,7 @@ static inline bool __must_check arch_get_random_seed_int(unsigned int *v)
 #ifndef arch_get_random_seed_long_early
 static inline bool __init arch_get_random_seed_long_early(unsigned long *v)
 {
-//	WARN_ON(system_state != SYSTEM_BOOTING);
+	WARN_ON(system_state != SYSTEM_BOOTING);
 	return arch_get_random_seed_long(v);
 }
 #endif
@@ -154,11 +153,9 @@ static inline bool __init arch_get_random_seed_long_early(unsigned long *v)
 #ifndef arch_get_random_long_early
 static inline bool __init arch_get_random_long_early(unsigned long *v)
 {
-//	WARN_ON(system_state != SYSTEM_BOOTING);
+	WARN_ON(system_state != SYSTEM_BOOTING);
 	return arch_get_random_long(v);
 }
 #endif
-
-int __init prandom_init_late(void);
 
 #endif /* _LINUX_RANDOM_H */

@@ -9,15 +9,14 @@
 #define _LINUX_PRANDOM_H
 
 #include <linux/types.h>
-#include <linux/bitops.h>
-//#include <linux/percpu.h>
+#include <linux/percpu.h>
 
 u32 prandom_u32(void);
 void prandom_bytes(void *buf, size_t nbytes);
 void prandom_seed(u32 seed);
 void prandom_reseed_late(void);
 
-//DECLARE_PER_CPU(unsigned long, net_rand_noise);
+DECLARE_PER_CPU(unsigned long, net_rand_noise);
 
 #define PRANDOM_ADD_NOISE(a, b, c, d) \
 	prandom_u32_add_noise((unsigned long)(a), (unsigned long)(b), \
@@ -64,9 +63,9 @@ static inline void prandom_u32_add_noise(unsigned long a, unsigned long b,
 	 * This is not used cryptographically; it's just
 	 * a convenient 4-word hash function. (3 xor, 2 add, 2 rol)
 	 */
-//	a ^= raw_cpu_read(net_rand_noise);
+	a ^= raw_cpu_read(net_rand_noise);
 	PRND_SIPROUND(a, b, c, d);
-//	raw_cpu_write(net_rand_noise, d);
+	raw_cpu_write(net_rand_noise, d);
 }
 
 struct rnd_state {

@@ -3,9 +3,8 @@
 #define __LINUX_PWM_H
 
 #include <linux/err.h>
-#include <linux/kernel.h>
-//#include <linux/mutex.h>
-//#include <linux/of.h>
+#include <linux/mutex.h>
+#include <linux/of.h>
 
 struct pwm_capture;
 struct seq_file;
@@ -293,8 +292,8 @@ struct pwm_chip {
 	int base;
 	unsigned int npwm;
 
-//	struct pwm_device * (*of_xlate)(struct pwm_chip *pc,
-//					const struct of_phandle_args *args);
+	struct pwm_device * (*of_xlate)(struct pwm_chip *pc,
+					const struct of_phandle_args *args);
 	unsigned int of_pwm_n_cells;
 
 	/* only used internally by the PWM framework */
@@ -312,9 +311,7 @@ struct pwm_capture {
 	unsigned int duty_cycle;
 };
 
-#define CONFIG_PWM
-
-#ifdef CONFIG_PWM
+#if IS_ENABLED(CONFIG_PWM)
 /* PWM user APIs */
 struct pwm_device *pwm_request(int pwm_id, const char *label);
 void pwm_free(struct pwm_device *pwm);
@@ -403,20 +400,20 @@ struct pwm_device *pwm_request_from_chip(struct pwm_chip *chip,
 					 unsigned int index,
 					 const char *label);
 
-//struct pwm_device *of_pwm_xlate_with_flags(struct pwm_chip *pc,
-//		const struct of_phandle_args *args);
+struct pwm_device *of_pwm_xlate_with_flags(struct pwm_chip *pc,
+		const struct of_phandle_args *args);
 
 struct pwm_device *pwm_get(struct device *dev, const char *con_id);
-//struct pwm_device *of_pwm_get(struct device *dev, struct device_node *np,
-//			      const char *con_id);
+struct pwm_device *of_pwm_get(struct device *dev, struct device_node *np,
+			      const char *con_id);
 void pwm_put(struct pwm_device *pwm);
 
 struct pwm_device *devm_pwm_get(struct device *dev, const char *con_id);
-//struct pwm_device *devm_of_pwm_get(struct device *dev, struct device_node *np,
-//				   const char *con_id);
-//struct pwm_device *devm_fwnode_pwm_get(struct device *dev,
-//				       struct fwnode_handle *fwnode,
-//				       const char *con_id);
+struct pwm_device *devm_of_pwm_get(struct device *dev, struct device_node *np,
+				   const char *con_id);
+struct pwm_device *devm_fwnode_pwm_get(struct device *dev,
+				       struct fwnode_handle *fwnode,
+				       const char *con_id);
 void devm_pwm_put(struct device *dev, struct pwm_device *pwm);
 #else
 static inline struct pwm_device *pwm_request(int pwm_id, const char *label)
@@ -594,7 +591,7 @@ struct pwm_lookup {
 	PWM_LOOKUP_WITH_MODULE(_provider, _index, _dev_id, _con_id, _period, \
 			       _polarity, NULL)
 
-#ifdef CONFIG_PWM
+#if IS_ENABLED(CONFIG_PWM)
 void pwm_add_table(struct pwm_lookup *table, size_t num);
 void pwm_remove_table(struct pwm_lookup *table, size_t num);
 #else

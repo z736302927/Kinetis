@@ -32,16 +32,16 @@
  * s1 > 1, s2 > 7, s3 > 15, s4 > 127.
  */
 
+#include <generated/deconfig.h> 
 #include <linux/types.h>
-//#include <linux/percpu.h>
+#include <linux/percpu.h>
 #include <linux/export.h>
 #include <linux/jiffies.h>
 #include <linux/random.h>
-#include <linux/timer.h>
-//#include <linux/sched.h>
+#include <linux/sched.h>
 #include <linux/bitops.h>
 #include <asm/unaligned.h>
-//#include <trace/events/random.h>
+#include <trace/events/random.h>
 
 /**
  *	prandom_u32_state - seeded pseudo-random number generator.
@@ -112,8 +112,8 @@ void prandom_seed_full_state(struct rnd_state __percpu *pcpu_state)
 {
 	int i;
 
-//	for_each_possible_cpu(i) {
-		struct rnd_state *state = pcpu_state;
+	for_each_possible_cpu(i) {
+		struct rnd_state *state = per_cpu_ptr(pcpu_state, i);
 		u32 seeds[4];
 
 		get_random_bytes(&seeds, sizeof(seeds));
@@ -123,7 +123,7 @@ void prandom_seed_full_state(struct rnd_state __percpu *pcpu_state)
 		state->s4 = __seed(seeds[3], 128U);
 
 		prandom_warmup(state);
-//	}
+	}
 }
 EXPORT_SYMBOL(prandom_seed_full_state);
 
@@ -338,9 +338,9 @@ struct siprand_state {
 	unsigned long v3;
 };
 
-static struct siprand_state net_rand_state __latent_entropy;
-unsigned long net_rand_noise;
-//EXPORT_PER_CPU_SYMBOL(net_rand_noise);
+static DEFINE_PER_CPU(struct siprand_state, net_rand_state) __latent_entropy;
+DEFINE_PER_CPU(unsigned long, net_rand_noise);
+EXPORT_PER_CPU_SYMBOL(net_rand_noise);
 
 /*
  * This is the core CPRNG function.  As "pseudorandom", this is not used
@@ -364,7 +364,7 @@ unsigned long net_rand_noise;
 static inline u32 siprand_u32(struct siprand_state *s)
 {
 	unsigned long v0 = s->v0, v1 = s->v1, v2 = s->v2, v3 = s->v3;
-	unsigned long n = net_rand_noise;
+	unsigned long n = raw_cpu_read(net_rand_noise);
 
 	v3 ^= n;
 	PRND_SIPROUND(v0, v1, v2, v3);
@@ -384,11 +384,11 @@ static inline u32 siprand_u32(struct siprand_state *s)
  */
 u32 prandom_u32(void)
 {
-	struct siprand_state *state = &net_rand_state;
+	struct siprand_state *state = get_cpu_ptr(&net_rand_state);
 	u32 res = siprand_u32(state);
 
-//	trace_prandom_u32(res);
-//	put_cpu_ptr(&net_rand_state);
+	trace_prandom_u32(res);
+	put_cpu_ptr(&net_rand_state);
 	return res;
 }
 EXPORT_SYMBOL(prandom_u32);
@@ -400,7 +400,7 @@ EXPORT_SYMBOL(prandom_u32);
  */
 void prandom_bytes(void *buf, size_t bytes)
 {
-	struct siprand_state *state = &net_rand_state;
+	struct siprand_state *state = get_cpu_ptr(&net_rand_state);
 	u8 *ptr = buf;
 
 	while (bytes >= sizeof(u32)) {
@@ -417,7 +417,7 @@ void prandom_bytes(void *buf, size_t bytes)
 			rem >>= BITS_PER_BYTE;
 		} while (--bytes > 0);
 	}
-//	put_cpu_ptr(&net_rand_state);
+	put_cpu_ptr(&net_rand_state);
 }
 EXPORT_SYMBOL(prandom_bytes);
 
@@ -436,8 +436,8 @@ void prandom_seed(u32 entropy)
 
 	add_device_randomness(&entropy, sizeof(entropy));
 
-//	for_each_possible_cpu(i) {
-		struct siprand_state *state = &net_rand_state;
+	for_each_possible_cpu(i) {
+		struct siprand_state *state = per_cpu_ptr(&net_rand_state, i);
 		unsigned long v0 = state->v0, v1 = state->v1;
 		unsigned long v2 = state->v2, v3 = state->v3;
 
@@ -452,7 +452,7 @@ void prandom_seed(u32 entropy)
 		WRITE_ONCE(state->v1, v1);
 		WRITE_ONCE(state->v2, v2);
 		WRITE_ONCE(state->v3, v3);
-//	}
+	}
 }
 EXPORT_SYMBOL(prandom_seed);
 
@@ -472,7 +472,7 @@ static int __init prandom_init_early(void)
 	v2 = v0 ^ PRND_K0;
 	v3 = v1 ^ PRND_K1;
 
-//	for_each_possible_cpu(i) {
+	for_each_possible_cpu(i) {
 		struct siprand_state *state;
 
 		v3 ^= i;
@@ -480,10 +480,10 @@ static int __init prandom_init_early(void)
 		PRND_SIPROUND(v0, v1, v2, v3);
 		v0 ^= i;
 
-		state = &net_rand_state;
+		state = per_cpu_ptr(&net_rand_state, i);
 		state->v0 = v0;  state->v1 = v1;
 		state->v2 = v2;  state->v3 = v3;
-//	}
+	}
 
 	return 0;
 }
@@ -505,7 +505,7 @@ static void prandom_reseed(struct timer_list *unused)
 	 * No locking on the CPUs, but then somewhat random results are,
 	 * well, expected.
 	 */
-//	for_each_possible_cpu(i) {
+	for_each_possible_cpu(i) {
 		struct siprand_state *state;
 		unsigned long v0 = get_random_long(), v2 = v0 ^ PRND_K0;
 		unsigned long v1 = get_random_long(), v3 = v1 ^ PRND_K1;
@@ -536,12 +536,12 @@ static void prandom_reseed(struct timer_list *unused)
 		 * To ensure that never happens, ensure the state
 		 * we write contains no zero words.
 		 */
-		state = &net_rand_state;
+		state = per_cpu_ptr(&net_rand_state, i);
 		WRITE_ONCE(state->v0, v0 ? v0 : -1ul);
 		WRITE_ONCE(state->v1, v1 ? v1 : -1ul);
 		WRITE_ONCE(state->v2, v2 ? v2 : -1ul);
 		WRITE_ONCE(state->v3, v3 ? v3 : -1ul);
-//	}
+	}
 
 	/* reseed every ~60 seconds, in [40 .. 80) interval with slack */
 	expires = round_jiffies(jiffies + 40 * HZ + prandom_u32_max(40 * HZ));
@@ -617,7 +617,7 @@ core_initcall(prandom32_state_selftest);
  * Start periodic full reseeding as soon as strong
  * random numbers are available.
  */
-int __init prandom_init_late(void)
+static int __init prandom_init_late(void)
 {
 	static struct random_ready_callback random_ready = {
 		.func = prandom_timer_start

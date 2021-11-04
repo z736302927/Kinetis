@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 #ifndef _KERNEL_TIME_TIMEKEEPING_H
 #define _KERNEL_TIME_TIMEKEEPING_H
-
-#include <linux/ktime.h>
-
 /*
  * Internal interfaces for kernel/time/
  */
@@ -28,8 +25,8 @@ static inline void sched_clock_resume(void) { }
 extern void do_timer(unsigned long ticks);
 extern void update_wall_time(void);
 
-//extern raw_spinlock_t jiffies_lock;
-//extern seqcount_t jiffies_seq;
+extern raw_spinlock_t jiffies_lock;
+extern seqcount_t jiffies_seq;
 
 #define CS_NAME_LEN	32
 

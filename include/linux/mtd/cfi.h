@@ -15,8 +15,6 @@
 #include <linux/mtd/cfi_endian.h>
 #include <linux/mtd/xip.h>
 
-#define CONFIG_MTD_CFI_I1
-
 #ifdef CONFIG_MTD_CFI_I1
 #define cfi_interleave(cfi) 1
 #define cfi_interleave_is_1(cfi) (cfi_interleave(cfi) == 1)

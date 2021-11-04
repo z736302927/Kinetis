@@ -42,7 +42,7 @@
 
 /* serialize device access against a spin_unlock, usually handled there. */
 #ifndef __io_aw
-#define __io_aw()      //mmiowb_set_pending()
+#define __io_aw()      mmiowb_set_pending()
 #endif
 
 #ifndef __io_pbw
@@ -58,7 +58,7 @@
 #endif
 
 #ifndef __io_par
-#define __io_par(v)    __io_ar(v)
+#define __io_par(v)     __io_ar(v)
 #endif
 
 
@@ -441,7 +441,7 @@ static inline void writesq(volatile void __iomem *addr, const void *buffer,
 #endif /* CONFIG_64BIT */
 
 #ifndef PCI_IOBASE
-#define PCI_IOBASE ((char __iomem *)0)
+#define PCI_IOBASE ((void __iomem *)0)
 #endif
 
 #ifndef IO_SPACE_LIMIT
@@ -906,7 +906,7 @@ static inline void iowrite64_rep(volatile void __iomem *addr,
 #endif /* CONFIG_64BIT */
 #endif /* CONFIG_GENERIC_IOMAP */
 
-//#ifdef __KERNEL__
+#ifdef __KERNEL__
 
 #include <linux/vmalloc.h>
 #define __io_virt(x) ((void __force *)(x))
@@ -990,23 +990,6 @@ static inline void __iomem *ioremap(phys_addr_t addr, size_t size)
 #ifndef ioremap_uc
 #define ioremap_uc ioremap_uc
 static inline void __iomem *ioremap_uc(phys_addr_t offset, size_t size)
-{
-	return NULL;
-}
-#endif
-
-/*
- * ioremap_np needs an explicit architecture implementation, as it
- * requests stronger semantics than regular ioremap(). Portable drivers
- * should instead use one of the higher-level abstractions, like
- * devm_ioremap_resource(), to choose the correct variant for any given
- * device and bus. Portable drivers with a good reason to want non-posted
- * write semantics should always provide an ioremap() fallback in case
- * ioremap_np() is not available.
- */
-#ifndef ioremap_np
-#define ioremap_np ioremap_np
-static inline void __iomem *ioremap_np(phys_addr_t offset, size_t size)
 {
 	return NULL;
 }
@@ -1154,6 +1137,6 @@ static inline void memcpy_toio(volatile void __iomem *addr, const void *buffer,
 }
 #endif
 
-//#endif /* __KERNEL__ */
+#endif /* __KERNEL__ */
 
 #endif /* __ASM_GENERIC_IO_H */

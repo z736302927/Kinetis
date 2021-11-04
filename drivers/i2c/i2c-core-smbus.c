@@ -10,14 +10,17 @@
  * SMBus 2.0 support by Mark Studebaker <mdsxyz123@yahoo.com> and
  * Jean Delvare <jdelvare@suse.de>
  */
+#include <generated/deconfig.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/i2c.h>
 #include <linux/i2c-smbus.h>
 #include <linux/slab.h>
-#include <linux/jiffies.h>
 
 #include "i2c-core.h"
+
+#define CREATE_TRACE_POINTS
+#include <trace/events/smbus.h>
 
 
 /* The SMBus parts */
@@ -533,8 +536,13 @@ s32 i2c_smbus_xfer(struct i2c_adapter *adapter, u16 addr,
 {
 	s32 res;
 
+	res = __i2c_lock_bus_helper(adapter);
+	if (res)
+		return res;
+
 	res = __i2c_smbus_xfer(adapter, addr, flags, read_write,
 			       command, protocol, data);
+	i2c_unlock_bus(adapter, I2C_LOCK_SEGMENT);
 
 	return res;
 }
@@ -551,15 +559,27 @@ s32 __i2c_smbus_xfer(struct i2c_adapter *adapter, u16 addr,
 	int try;
 	s32 res;
 
+	res = __i2c_check_suspended(adapter);
+	if (res)
+		return res;
+
+	/* If enabled, the following two tracepoints are conditional on
+	 * read_write and protocol.
+	 */
+	trace_smbus_write(adapter, addr, flags, read_write,
+			  command, protocol, data);
+	trace_smbus_read(adapter, addr, flags, read_write,
+			 command, protocol);
+
 	flags &= I2C_M_TEN | I2C_CLIENT_PEC | I2C_CLIENT_SCCB;
 
 	xfer_func = adapter->algo->smbus_xfer;
-//	if (i2c_in_atomic_xfer_mode()) {
-//		if (adapter->algo->smbus_xfer_atomic)
-//			xfer_func = adapter->algo->smbus_xfer_atomic;
-//		else if (adapter->algo->master_xfer_atomic)
-//			xfer_func = NULL; /* fallback to I2C emulation */
-//	}
+	if (i2c_in_atomic_xfer_mode()) {
+		if (adapter->algo->smbus_xfer_atomic)
+			xfer_func = adapter->algo->smbus_xfer_atomic;
+		else if (adapter->algo->master_xfer_atomic)
+			xfer_func = NULL; /* fallback to I2C emulation */
+	}
 
 	if (xfer_func) {
 		/* Retry automatically on arbitration loss */
@@ -586,6 +606,11 @@ s32 __i2c_smbus_xfer(struct i2c_adapter *adapter, u16 addr,
 				      command, protocol, data);
 
 trace:
+	/* If enabled, the reply tracepoint is conditional on read_write. */
+	trace_smbus_reply(adapter, addr, flags, read_write,
+			  command, protocol, data, res);
+	trace_smbus_result(adapter, addr, flags, read_write,
+			   command, protocol, res);
 
 	return res;
 }
@@ -675,7 +700,7 @@ struct i2c_client *i2c_new_smbus_alert_device(struct i2c_adapter *adapter,
 }
 EXPORT_SYMBOL_GPL(i2c_new_smbus_alert_device);
 
-#if CONFIG_I2C_SMBUS && ICONFIG_OF
+#if IS_ENABLED(CONFIG_I2C_SMBUS) && IS_ENABLED(CONFIG_OF)
 int of_i2c_setup_smbus_alert(struct i2c_adapter *adapter)
 {
 	int irq;

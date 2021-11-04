@@ -45,7 +45,7 @@
  * ARRAY_SIZE - get the number of elements in array @arr
  * @arr: array to be sized
  */
-#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
 
 #define u64_to_user_ptr(x) (		\
 {					\
@@ -318,7 +318,7 @@ static inline void might_fault(void) { }
 extern struct atomic_notifier_head panic_notifier_list;
 extern long (*panic_blink)(int state);
 __printf(1, 2)
-void panic(const char *fmt, ...);
+void panic(const char *fmt, ...) __noreturn __cold;
 void nmi_panic(struct pt_regs *regs, const char *msg);
 extern void oops_enter(void);
 extern void oops_exit(void);
@@ -853,7 +853,7 @@ static inline void ftrace_dump(enum ftrace_dump_mode oops_dump_mode) { }
 	BUILD_BUG_ON_MSG(!__same_type(*(ptr), ((type *)0)->member) &&	\
 			 !__same_type(*(ptr), void),			\
 			 "pointer type mismatch in container_of()");	\
-	((type *)((char *)__mptr - offsetof(type, member))); })
+	((type *)(__mptr - offsetof(type, member))); })
 
 /**
  * container_of_safe - cast a member of a structure out to the containing structure
@@ -869,7 +869,7 @@ static inline void ftrace_dump(enum ftrace_dump_mode oops_dump_mode) { }
 			 !__same_type(*(ptr), void),			\
 			 "pointer type mismatch in container_of()");	\
 	IS_ERR_OR_NULL(__mptr) ? ERR_CAST(__mptr) :			\
-		((type *)((char *)__mptr - offsetof(type, member))); })
+		((type *)(__mptr - offsetof(type, member))); })
 
 /* Rebuild everything on CONFIG_FTRACE_MCOUNT_RECORD */
 #ifdef CONFIG_FTRACE_MCOUNT_RECORD

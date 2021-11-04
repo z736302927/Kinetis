@@ -16,6 +16,7 @@
 #define _UAPI_LINUX_EVENTPOLL_H
 
 /* For O_CLOEXEC */
+#include <linux/fcntl.h>
 #include <linux/types.h>
 
 /* Flags for epoll_create1.  */
@@ -81,7 +82,7 @@ struct epoll_event {
 #ifdef CONFIG_PM_SLEEP
 static inline void ep_take_care_of_epollwakeup(struct epoll_event *epev)
 {
-	if ((epev->events & EPOLLWAKEUP))// && !capable(CAP_BLOCK_SUSPEND))
+	if ((epev->events & EPOLLWAKEUP) && !capable(CAP_BLOCK_SUSPEND))
 		epev->events &= ~EPOLLWAKEUP;
 }
 #else

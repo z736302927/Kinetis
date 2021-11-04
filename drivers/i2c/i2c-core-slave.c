@@ -5,11 +5,13 @@
  * Copyright (C) 2014 by Wolfram Sang <wsa@sang-engineering.com>
  */
 
+#include <generated/deconfig.h>
 #include <dt-bindings/i2c/i2c.h>
+#include <linux/acpi.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/i2c.h>
-#include <linux/bug.h>
+#include <linux/of.h>
 
 #include "i2c-core.h"
 
@@ -92,20 +94,20 @@ EXPORT_SYMBOL_GPL(i2c_slave_unregister);
  */
 bool i2c_detect_slave_mode(struct device *dev)
 {
-//	if (IS_BUILTIN(CONFIG_OF) && dev->of_node) {
-//		struct device_node *child;
-//		u32 reg;
+	if (IS_BUILTIN(CONFIG_OF) && dev->of_node) {
+		struct device_node *child;
+		u32 reg;
 
-//		for_each_child_of_node(dev->of_node, child) {
-//			of_property_read_u32(child, "reg", &reg);
-//			if (reg & I2C_OWN_SLAVE_ADDRESS) {
-//				of_node_put(child);
-//				return true;
-//			}
-//		}
-//	} else if (IS_BUILTIN(CONFIG_ACPI) && ACPI_HANDLE(dev)) {
-//		dev_dbg(dev, "ACPI slave is not supported yet\n");
-//	}
+		for_each_child_of_node(dev->of_node, child) {
+			of_property_read_u32(child, "reg", &reg);
+			if (reg & I2C_OWN_SLAVE_ADDRESS) {
+				of_node_put(child);
+				return true;
+			}
+		}
+	} else if (IS_BUILTIN(CONFIG_ACPI) && ACPI_HANDLE(dev)) {
+		dev_dbg(dev, "ACPI slave is not supported yet\n");
+	}
 	return false;
 }
 EXPORT_SYMBOL_GPL(i2c_detect_slave_mode);

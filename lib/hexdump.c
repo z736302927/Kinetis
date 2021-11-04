@@ -3,6 +3,7 @@
  * lib/hexdump.c
  */
 
+#include <generated/deconfig.h> 
 #include <linux/types.h>
 #include <linux/ctype.h>
 #include <linux/errno.h>
@@ -243,7 +244,7 @@ void print_hex_dump(const char *level, const char *prefix_str, int prefix_type,
 {
 	const u8 *ptr = buf;
 	int i, linelen, remaining = len;
-	char linebuf[32 * 3 + 2 + 32 + 1];
+	unsigned char linebuf[32 * 3 + 2 + 32 + 1];
 
 	if (rowsize != 16 && rowsize != 32)
 		rowsize = 16;
@@ -253,7 +254,7 @@ void print_hex_dump(const char *level, const char *prefix_str, int prefix_type,
 		remaining -= rowsize;
 
 		hex_dump_to_buffer(ptr + i, linelen, rowsize, groupsize,
-				   linebuf, sizeof(linebuf), ascii);
+				   (char *)linebuf, sizeof(linebuf), ascii);
 
 		switch (prefix_type) {
 		case DUMP_PREFIX_ADDRESS:

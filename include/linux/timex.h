@@ -53,16 +53,16 @@
 #ifndef _LINUX_TIMEX_H
 #define _LINUX_TIMEX_H
 
+#include <uapi/linux/timex.h>
+
 #define ADJ_ADJTIME		0x8000	/* switch between adjtime/adjtimex modes */
-//#define ADJ_OFFSET_SINGLESHOT	0x0001	/* old-fashioned adjtime */
+#define ADJ_OFFSET_SINGLESHOT	0x0001	/* old-fashioned adjtime */
 #define ADJ_OFFSET_READONLY	0x2000	/* read-only adjtime */
 #include <linux/compiler.h>
 #include <linux/types.h>
 #include <linux/param.h>
 
 #include <asm/timex.h>
-
-#include <uapi/linux/timex.h>
 
 #ifndef random_get_entropy
 /*

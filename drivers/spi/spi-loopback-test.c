@@ -14,63 +14,62 @@
 #include <linux/ktime.h>
 #include <linux/list.h>
 #include <linux/list_sort.h>
-//#include <linux/module.h>
-//#include <linux/of_device.h>
+#include <linux/module.h>
+#include <linux/of_device.h>
 #include <linux/printk.h>
 #include <linux/vmalloc.h>
-#include <linux/mm.h>
 #include <linux/spi/spi.h>
 
 #include "spi-test.h"
 
 /* flag to only simulate transfers */
 static int simulate_only;
-//module_param(simulate_only, int, 0);
-//MODULE_PARM_DESC(simulate_only, "if not 0 do not execute the spi message");
+module_param(simulate_only, int, 0);
+MODULE_PARM_DESC(simulate_only, "if not 0 do not execute the spi message");
 
 /* dump spi messages */
 static int dump_messages;
-//module_param(dump_messages, int, 0);
-//MODULE_PARM_DESC(dump_messages,
-//		 "=1 dump the basic spi_message_structure, " \
-//		 "=2 dump the spi_message_structure including data, " \
-//		 "=3 dump the spi_message structure before and after execution");
+module_param(dump_messages, int, 0);
+MODULE_PARM_DESC(dump_messages,
+		 "=1 dump the basic spi_message_structure, " \
+		 "=2 dump the spi_message_structure including data, " \
+		 "=3 dump the spi_message structure before and after execution");
 /* the device is jumpered for loopback - enabling some rx_buf tests */
 static int loopback;
-//module_param(loopback, int, 0);
-//MODULE_PARM_DESC(loopback,
-//		 "if set enable loopback mode, where the rx_buf "	\
-//		 "is checked to match tx_buf after the spi_message "	\
-//		 "is executed");
+module_param(loopback, int, 0);
+MODULE_PARM_DESC(loopback,
+		 "if set enable loopback mode, where the rx_buf "	\
+		 "is checked to match tx_buf after the spi_message "	\
+		 "is executed");
 
 static int loop_req;
-//module_param(loop_req, int, 0);
-//MODULE_PARM_DESC(loop_req,
-//		 "if set controller will be asked to enable test loop mode. " \
-//		 "If controller supported it, MISO and MOSI will be connected");
+module_param(loop_req, int, 0);
+MODULE_PARM_DESC(loop_req,
+		 "if set controller will be asked to enable test loop mode. " \
+		 "If controller supported it, MISO and MOSI will be connected");
 
 static int no_cs;
-//module_param(no_cs, int, 0);
-//MODULE_PARM_DESC(no_cs,
-//		 "if set Chip Select (CS) will not be used");
+module_param(no_cs, int, 0);
+MODULE_PARM_DESC(no_cs,
+		 "if set Chip Select (CS) will not be used");
 
 /* run only a specific test */
 static int run_only_test = -1;
-//module_param(run_only_test, int, 0);
-//MODULE_PARM_DESC(run_only_test,
-//		 "only run the test with this number (0-based !)");
+module_param(run_only_test, int, 0);
+MODULE_PARM_DESC(run_only_test,
+		 "only run the test with this number (0-based !)");
 
 /* use vmalloc'ed buffers */
 static int use_vmalloc;
-//module_param(use_vmalloc, int, 0644);
-//MODULE_PARM_DESC(use_vmalloc,
-//		 "use vmalloc'ed buffers instead of kmalloc'ed");
+module_param(use_vmalloc, int, 0644);
+MODULE_PARM_DESC(use_vmalloc,
+		 "use vmalloc'ed buffers instead of kmalloc'ed");
 
 /* check rx ranges */
 static int check_ranges = 1;
-//module_param(check_ranges, int, 0644);
-//MODULE_PARM_DESC(check_ranges,
-//		 "checks rx_buffer pattern are valid");
+module_param(check_ranges, int, 0644);
+MODULE_PARM_DESC(check_ranges,
+		 "checks rx_buffer pattern are valid");
 
 /* the actual tests to execute */
 static struct spi_test spi_tests[] = {
@@ -350,40 +349,26 @@ static struct of_device_id spi_loopback_test_of_match[] = {
 };
 
 /* allow to override the compatible string via a module_parameter */
-//module_param_string(compatible, spi_loopback_test_of_match[0].compatible,
-//		    sizeof(spi_loopback_test_of_match[0].compatible),
-//		    0000);
+module_param_string(compatible, spi_loopback_test_of_match[0].compatible,
+		    sizeof(spi_loopback_test_of_match[0].compatible),
+		    0000);
 
-//MODULE_DEVICE_TABLE(of, spi_loopback_test_of_match);
+MODULE_DEVICE_TABLE(of, spi_loopback_test_of_match);
 
 static struct spi_driver spi_loopback_test_driver = {
 	.driver = {
 		.name = "spi-loopback-test",
-//		.owner = THIS_MODULE,
+		.owner = THIS_MODULE,
 		.of_match_table = spi_loopback_test_of_match,
 	},
 	.probe = spi_loopback_test_probe,
 };
 
-int __init spi_loopback_test_driver_init(void)
-{
-	int ret;
+module_spi_driver(spi_loopback_test_driver);
 
-	ret = spi_register_driver(&spi_loopback_test_driver);
-	if (ret)
-		printk(KERN_ERR "i2c-gpio: probe failed: %d\n", ret);
-    
-	return ret;
-}
-
-void __exit spi_loopback_test_driver_exit(void)
-{
-	spi_unregister_driver(&spi_loopback_test_driver);
-}
-
-//MODULE_AUTHOR("Martin Sperl <kernel@martin.sperl.org>");
-//MODULE_DESCRIPTION("test spi_driver to check core functionality");
-//MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Martin Sperl <kernel@martin.sperl.org>");
+MODULE_DESCRIPTION("test spi_driver to check core functionality");
+MODULE_LICENSE("GPL");
 
 /*-------------------------------------------------------------------------*/
 
@@ -930,8 +915,8 @@ int spi_test_execute_msg(struct spi_device *spi, struct spi_test *test,
 			dev_info(&spi->dev,
 				 "spi-message timed out - rerunning...\n");
 			/* rerun after a few explicit schedules */
-//			for (i = 0; i < 16; i++)
-//				schedule();
+			for (i = 0; i < 16; i++)
+				schedule();
 			ret = spi_sync(spi, msg);
 		}
 		if (ret) {
@@ -1086,7 +1071,7 @@ int spi_test_run_tests(struct spi_device *spi,
 		 * we also add scheduling to avoid potential spi_timeouts...
 		 */
 		mdelay(100);
-//		schedule();
+		schedule();
 	}
 
 out:

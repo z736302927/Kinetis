@@ -3,6 +3,7 @@
  * Tty buffer allocation management
  */
 
+#include <generated/deconfig.h>
 #include <linux/types.h>
 #include <linux/errno.h>
 #include <linux/tty.h>
@@ -478,7 +479,7 @@ receive_buf(struct tty_port *port, struct tty_buffer *head, int count)
 	if (~head->flags & TTYB_NORMAL)
 		f = flag_buf_ptr(head, head->read);
 
-	n = port->client_ops->receive_buf(port, p, (u8 *)f, count);
+	n = port->client_ops->receive_buf(port, p, f, count);
 	if (n > 0)
 		memset(p, 0, n);
 	return n;
@@ -583,7 +584,6 @@ void tty_buffer_init(struct tty_port *port)
 /**
  *	tty_buffer_set_limit	-	change the tty buffer memory limit
  *	@port: tty port to change
- *	@limit: memory limit to set
  *
  *	Change the tty buffer memory limit.
  *	Must be called before the other tty buffer functions are used.
@@ -601,7 +601,7 @@ EXPORT_SYMBOL_GPL(tty_buffer_set_limit);
 /* slave ptys can claim nested buffer lock when handling BRK and INTR */
 void tty_buffer_set_lock_subclass(struct tty_port *port)
 {
-//	lockdep_set_subclass(&port->buf.lock, TTY_LOCK_SLAVE);
+	lockdep_set_subclass(&port->buf.lock, TTY_LOCK_SLAVE);
 }
 
 bool tty_buffer_restart_work(struct tty_port *port)

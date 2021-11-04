@@ -9,17 +9,18 @@
  */
 #define pr_fmt(fmt) "pinconfig core: " fmt
 
+#include <generated/deconfig.h>
 #include <linux/kernel.h>
-//#include <linux/module.h>
+#include <linux/module.h>
 #include <linux/init.h>
 #include <linux/device.h>
 #include <linux/slab.h>
-//#include <linux/debugfs.h>
-//#include <linux/seq_file.h>
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
 #include <linux/pinctrl/machine.h>
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinconf.h>
-#include "pincore.h"
+#include "core.h"
 #include "pinconf.h"
 
 int pinconf_check_ops(struct pinctrl_dev *pctldev)
@@ -80,7 +81,7 @@ int pin_config_group_get(const char *dev_name, const char *pin_group,
 		return ret;
 	}
 
-//	mutex_lock(&pctldev->mutex);
+	mutex_lock(&pctldev->mutex);
 
 	ops = pctldev->desc->confops;
 
@@ -100,7 +101,7 @@ int pin_config_group_get(const char *dev_name, const char *pin_group,
 	ret = ops->pin_config_group_get(pctldev, selector, config);
 
 unlock:
-//	mutex_unlock(&pctldev->mutex);
+	mutex_unlock(&pctldev->mutex);
 	return ret;
 }
 

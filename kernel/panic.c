@@ -9,40 +9,41 @@
  * This function is used through-out the kernel (including mm and fs)
  * to indicate a major problem.
  */
-//#include <linux/debug_locks.h>
-//#include <linux/sched/debug.h>
-//#include <linux/interrupt.h>
-//#include <linux/kgdb.h>
-//#include <linux/kmsg_dump.h>
-//#include <linux/kallsyms.h>
-//#include <linux/notifier.h>
-//#include <linux/vt_kern.h>
-//#include <linux/module.h>
-//#include <linux/random.h>
-//#include <linux/ftrace.h>
-//#include <linux/reboot.h>
+#include <generated/deconfig.h>
+#include <linux/debug_locks.h>
+#include <linux/sched/debug.h>
+#include <linux/interrupt.h>
+#include <linux/kgdb.h>
+#include <linux/kmsg_dump.h>
+#include <linux/kallsyms.h>
+#include <linux/notifier.h>
+#include <linux/vt_kern.h>
+#include <linux/module.h>
+#include <linux/random.h>
+#include <linux/ftrace.h>
+#include <linux/reboot.h>
 #include <linux/delay.h>
-//#include <linux/kexec.h>
-//#include <linux/sched.h>
-//#include <linux/sysrq.h>
+#include <linux/kexec.h>
+#include <linux/sched.h>
+#include <linux/sysrq.h>
 #include <linux/init.h>
-//#include <linux/nmi.h>
+#include <linux/nmi.h>
 #include <linux/console.h>
 #include <linux/bug.h>
-//#include <linux/ratelimit.h>
-//#include <linux/debugfs.h>
+#include <linux/ratelimit.h>
+#include <linux/debugfs.h>
 #include <asm/sections.h>
 
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
 
-#ifdef CONFIG_SMP
-/*
- * Should we dump all CPUs backtraces in an oops event?
- * Defaults to 0, can be changed via sysctl.
- */
-unsigned int __read_mostly sysctl_oops_all_cpu_backtrace;
-#endif /* CONFIG_SMP */
+//#ifdef CONFIG_SMP
+///*
+// * Should we dump all CPUs backtraces in an oops event?
+// * Defaults to 0, can be changed via sysctl.
+// */
+//unsigned int __read_mostly sysctl_oops_all_cpu_backtrace;
+//#endif /* CONFIG_SMP */
 
 //int panic_on_oops = CONFIG_PANIC_ON_OOPS_VALUE;
 //static unsigned long tainted_mask =
@@ -51,29 +52,29 @@ unsigned int __read_mostly sysctl_oops_all_cpu_backtrace;
 //static int pause_on_oops_flag;
 //static DEFINE_SPINLOCK(pause_on_oops_lock);
 //bool crash_kexec_post_notifiers;
-//int panic_on_warn __read_mostly;
+int panic_on_warn __read_mostly;
 //unsigned long panic_on_taint;
 //bool panic_on_taint_nousertaint = false;
 
-//int panic_timeout = CONFIG_PANIC_TIMEOUT;
-//EXPORT_SYMBOL_GPL(panic_timeout);
+int panic_timeout = CONFIG_PANIC_TIMEOUT;
+EXPORT_SYMBOL_GPL(panic_timeout);
 
-//#define PANIC_PRINT_TASK_INFO		0x00000001
-//#define PANIC_PRINT_MEM_INFO		0x00000002
-//#define PANIC_PRINT_TIMER_INFO		0x00000004
-//#define PANIC_PRINT_LOCK_INFO		0x00000008
-//#define PANIC_PRINT_FTRACE_INFO		0x00000010
-//#define PANIC_PRINT_ALL_PRINTK_MSG	0x00000020
-//unsigned long panic_print;
+#define PANIC_PRINT_TASK_INFO		0x00000001
+#define PANIC_PRINT_MEM_INFO		0x00000002
+#define PANIC_PRINT_TIMER_INFO		0x00000004
+#define PANIC_PRINT_LOCK_INFO		0x00000008
+#define PANIC_PRINT_FTRACE_INFO		0x00000010
+#define PANIC_PRINT_ALL_PRINTK_MSG	0x00000020
+unsigned long panic_print;
 
 //ATOMIC_NOTIFIER_HEAD(panic_notifier_list);
 
 //EXPORT_SYMBOL(panic_notifier_list);
 
-//static long no_blink(int state)
-//{
-//	return 0;
-//}
+static long no_blink(int state)
+{
+	return 0;
+}
 
 ///* Returns how long it waited in ms */
 //long (*panic_blink)(int state);
@@ -145,26 +146,26 @@ unsigned int __read_mostly sysctl_oops_all_cpu_backtrace;
 //}
 //EXPORT_SYMBOL(nmi_panic);
 
-//static void panic_print_sys_info(void)
-//{
-//	if (panic_print & PANIC_PRINT_ALL_PRINTK_MSG)
-//		console_flush_on_panic(CONSOLE_REPLAY_ALL);
+static void panic_print_sys_info(void)
+{
+	if (panic_print & PANIC_PRINT_ALL_PRINTK_MSG)
+		console_flush_on_panic(CONSOLE_REPLAY_ALL);
 
 //	if (panic_print & PANIC_PRINT_TASK_INFO)
 //		show_state();
 
-//	if (panic_print & PANIC_PRINT_MEM_INFO)
-//		show_mem(0, NULL);
+	if (panic_print & PANIC_PRINT_MEM_INFO)
+		show_mem(0, NULL);
 
 //	if (panic_print & PANIC_PRINT_TIMER_INFO)
 //		sysrq_timer_list_show();
 
-//	if (panic_print & PANIC_PRINT_LOCK_INFO)
-//		debug_show_all_locks();
+	if (panic_print & PANIC_PRINT_LOCK_INFO)
+		debug_show_all_locks();
 
-//	if (panic_print & PANIC_PRINT_FTRACE_INFO)
-//		ftrace_dump(DUMP_ALL);
-//}
+	if (panic_print & PANIC_PRINT_FTRACE_INFO)
+		ftrace_dump(DUMP_ALL);
+}
 
 /**
  *	panic - halt the system
@@ -179,8 +180,8 @@ void panic(const char *fmt, ...)
 	static char buf[1024];
 	va_list args;
 	long i, i_next = 0, len;
-//	int state = 0;
-//	int old_cpu, this_cpu;
+	int state = 0;
+	int old_cpu, this_cpu;
 //	bool _crash_kexec_post_notifiers = crash_kexec_post_notifiers;
 
 //	/*
@@ -213,7 +214,7 @@ void panic(const char *fmt, ...)
 //	if (old_cpu != PANIC_CPU_INVALID && old_cpu != this_cpu)
 //		panic_smp_self_stop();
 
-//	console_verbose();
+	console_verbose();
 //	bust_spinlocks(1);
 	va_start(args, fmt);
 	len = vscnprintf(buf, sizeof(buf), fmt, args);
@@ -223,13 +224,13 @@ void panic(const char *fmt, ...)
 		buf[len - 1] = '\0';
 
 	pr_emerg("Kernel panic - not syncing: %s\n", buf);
-//#ifdef CONFIG_DEBUG_BUGVERBOSE
-//	/*
-//	 * Avoid nested stack-dumping if a panic occurs during oops processing
-//	 */
-//	if (!test_taint(TAINT_DIE) && oops_in_progress <= 1)
-//		dump_stack();
-//#endif
+#ifdef CONFIG_DEBUG_BUGVERBOSE
+	/*
+	 * Avoid nested stack-dumping if a panic occurs during oops processing
+	 */
+	if (!test_taint(TAINT_DIE) && oops_in_progress <= 1)
+		dump_stack();
+#endif
 
 //	/*
 //	 * If kgdb is enabled, give it a chance to run before we stop all
@@ -271,9 +272,9 @@ void panic(const char *fmt, ...)
 //	 */
 //	atomic_notifier_call_chain(&panic_notifier_list, 0, buf);
 
-//	/* Call flush even twice. It tries harder with a single online CPU */
-//	printk_safe_flush_on_panic();
-//	kmsg_dump(KMSG_DUMP_PANIC);
+	/* Call flush even twice. It tries harder with a single online CPU */
+	printk_safe_flush_on_panic();
+	kmsg_dump(KMSG_DUMP_PANIC);
 
 //	/*
 //	 * If you doubt kdump always works fine in any situation,
@@ -287,10 +288,10 @@ void panic(const char *fmt, ...)
 //	if (_crash_kexec_post_notifiers)
 //		__crash_kexec(NULL);
 
-//#ifdef CONFIG_VT
-//	unblank_screen();
-//#endif
-//	console_unblank();
+#ifdef CONFIG_VT
+	unblank_screen();
+#endif
+	console_unblank();
 
 //	/*
 //	 * We may have ended up stopping the CPU holding the lock (in
@@ -303,7 +304,7 @@ void panic(const char *fmt, ...)
 //	debug_locks_off();
 	console_flush_on_panic(CONSOLE_FLUSH_PENDING);
 
-//	panic_print_sys_info();
+	panic_print_sys_info();
 
 //	if (!panic_blink)
 //		panic_blink = no_blink;
@@ -535,27 +536,27 @@ EXPORT_SYMBOL(panic);
 //		trigger_all_cpu_backtrace();
 //}
 
-///*
-// * 64-bit random ID for oopses:
-// */
-//static u64 oops_id;
+/*
+ * 64-bit random ID for oopses:
+ */
+static u64 oops_id;
 
-//static int init_oops_id(void)
-//{
-//	if (!oops_id)
-//		get_random_bytes(&oops_id, sizeof(oops_id));
-//	else
-//		oops_id++;
+static int init_oops_id(void)
+{
+	if (!oops_id)
+		get_random_bytes(&oops_id, sizeof(oops_id));
+	else
+		oops_id++;
 
-//	return 0;
-//}
-//late_initcall(init_oops_id);
+	return 0;
+}
+late_initcall(init_oops_id);
 
-//static void print_oops_end_marker(void)
-//{
-//	init_oops_id();
-//	pr_warn("---[ end trace %016llx ]---\n", (unsigned long long)oops_id);
-//}
+static void print_oops_end_marker(void)
+{
+	init_oops_id();
+	pr_warn("---[ end trace %016llx ]---\n", (unsigned long long)oops_id);
+}
 
 ///*
 // * Called when the architecture exits its oops handler, after printing
@@ -579,38 +580,38 @@ void __warn(const char *file, int line, void *caller, unsigned taint,
 //	disable_trace_on_warning();
 
 	if (file)
-		pr_warn("WARNING: at %s:%d 0x%p\n",
-			file, line,
+		pr_warn("WARNING: CPU: %d PID: %d at %s:%d %pS\n",
+			raw_smp_processor_id(), current->pid, file, line,
 			caller);
 	else
-		pr_warn("WARNING: at 0x%p\n",
-			caller);
+		pr_warn("WARNING: CPU: %d PID: %d at %pS\n",
+			raw_smp_processor_id(), current->pid, caller);
 
-//	if (args)
-//		vprintk(args->fmt, args->args);
+	if (args)
+		vprintk(args->fmt, args->args);
 
-//	print_modules();
+	print_modules();
 
 //	if (regs)
 //		show_regs(regs);
 
-//	if (panic_on_warn) {
-//		/*
-//		 * This thread may hit another WARN() in the panic path.
-//		 * Resetting this prevents additional WARN() from panicking the
-//		 * system on this thread.  Other threads are blocked by the
-//		 * panic_mutex in panic().
-//		 */
-//		panic_on_warn = 0;
-//		panic("panic_on_warn set ...\n");
-//	}
+	if (panic_on_warn) {
+		/*
+		 * This thread may hit another WARN() in the panic path.
+		 * Resetting this prevents additional WARN() from panicking the
+		 * system on this thread.  Other threads are blocked by the
+		 * panic_mutex in panic().
+		 */
+		panic_on_warn = 0;
+		panic("panic_on_warn set ...\n");
+	}
 
 //	if (!regs)
 //		dump_stack();
 
-//	print_irqtrace_events(current);
+	print_irqtrace_events(current);
 
-//	print_oops_end_marker();
+	print_oops_end_marker();
 
 //	/* Just a warning, don't kill lockdep. */
 //	add_taint(taint, LOCKDEP_STILL_OK);

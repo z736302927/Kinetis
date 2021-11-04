@@ -12,9 +12,10 @@
 #include <linux/bug.h>
 #include <linux/compiler.h>
 #include <linux/gfp.h>
-#include <linux/err.h>
+#include <linux/kconfig.h>
 #include <linux/kernel.h>
 #include <linux/rcupdate.h>
+#include <linux/spinlock.h>
 #include <linux/types.h>
 
 /*
@@ -372,6 +373,7 @@ void xa_destroy(struct xarray *);
  */
 static inline void xa_init_flags(struct xarray *xa, gfp_t flags)
 {
+	spin_lock_init(&xa->xa_lock);
 	xa->xa_flags = flags;
 	xa->xa_head = NULL;
 }
@@ -522,6 +524,26 @@ static inline bool xa_marked(const struct xarray *xa, xa_mark_t mark)
 	for (index = 0, entry = xa_find(xa, &index, ULONG_MAX, filter); \
 	     entry; entry = xa_find_after(xa, &index, ULONG_MAX, filter))
 
+#define xa_trylock(xa)		spin_trylock(&(xa)->xa_lock)
+#define xa_lock(xa)		spin_lock(&(xa)->xa_lock)
+#define xa_unlock(xa)		spin_unlock(&(xa)->xa_lock)
+#define xa_lock_bh(xa)		spin_lock_bh(&(xa)->xa_lock)
+#define xa_unlock_bh(xa)	spin_unlock_bh(&(xa)->xa_lock)
+#define xa_lock_irq(xa)		spin_lock_irq(&(xa)->xa_lock)
+#define xa_unlock_irq(xa)	spin_unlock_irq(&(xa)->xa_lock)
+#define xa_lock_irqsave(xa, flags) \
+				spin_lock_irqsave(&(xa)->xa_lock, flags)
+#define xa_unlock_irqrestore(xa, flags) \
+				spin_unlock_irqrestore(&(xa)->xa_lock, flags)
+#define xa_lock_nested(xa, subclass) \
+				spin_lock_nested(&(xa)->xa_lock, subclass)
+#define xa_lock_bh_nested(xa, subclass) \
+				spin_lock_bh_nested(&(xa)->xa_lock, subclass)
+#define xa_lock_irq_nested(xa, subclass) \
+				spin_lock_irq_nested(&(xa)->xa_lock, subclass)
+#define xa_lock_irqsave_nested(xa, flags, subclass) \
+		spin_lock_irqsave_nested(&(xa)->xa_lock, flags, subclass)
+
 /*
  * Versions of the normal API which require the caller to hold the
  * xa_lock.  If the GFP flags allow it, they will drop the lock to
@@ -561,7 +583,9 @@ static inline void *xa_store_bh(struct xarray *xa, unsigned long index,
 {
 	void *curr;
 
+	xa_lock_bh(xa);
 	curr = __xa_store(xa, index, entry, gfp);
+	xa_unlock_bh(xa);
 
 	return curr;
 }
@@ -585,7 +609,9 @@ static inline void *xa_store_irq(struct xarray *xa, unsigned long index,
 {
 	void *curr;
 
+	xa_lock_irq(xa);
 	curr = __xa_store(xa, index, entry, gfp);
+	xa_unlock_irq(xa);
 
 	return curr;
 }
@@ -607,7 +633,9 @@ static inline void *xa_erase_bh(struct xarray *xa, unsigned long index)
 {
 	void *entry;
 
+	xa_lock_bh(xa);
 	entry = __xa_erase(xa, index);
+	xa_unlock_bh(xa);
 
 	return entry;
 }
@@ -629,7 +657,9 @@ static inline void *xa_erase_irq(struct xarray *xa, unsigned long index)
 {
 	void *entry;
 
+	xa_lock_irq(xa);
 	entry = __xa_erase(xa, index);
+	xa_unlock_irq(xa);
 
 	return entry;
 }
@@ -654,7 +684,9 @@ static inline void *xa_cmpxchg(struct xarray *xa, unsigned long index,
 {
 	void *curr;
 
+	xa_lock(xa);
 	curr = __xa_cmpxchg(xa, index, old, entry, gfp);
+	xa_unlock(xa);
 
 	return curr;
 }
@@ -679,7 +711,9 @@ static inline void *xa_cmpxchg_bh(struct xarray *xa, unsigned long index,
 {
 	void *curr;
 
+	xa_lock_bh(xa);
 	curr = __xa_cmpxchg(xa, index, old, entry, gfp);
+	xa_unlock_bh(xa);
 
 	return curr;
 }
@@ -704,7 +738,9 @@ static inline void *xa_cmpxchg_irq(struct xarray *xa, unsigned long index,
 {
 	void *curr;
 
+	xa_lock_irq(xa);
 	curr = __xa_cmpxchg(xa, index, old, entry, gfp);
+	xa_unlock_irq(xa);
 
 	return curr;
 }
@@ -731,7 +767,9 @@ static inline int __must_check xa_insert(struct xarray *xa,
 {
 	int err;
 
+	xa_lock(xa);
 	err = __xa_insert(xa, index, entry, gfp);
+	xa_unlock(xa);
 
 	return err;
 }
@@ -758,7 +796,9 @@ static inline int __must_check xa_insert_bh(struct xarray *xa,
 {
 	int err;
 
+	xa_lock_bh(xa);
 	err = __xa_insert(xa, index, entry, gfp);
+	xa_unlock_bh(xa);
 
 	return err;
 }
@@ -785,7 +825,9 @@ static inline int __must_check xa_insert_irq(struct xarray *xa,
 {
 	int err;
 
+	xa_lock_irq(xa);
 	err = __xa_insert(xa, index, entry, gfp);
+	xa_unlock_irq(xa);
 
 	return err;
 }
@@ -812,7 +854,9 @@ static inline __must_check int xa_alloc(struct xarray *xa, u32 *id,
 {
 	int err;
 
+	xa_lock(xa);
 	err = __xa_alloc(xa, id, entry, limit, gfp);
+	xa_unlock(xa);
 
 	return err;
 }
@@ -839,7 +883,9 @@ static inline int __must_check xa_alloc_bh(struct xarray *xa, u32 *id,
 {
 	int err;
 
+	xa_lock_bh(xa);
 	err = __xa_alloc(xa, id, entry, limit, gfp);
+	xa_unlock_bh(xa);
 
 	return err;
 }
@@ -866,7 +912,9 @@ static inline int __must_check xa_alloc_irq(struct xarray *xa, u32 *id,
 {
 	int err;
 
+	xa_lock_irq(xa);
 	err = __xa_alloc(xa, id, entry, limit, gfp);
+	xa_unlock_irq(xa);
 
 	return err;
 }
@@ -897,7 +945,9 @@ static inline int xa_alloc_cyclic(struct xarray *xa, u32 *id, void *entry,
 {
 	int err;
 
+	xa_lock(xa);
 	err = __xa_alloc_cyclic(xa, id, entry, limit, next, gfp);
+	xa_unlock(xa);
 
 	return err;
 }
@@ -928,7 +978,9 @@ static inline int xa_alloc_cyclic_bh(struct xarray *xa, u32 *id, void *entry,
 {
 	int err;
 
+	xa_lock_bh(xa);
 	err = __xa_alloc_cyclic(xa, id, entry, limit, next, gfp);
+	xa_unlock_bh(xa);
 
 	return err;
 }
@@ -959,7 +1011,9 @@ static inline int xa_alloc_cyclic_irq(struct xarray *xa, u32 *id, void *entry,
 {
 	int err;
 
+	xa_lock_irq(xa);
 	err = __xa_alloc_cyclic(xa, id, entry, limit, next, gfp);
+	xa_unlock_irq(xa);
 
 	return err;
 }
@@ -1051,11 +1105,7 @@ static inline void xa_release(struct xarray *xa, unsigned long index)
  * doubled the number of slots per node, we'd get only 3 nodes per 4kB page.
  */
 #ifndef XA_CHUNK_SHIFT
-#ifdef CONFIG_BASE_SMALL
-#define XA_CHUNK_SHIFT		4
-#else
-#define XA_CHUNK_SHIFT		6
-#endif
+#define XA_CHUNK_SHIFT		(CONFIG_BASE_SMALL ? 4 : 6)
 #endif
 #define XA_CHUNK_SIZE		(1UL << XA_CHUNK_SHIFT)
 #define XA_CHUNK_MASK		(XA_CHUNK_SIZE - 1)
@@ -1194,12 +1244,8 @@ static inline unsigned long xa_to_sibling(const void *entry)
  */
 static inline bool xa_is_sibling(const void *entry)
 {
-#ifdef CONFIG_XARRAY_MULTI
-	return xa_is_internal(entry) &&
+	return IS_ENABLED(CONFIG_XARRAY_MULTI) && xa_is_internal(entry) &&
 		(entry < xa_mk_sibling(XA_CHUNK_SIZE - 1));
-#else
-	return false;
-#endif
 }
 
 #define XA_RETRY_ENTRY		xa_mk_internal(256)
@@ -1505,15 +1551,15 @@ static inline void *xas_reload(struct xa_state *xas)
 
 	if (!node)
 		return xa_head(xas->xa);
-#ifdef CONFIG_XARRAY_MULTI
+	if (IS_ENABLED(CONFIG_XARRAY_MULTI)) {
 		offset = (xas->xa_index >> node->shift) & XA_CHUNK_MASK;
 		entry = xa_entry(xas->xa, node, offset);
 		if (!xa_is_sibling(entry))
 			return entry;
 		offset = xa_to_sibling(entry);
-#else
+	} else {
 		offset = xas->xa_offset;
-#endif
+	}
 	return xa_entry(xas->xa, node, offset);
 }
 

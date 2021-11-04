@@ -12,7 +12,9 @@
 
 #include <linux/device.h>
 #include <linux/regmap.h>
+#include <linux/fs.h>
 #include <linux/list.h>
+#include <linux/wait.h>
 
 struct regmap;
 struct regcache_ops;
@@ -45,6 +47,16 @@ struct regmap_async {
 };
 
 struct regmap {
+	union {
+		struct mutex mutex;
+		struct {
+			spinlock_t spinlock;
+			unsigned long spinlock_flags;
+		};
+	};
+	regmap_lock lock;
+	regmap_unlock unlock;
+	void *lock_arg; /* This is passed to lock/unlock functions */
 	gfp_t alloc_flags;
 
 	struct device *dev; /* Device we do I/O on */
@@ -55,6 +67,8 @@ struct regmap {
 	const char *name;
 
 	bool async;
+	spinlock_t async_lock;
+	wait_queue_head_t async_waitq;
 	struct list_head async_list;
 	struct list_head async_free;
 	int async_ret;

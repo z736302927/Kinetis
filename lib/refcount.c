@@ -3,7 +3,10 @@
  * Out-of-line refcount functions.
  */
 
+#include <generated/deconfig.h> 
+#include <linux/mutex.h>
 #include <linux/refcount.h>
+#include <linux/spinlock.h>
 #include <linux/bug.h>
 
 #define REFCOUNT_WARN(str)	WARN_ONCE(1, "refcount_t: " str ".\n")
@@ -54,8 +57,7 @@ bool refcount_dec_if_one(refcount_t *r)
 {
 	int val = 1;
 
-//	return atomic_try_cmpxchg_release(&r->refs, &val, 0);
-	return true;
+	return atomic_try_cmpxchg_release(&r->refs, &val, 0);
 }
 EXPORT_SYMBOL(refcount_dec_if_one);
 
@@ -74,20 +76,20 @@ bool refcount_dec_not_one(refcount_t *r)
 {
 	unsigned int new, val = atomic_read(&r->refs);
 
-//	do {
-//		if (unlikely(val == REFCOUNT_SATURATED))
-//			return true;
+	do {
+		if (unlikely(val == REFCOUNT_SATURATED))
+			return true;
 
-//		if (val == 1)
-//			return false;
+		if (val == 1)
+			return false;
 
-//		new = val - 1;
-//		if (new > val) {
-//			WARN_ONCE(new > val, "refcount_t: underflow; use-after-free.\n");
-//			return true;
-//		}
+		new = val - 1;
+		if (new > val) {
+			WARN_ONCE(new > val, "refcount_t: underflow; use-after-free.\n");
+			return true;
+		}
 
-//	} while (!atomic_try_cmpxchg_release(&r->refs, &val, new));
+	} while (!atomic_try_cmpxchg_release(&r->refs, (int *)&val, new));
 
 	return true;
 }
@@ -109,17 +111,19 @@ EXPORT_SYMBOL(refcount_dec_not_one);
  * Return: true and hold mutex if able to decrement refcount to 0, false
  *         otherwise
  */
-//bool refcount_dec_and_mutex_lock(refcount_t *r, struct mutex *lock)
-//{
-//	if (refcount_dec_not_one(r))
-//		return false;
+bool refcount_dec_and_mutex_lock(refcount_t *r, struct mutex *lock)
+{
+	if (refcount_dec_not_one(r))
+		return false;
 
-//	if (!refcount_dec_and_test(r)) {
-//		return false;
-//	}
+	mutex_lock(lock);
+	if (!refcount_dec_and_test(r)) {
+		mutex_unlock(lock);
+		return false;
+	}
 
-//	return true;
-//}
+	return true;
+}
 EXPORT_SYMBOL(refcount_dec_and_mutex_lock);
 
 /**
@@ -143,7 +147,9 @@ bool refcount_dec_and_lock(refcount_t *r, spinlock_t *lock)
 	if (refcount_dec_not_one(r))
 		return false;
 
+	spin_lock(lock);
 	if (!refcount_dec_and_test(r)) {
+		spin_unlock(lock);
 		return false;
 	}
 
@@ -170,7 +176,9 @@ bool refcount_dec_and_lock_irqsave(refcount_t *r, spinlock_t *lock,
 	if (refcount_dec_not_one(r))
 		return false;
 
+	spin_lock_irqsave(lock, *flags);
 	if (!refcount_dec_and_test(r)) {
+		spin_unlock_irqrestore(lock, *flags);
 		return false;
 	}
 

@@ -8,10 +8,10 @@
  * parameter. Now every user can use their own standalone ratelimit_state.
  */
 
+#include <generated/deconfig.h> 
 #include <linux/ratelimit.h>
 #include <linux/jiffies.h>
 #include <linux/export.h>
-#include <linux/printk.h>
 
 /*
  * __ratelimit - rate limiting
@@ -39,8 +39,8 @@ int ___ratelimit(struct ratelimit_state *rs, const char *func)
 	 * in addition to the one that will be printed by
 	 * the entity that is holding the lock already:
 	 */
-//	if (!raw_spin_trylock_irqsave(&rs->lock, flags))
-//		return 0;
+	if (!raw_spin_trylock_irqsave(&rs->lock, flags))
+		return 0;
 
 	if (!rs->begin)
 		rs->begin = jiffies;
@@ -48,10 +48,7 @@ int ___ratelimit(struct ratelimit_state *rs, const char *func)
 	if (time_is_before_jiffies(rs->begin + rs->interval)) {
 		if (rs->missed) {
 			if (!(rs->flags & RATELIMIT_MSG_ON_RELEASE)) {
-//				printk_deferred(KERN_WARNING
-//						"%s: %d callbacks suppressed\n",
-//						func, rs->missed);
-				printk(KERN_WARNING
+				printk_deferred(KERN_WARNING
 						"%s: %d callbacks suppressed\n",
 						func, rs->missed);
 				rs->missed = 0;
@@ -67,7 +64,7 @@ int ___ratelimit(struct ratelimit_state *rs, const char *func)
 		rs->missed++;
 		ret = 0;
 	}
-//	raw_spin_unlock_irqrestore(&rs->lock, flags);
+	raw_spin_unlock_irqrestore(&rs->lock, flags);
 
 	return ret;
 }

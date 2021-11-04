@@ -13,12 +13,14 @@
 #ifndef _SYSFS_H_
 #define _SYSFS_H_
 
+#include <linux/kernfs.h>
 #include <linux/compiler.h>
 #include <linux/errno.h>
 #include <linux/list.h>
-//#include <linux/kobject_ns.h>
+#include <linux/lockdep.h>
+#include <linux/kobject_ns.h>
 #include <linux/stat.h>
-//#include <linux/atomic.h>
+#include <linux/atomic.h>
 
 struct kobject;
 struct module;
@@ -226,8 +228,8 @@ struct bin_attribute bin_attr_##_name = __BIN_ATTR_WO(_name, _size)
 struct bin_attribute bin_attr_##_name = __BIN_ATTR_RW(_name, _size)
 
 struct sysfs_ops {
-	ssize_t	(*show)(void *, struct attribute *, char *);
-	ssize_t	(*store)(void *, struct attribute *, const char *, size_t);
+	ssize_t	(*show)(struct kobject *, struct attribute *, char *);
+	ssize_t	(*store)(struct kobject *, struct attribute *, const char *, size_t);
 };
 
 #ifdef CONFIG_SYSFS
@@ -611,25 +613,24 @@ static inline int sysfs_rename_link(struct kobject *kobj, struct kobject *target
 
 static inline void sysfs_notify_dirent(struct kernfs_node *kn)
 {
-//	kernfs_notify(kn);
+	kernfs_notify(kn);
 }
 
 static inline struct kernfs_node *sysfs_get_dirent(struct kernfs_node *parent,
 						   const char *name)
 {
-//	return kernfs_find_and_get(parent, name);
-	return NULL;
+	return kernfs_find_and_get(parent, name);
 }
 
 static inline struct kernfs_node *sysfs_get(struct kernfs_node *kn)
 {
-//	kernfs_get(kn);
+	kernfs_get(kn);
 	return kn;
 }
 
 static inline void sysfs_put(struct kernfs_node *kn)
 {
-//	kernfs_put(kn);
+	kernfs_put(kn);
 }
 
 #endif /* _SYSFS_H_ */

@@ -14,23 +14,21 @@
  *
  */
 
-//#include <linux/clk.h>
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/i2c.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
-//#include <linux/module.h>
-//#include <linux/of_address.h>
-//#include <linux/of_irq.h>
-//#include <linux/of.h>
+#include <linux/module.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
+#include <linux/of.h>
 #include <linux/platform_device.h>
-#include <linux/platform_data/stm32f4.h>
-//#include <linux/reset.h>
+#include <linux/reset.h>
 
 #include "i2c-stm32.h"
-#include "i2c.h"
 
 /* STM32F4 I2C offset registers */
 #define STM32F4_I2C_CR1			0x00
@@ -43,7 +41,6 @@
 #define STM32F4_I2C_FLTR		0x24
 
 /* STM32F4 I2C control 1*/
-#define STM32F4_I2C_CR1_SWRST		BIT(15)
 #define STM32F4_I2C_CR1_POS		BIT(11)
 #define STM32F4_I2C_CR1_ACK		BIT(10)
 #define STM32F4_I2C_CR1_STOP		BIT(9)
@@ -96,6 +93,44 @@
 #define STM32F4_I2C_MAX_FREQ		46U
 #define HZ_TO_MHZ			1000000
 
+/**
+ * struct stm32f4_i2c_msg - client specific data
+ * @addr: 8-bit slave addr, including r/w bit
+ * @count: number of bytes to be transferred
+ * @buf: data buffer
+ * @result: result of the transfer
+ * @stop: last I2C msg to be sent, i.e. STOP to be generated
+ */
+struct stm32f4_i2c_msg {
+	u8 addr;
+	u32 count;
+	u8 *buf;
+	int result;
+	bool stop;
+};
+
+/**
+ * struct stm32f4_i2c_dev - private data of the controller
+ * @adap: I2C adapter for this controller
+ * @dev: device for this controller
+ * @base: virtual memory area
+ * @complete: completion of I2C message
+ * @clk: hw i2c clock
+ * @speed: I2C clock frequency of the controller. Standard or Fast are supported
+ * @parent_rate: I2C clock parent rate in MHz
+ * @msg: I2C transfer information
+ */
+struct stm32f4_i2c_dev {
+	struct i2c_adapter adap;
+	struct device *dev;
+	void __iomem *base;
+	struct completion complete;
+	struct clk *clk;
+	int speed;
+	int parent_rate;
+	struct stm32f4_i2c_msg msg;
+};
+
 static inline void stm32f4_i2c_set_bits(void __iomem *reg, u32 mask)
 {
 	writel_relaxed(readl_relaxed(reg) | mask, reg);
@@ -118,7 +153,7 @@ static int stm32f4_i2c_set_periph_clk_freq(struct stm32f4_i2c_dev *i2c_dev)
 	u32 freq;
 	u32 cr2 = 0;
 
-	i2c_dev->parent_rate = i2c_dev->clk;
+	i2c_dev->parent_rate = clk_get_rate(i2c_dev->clk);
 	freq = DIV_ROUND_UP(i2c_dev->parent_rate, HZ_TO_MHZ);
 
 	if (i2c_dev->speed == STM32_I2C_SPEED_STANDARD) {
@@ -691,19 +726,19 @@ static int stm32f4_i2c_xfer(struct i2c_adapter *i2c_adap, struct i2c_msg msgs[],
 			    int num)
 {
 	struct stm32f4_i2c_dev *i2c_dev = i2c_get_adapdata(i2c_adap);
-	int ret = 0, i;
+	int ret, i;
 
-//	ret = clk_enable(i2c_dev->clk);
-//	if (ret) {
-//		dev_err(i2c_dev->dev, "Failed to enable clock\n");
-//		return ret;
-//	}
+	ret = clk_enable(i2c_dev->clk);
+	if (ret) {
+		dev_err(i2c_dev->dev, "Failed to enable clock\n");
+		return ret;
+	}
 
 	for (i = 0; i < num && !ret; i++)
 		ret = stm32f4_i2c_xfer_msg(i2c_dev, &msgs[i], i == 0,
 					   i == num - 1);
 
-//	clk_disable(i2c_dev->clk);
+	clk_disable(i2c_dev->clk);
 
 	return (ret < 0) ? ret : num;
 }
@@ -720,12 +755,10 @@ static const struct i2c_algorithm stm32f4_i2c_algo = {
 
 static int stm32f4_i2c_probe(struct platform_device *pdev)
 {
-    struct platform_driver *pdrv = 
-        to_platform_driver(driver_find(pdev->name, &platform_bus_type));
-//	struct device_node *np = pdev->dev.of_node;
+	struct device_node *np = pdev->dev.of_node;
 	struct stm32f4_i2c_dev *i2c_dev;
 	struct resource *res;
-//	u32 irq_event, irq_error, clk_rate;
+	u32 irq_event, irq_error, clk_rate;
 	struct i2c_adapter *adap;
 	struct reset_control *rst;
 	int ret;
@@ -734,70 +767,64 @@ static int stm32f4_i2c_probe(struct platform_device *pdev)
 	if (!i2c_dev)
 		return -ENOMEM;
 
-//	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	i2c_dev->base = I2C1;
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	i2c_dev->base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(i2c_dev->base))
 		return PTR_ERR(i2c_dev->base);
 
-//	irq_event = irq_of_parse_and_map(np, 0);
-//	if (!irq_event) {
-//		dev_err(&pdev->dev, "IRQ event missing or invalid\n");
-//		return -EINVAL;
-//	}
+	irq_event = irq_of_parse_and_map(np, 0);
+	if (!irq_event) {
+		dev_err(&pdev->dev, "IRQ event missing or invalid\n");
+		return -EINVAL;
+	}
 
-//	irq_error = irq_of_parse_and_map(np, 1);
-//	if (!irq_error) {
-//		dev_err(&pdev->dev, "IRQ error missing or invalid\n");
-//		return -EINVAL;
-//	}
+	irq_error = irq_of_parse_and_map(np, 1);
+	if (!irq_error) {
+		dev_err(&pdev->dev, "IRQ error missing or invalid\n");
+		return -EINVAL;
+	}
 
-	i2c_dev->clk = 42000000;
-//	ret = clk_prepare_enable(i2c_dev->clk);
-//	if (ret) {
-//		dev_err(i2c_dev->dev, "Failed to prepare_enable clock\n");
-//		return ret;
-//	}
+	i2c_dev->clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(i2c_dev->clk)) {
+		dev_err(&pdev->dev, "Error: Missing controller clock\n");
+		return PTR_ERR(i2c_dev->clk);
+	}
+	ret = clk_prepare_enable(i2c_dev->clk);
+	if (ret) {
+		dev_err(i2c_dev->dev, "Failed to prepare_enable clock\n");
+		return ret;
+	}
 
-//	rst = devm_reset_control_get_exclusive(&pdev->dev, NULL);
-//	if (IS_ERR(rst)) {
-//		ret = dev_err_probe(&pdev->dev, PTR_ERR(rst),
-//				    "Error: Missing reset ctrl\n");
-//		goto clk_free;
-//	}
-	stm32f4_i2c_set_bits(i2c_dev->base + STM32F4_I2C_CR1,
-        STM32F4_I2C_CR1_SWRST);
+	rst = devm_reset_control_get_exclusive(&pdev->dev, NULL);
+	if (IS_ERR(rst)) {
+		ret = dev_err_probe(&pdev->dev, PTR_ERR(rst),
+				    "Error: Missing reset ctrl\n");
+		goto clk_free;
+	}
+	reset_control_assert(rst);
 	udelay(2);
-	stm32f4_i2c_set_bits(i2c_dev->base + STM32F4_I2C_CR1,
-        STM32F4_I2C_CR1_SWRST);
+	reset_control_deassert(rst);
 
 	i2c_dev->speed = STM32_I2C_SPEED_STANDARD;
+	ret = of_property_read_u32(np, "clock-frequency", &clk_rate);
+	if (!ret && clk_rate >= I2C_MAX_FAST_MODE_FREQ)
+		i2c_dev->speed = STM32_I2C_SPEED_FAST;
+
 	i2c_dev->dev = &pdev->dev;
 
-//	ret = devm_request_irq(&pdev->dev, irq_event, stm32f4_i2c_isr_event, 0,
-//			       pdev->name, i2c_dev);
-//	if (ret) {
-//		dev_err(&pdev->dev, "Failed to request irq event %i\n",
-//			irq_event);
-//		goto clk_free;
-//	}
-
-//	ret = devm_request_irq(&pdev->dev, irq_error, stm32f4_i2c_isr_error, 0,
-//			       pdev->name, i2c_dev);
-//	if (ret) {
-//		dev_err(&pdev->dev, "Failed to request irq error %i\n",
-//			irq_error);
-//		goto clk_free;
-//	}
-
-	if (!pdrv->handler[0]) {
-		dev_err(&pdev->dev, "Failed to request irq event\n");
-		ret = -ENOMEM;
+	ret = devm_request_irq(&pdev->dev, irq_event, stm32f4_i2c_isr_event, 0,
+			       pdev->name, i2c_dev);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to request irq event %i\n",
+			irq_event);
 		goto clk_free;
 	}
 
-	if (!pdrv->handler[1]) {
-		dev_err(&pdev->dev, "Failed to request irq error\n");
-		ret = -ENOMEM;
+	ret = devm_request_irq(&pdev->dev, irq_error, stm32f4_i2c_isr_error, 0,
+			       pdev->name, i2c_dev);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to request irq error %i\n",
+			irq_error);
 		goto clk_free;
 	}
 
@@ -807,13 +834,13 @@ static int stm32f4_i2c_probe(struct platform_device *pdev)
 
 	adap = &i2c_dev->adap;
 	i2c_set_adapdata(adap, i2c_dev);
-	snprintf(adap->name, sizeof(adap->name), "STM32 I2C(%p)", i2c_dev->base);
-//	adap->owner = THIS_MODULE;
+	snprintf(adap->name, sizeof(adap->name), "STM32 I2C(%pa)", &res->start);
+	adap->owner = THIS_MODULE;
 	adap->timeout = 2 * HZ;
 	adap->retries = 0;
 	adap->algo = &stm32f4_i2c_algo;
 	adap->dev.parent = &pdev->dev;
-//	adap->dev.of_node = pdev->dev.of_node;
+	adap->dev.of_node = pdev->dev.of_node;
 
 	init_completion(&i2c_dev->complete);
 
@@ -823,14 +850,14 @@ static int stm32f4_i2c_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, i2c_dev);
 
-//	clk_disable(i2c_dev->clk);
+	clk_disable(i2c_dev->clk);
 
 	dev_info(i2c_dev->dev, "STM32F4 I2C driver registered\n");
 
 	return 0;
 
 clk_free:
-//	clk_disable_unprepare(i2c_dev->clk);
+	clk_disable_unprepare(i2c_dev->clk);
 	return ret;
 }
 
@@ -840,7 +867,7 @@ static int stm32f4_i2c_remove(struct platform_device *pdev)
 
 	i2c_del_adapter(&i2c_dev->adap);
 
-//	clk_unprepare(i2c_dev->clk);
+	clk_unprepare(i2c_dev->clk);
 
 	return 0;
 }
@@ -849,6 +876,7 @@ static const struct of_device_id stm32f4_i2c_match[] = {
 	{ .compatible = "st,stm32f4-i2c", },
 	{},
 };
+MODULE_DEVICE_TABLE(of, stm32f4_i2c_match);
 
 static struct platform_driver stm32f4_i2c_driver = {
 	.driver = {
@@ -857,23 +885,10 @@ static struct platform_driver stm32f4_i2c_driver = {
 	},
 	.probe = stm32f4_i2c_probe,
 	.remove = stm32f4_i2c_remove,
-	.handler[0] = stm32f4_i2c_isr_event,
-	.handler[1] = stm32f4_i2c_isr_error,
 };
 
-int __init i2c_stm32f4_init(void)
-{
-	int ret;
+module_platform_driver(stm32f4_i2c_driver);
 
-	ret = platform_driver_register(&stm32f4_i2c_driver);
-	if (ret)
-		printk(KERN_ERR "i2c-stm32f4: probe failed: %d\n", ret);
-    
-	return ret;
-}
-
-void __exit i2c_stm32f4_exit(void)
-{
-	platform_driver_unregister(&stm32f4_i2c_driver);
-}
-
+MODULE_AUTHOR("M'boumba Cedric Madianga <cedric.madianga@gmail.com>");
+MODULE_DESCRIPTION("STMicroelectronics STM32F4 I2C driver");
+MODULE_LICENSE("GPL v2");

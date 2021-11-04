@@ -11,7 +11,7 @@
 #ifndef _LINUX_I2C_MUX_H
 #define _LINUX_I2C_MUX_H
 
-//#ifdef __KERNEL__
+#ifdef __KERNEL__
 
 #include <linux/bitops.h>
 
@@ -61,6 +61,6 @@ int i2c_mux_add_adapter(struct i2c_mux_core *muxc,
 
 void i2c_mux_del_adapters(struct i2c_mux_core *muxc);
 
-//#endif /* __KERNEL__ */
+#endif /* __KERNEL__ */
 
 #endif /* _LINUX_I2C_MUX_H */

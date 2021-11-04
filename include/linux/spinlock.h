@@ -48,17 +48,15 @@
  */
 
 #include <linux/typecheck.h>
-//#include <linux/preempt.h>
+#include <linux/preempt.h>
 #include <linux/linkage.h>
 #include <linux/compiler.h>
 #include <linux/irqflags.h>
-//#include <linux/thread_info.h>
+#include <linux/thread_info.h>
 #include <linux/kernel.h>
 #include <linux/stringify.h>
-#include <linux/spinlock_api_up.h>
-#include <linux/sched.h>
-//#include <linux/bottom_half.h>
-//#include <linux/lockdep.h>
+#include <linux/bottom_half.h>
+#include <linux/lockdep.h>
 #include <asm/barrier.h>
 #include <asm/mmiowb.h>
 
@@ -183,7 +181,7 @@ static inline void do_raw_spin_lock(raw_spinlock_t *lock) __acquires(lock)
 {
 	__acquire(lock);
 	arch_spin_lock(&lock->raw_lock);
-//	mmiowb_spin_lock();
+	mmiowb_spin_lock();
 }
 
 #ifndef arch_spin_lock_flags
@@ -195,22 +193,22 @@ do_raw_spin_lock_flags(raw_spinlock_t *lock, unsigned long *flags) __acquires(lo
 {
 	__acquire(lock);
 	arch_spin_lock_flags(&lock->raw_lock, *flags);
-//	mmiowb_spin_lock();
+	mmiowb_spin_lock();
 }
 
 static inline int do_raw_spin_trylock(raw_spinlock_t *lock)
 {
 	int ret = arch_spin_trylock(&(lock)->raw_lock);
 
-//	if (ret)
-//		mmiowb_spin_lock();
+	if (ret)
+		mmiowb_spin_lock();
 
 	return ret;
 }
 
 static inline void do_raw_spin_unlock(raw_spinlock_t *lock) __releases(lock)
 {
-//	mmiowb_spin_unlock();
+	mmiowb_spin_unlock();
 	arch_spin_unlock(&lock->raw_lock);
 	__release(lock);
 }
@@ -270,7 +268,7 @@ static inline void do_raw_spin_unlock(raw_spinlock_t *lock) __releases(lock)
 
 #else
 
-#define raw_spin_lock_irqsave(lock, flags)		//\
+#define raw_spin_lock_irqsave(lock, flags)		\
 	do {						\
 		typecheck(unsigned long, flags);	\
 		_raw_spin_lock_irqsave(lock, flags);	\
@@ -286,7 +284,7 @@ static inline void do_raw_spin_unlock(raw_spinlock_t *lock) __releases(lock)
 #define raw_spin_unlock(lock)		_raw_spin_unlock(lock)
 #define raw_spin_unlock_irq(lock)	_raw_spin_unlock_irq(lock)
 
-#define raw_spin_unlock_irqrestore(lock, flags)		//\
+#define raw_spin_unlock_irqrestore(lock, flags)		\
 	do {							\
 		typecheck(unsigned long, flags);		\
 		_raw_spin_unlock_irqrestore(lock, flags);	\
@@ -311,7 +309,7 @@ static inline void do_raw_spin_unlock(raw_spinlock_t *lock) __releases(lock)
 })
 
 /* Include rwlock functions */
-//#include <linux/rwlock.h>
+#include <linux/rwlock.h>
 
 /*
  * Pull the _spin_*()/_read_*()/_write_*() functions/declarations:
@@ -319,7 +317,7 @@ static inline void do_raw_spin_unlock(raw_spinlock_t *lock) __releases(lock)
 #if defined(CONFIG_SMP) || defined(CONFIG_DEBUG_SPINLOCK)
 # include <linux/spinlock_api_smp.h>
 #else
-//# include <linux/spinlock_api_up.h>
+# include <linux/spinlock_api_up.h>
 #endif
 
 /*
@@ -353,18 +351,17 @@ do {						\
 
 static __always_inline void spin_lock(spinlock_t *lock)
 {
-//	raw_spin_lock(&lock->rlock);
+	raw_spin_lock(&lock->rlock);
 }
 
 static __always_inline void spin_lock_bh(spinlock_t *lock)
 {
-//	raw_spin_lock_bh(&lock->rlock);
+	raw_spin_lock_bh(&lock->rlock);
 }
 
 static __always_inline int spin_trylock(spinlock_t *lock)
 {
-//	return raw_spin_trylock(&lock->rlock);
-	return true;
+	return raw_spin_trylock(&lock->rlock);
 }
 
 #define spin_lock_nested(lock, subclass)			\
@@ -379,7 +376,7 @@ do {									\
 
 static __always_inline void spin_lock_irq(spinlock_t *lock)
 {
-//	raw_spin_lock_irq(&lock->rlock);
+	raw_spin_lock_irq(&lock->rlock);
 }
 
 #define spin_lock_irqsave(lock, flags)				\
@@ -394,34 +391,32 @@ do {									\
 
 static __always_inline void spin_unlock(spinlock_t *lock)
 {
-//	raw_spin_unlock(&lock->rlock);
+	raw_spin_unlock(&lock->rlock);
 }
 
 static __always_inline void spin_unlock_bh(spinlock_t *lock)
 {
-//	raw_spin_unlock_bh(&lock->rlock);
+	raw_spin_unlock_bh(&lock->rlock);
 }
 
 static __always_inline void spin_unlock_irq(spinlock_t *lock)
 {
-//	raw_spin_unlock_irq(&lock->rlock);
+	raw_spin_unlock_irq(&lock->rlock);
 }
 
 static __always_inline void spin_unlock_irqrestore(spinlock_t *lock, unsigned long flags)
 {
-//	raw_spin_unlock_irqrestore(&lock->rlock, flags);
+	raw_spin_unlock_irqrestore(&lock->rlock, flags);
 }
 
 static __always_inline int spin_trylock_bh(spinlock_t *lock)
 {
-//	return raw_spin_trylock_bh(&lock->rlock);
-	return true;
+	return raw_spin_trylock_bh(&lock->rlock);
 }
 
 static __always_inline int spin_trylock_irq(spinlock_t *lock)
 {
-//	return raw_spin_trylock_irq(&lock->rlock);
-	return true;
+	return raw_spin_trylock_irq(&lock->rlock);
 }
 
 #define spin_trylock_irqsave(lock, flags)			\

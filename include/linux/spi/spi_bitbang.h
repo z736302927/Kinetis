@@ -2,12 +2,10 @@
 #ifndef	__SPI_BITBANG_H
 #define	__SPI_BITBANG_H
 
-//#include <linux/workqueue.h>
-#include <linux/types.h>
-#include <linux/spi/spi.h>
+#include <linux/workqueue.h>
 
 struct spi_bitbang {
-//	struct mutex		lock;
+	struct mutex		lock;
 	u8			busy;
 	u8			use_dma;
 	u16			flags;		/* extra spi->mode support */

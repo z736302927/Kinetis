@@ -7,9 +7,9 @@
 
 #include <linux/clockchips.h>
 #include <linux/irqflags.h>
-//#include <linux/percpu.h>
-//#include <linux/context_tracking_state.h>
-//#include <linux/cpumask.h>
+#include <linux/percpu.h>
+#include <linux/context_tracking_state.h>
+#include <linux/cpumask.h>
 #include <linux/sched.h>
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS
@@ -291,7 +291,7 @@ static inline void tick_dep_clear_signal(struct signal_struct *signal,
 
 static inline void tick_nohz_full_kick_cpu(int cpu) { }
 static inline void __tick_nohz_task_switch(void) { }
-//static inline void tick_nohz_full_setup(cpumask_var_t cpumask) { }
+static inline void tick_nohz_full_setup(cpumask_var_t cpumask) { }
 #endif
 
 static inline void tick_nohz_task_switch(void)

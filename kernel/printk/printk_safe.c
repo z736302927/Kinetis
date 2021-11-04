@@ -3,16 +3,16 @@
  * printk_safe.c - Safe printk for printk-deadlock-prone contexts
  */
 
-//#include <linux/preempt.h>
+#include <generated/deconfig.h>
+#include <linux/preempt.h>
 #include <linux/spinlock.h>
-//#include <linux/debug_locks.h>
-//#include <linux/kdb.h>
-//#include <linux/smp.h>
-//#include <linux/cpumask.h>
+#include <linux/debug_locks.h>
+#include <linux/kdb.h>
+#include <linux/smp.h>
+#include <linux/cpumask.h>
 #include <linux/irq_work.h>
 #include <linux/printk.h>
-#include <linux/string.h>
-//#include <linux/kprobes.h>
+#include <linux/kprobes.h>
 
 #include "internal.h"
 
@@ -31,7 +31,7 @@
  * were handled or when IRQs are blocked.
  */
 
-#define SAFE_LOG_BUF_LEN ((1 << 12) -	\
+#define SAFE_LOG_BUF_LEN ((1 << CONFIG_PRINTK_SAFE_LOG_BUF_SHIFT) -	\
 				sizeof(atomic_t) -			\
 				sizeof(atomic_t) -			\
 				sizeof(struct irq_work))
@@ -43,8 +43,8 @@ struct printk_safe_seq_buf {
 	unsigned char		buffer[SAFE_LOG_BUF_LEN];
 };
 
-static struct printk_safe_seq_buf safe_print_seq;
-static int printk_context = 0;
+static DEFINE_PER_CPU(struct printk_safe_seq_buf, safe_print_seq);
+static DEFINE_PER_CPU(int, printk_context);
 
 static DEFINE_RAW_SPINLOCK(safe_read_lock);
 
@@ -245,10 +245,14 @@ out:
  */
 void printk_safe_flush(void)
 {
+	int cpu;
+
+	for_each_possible_cpu(cpu) {
 #ifdef CONFIG_PRINTK_NMI
-		__printk_safe_flush(&nmi_print_seq.work);
+		__printk_safe_flush(&per_cpu(nmi_print_seq, cpu).work);
 #endif
-		__printk_safe_flush(&safe_print_seq.work);
+		__printk_safe_flush(&per_cpu(safe_print_seq, cpu).work);
+	}
 }
 
 /**
@@ -267,21 +271,21 @@ void printk_safe_flush_on_panic(void)
 	 * Make sure that we could access the main ring buffer.
 	 * Do not risk a double release when more CPUs are up.
 	 */
-//	if (raw_spin_is_locked(&logbuf_lock)) {
-//		if (num_online_cpus() > 1)
-//			return;
+	if (raw_spin_is_locked(&logbuf_lock)) {
+		if (num_online_cpus() > 1)
+			return;
 
-//		debug_locks_off();
-//		raw_spin_lock_init(&logbuf_lock);
-//	}
+		debug_locks_off();
+		raw_spin_lock_init(&logbuf_lock);
+	}
 
-//	if (raw_spin_is_locked(&safe_read_lock)) {
-//		if (num_online_cpus() > 1)
-//			return;
+	if (raw_spin_is_locked(&safe_read_lock)) {
+		if (num_online_cpus() > 1)
+			return;
 
-//		debug_locks_off();
-//		raw_spin_lock_init(&safe_read_lock);
-//	}
+		debug_locks_off();
+		raw_spin_lock_init(&safe_read_lock);
+	}
 
 	printk_safe_flush();
 }
@@ -347,7 +351,7 @@ static __printf(1, 0) int vprintk_nmi(const char *fmt, va_list args)
  */
 static __printf(1, 0) int vprintk_safe(const char *fmt, va_list args)
 {
-	struct printk_safe_seq_buf *s = &safe_print_seq;
+	struct printk_safe_seq_buf *s = this_cpu_ptr(&safe_print_seq);
 
 	return printk_safe_log_store(s, fmt, args);
 }
@@ -355,44 +359,44 @@ static __printf(1, 0) int vprintk_safe(const char *fmt, va_list args)
 /* Can be preempted by NMI. */
 void __printk_safe_enter(void)
 {
-	printk_context++;
+	this_cpu_inc(printk_context);
 }
 
 /* Can be preempted by NMI. */
 void __printk_safe_exit(void)
 {
-	printk_context++;
+	this_cpu_dec(printk_context);
 }
 
 __printf(1, 0) int vprintk_func(const char *fmt, va_list args)
 {
-#ifdef CONFIG_KGDB_KDB
-	/* Allow to pass printk() to kdb but avoid a recursion. */
-	if (unlikely(kdb_trap_printk && kdb_printf_cpu < 0))
-		return vkdb_printf(KDB_MSGSRC_PRINTK, fmt, args);
-#endif
-
-	/*
-	 * Try to use the main logbuf even in NMI. But avoid calling console
-	 * drivers that might have their own locks.
-	 */
-	if ((printk_context & PRINTK_NMI_DIRECT_CONTEXT_MASK) &&
-	    raw_spin_trylock(&logbuf_lock)) {
-		int len;
-
-		len = vprintk_store(0, LOGLEVEL_DEFAULT, NULL, fmt, args);
-		raw_spin_unlock(&logbuf_lock);
-		defer_console_output();
-		return len;
-	}
-
-	/* Use extra buffer in NMI when logbuf_lock is taken or in safe mode. */
-	if (printk_context & PRINTK_NMI_CONTEXT_MASK)
-		return vprintk_nmi(fmt, args);
-
-	/* Use extra buffer to prevent a recursion deadlock in safe mode. */
-	if (printk_context & PRINTK_SAFE_CONTEXT_MASK)
-		return vprintk_safe(fmt, args);
+//#ifdef CONFIG_KGDB_KDB
+//	/* Allow to pass printk() to kdb but avoid a recursion. */
+//	if (unlikely(kdb_trap_printk && kdb_printf_cpu < 0))
+//		return vkdb_printf(KDB_MSGSRC_PRINTK, fmt, args);
+//#endif
+//
+//	/*
+//	 * Try to use the main logbuf even in NMI. But avoid calling console
+//	 * drivers that might have their own locks.
+//	 */
+//	if ((this_cpu_read(printk_context) & PRINTK_NMI_DIRECT_CONTEXT_MASK) &&
+//	    raw_spin_trylock(&logbuf_lock)) {
+//		int len;
+//
+//		len = vprintk_store(0, LOGLEVEL_DEFAULT, NULL, fmt, args);
+//		raw_spin_unlock(&logbuf_lock);
+//		defer_console_output();
+//		return len;
+//	}
+//
+//	/* Use extra buffer in NMI when logbuf_lock is taken or in safe mode. */
+//	if (this_cpu_read(printk_context) & PRINTK_NMI_CONTEXT_MASK)
+//		return vprintk_nmi(fmt, args);
+//
+//	/* Use extra buffer to prevent a recursion deadlock in safe mode. */
+//	if (this_cpu_read(printk_context) & PRINTK_SAFE_CONTEXT_MASK)
+//		return vprintk_safe(fmt, args);
 
 	/* No obstacles. */
 	return vprintk_default(fmt, args);
@@ -402,17 +406,17 @@ void __init printk_safe_init(void)
 {
 	int cpu;
 
-//	for_each_possible_cpu(cpu) {
+	for_each_possible_cpu(cpu) {
 		struct printk_safe_seq_buf *s;
 
-		s = &safe_print_seq;
+		s = &per_cpu(safe_print_seq, cpu);
 		init_irq_work(&s->work, __printk_safe_flush);
 
 #ifdef CONFIG_PRINTK_NMI
 		s = &per_cpu(nmi_print_seq, cpu);
 		init_irq_work(&s->work, __printk_safe_flush);
 #endif
-//	}
+	}
 
 	/* Flush pending messages that did not have scheduled IRQ works. */
 	printk_safe_flush();

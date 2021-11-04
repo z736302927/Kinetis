@@ -86,15 +86,16 @@
  *	Each node has its own list of partial, free and full slabs.
  *	All object allocations for a node occur from node specific slab lists.
  */
- 
+
+#include <generated/deconfig.h> 
 #include <linux/gfp.h>
 #include <linux/slab.h>
+#include <linux/slab_def.h>
 #include <linux/bug.h>
 #include <linux/err.h>
 #include <linux/string.h>
 
 #undef abs
-
 #include "stdlib.h"
 #include "string.h"
 
@@ -130,11 +131,11 @@ void kfree(const void *objp)
 }
 
 /**
- * kmalloc - allocate memory
+ * __kmalloc - allocate memory
  * @size: how many bytes of memory are required.
  * @flags: the type of memory to allocate.
  *
- * kmalloc is the normal method of allocating memory
+ * __kmalloc is the normal method of allocating memory
  * for objects smaller than page size in the kernel.
  *
  * The allocated object address is aligned to at least ARCH_KMALLOC_MINALIGN
@@ -183,7 +184,7 @@ void kfree(const void *objp)
  *	Try really hard to succeed the allocation but fail
  *	eventually.
  */
-void *kmalloc(unsigned int size, unsigned int flags)
+void *__kmalloc(unsigned int size, unsigned int flags)
 {
     void *ret;
 
@@ -252,7 +253,7 @@ EXPORT_SYMBOL(krealloc);
  */
 void *vmalloc(unsigned long size)
 {
-	return kmalloc(size, GFP_KERNEL);
+	return __kmalloc(size, GFP_KERNEL);
 }
 EXPORT_SYMBOL(vmalloc);
 
@@ -287,7 +288,7 @@ EXPORT_SYMBOL(vzalloc);
  */
 void *kmem_cache_alloc(struct kmem_cache *cachep, gfp_t flags)
 {
-	void *ret = kmalloc(cachep->object_size, flags);
+	void *ret = __kmalloc(cachep->object_size, flags);
     
     if (ret)
         cachep->ctor(ret);

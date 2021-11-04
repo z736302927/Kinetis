@@ -9,11 +9,18 @@
 #include <linux/device.h>
 #include <linux/slab.h>
 #include <linux/export.h>
+#include <linux/mutex.h>
 #include <linux/err.h>
+#include <linux/property.h>
 #include <linux/rbtree.h>
+#include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/log2.h>
+#include <linux/hwspinlock.h>
 #include <asm/unaligned.h>
+
+#define CREATE_TRACE_POINTS
+#include "trace.h"
 
 #include "internal.h"
 
@@ -108,7 +115,9 @@ bool regmap_cached(struct regmap *map, unsigned int reg)
 	if (map->max_register && reg > map->max_register)
 		return false;
 
+	map->lock(map->lock_arg);
 	ret = regcache_read(map, reg, &val);
+	map->unlock(map->lock_arg);
 	if (ret)
 		return false;
 
@@ -437,82 +446,82 @@ static unsigned int regmap_parse_64_native(const void *buf)
 }
 #endif
 
-//static void regmap_lock_hwlock(void *__map)
-//{
-//	struct regmap *map = __map;
+static void regmap_lock_hwlock(void *__map)
+{
+	struct regmap *map = __map;
 
-//	hwspin_lock_timeout(map->hwlock, UINT_MAX);
-//}
+	hwspin_lock_timeout(map->hwlock, UINT_MAX);
+}
 
-//static void regmap_lock_hwlock_irq(void *__map)
-//{
-//	struct regmap *map = __map;
+static void regmap_lock_hwlock_irq(void *__map)
+{
+	struct regmap *map = __map;
 
-//	hwspin_lock_timeout_irq(map->hwlock, UINT_MAX);
-//}
+	hwspin_lock_timeout_irq(map->hwlock, UINT_MAX);
+}
 
-//static void regmap_lock_hwlock_irqsave(void *__map)
-//{
-//	struct regmap *map = __map;
+static void regmap_lock_hwlock_irqsave(void *__map)
+{
+	struct regmap *map = __map;
 
-//	hwspin_lock_timeout_irqsave(map->hwlock, UINT_MAX,
-//				    &map->spinlock_flags);
-//}
+	hwspin_lock_timeout_irqsave(map->hwlock, UINT_MAX,
+				    &map->spinlock_flags);
+}
 
-//static void regmap_unlock_hwlock(void *__map)
-//{
-//	struct regmap *map = __map;
+static void regmap_unlock_hwlock(void *__map)
+{
+	struct regmap *map = __map;
 
-//	hwspin_unlock(map->hwlock);
-//}
+	hwspin_unlock(map->hwlock);
+}
 
-//static void regmap_unlock_hwlock_irq(void *__map)
-//{
-//	struct regmap *map = __map;
+static void regmap_unlock_hwlock_irq(void *__map)
+{
+	struct regmap *map = __map;
 
-//	hwspin_unlock_irq(map->hwlock);
-//}
+	hwspin_unlock_irq(map->hwlock);
+}
 
-//static void regmap_unlock_hwlock_irqrestore(void *__map)
-//{
-//	struct regmap *map = __map;
+static void regmap_unlock_hwlock_irqrestore(void *__map)
+{
+	struct regmap *map = __map;
 
-//	hwspin_unlock_irqrestore(map->hwlock, &map->spinlock_flags);
-//}
+	hwspin_unlock_irqrestore(map->hwlock, &map->spinlock_flags);
+}
 
-//static void regmap_lock_unlock_none(void *__map)
-//{
+static void regmap_lock_unlock_none(void *__map)
+{
 
-//}
+}
 
-//static void regmap_lock_mutex(void *__map)
-//{
-//	struct regmap *map = __map;
-//	mutex_lock(&map->mutex);
-//}
+static void regmap_lock_mutex(void *__map)
+{
+	struct regmap *map = __map;
+	mutex_lock(&map->mutex);
+}
 
-//static void regmap_unlock_mutex(void *__map)
-//{
-//	struct regmap *map = __map;
-//	mutex_unlock(&map->mutex);
-//}
+static void regmap_unlock_mutex(void *__map)
+{
+	struct regmap *map = __map;
+	mutex_unlock(&map->mutex);
+}
 
-//static void regmap_lock_spinlock(void *__map)
-//__acquires(&map->spinlock)
-//{
-//	struct regmap *map = __map;
-//	unsigned long flags;
+static void regmap_lock_spinlock(void *__map)
+__acquires(&map->spinlock)
+{
+	struct regmap *map = __map;
+	unsigned long flags;
 
-//	spin_lock_irqsave(&map->spinlock, flags);
-//	map->spinlock_flags = flags;
-//}
+	spin_lock_irqsave(&map->spinlock, flags);
+	map->spinlock_flags = flags;
+}
 
-//static void regmap_unlock_spinlock(void *__map)
-//__releases(&map->spinlock)
-//{
-//	struct regmap *map = __map;
-//	spin_unlock_irqrestore(&map->spinlock, map->spinlock_flags);
-//}
+static void regmap_unlock_spinlock(void *__map)
+__releases(&map->spinlock)
+{
+	struct regmap *map = __map;
+	spin_unlock_irqrestore(&map->spinlock, map->spinlock_flags);
+}
 
 static void dev_get_regmap_release(struct device *dev, void *res)
 {
@@ -654,7 +663,7 @@ enum regmap_endian regmap_get_val_endian(struct device *dev,
 					 const struct regmap_bus *bus,
 					 const struct regmap_config *config)
 {
-//	struct fwnode_handle *fwnode = dev ? dev_fwnode(dev) : NULL;
+	struct fwnode_handle *fwnode = dev ? dev_fwnode(dev) : NULL;
 	enum regmap_endian endian;
 
 	/* Retrieve the endianness specification from the regmap config */
@@ -664,13 +673,13 @@ enum regmap_endian regmap_get_val_endian(struct device *dev,
 	if (endian != REGMAP_ENDIAN_DEFAULT)
 		return endian;
 
-//	/* If the firmware node exist try to get endianness from it */
-//	if (fwnode_property_read_bool(fwnode, "big-endian"))
-//		endian = REGMAP_ENDIAN_BIG;
-//	else if (fwnode_property_read_bool(fwnode, "little-endian"))
-//		endian = REGMAP_ENDIAN_LITTLE;
-//	else if (fwnode_property_read_bool(fwnode, "native-endian"))
-//		endian = REGMAP_ENDIAN_NATIVE;
+	/* If the firmware node exist try to get endianness from it */
+	if (fwnode_property_read_bool(fwnode, "big-endian"))
+		endian = REGMAP_ENDIAN_BIG;
+	else if (fwnode_property_read_bool(fwnode, "little-endian"))
+		endian = REGMAP_ENDIAN_LITTLE;
+	else if (fwnode_property_read_bool(fwnode, "native-endian"))
+		endian = REGMAP_ENDIAN_NATIVE;
 
 	/* If the endianness was specified in fwnode, use that */
 	if (endian != REGMAP_ENDIAN_DEFAULT)
@@ -716,56 +725,56 @@ struct regmap *__regmap_init(struct device *dev,
 
 	ret = -EINVAL; /* Later error paths rely on this */
 
-//	if (config->disable_locking) {
-//		map->lock = map->unlock = regmap_lock_unlock_none;
-//		map->can_sleep = config->can_sleep;
-//		regmap_debugfs_disable(map);
-//	} else if (config->lock && config->unlock) {
-//		map->lock = config->lock;
-//		map->unlock = config->unlock;
-//		map->lock_arg = config->lock_arg;
-//		map->can_sleep = config->can_sleep;
-//	} else if (config->use_hwlock) {
-//		map->hwlock = hwspin_lock_request_specific(config->hwlock_id);
-//		if (!map->hwlock) {
-//			ret = -ENXIO;
-//			goto err_name;
-//		}
+	if (config->disable_locking) {
+		map->lock = map->unlock = regmap_lock_unlock_none;
+		map->can_sleep = config->can_sleep;
+		regmap_debugfs_disable(map);
+	} else if (config->lock && config->unlock) {
+		map->lock = config->lock;
+		map->unlock = config->unlock;
+		map->lock_arg = config->lock_arg;
+		map->can_sleep = config->can_sleep;
+	} else if (config->use_hwlock) {
+		map->hwlock = hwspin_lock_request_specific(config->hwlock_id);
+		if (!map->hwlock) {
+			ret = -ENXIO;
+			goto err_name;
+		}
 
-//		switch (config->hwlock_mode) {
-//		case HWLOCK_IRQSTATE:
-//			map->lock = regmap_lock_hwlock_irqsave;
-//			map->unlock = regmap_unlock_hwlock_irqrestore;
-//			break;
-//		case HWLOCK_IRQ:
-//			map->lock = regmap_lock_hwlock_irq;
-//			map->unlock = regmap_unlock_hwlock_irq;
-//			break;
-//		default:
-//			map->lock = regmap_lock_hwlock;
-//			map->unlock = regmap_unlock_hwlock;
-//			break;
-//		}
+		switch (config->hwlock_mode) {
+		case HWLOCK_IRQSTATE:
+			map->lock = regmap_lock_hwlock_irqsave;
+			map->unlock = regmap_unlock_hwlock_irqrestore;
+			break;
+		case HWLOCK_IRQ:
+			map->lock = regmap_lock_hwlock_irq;
+			map->unlock = regmap_unlock_hwlock_irq;
+			break;
+		default:
+			map->lock = regmap_lock_hwlock;
+			map->unlock = regmap_unlock_hwlock;
+			break;
+		}
 
-//		map->lock_arg = map;
-//	} else {
-//		if ((bus && bus->fast_io) ||
-//		    config->fast_io) {
-//			spin_lock_init(&map->spinlock);
-//			map->lock = regmap_lock_spinlock;
-//			map->unlock = regmap_unlock_spinlock;
-//			lockdep_set_class_and_name(&map->spinlock,
-//						   lock_key, lock_name);
-//		} else {
-//			mutex_init(&map->mutex);
-//			map->lock = regmap_lock_mutex;
-//			map->unlock = regmap_unlock_mutex;
-//			map->can_sleep = true;
-//			lockdep_set_class_and_name(&map->mutex,
-//						   lock_key, lock_name);
-//		}
-//		map->lock_arg = map;
-//	}
+		map->lock_arg = map;
+	} else {
+		if ((bus && bus->fast_io) ||
+		    config->fast_io) {
+			spin_lock_init(&map->spinlock);
+			map->lock = regmap_lock_spinlock;
+			map->unlock = regmap_unlock_spinlock;
+			lockdep_set_class_and_name(&map->spinlock,
+						   lock_key, lock_name);
+		} else {
+			mutex_init(&map->mutex);
+			map->lock = regmap_lock_mutex;
+			map->unlock = regmap_unlock_mutex;
+			map->can_sleep = true;
+			lockdep_set_class_and_name(&map->mutex,
+						   lock_key, lock_name);
+		}
+		map->lock_arg = map;
+	}
 
 	/*
 	 * When we write in fast-paths with regmap_bulk_write() don't allocate
@@ -815,10 +824,10 @@ struct regmap *__regmap_init(struct device *dev,
 	map->readable_noinc_reg = config->readable_noinc_reg;
 	map->cache_type = config->cache_type;
 
-//	spin_lock_init(&map->async_lock);
+	spin_lock_init(&map->async_lock);
 	INIT_LIST_HEAD(&map->async_list);
 	INIT_LIST_HEAD(&map->async_free);
-//	init_waitqueue_head(&map->async_waitq);
+	init_waitqueue_head(&map->async_waitq);
 
 	if (config->read_flag_mask ||
 	    config->write_flag_mask ||
@@ -1182,8 +1191,8 @@ err_range:
 	regmap_range_exit(map);
 	kfree(map->work_buf);
 err_hwlock:
-//	if (map->hwlock)
-//		hwspin_lock_free(map->hwlock);
+	if (map->hwlock)
+		hwspin_lock_free(map->hwlock);
 err_name:
 	kfree_const(map->name);
 err_map:
@@ -1249,9 +1258,8 @@ static void regmap_field_init(struct regmap_field *rm_field,
 struct regmap_field *devm_regmap_field_alloc(struct device *dev,
 		struct regmap *regmap, struct reg_field reg_field)
 {
-	struct regmap_field *rm_field = kzalloc(sizeof(*rm_field),
-        GFP_KERNEL);
-
+	struct regmap_field *rm_field = devm_kzalloc(dev,
+					sizeof(*rm_field), GFP_KERNEL);
 	if (!rm_field)
 		return ERR_PTR(-ENOMEM);
 
@@ -1319,7 +1327,7 @@ int devm_regmap_field_bulk_alloc(struct device *dev,
 	struct regmap_field *rf;
 	int i;
 
-	rf = kcalloc(num_fields, sizeof(*rf), GFP_KERNEL);
+	rf = devm_kcalloc(dev, num_fields, sizeof(*rf), GFP_KERNEL);
 	if (!rf)
 		return -ENOMEM;
 
@@ -1358,7 +1366,7 @@ EXPORT_SYMBOL_GPL(regmap_field_bulk_free);
 void devm_regmap_field_bulk_free(struct device *dev,
 				 struct regmap_field *field)
 {
-	kfree(field);
+	devm_kfree(dev, field);
 }
 EXPORT_SYMBOL_GPL(devm_regmap_field_bulk_free);
 
@@ -1376,7 +1384,7 @@ EXPORT_SYMBOL_GPL(devm_regmap_field_bulk_free);
 void devm_regmap_field_free(struct device *dev,
 	struct regmap_field *field)
 {
-	kfree(field);
+	devm_kfree(dev, field);
 }
 EXPORT_SYMBOL_GPL(devm_regmap_field_free);
 
@@ -1482,10 +1490,10 @@ void regmap_exit(struct regmap *map)
 		kfree(async->work_buf);
 		kfree(async);
 	}
-//	if (map->hwlock)
-//		hwspin_lock_free(map->hwlock);
-//	if (map->lock == regmap_lock_mutex)
-//		mutex_destroy(&map->mutex);
+	if (map->hwlock)
+		hwspin_lock_free(map->hwlock);
+	if (map->lock == regmap_lock_mutex)
+		mutex_destroy(&map->mutex);
 	kfree_const(map->name);
 	kfree(map->patch);
 	kfree(map);
@@ -1702,15 +1710,15 @@ static int _regmap_raw_write_impl(struct regmap *map, unsigned int reg,
 	if (map->async && map->bus->async_write) {
 		struct regmap_async *async;
 
-//		trace_regmap_async_write_start(map, reg, val_len);
+		trace_regmap_async_write_start(map, reg, val_len);
 
-//		spin_lock_irqsave(&map->async_lock, flags);
+		spin_lock_irqsave(&map->async_lock, flags);
 		async = list_first_entry_or_null(&map->async_free,
 						 struct regmap_async,
 						 list);
 		if (async)
 			list_del(&async->list);
-//		spin_unlock_irqrestore(&map->async_lock, flags);
+		spin_unlock_irqrestore(&map->async_lock, flags);
 
 		if (!async) {
 			async = map->bus->async_alloc();
@@ -1731,9 +1739,9 @@ static int _regmap_raw_write_impl(struct regmap *map, unsigned int reg,
 		memcpy(async->work_buf, map->work_buf, map->format.pad_bytes +
 		       map->format.reg_bytes + map->format.val_bytes);
 
-//		spin_lock_irqsave(&map->async_lock, flags);
+		spin_lock_irqsave(&map->async_lock, flags);
 		list_add_tail(&async->list, &map->async_list);
-//		spin_unlock_irqrestore(&map->async_lock, flags);
+		spin_unlock_irqrestore(&map->async_lock, flags);
 
 		if (val != work_val)
 			ret = map->bus->async_write(map->bus_context,
@@ -1752,15 +1760,15 @@ static int _regmap_raw_write_impl(struct regmap *map, unsigned int reg,
 			dev_err(map->dev, "Failed to schedule write: %d\n",
 				ret);
 
-//			spin_lock_irqsave(&map->async_lock, flags);
+			spin_lock_irqsave(&map->async_lock, flags);
 			list_move(&async->list, &map->async_free);
-//			spin_unlock_irqrestore(&map->async_lock, flags);
+			spin_unlock_irqrestore(&map->async_lock, flags);
 		}
 
 		return ret;
 	}
 
-//	trace_regmap_hw_write_start(map, reg, val_len / map->format.val_bytes);
+	trace_regmap_hw_write_start(map, reg, val_len / map->format.val_bytes);
 
 	/* If we're doing a single register write we can probably just
 	 * send the work_buf directly, otherwise try to do a gather
@@ -1800,7 +1808,7 @@ static int _regmap_raw_write_impl(struct regmap *map, unsigned int reg,
 			map->cache_ops->drop(map, reg, reg + 1);
 	}
 
-//	trace_regmap_hw_write_done(map, reg, val_len / map->format.val_bytes);
+	trace_regmap_hw_write_done(map, reg, val_len / map->format.val_bytes);
 
 	return ret;
 }
@@ -1857,12 +1865,12 @@ static int _regmap_bus_formatted_write(void *context, unsigned int reg,
 
 	map->format.format_write(map, reg, val);
 
-//	trace_regmap_hw_write_start(map, reg, 1);
+	trace_regmap_hw_write_start(map, reg, 1);
 
 	ret = map->bus->write(map->bus_context, map->work_buf,
 			      map->format.buf_size);
 
-//	trace_regmap_hw_write_done(map, reg, 1);
+	trace_regmap_hw_write_done(map, reg, 1);
 
 	return ret;
 }
@@ -1916,15 +1924,12 @@ int _regmap_write(struct regmap *map, unsigned int reg,
 		}
 	}
 
-	ret = map->reg_write(context, reg, val);
-	if (ret == 0) {
-		if (regmap_should_log(map))
-			dev_info(map->dev, "%x <= %x\n", reg, val);
+	if (regmap_should_log(map))
+		dev_info(map->dev, "%x <= %x\n", reg, val);
 
-//		trace_regmap_reg_write(map, reg, val);
-	}
+	trace_regmap_reg_write(map, reg, val);
 
-	return ret;
+	return map->reg_write(context, reg, val);
 }
 
 /**
@@ -1944,11 +1949,11 @@ int regmap_write(struct regmap *map, unsigned int reg, unsigned int val)
 	if (!IS_ALIGNED(reg, map->reg_stride))
 		return -EINVAL;
 
-//	map->lock(map->lock_arg);
+	map->lock(map->lock_arg);
 
 	ret = _regmap_write(map, reg, val);
 
-//	map->unlock(map->lock_arg);
+	map->unlock(map->lock_arg);
 
 	return ret;
 }
@@ -1971,7 +1976,7 @@ int regmap_write_async(struct regmap *map, unsigned int reg, unsigned int val)
 	if (!IS_ALIGNED(reg, map->reg_stride))
 		return -EINVAL;
 
-//	map->lock(map->lock_arg);
+	map->lock(map->lock_arg);
 
 	map->async = true;
 
@@ -1979,7 +1984,7 @@ int regmap_write_async(struct regmap *map, unsigned int reg, unsigned int val)
 
 	map->async = false;
 
-//	map->unlock(map->lock_arg);
+	map->unlock(map->lock_arg);
 
 	return ret;
 }
@@ -2049,11 +2054,11 @@ int regmap_raw_write(struct regmap *map, unsigned int reg,
 	if (val_len % map->format.val_bytes)
 		return -EINVAL;
 
-//	map->lock(map->lock_arg);
+	map->lock(map->lock_arg);
 
 	ret = _regmap_raw_write(map, reg, val, val_len, false);
 
-//	map->unlock(map->lock_arg);
+	map->unlock(map->lock_arg);
 
 	return ret;
 }
@@ -2097,7 +2102,7 @@ int regmap_noinc_write(struct regmap *map, unsigned int reg,
 	if (val_len == 0)
 		return -EINVAL;
 
-//	map->lock(map->lock_arg);
+	map->lock(map->lock_arg);
 
 	if (!regmap_volatile(map, reg) || !regmap_writeable_noinc(map, reg)) {
 		ret = -EINVAL;
@@ -2117,7 +2122,7 @@ int regmap_noinc_write(struct regmap *map, unsigned int reg,
 	}
 
 out_unlock:
-//	map->unlock(map->lock_arg);
+	map->unlock(map->lock_arg);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(regmap_noinc_write);
@@ -2210,7 +2215,7 @@ int regmap_bulk_write(struct regmap *map, unsigned int reg, const void *val,
 	 * single write operations.
 	 */
 	if (!map->bus || !map->format.parse_inplace) {
-//		map->lock(map->lock_arg);
+		map->lock(map->lock_arg);
 		for (i = 0; i < val_count; i++) {
 			unsigned int ival;
 
@@ -2240,8 +2245,8 @@ int regmap_bulk_write(struct regmap *map, unsigned int reg, const void *val,
 			if (ret != 0)
 				goto out;
 		}
-out:;
-//		map->unlock(map->lock_arg);
+out:
+		map->unlock(map->lock_arg);
 	} else {
 		void *wval;
 
@@ -2295,7 +2300,7 @@ static int _regmap_raw_multi_reg_write(struct regmap *map,
 	for (i = 0; i < num_regs; i++) {
 		unsigned int reg = regs[i].reg;
 		unsigned int val = regs[i].def;
-//		trace_regmap_hw_write_start(map, reg, 1);
+		trace_regmap_hw_write_start(map, reg, 1);
 		map->format.format_reg(u8, reg, map->reg_shift);
 		u8 += reg_bytes + pad_bytes;
 		map->format.format_val(u8, val, 0);
@@ -2310,7 +2315,7 @@ static int _regmap_raw_multi_reg_write(struct regmap *map,
 
 	for (i = 0; i < num_regs; i++) {
 		int reg = regs[i].reg;
-//		trace_regmap_hw_write_done(map, reg, 1);
+		trace_regmap_hw_write_done(map, reg, 1);
 	}
 	return ret;
 }
@@ -2508,11 +2513,11 @@ int regmap_multi_reg_write(struct regmap *map, const struct reg_sequence *regs,
 {
 	int ret;
 
-//	map->lock(map->lock_arg);
+	map->lock(map->lock_arg);
 
 	ret = _regmap_multi_reg_write(map, regs, num_regs);
 
-//	map->unlock(map->lock_arg);
+	map->unlock(map->lock_arg);
 
 	return ret;
 }
@@ -2543,7 +2548,7 @@ int regmap_multi_reg_write_bypassed(struct regmap *map,
 	int ret;
 	bool bypass;
 
-//	map->lock(map->lock_arg);
+	map->lock(map->lock_arg);
 
 	bypass = map->cache_bypass;
 	map->cache_bypass = true;
@@ -2552,7 +2557,7 @@ int regmap_multi_reg_write_bypassed(struct regmap *map,
 
 	map->cache_bypass = bypass;
 
-//	map->unlock(map->lock_arg);
+	map->unlock(map->lock_arg);
 
 	return ret;
 }
@@ -2590,7 +2595,7 @@ int regmap_raw_write_async(struct regmap *map, unsigned int reg,
 	if (!IS_ALIGNED(reg, map->reg_stride))
 		return -EINVAL;
 
-//	map->lock(map->lock_arg);
+	map->lock(map->lock_arg);
 
 	map->async = true;
 
@@ -2598,7 +2603,7 @@ int regmap_raw_write_async(struct regmap *map, unsigned int reg,
 
 	map->async = false;
 
-//	map->unlock(map->lock_arg);
+	map->unlock(map->lock_arg);
 
 	return ret;
 }
@@ -2626,13 +2631,13 @@ static int _regmap_raw_read(struct regmap *map, unsigned int reg, void *val,
 	map->format.format_reg(map->work_buf, reg, map->reg_shift);
 	regmap_set_work_buf_flag_mask(map, map->format.reg_bytes,
 				      map->read_flag_mask);
-//	trace_regmap_hw_read_start(map, reg, val_len / map->format.val_bytes);
+	trace_regmap_hw_read_start(map, reg, val_len / map->format.val_bytes);
 
 	ret = map->bus->read(map->bus_context, map->work_buf,
 			     map->format.reg_bytes + map->format.pad_bytes,
 			     val, val_len);
 
-//	trace_regmap_hw_read_done(map, reg, val_len / map->format.val_bytes);
+	trace_regmap_hw_read_done(map, reg, val_len / map->format.val_bytes);
 
 	return ret;
 }
@@ -2686,7 +2691,7 @@ static int _regmap_read(struct regmap *map, unsigned int reg,
 		if (regmap_should_log(map))
 			dev_info(map->dev, "%x => %x\n", reg, *val);
 
-//		trace_regmap_reg_read(map, reg, *val);
+		trace_regmap_reg_read(map, reg, *val);
 
 		if (!map->cache_bypass)
 			regcache_write(map, reg, *val);
@@ -2712,11 +2717,11 @@ int regmap_read(struct regmap *map, unsigned int reg, unsigned int *val)
 	if (!IS_ALIGNED(reg, map->reg_stride))
 		return -EINVAL;
 
-//	map->lock(map->lock_arg);
+	map->lock(map->lock_arg);
 
 	ret = _regmap_read(map, reg, val);
 
-//	map->unlock(map->lock_arg);
+	map->unlock(map->lock_arg);
 
 	return ret;
 }
@@ -2750,7 +2755,7 @@ int regmap_raw_read(struct regmap *map, unsigned int reg, void *val,
 	if (val_count == 0)
 		return -EINVAL;
 
-//	map->lock(map->lock_arg);
+	map->lock(map->lock_arg);
 
 	if (regmap_volatile_range(map, reg, val_count) || map->cache_bypass ||
 	    map->cache_type == REGCACHE_NONE) {
@@ -2802,7 +2807,7 @@ int regmap_raw_read(struct regmap *map, unsigned int reg, void *val,
 	}
 
  out:
-//	map->unlock(map->lock_arg);
+	map->unlock(map->lock_arg);
 
 	return ret;
 }
@@ -2846,7 +2851,7 @@ int regmap_noinc_read(struct regmap *map, unsigned int reg,
 	if (val_len == 0)
 		return -EINVAL;
 
-//	map->lock(map->lock_arg);
+	map->lock(map->lock_arg);
 
 	if (!regmap_volatile(map, reg) || !regmap_readable_noinc(map, reg)) {
 		ret = -EINVAL;
@@ -2866,7 +2871,7 @@ int regmap_noinc_read(struct regmap *map, unsigned int reg,
 	}
 
 out_unlock:
-//	map->unlock(map->lock_arg);
+	map->unlock(map->lock_arg);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(regmap_noinc_read);
@@ -2967,7 +2972,7 @@ int regmap_bulk_read(struct regmap *map, unsigned int reg, void *val,
 		u16 *u16 = val;
 		u8 *u8 = val;
 
-//		map->lock(map->lock_arg);
+		map->lock(map->lock_arg);
 
 		for (i = 0; i < val_count; i++) {
 			unsigned int ival;
@@ -2998,8 +3003,8 @@ int regmap_bulk_read(struct regmap *map, unsigned int reg, void *val,
 			}
 		}
 
-out:;
-//		map->unlock(map->lock_arg);
+out:
+		map->unlock(map->lock_arg);
 	}
 
 	return ret;
@@ -3066,7 +3071,7 @@ int regmap_update_bits_base(struct regmap *map, unsigned int reg,
 {
 	int ret;
 
-//	map->lock(map->lock_arg);
+	map->lock(map->lock_arg);
 
 	map->async = async;
 
@@ -3074,7 +3079,7 @@ int regmap_update_bits_base(struct regmap *map, unsigned int reg,
 
 	map->async = false;
 
-//	map->unlock(map->lock_arg);
+	map->unlock(map->lock_arg);
 
 	return ret;
 }
@@ -3106,32 +3111,32 @@ EXPORT_SYMBOL_GPL(regmap_test_bits);
 void regmap_async_complete_cb(struct regmap_async *async, int ret)
 {
 	struct regmap *map = async->map;
-//	bool wake;
+	bool wake;
 
-//	trace_regmap_async_io_complete(map);
+	trace_regmap_async_io_complete(map);
 
-//	spin_lock(&map->async_lock);
+	spin_lock(&map->async_lock);
 	list_move(&async->list, &map->async_free);
-//	wake = list_empty(&map->async_list);
+	wake = list_empty(&map->async_list);
 
 	if (ret != 0)
 		map->async_ret = ret;
 
-//	spin_unlock(&map->async_lock);
+	spin_unlock(&map->async_lock);
 
-//	if (wake)
-//		wake_up(&map->async_waitq);
+	if (wake)
+		wake_up(&map->async_waitq);
 }
 EXPORT_SYMBOL_GPL(regmap_async_complete_cb);
 
 static int regmap_async_is_done(struct regmap *map)
 {
-//	unsigned long flags;
+	unsigned long flags;
 	int ret;
 
-//	spin_lock_irqsave(&map->async_lock, flags);
+	spin_lock_irqsave(&map->async_lock, flags);
 	ret = list_empty(&map->async_list);
-//	spin_unlock_irqrestore(&map->async_lock, flags);
+	spin_unlock_irqrestore(&map->async_lock, flags);
 
 	return ret;
 }
@@ -3146,23 +3151,23 @@ static int regmap_async_is_done(struct regmap *map)
  */
 int regmap_async_complete(struct regmap *map)
 {
-//	unsigned long flags;
+	unsigned long flags;
 	int ret;
 
 	/* Nothing to do with no async support */
 	if (!map->bus || !map->bus->async_write)
 		return 0;
 
-//	trace_regmap_async_complete_start(map);
+	trace_regmap_async_complete_start(map);
 
-	while(regmap_async_is_done(map));
+	wait_event(map->async_waitq, regmap_async_is_done(map));
 
-//	spin_lock_irqsave(&map->async_lock, flags);
+	spin_lock_irqsave(&map->async_lock, flags);
 	ret = map->async_ret;
 	map->async_ret = 0;
-//	spin_unlock_irqrestore(&map->async_lock, flags);
+	spin_unlock_irqrestore(&map->async_lock, flags);
 
-//	trace_regmap_async_complete_done(map);
+	trace_regmap_async_complete_done(map);
 
 	return ret;
 }
@@ -3207,7 +3212,7 @@ int regmap_register_patch(struct regmap *map, const struct reg_sequence *regs,
 		return -ENOMEM;
 	}
 
-//	map->lock(map->lock_arg);
+	map->lock(map->lock_arg);
 
 	bypass = map->cache_bypass;
 
@@ -3219,7 +3224,7 @@ int regmap_register_patch(struct regmap *map, const struct reg_sequence *regs,
 	map->async = false;
 	map->cache_bypass = bypass;
 
-//	map->unlock(map->lock_arg);
+	map->unlock(map->lock_arg);
 
 	regmap_async_complete(map);
 

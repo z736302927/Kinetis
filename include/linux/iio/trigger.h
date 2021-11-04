@@ -3,16 +3,14 @@
  *
  * Copyright (c) 2008 Jonathan Cameron
  */
-//#include <linux/irq.h>
-//#include <linux/module.h>
-//#include <linux/atomic.h>
-#include <linux/device.h>
-#include <linux/interrupt.h>
+#include <linux/irq.h>
+#include <linux/module.h>
+#include <linux/atomic.h>
 
 #ifndef _IIO_TRIGGER_H_
 #define _IIO_TRIGGER_H_
 
-//#ifdef CONFIG_IIO_TRIGGER
+#ifdef CONFIG_IIO_TRIGGER
 struct iio_subirq {
 	bool enabled;
 };
@@ -38,7 +36,7 @@ struct iio_trigger_ops {
 			       struct iio_dev *indio_dev);
 };
 
-#define CONFIG_IIO_CONSUMERS_PER_TRIGGER    2
+
 /**
  * struct iio_trigger - industrial I/O trigger device
  * @ops:		[DRIVER] operations structure
@@ -69,11 +67,12 @@ struct iio_trigger {
 	struct list_head		alloc_list;
 	atomic_t			use_count;
 
-//	struct irq_chip			subirq_chip;
+	struct irq_chip			subirq_chip;
 	int				subirq_base;
 
 	struct iio_subirq subirqs[CONFIG_IIO_CONSUMERS_PER_TRIGGER];
 	unsigned long pool[BITS_TO_LONGS(CONFIG_IIO_CONSUMERS_PER_TRIGGER)];
+	struct mutex			pool_lock;
 	bool				attached_own_device;
 };
 
@@ -85,14 +84,14 @@ static inline struct iio_trigger *to_iio_trigger(struct device *d)
 
 static inline void iio_trigger_put(struct iio_trigger *trig)
 {
-//	module_put(trig->owner);
-//	put_device(&trig->dev);
+	module_put(trig->owner);
+	put_device(&trig->dev);
 }
 
 static inline struct iio_trigger *iio_trigger_get(struct iio_trigger *trig)
 {
-//	get_device(&trig->dev);
-//	__module_get(trig->owner);
+	get_device(&trig->dev);
+	__module_get(trig->owner);
 
 	return trig;
 }
@@ -174,8 +173,8 @@ bool iio_trigger_using_own(struct iio_dev *indio_dev);
 int iio_trigger_validate_own_device(struct iio_trigger *trig,
 				     struct iio_dev *indio_dev);
 
-//#else
-//struct iio_trigger;
-//struct iio_trigger_ops;
-//#endif
+#else
+struct iio_trigger;
+struct iio_trigger_ops;
+#endif
 #endif /* _IIO_TRIGGER_H_ */

@@ -28,9 +28,9 @@
  *   Moved from glibc-2.6 to kernel by Zhaolei<zhaolei@cn.fujitsu.com>
  */
 
+#include <generated/deconfig.h> 
 #include <linux/time.h>
-#include <linux/export.h>
-//#include <linux/module.h>
+#include <linux/module.h>
 
 /*
  * Nonzero if YEAR is a leap year (every 4 years,

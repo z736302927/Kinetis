@@ -9,10 +9,10 @@
 #include <linux/timer.h>
 #include <linux/linkage.h>
 #include <linux/bitops.h>
-//#include <linux/lockdep.h>
-//#include <linux/threads.h>
+#include <linux/lockdep.h>
+#include <linux/threads.h>
 #include <linux/atomic.h>
-//#include <linux/cpumask.h>
+#include <linux/cpumask.h>
 #include <linux/rcupdate.h>
 
 struct workqueue_struct;
@@ -59,7 +59,7 @@ enum {
 	WORK_NO_COLOR		= WORK_NR_COLORS,
 
 	/* not bound to any CPU, prefer the local CPU */
-	WORK_CPU_UNBOUND	= 1,
+	WORK_CPU_UNBOUND	= NR_CPUS,
 
 	/*
 	 * Reserve 8 bits off of pwq pointer w/ debugobjects turned off.
@@ -143,7 +143,7 @@ struct workqueue_attrs {
 	/**
 	 * @cpumask: allowed CPUs
 	 */
-//	cpumask_var_t cpumask;
+	cpumask_var_t cpumask;
 
 	/**
 	 * @no_numa: disable NUMA affinity
@@ -439,7 +439,7 @@ struct workqueue_attrs *alloc_workqueue_attrs(void);
 void free_workqueue_attrs(struct workqueue_attrs *attrs);
 int apply_workqueue_attrs(struct workqueue_struct *wq,
 			  const struct workqueue_attrs *attrs);
-//int workqueue_set_unbound_cpumask(cpumask_var_t cpumask);
+int workqueue_set_unbound_cpumask(cpumask_var_t cpumask);
 
 extern bool queue_work_on(int cpu, struct workqueue_struct *wq,
 			struct work_struct *work);
@@ -474,9 +474,9 @@ extern bool current_is_workqueue_rescuer(void);
 extern bool workqueue_congested(int cpu, struct workqueue_struct *wq);
 extern unsigned int work_busy(struct work_struct *work);
 extern __printf(1, 2) void set_worker_desc(const char *fmt, ...);
-//extern void print_worker_info(const char *log_lvl, struct task_struct *task);
+extern void print_worker_info(const char *log_lvl, struct task_struct *task);
 extern void show_workqueue_state(void);
-//extern void wq_worker_comm(char *buf, size_t size, struct task_struct *task);
+extern void wq_worker_comm(char *buf, size_t size, struct task_struct *task);
 
 /**
  * queue_work - queue work on a workqueue

@@ -6,11 +6,11 @@
  * Copyright (C) 2017 Linus Walleij
  */
 #include <linux/kernel.h>
-//#include <linux/module.h>
+#include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/gpio/consumer.h>
-//#include <linux/of.h>
-//#include <linux/of_device.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
 
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_bitbang.h>
@@ -340,12 +340,12 @@ static int spi_gpio_probe_pdata(struct platform_device *pdev,
 	if (!spi_gpio->cs_gpios)
 		return -ENOMEM;
 
-//	for (i = 0; i < master->num_chipselect; i++) {
-//		spi_gpio->cs_gpios[i] = devm_gpiod_get_index(dev, "cs", i,
-//							     GPIOD_OUT_HIGH);
-//		if (IS_ERR(spi_gpio->cs_gpios[i]))
-//			return PTR_ERR(spi_gpio->cs_gpios[i]);
-//	}
+	for (i = 0; i < master->num_chipselect; i++) {
+		spi_gpio->cs_gpios[i] = devm_gpiod_get_index(dev, "cs", i,
+							     GPIOD_OUT_HIGH);
+		if (IS_ERR(spi_gpio->cs_gpios[i]))
+			return PTR_ERR(spi_gpio->cs_gpios[i]);
+	}
 
 	return 0;
 }
@@ -362,9 +362,9 @@ static int spi_gpio_probe(struct platform_device *pdev)
 	if (!master)
 		return -ENOMEM;
 
-//	if (pdev->dev.of_node)
-//		status = spi_gpio_probe_dt(pdev, master);
-//	else
+	if (pdev->dev.of_node)
+		status = spi_gpio_probe_dt(pdev, master);
+	else
 		status = spi_gpio_probe_pdata(pdev, master);
 
 	if (status)
@@ -372,9 +372,9 @@ static int spi_gpio_probe(struct platform_device *pdev)
 
 	spi_gpio = spi_master_get_devdata(master);
 
-//	status = spi_gpio_request(dev, spi_gpio);
-//	if (status)
-//		return status;
+	status = spi_gpio_request(dev, spi_gpio);
+	if (status)
+		return status;
 
 	master->bits_per_word_mask = SPI_BPW_RANGE_MASK(1, 32);
 	master->mode_bits = SPI_3WIRE | SPI_3WIRE_HIZ | SPI_CPHA | SPI_CPOL |
@@ -424,32 +424,17 @@ static int spi_gpio_probe(struct platform_device *pdev)
 	return devm_spi_register_master(&pdev->dev, master);
 }
 
-//MODULE_ALIAS("platform:" DRIVER_NAME);
+MODULE_ALIAS("platform:" DRIVER_NAME);
 
 static struct platform_driver spi_gpio_driver = {
 	.driver = {
 		.name	= DRIVER_NAME,
-//		.of_match_table = of_match_ptr(spi_gpio_dt_ids),
+		.of_match_table = of_match_ptr(spi_gpio_dt_ids),
 	},
 	.probe		= spi_gpio_probe,
 };
+module_platform_driver(spi_gpio_driver);
 
-int __init spi_gpio_init(void)
-{
-	int ret;
-
-	ret = platform_driver_register(&spi_gpio_driver);
-	if (ret)
-		printk(KERN_ERR "spi-gpio: probe failed: %d\n", ret);
-    
-	return ret;
-}
-
-void __exit spi_gpio_exit(void)
-{
-	platform_driver_unregister(&spi_gpio_driver);
-}
-
-//MODULE_DESCRIPTION("SPI master driver using generic bitbanged GPIO ");
-//MODULE_AUTHOR("David Brownell");
-//MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("SPI master driver using generic bitbanged GPIO ");
+MODULE_AUTHOR("David Brownell");
+MODULE_LICENSE("GPL");

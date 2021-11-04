@@ -12,8 +12,9 @@
  */
 #define pr_fmt(fmt) "pinmux core: " fmt
 
+#include <generated/deconfig.h>
 #include <linux/kernel.h>
-//#include <linux/module.h>
+#include <linux/module.h>
 #include <linux/init.h>
 #include <linux/device.h>
 #include <linux/slab.h>
@@ -21,11 +22,11 @@
 #include <linux/err.h>
 #include <linux/list.h>
 #include <linux/string.h>
-//#include <linux/debugfs.h>
-//#include <linux/seq_file.h>
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
 #include <linux/pinctrl/machine.h>
 #include <linux/pinctrl/pinmux.h>
-#include "pincore.h"
+#include "core.h"
 #include "pinmux.h"
 
 int pinmux_check_ops(struct pinctrl_dev *pctldev)
@@ -148,14 +149,14 @@ static int pin_request(struct pinctrl_dev *pctldev,
 		desc->mux_owner = owner;
 	}
 
-//	/* Let each pin increase references to this module */
-//	if (!try_module_get(pctldev->owner)) {
-//		dev_err(pctldev->dev,
-//			"could not increase module refcount for pin %d\n",
-//			pin);
-//		status = -EINVAL;
-//		goto out_free_pin;
-//	}
+	/* Let each pin increase references to this module */
+	if (!try_module_get(pctldev->owner)) {
+		dev_err(pctldev->dev,
+			"could not increase module refcount for pin %d\n",
+			pin);
+		status = -EINVAL;
+		goto out_free_pin;
+	}
 
 	/*
 	 * If there is no kind of request function for the pin we just assume
@@ -171,7 +172,7 @@ static int pin_request(struct pinctrl_dev *pctldev,
 
 	if (status) {
 		dev_err(pctldev->dev, "request() failed for pin %d\n", pin);
-//		module_put(pctldev->owner);
+		module_put(pctldev->owner);
 	}
 
 out_free_pin:
@@ -246,7 +247,7 @@ static const char *pin_free(struct pinctrl_dev *pctldev, int pin,
 		desc->mux_setting = NULL;
 	}
 
-//	module_put(pctldev->owner);
+	module_put(pctldev->owner);
 
 	return owner;
 }

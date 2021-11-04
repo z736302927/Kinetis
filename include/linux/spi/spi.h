@@ -9,11 +9,11 @@
 #include <linux/device.h>
 #include <linux/mod_devicetable.h>
 #include <linux/slab.h>
-//#include <linux/kthread.h>
+#include <linux/kthread.h>
 #include <linux/completion.h>
 #include <linux/scatterlist.h>
 #include <linux/gpio/consumer.h>
-//#include <linux/ptp_clock_kernel.h>
+#include <linux/ptp_clock_kernel.h>
 
 struct dma_chan;
 struct property_entry;
@@ -82,7 +82,9 @@ void spi_statistics_add_transfer_stats(struct spi_statistics *stats,
 #define SPI_STATISTICS_ADD_TO_FIELD(stats, field, count)	\
 	do {							\
 		unsigned long flags;				\
+		spin_lock_irqsave(&(stats)->lock, flags);	\
 		(stats)->field += count;			\
+		spin_unlock_irqrestore(&(stats)->lock, flags);	\
 	} while (0)
 
 #define SPI_STATISTICS_INCREMENT_FIELD(stats, field)	\
@@ -169,7 +171,6 @@ struct spi_device {
 #define	SPI_MODE_1	(0|SPI_CPHA)
 #define	SPI_MODE_2	(SPI_CPOL|0)
 #define	SPI_MODE_3	(SPI_CPOL|SPI_CPHA)
-#define	SPI_MODE_X_MASK	(SPI_CPOL|SPI_CPHA)
 #define	SPI_CS_HIGH	0x04			/* chipselect active high? */
 #define	SPI_LSB_FIRST	0x08			/* per-word bits-on-wire */
 #define	SPI_3WIRE	0x10			/* SI/SO signals shared */
@@ -212,16 +213,16 @@ static inline struct spi_device *to_spi_device(struct device *dev)
 }
 
 /* most drivers won't need to care about device refcounting */
-//static inline struct spi_device *spi_dev_get(struct spi_device *spi)
-//{
-//	return (spi && get_device(&spi->dev)) ? spi : NULL;
-//}
+static inline struct spi_device *spi_dev_get(struct spi_device *spi)
+{
+	return (spi && get_device(&spi->dev)) ? spi : NULL;
+}
 
-//static inline void spi_dev_put(struct spi_device *spi)
-//{
-//	if (spi)
-//		put_device(&spi->dev);
-//}
+static inline void spi_dev_put(struct spi_device *spi)
+{
+	if (spi)
+		put_device(&spi->dev);
+}
 
 /* ctldata is for the bus_controller driver's runtime state */
 static inline void *spi_get_ctldata(struct spi_device *spi)
@@ -510,6 +511,9 @@ struct spi_controller {
 
 #define SPI_MASTER_GPIO_SS		BIT(5)	/* GPIO CS must select slave */
 
+	/* flag indicating this is a non-devres managed controller */
+	bool			devm_allocated;
+
 	/* flag indicating this is an SPI slave controller */
 	bool			slave;
 
@@ -521,11 +525,11 @@ struct spi_controller {
 	size_t (*max_message_size)(struct spi_device *spi);
 
 	/* I/O mutex */
-//	struct mutex		io_mutex;
+	struct mutex		io_mutex;
 
 	/* lock and mutex for SPI bus locking */
-//	spinlock_t		bus_lock_spinlock;
-//	struct mutex		bus_lock_mutex;
+	spinlock_t		bus_lock_spinlock;
+	struct mutex		bus_lock_mutex;
 
 	/* flag indicating that the SPI bus is locked for exclusive use */
 	bool			bus_lock_flag;
@@ -592,10 +596,9 @@ struct spi_controller {
 	 * Over time we expect SPI drivers to be phased over to this API.
 	 */
 	bool				queued;
-//	struct kthread_worker		*kworker;
-//	struct kthread_work		pump_messages;
-//	spinlock_t			queue_lock;
-    void (*pump_messages)(struct spi_controller *ctlr);
+	struct kthread_worker		*kworker;
+	struct kthread_work		pump_messages;
+	spinlock_t			queue_lock;
 	struct list_head		queue;
 	struct spi_message		*cur_msg;
 	bool				idling;
@@ -680,26 +683,22 @@ static inline void spi_controller_set_devdata(struct spi_controller *ctlr,
 	dev_set_drvdata(&ctlr->dev, data);
 }
 
-//static inline struct spi_controller *spi_controller_get(struct spi_controller *ctlr)
-//{
-//	if (!ctlr || !get_device(&ctlr->dev))
-//		return NULL;
-//	return ctlr;
-//}
+static inline struct spi_controller *spi_controller_get(struct spi_controller *ctlr)
+{
+	if (!ctlr || !get_device(&ctlr->dev))
+		return NULL;
+	return ctlr;
+}
 
-//static inline void spi_controller_put(struct spi_controller *ctlr)
-//{
-//	if (ctlr)
-//		put_device(&ctlr->dev);
-//}
+static inline void spi_controller_put(struct spi_controller *ctlr)
+{
+	if (ctlr)
+		put_device(&ctlr->dev);
+}
 
 static inline bool spi_controller_is_slave(struct spi_controller *ctlr)
 {
-#ifdef CONFIG_SPI_SLAVE
-	return ctlr->slave;
-#else
-    return false;
-#endif
+	return IS_ENABLED(CONFIG_SPI_SLAVE) && ctlr->slave;
 }
 
 /* PM calls that need to be issued by the driver */
@@ -732,8 +731,8 @@ static inline struct spi_controller *spi_alloc_master(struct device *host,
 static inline struct spi_controller *spi_alloc_slave(struct device *host,
 						     unsigned int size)
 {
-//	if (!IS_ENABLED(CONFIG_SPI_SLAVE))
-//		return NULL;
+	if (!IS_ENABLED(CONFIG_SPI_SLAVE))
+		return NULL;
 
 	return __spi_alloc_controller(host, size, true);
 }
@@ -751,8 +750,8 @@ static inline struct spi_controller *devm_spi_alloc_master(struct device *dev,
 static inline struct spi_controller *devm_spi_alloc_slave(struct device *dev,
 							  unsigned int size)
 {
-//	if (!IS_ENABLED(CONFIG_SPI_SLAVE))
-//		return NULL;
+	if (!IS_ENABLED(CONFIG_SPI_SLAVE))
+		return NULL;
 
 	return __devm_spi_alloc_controller(dev, size, true);
 }
@@ -1477,13 +1476,12 @@ struct spi_board_info {
 	 * needed to behave without being bound to a driver:
 	 *  - quirks like clock rate mattering when not selected
 	 */
+     struct spi_device *spi_dev;
 };
-
-#define	CONFIG_SPI
 
 #ifdef	CONFIG_SPI
 extern int
-spi_register_board_info(struct spi_board_info const *info, unsigned n);
+spi_register_board_info(struct spi_board_info *info, unsigned n);
 #else
 /* board init code may ignore whether SPI is configured or not */
 static inline int
@@ -1523,7 +1521,7 @@ spi_transfer_is_last(struct spi_controller *ctlr, struct spi_transfer *xfer)
 }
 
 /* OF support code */
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 
 /* must call put_device() when done with returned spi_device device */
 extern struct spi_device *
@@ -1551,8 +1549,8 @@ of_find_spi_device_by_node(struct device_node *node)
 #define spi_master_get_devdata(_ctlr)	spi_controller_get_devdata(_ctlr)
 #define spi_master_set_devdata(_ctlr, _data)	\
 	spi_controller_set_devdata(_ctlr, _data)
-//#define spi_master_get(_ctlr)		spi_controller_get(_ctlr)
-//#define spi_master_put(_ctlr)		spi_controller_put(_ctlr)
+#define spi_master_get(_ctlr)		spi_controller_get(_ctlr)
+#define spi_master_put(_ctlr)		spi_controller_put(_ctlr)
 #define spi_master_suspend(_ctlr)	spi_controller_suspend(_ctlr)
 #define spi_master_resume(_ctlr)	spi_controller_resume(_ctlr)
 
@@ -1560,7 +1558,5 @@ of_find_spi_device_by_node(struct device_node *node)
 #define devm_spi_register_master(_dev, _ctlr) \
 	devm_spi_register_controller(_dev, _ctlr)
 #define spi_unregister_master(_ctlr)	spi_unregister_controller(_ctlr)
-
-int __init spi_init(void);
 
 #endif /* __LINUX_SPI_H */

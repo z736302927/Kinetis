@@ -11,7 +11,7 @@
 
 #include <linux/err.h>
 #include <linux/kernel.h>
-//#include <linux/notifier.h>
+#include <linux/notifier.h>
 
 struct device;
 struct clk;
@@ -53,7 +53,7 @@ struct of_phandle_args;
  */
 struct clk_notifier {
 	struct clk			*clk;
-//	struct srcu_notifier_head	notifier_head;
+	struct srcu_notifier_head	notifier_head;
 	struct list_head		node;
 };
 
@@ -89,38 +89,25 @@ struct clk_bulk_data {
 	struct clk		*clk;
 };
 
-#define CONFIG_COMMON_CLK
-
 #ifdef CONFIG_COMMON_CLK
 
-///**
-// * clk_notifier_register: register a clock rate-change notifier callback
-// * @clk: clock whose rate we are interested in
-// * @nb: notifier block with callback function pointer
-// *
-// * ProTip: debugging across notifier chains can be frustrating. Make sure that
-// * your notifier callback function prints a nice big warning in case of
-// * failure.
-// */
-//int clk_notifier_register(struct clk *clk, struct notifier_block *nb);
+/**
+ * clk_notifier_register: register a clock rate-change notifier callback
+ * @clk: clock whose rate we are interested in
+ * @nb: notifier block with callback function pointer
+ *
+ * ProTip: debugging across notifier chains can be frustrating. Make sure that
+ * your notifier callback function prints a nice big warning in case of
+ * failure.
+ */
+int clk_notifier_register(struct clk *clk, struct notifier_block *nb);
 
-///**
-// * clk_notifier_unregister: unregister a clock rate-change notifier callback
-// * @clk: clock whose rate we are no longer interested in
-// * @nb: notifier block which will be unregistered
-// */
-//int clk_notifier_unregister(struct clk *clk, struct notifier_block *nb);
-
-///**
-// * devm_clk_notifier_register - register a managed rate-change notifier callback
-// * @dev: device for clock "consumer"
-// * @clk: clock whose rate we are interested in
-// * @nb: notifier block with callback function pointer
-// *
-// * Returns 0 on success, -EERROR otherwise
-// */
-//int devm_clk_notifier_register(struct device *dev, struct clk *clk,
-//			       struct notifier_block *nb);
+/**
+ * clk_notifier_unregister: unregister a clock rate-change notifier callback
+ * @clk: clock whose rate we are no longer interested in
+ * @nb: notifier block which will be unregistered
+ */
+int clk_notifier_unregister(struct clk *clk, struct notifier_block *nb);
 
 /**
  * clk_get_accuracy - obtain the clock accuracy in ppb (parts per billion)
@@ -163,7 +150,7 @@ int clk_get_phase(struct clk *clk);
 int clk_set_duty_cycle(struct clk *clk, unsigned int num, unsigned int den);
 
 /**
- * clk_get_scaled_duty_cycle - return the duty cycle ratio of a clock signal
+ * clk_get_duty_cycle - return the duty cycle ratio of a clock signal
  * @clk: clock signal source
  * @scale: scaling factor to be applied to represent the ratio as an integer
  *
@@ -195,13 +182,6 @@ static inline int clk_notifier_register(struct clk *clk,
 
 static inline int clk_notifier_unregister(struct clk *clk,
 					  struct notifier_block *nb)
-{
-	return -ENOTSUPP;
-}
-
-static inline int devm_clk_notifier_register(struct device *dev,
-					     struct clk *clk,
-					     struct notifier_block *nb)
 {
 	return -ENOTSUPP;
 }

@@ -9,9 +9,9 @@
 #include <linux/types.h>
 #include <linux/uio.h>
 #include <linux/list.h>
-//#include <linux/notifier.h>
+#include <linux/notifier.h>
 #include <linux/device.h>
-//#include <linux/of.h>
+#include <linux/of.h>
 #include <linux/nvmem-provider.h>
 
 #include <mtd/mtd-abi.h>
@@ -228,7 +228,7 @@ struct mtd_part {
  * point of view.
  */
 struct mtd_master {
-//	struct mutex partitions_lock;
+	struct mutex partitions_lock;
 	unsigned int suspended : 1;
 };
 
@@ -362,7 +362,7 @@ struct mtd_info {
 	 */
 	bool oops_panic_write;
 
-//	struct notifier_block reboot_notifier;  /* default mode before reboot */
+	struct notifier_block reboot_notifier;  /* default mode before reboot */
 
 	/* ECC status information */
 	struct mtd_ecc_stats ecc_stats;
@@ -452,18 +452,18 @@ static inline void mtd_set_pairing_scheme(struct mtd_info *mtd,
 	mtd->pairing = pairing;
 }
 
-//static inline void mtd_set_of_node(struct mtd_info *mtd,
-//				   struct device_node *np)
-//{
-//	mtd->dev.of_node = np;
-//	if (!mtd->name)
-//		of_property_read_string(np, "label", &mtd->name);
-//}
+static inline void mtd_set_of_node(struct mtd_info *mtd,
+				   struct device_node *np)
+{
+	mtd->dev.of_node = np;
+	if (!mtd->name)
+		of_property_read_string(np, "label", &mtd->name);
+}
 
-//static inline struct device_node *mtd_get_of_node(struct mtd_info *mtd)
-//{
-//	return dev_of_node(&mtd->dev);
-//}
+static inline struct device_node *mtd_get_of_node(struct mtd_info *mtd)
+{
+	return dev_of_node(&mtd->dev);
+}
 
 static inline u32 mtd_oobavail(struct mtd_info *mtd, struct mtd_oob_ops *ops)
 {
@@ -518,8 +518,8 @@ int mtd_write_user_prot_reg(struct mtd_info *mtd, loff_t to, size_t len,
 			    size_t *retlen, u_char *buf);
 int mtd_lock_user_prot_reg(struct mtd_info *mtd, loff_t from, size_t len);
 
-//int mtd_writev(struct mtd_info *mtd, const struct kvec *vecs,
-//	       unsigned long count, loff_t to, size_t *retlen);
+int mtd_writev(struct mtd_info *mtd, const struct kvec *vecs,
+	       unsigned long count, loff_t to, size_t *retlen);
 
 static inline void mtd_sync(struct mtd_info *mtd)
 {
@@ -705,8 +705,5 @@ static inline int mtd_is_bitflip_or_eccerr(int err) {
 }
 
 unsigned mtd_mmap_capabilities(struct mtd_info *mtd);
-
-int __init init_mtd(void);
-void __exit cleanup_mtd(void);
 
 #endif /* __MTD_MTD_H__ */

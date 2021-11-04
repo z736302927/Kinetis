@@ -9,6 +9,7 @@
  * GNU Indent formatting options for this file: -kr -i8 -npsl -pcs
  */
 
+#include <generated/deconfig.h>
 #include <linux/export.h>
 #include <linux/kernel.h>
 #include <linux/string.h>

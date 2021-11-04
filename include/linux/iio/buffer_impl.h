@@ -4,8 +4,6 @@
 #include <linux/sysfs.h>
 #include <linux/kref.h>
 
-#define CONFIG_IIO_BUFFER
-
 #ifdef CONFIG_IIO_BUFFER
 
 struct iio_dev;
@@ -84,13 +82,13 @@ struct iio_buffer {
 	const struct iio_buffer_access_funcs *access;
 
 	/** @scan_mask: Bitmask used in masking scan mode elements. */
-	unsigned long *scan_mask;
+	long *scan_mask;
 
 	/** @demux_list: List of operations required to demux the scan. */
 	struct list_head demux_list;
 
 	/** @pollq: Wait queue to allow for polling on the buffer. */
-//	wait_queue_head_t pollq;
+	wait_queue_head_t pollq;
 
 	/** @watermark: Number of datums to wait for poll/read. */
 	unsigned int watermark;

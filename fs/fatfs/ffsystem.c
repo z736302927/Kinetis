@@ -6,6 +6,7 @@
 
 #include "ff.h"
 
+#include <generated/deconfig.h>
 #include <linux/slab.h>
 
 #if FF_USE_LFN == 3	/* Dynamic memory allocation */

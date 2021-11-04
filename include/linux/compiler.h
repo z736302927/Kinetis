@@ -6,7 +6,7 @@
 
 #ifndef __ASSEMBLY__
 
-//#ifdef __KERNEL__
+#ifdef __KERNEL__
 
 /*
  * Note: DISABLE_BRANCH_PROFILING can be used by special lowlevel code
@@ -81,7 +81,7 @@ void ftrace_likely_update(struct ftrace_likely_data *f, int val,
 /* Optimization barrier */
 #ifndef barrier
 /* The "volatile" is due to gcc bugs */
-# define barrier() //__asm__ __volatile__("": : :"memory")
+# define barrier() __asm__ __volatile__("": : :"memory")
 #endif
 
 #ifndef barrier_data
@@ -211,7 +211,7 @@ void ftrace_likely_update(struct ftrace_likely_data *f, int val,
 	__v;								\
 })
 
-//#endif /* __KERNEL__ */
+#endif /* __KERNEL__ */
 
 /*
  * Force the compiler to emit 'sym' as a symbol, so that we can reference

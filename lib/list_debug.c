@@ -5,6 +5,7 @@
  * This file contains the linked list validation for DEBUG_LIST.
  */
 
+#include <generated/deconfig.h> 
 #include <linux/export.h>
 #include <linux/list.h>
 #include <linux/bug.h>

@@ -2,9 +2,7 @@
 /*
  * internal.h - printk internal definitions
  */
-//#include <linux/percpu.h>
-#include <linux/types.h>
-#include <stdarg.h>
+#include <linux/percpu.h>
 
 #ifdef CONFIG_PRINTK
 

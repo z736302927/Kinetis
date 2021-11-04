@@ -14,8 +14,6 @@
 #ifndef PINCTRL_DEVINFO_H
 #define PINCTRL_DEVINFO_H
 
-#define CONFIG_PINCTRL
-
 #ifdef CONFIG_PINCTRL
 
 /* The device core acts as a consumer toward pinctrl */

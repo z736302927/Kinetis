@@ -2,8 +2,7 @@
 #ifndef _TICK_SCHED_H
 #define _TICK_SCHED_H
 
-//#include <linux/hrtimer.h>
-#include <linux/ktime.h>
+#include <linux/hrtimer.h>
 
 enum tick_device_mode {
 	TICKDEV_MODE_PERIODIC,
@@ -52,7 +51,7 @@ enum tick_nohz_mode {
  * @tick_dep_mask:	Tick dependency mask - is set, if someone needs the tick
  */
 struct tick_sched {
-//	struct hrtimer			sched_timer;
+	struct hrtimer			sched_timer;
 	unsigned long			check_clocks;
 	enum tick_nohz_mode		nohz_mode;
 
@@ -89,14 +88,14 @@ extern void tick_cancel_sched_timer(int cpu);
 static inline void tick_cancel_sched_timer(int cpu) { }
 #endif
 
-//#ifdef CONFIG_GENERIC_CLOCKEVENTS_BROADCAST
-//extern int __tick_broadcast_oneshot_control(enum tick_broadcast_state state);
-//#else
-//static inline int
-//__tick_broadcast_oneshot_control(enum tick_broadcast_state state)
-//{
-//	return -EBUSY;
-//}
-//#endif
+#ifdef CONFIG_GENERIC_CLOCKEVENTS_BROADCAST
+extern int __tick_broadcast_oneshot_control(enum tick_broadcast_state state);
+#else
+static inline int
+__tick_broadcast_oneshot_control(enum tick_broadcast_state state)
+{
+	return -EBUSY;
+}
+#endif
 
 #endif

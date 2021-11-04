@@ -181,7 +181,9 @@ static __always_inline __s64 sign_extend64(__u64 value, int index)
 
 static inline unsigned fls_long(unsigned long l)
 {
-    return sizeof(l) == 4 ? fls(l) : fls64(l);
+	if (sizeof(l) == 4)
+		return fls(l);
+	return fls64(l);
 }
 
 static inline int get_count_order(unsigned int count)
@@ -248,9 +250,7 @@ static __always_inline void __assign_bit(long nr, volatile unsigned long *addr,
 		__clear_bit(nr, addr);
 }
 
-//#ifdef __KERNEL__
-                     
-#include <asm-generic/cmpxchg.h>
+#ifdef __KERNEL__
 
 #ifndef set_mask_bits
 #define set_mask_bits(ptr, mask, bits)	\
@@ -295,5 +295,5 @@ extern unsigned long find_last_bit(const unsigned long *addr,
 				   unsigned long size);
 #endif
 
-//#endif /* __KERNEL__ */
+#endif /* __KERNEL__ */
 #endif

@@ -7,12 +7,11 @@
 
 #include <linux/device.h>
 #include <linux/err.h>
-//#include <linux/uio.h>
+#include <linux/uio.h>
 #include <linux/bug.h>
 #include <linux/scatterlist.h>
 #include <linux/bitmap.h>
 #include <linux/types.h>
-#include <linux/kref.h>
 #include <asm/page.h>
 
 /**
@@ -547,7 +546,7 @@ typedef void (*dma_async_tx_callback_result)(void *dma_async_param,
 				const struct dmaengine_result *result);
 
 struct dmaengine_unmap_data {
-#ifdef CONFIG_DMA_ENGINE_RAID
+#if IS_ENABLED(CONFIG_DMA_ENGINE_RAID)
 	u16 map_cnt;
 #else
 	u8 map_cnt;
@@ -862,8 +861,8 @@ struct dma_device {
 	int dev_id;
 	struct device *dev;
 	struct module *owner;
-//	struct ida chan_ida;
-//	struct mutex chan_mutex;	/* to protect chan_ida */
+	struct ida chan_ida;
+	struct mutex chan_mutex;	/* to protect chan_ida */
 
 	u32 src_addr_widths;
 	u32 dst_addr_widths;
@@ -1498,7 +1497,7 @@ static inline void dma_issue_pending_all(void)
 static inline struct dma_chan *__dma_request_channel(const dma_cap_mask_t *mask,
 						     dma_filter_fn fn,
 						     void *fn_param,
-						     void *np)
+						     struct device_node *np)
 {
 	return NULL;
 }

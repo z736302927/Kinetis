@@ -2,8 +2,6 @@
 #ifndef LINUX_SPI_FLASH_H
 #define LINUX_SPI_FLASH_H
 
-#include <linux/init.h>
-
 struct mtd_partition;
 
 /**
@@ -30,8 +28,5 @@ struct flash_platform_data {
 
 	/* we'll likely add more ... use JEDEC IDs, etc */
 };
-
-int __init spi_nor_driver_init(void);
-void __exit spi_nor_driver_exit(void);
 
 #endif

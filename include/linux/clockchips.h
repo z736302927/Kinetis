@@ -9,14 +9,12 @@
 #ifndef _LINUX_CLOCKCHIPS_H
 #define _LINUX_CLOCKCHIPS_H
 
-#define CONFIG_GENERIC_CLOCKEVENTS
-
 #ifdef CONFIG_GENERIC_CLOCKEVENTS
 
 # include <linux/clocksource.h>
-//# include <linux/cpumask.h>
+# include <linux/cpumask.h>
 # include <linux/ktime.h>
-//# include <linux/notifier.h>
+# include <linux/notifier.h>
 
 struct clock_event_device;
 struct module;
@@ -118,7 +116,7 @@ struct clock_event_device {
 	int			(*set_state_shutdown)(struct clock_event_device *);
 	int			(*tick_resume)(struct clock_event_device *);
 
-//	void			(*broadcast)(const struct cpumask *mask);
+	void			(*broadcast)(const struct cpumask *mask);
 	void			(*suspend)(struct clock_event_device *);
 	void			(*resume)(struct clock_event_device *);
 	unsigned long		min_delta_ticks;
@@ -191,11 +189,11 @@ extern void clockevents_config_and_register(struct clock_event_device *dev,
 
 extern int clockevents_update_freq(struct clock_event_device *ce, u32 freq);
 
-//static inline void
-//clockevents_calc_mult_shift(struct clock_event_device *ce, u32 freq, u32 maxsec)
-//{
-//	return clocks_calc_mult_shift(&ce->mult, &ce->shift, NSEC_PER_SEC, freq, maxsec);
-//}
+static inline void
+clockevents_calc_mult_shift(struct clock_event_device *ce, u32 freq, u32 maxsec)
+{
+	return clocks_calc_mult_shift(&ce->mult, &ce->shift, NSEC_PER_SEC, freq, maxsec);
+}
 
 extern void clockevents_suspend(void);
 extern void clockevents_resume(void);

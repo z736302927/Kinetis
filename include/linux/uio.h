@@ -6,7 +6,7 @@
 #define __LINUX_UIO_H
 
 #include <linux/kernel.h>
-//#include <linux/thread_info.h>
+#include <linux/thread_info.h>
 #include <uapi/linux/uio.h>
 
 struct page;
@@ -131,45 +131,45 @@ bool _copy_from_iter_full_nocache(void *addr, size_t bytes, struct iov_iter *i);
 static __always_inline __must_check
 size_t copy_to_iter(const void *addr, size_t bytes, struct iov_iter *i)
 {
-//	if (unlikely(!check_copy_size(addr, bytes, true)))
-//		return 0;
-//	else
+	if (unlikely(!check_copy_size(addr, bytes, true)))
+		return 0;
+	else
 		return _copy_to_iter(addr, bytes, i);
 }
 
 static __always_inline __must_check
 size_t copy_from_iter(void *addr, size_t bytes, struct iov_iter *i)
 {
-//	if (unlikely(!check_copy_size(addr, bytes, false)))
-//		return 0;
-//	else
+	if (unlikely(!check_copy_size(addr, bytes, false)))
+		return 0;
+	else
 		return _copy_from_iter(addr, bytes, i);
 }
 
 static __always_inline __must_check
 bool copy_from_iter_full(void *addr, size_t bytes, struct iov_iter *i)
 {
-//	if (unlikely(!check_copy_size(addr, bytes, false)))
-//		return false;
-//	else
+	if (unlikely(!check_copy_size(addr, bytes, false)))
+		return false;
+	else
 		return _copy_from_iter_full(addr, bytes, i);
 }
 
 static __always_inline __must_check
 size_t copy_from_iter_nocache(void *addr, size_t bytes, struct iov_iter *i)
 {
-//	if (unlikely(!check_copy_size(addr, bytes, false)))
-//		return 0;
-//	else
+	if (unlikely(!check_copy_size(addr, bytes, false)))
+		return 0;
+	else
 		return _copy_from_iter_nocache(addr, bytes, i);
 }
 
 static __always_inline __must_check
 bool copy_from_iter_full_nocache(void *addr, size_t bytes, struct iov_iter *i)
 {
-//	if (unlikely(!check_copy_size(addr, bytes, false)))
-//		return false;
-//	else
+	if (unlikely(!check_copy_size(addr, bytes, false)))
+		return false;
+	else
 		return _copy_from_iter_full_nocache(addr, bytes, i);
 }
 
@@ -194,18 +194,18 @@ size_t _copy_mc_to_iter(const void *addr, size_t bytes, struct iov_iter *i);
 static __always_inline __must_check
 size_t copy_from_iter_flushcache(void *addr, size_t bytes, struct iov_iter *i)
 {
-//	if (unlikely(!check_copy_size(addr, bytes, false)))
-//		return 0;
-//	else
+	if (unlikely(!check_copy_size(addr, bytes, false)))
+		return 0;
+	else
 		return _copy_from_iter_flushcache(addr, bytes, i);
 }
 
 static __always_inline __must_check
 size_t copy_mc_to_iter(void *addr, size_t bytes, struct iov_iter *i)
 {
-//	if (unlikely(!check_copy_size(addr, bytes, true)))
-//		return 0;
-//	else
+	if (unlikely(!check_copy_size(addr, bytes, true)))
+		return 0;
+	else
 		return _copy_mc_to_iter(addr, bytes, i);
 }
 

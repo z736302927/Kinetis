@@ -34,11 +34,7 @@ typedef __kernel_gid32_t	gid_t;
 typedef __kernel_uid16_t        uid16_t;
 typedef __kernel_gid16_t        gid16_t;
 
-#if __BITS_PER_LONG != 64
-typedef unsigned int		uintptr_t;
-#else
 typedef unsigned long		uintptr_t;
-#endif
 
 #ifdef CONFIG_HAVE_UID16
 /* This is defined by include/asm-{arch}/posix_types.h */
@@ -107,9 +103,11 @@ typedef u8			uint8_t;
 typedef u16			uint16_t;
 typedef u32			uint32_t;
 
+#if defined(__GNUC__)
 typedef u64			uint64_t;
 typedef u64			u_int64_t;
 typedef s64			int64_t;
+#endif
 
 /* this is a special 64bit data type that is 8-byte aligned */
 #define aligned_u64		__aligned_u64

@@ -5,13 +5,12 @@
  *  Copyright (C) 1991, 1992  Linus Torvalds
  */
 
+#include <generated/deconfig.h>
 #include <stdarg.h>
 #include <linux/export.h>
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/string.h>
-#include <linux/kernel.h>
-#include <linux/bug.h>
 
 /* Simplified asprintf. */
 char *kvasprintf(gfp_t gfp, const char *fmt, va_list ap)

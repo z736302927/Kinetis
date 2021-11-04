@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
+#include <generated/deconfig.h> 
 #include <linux/export.h>
 #include <linux/bitops.h>
 #include <asm/types.h>

@@ -9,7 +9,7 @@
  */
 
 #include <linux/atomic.h>
-//#include <linux/static_key.h>
+#include <linux/static_key.h>
 
 struct static_call_key;
 
@@ -31,7 +31,7 @@ struct tracepoint_func {
 
 struct tracepoint {
 	const char *name;		/* Tracepoint name */
-//	struct static_key key;
+	struct static_key key;
 	struct static_call_key *static_call_key;
 	void *static_call_tramp;
 	void *iterator;

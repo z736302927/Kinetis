@@ -4,6 +4,7 @@
  * Copyright (C) 2014, Freescale Semiconductor, Inc.
  */
 
+#include <generated/deconfig.h>
 #include <linux/mtd/spi-nor.h>
 
 #include "core.h"

@@ -16,6 +16,7 @@
  * - sparse bitmap with few set bits at random positions.
  */
 
+#include <generated/deconfig.h> 
 #include <linux/bitops.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
@@ -111,7 +112,7 @@ static int __init test_find_next_and_bit(const void *bitmap,
 	return 0;
 }
 
-static int __init find_bit_test(void)
+int __init find_bit_test(void)
 {
 	unsigned long nbits = BITMAP_LEN / SPARSE;
 

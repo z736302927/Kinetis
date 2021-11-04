@@ -228,17 +228,15 @@
  *
  *	Called when the device receives a TIOCGICOUNT ioctl. Passed a kernel
  *	structure to complete. This method is optional and will only be called
- *	if provided (otherwise EINVAL will be returned).
+ *	if provided (otherwise ENOTTY will be returned).
  */
 
 #include <linux/export.h>
-//#include <linux/fs.h>
+#include <linux/fs.h>
 #include <linux/list.h>
 #include <linux/cdev.h>
 #include <linux/termios.h>
-#include <linux/kref.h>
-#include <linux/err.h>
-//#include <linux/seq_file.h>
+#include <linux/seq_file.h>
 
 struct tty_struct;
 struct tty_driver;
@@ -283,13 +281,13 @@ struct tty_operations {
 				struct serial_icounter_struct *icount);
 	int  (*get_serial)(struct tty_struct *tty, struct serial_struct *p);
 	int  (*set_serial)(struct tty_struct *tty, struct serial_struct *p);
-//	void (*show_fdinfo)(struct tty_struct *tty, struct seq_file *m);
+	void (*show_fdinfo)(struct tty_struct *tty, struct seq_file *m);
 #ifdef CONFIG_CONSOLE_POLL
 	int (*poll_init)(struct tty_driver *driver, int line, char *options);
 	int (*poll_get_char)(struct tty_driver *driver, int line);
 	void (*poll_put_char)(struct tty_driver *driver, int line, char ch);
 #endif
-//	int (*proc_show)(struct seq_file *, void *);
+	int (*proc_show)(struct seq_file *, void *);
 } __randomize_layout;
 
 struct tty_driver {

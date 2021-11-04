@@ -41,7 +41,7 @@
  * atomicity. Note that this may result in tears!
  */
 #ifndef __READ_ONCE
-#define __READ_ONCE(x)	(*(const volatile typeof(x) *)&(x))
+#define __READ_ONCE(x)	(*(const volatile __unqual_scalar_typeof(x) *)&(x))
 #endif
 
 #define READ_ONCE(x)							\

@@ -5,13 +5,14 @@
  * Copyright 31 August 2008 James Bottomley
  * Copyright (C) 2013, Intel Corporation
  */
+#include <generated/deconfig.h>
 #include <linux/bug.h>
 #include <linux/kernel.h>
 #include <linux/math64.h>
 #include <linux/export.h>
 #include <linux/ctype.h>
 #include <linux/errno.h>
-//#include <linux/fs.h>
+#include <linux/fs.h>
 #include <linux/limits.h>
 #include <linux/mm.h>
 #include <linux/slab.h>

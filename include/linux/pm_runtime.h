@@ -9,7 +9,7 @@
 #define _LINUX_PM_RUNTIME_H
 
 #include <linux/device.h>
-//#include <linux/notifier.h>
+#include <linux/notifier.h>
 #include <linux/pm.h>
 
 #include <linux/jiffies.h>
@@ -265,7 +265,7 @@ static inline void pm_runtime_no_callbacks(struct device *dev) {}
 static inline void pm_runtime_irq_safe(struct device *dev) {}
 static inline bool pm_runtime_is_irq_safe(struct device *dev) { return false; }
 
-static inline bool pm_runtime_callbacks_present(struct device *dev) { return false; }
+static inline bool pm_runtime_has_no_callbacks(struct device *dev) { return false; }
 static inline void pm_runtime_mark_last_busy(struct device *dev) {}
 static inline void __pm_runtime_use_autosuspend(struct device *dev,
 						bool use) {}
@@ -278,7 +278,7 @@ static inline void pm_runtime_set_memalloc_noio(struct device *dev,
 static inline void pm_runtime_get_suppliers(struct device *dev) {}
 static inline void pm_runtime_put_suppliers(struct device *dev) {}
 static inline void pm_runtime_new_link(struct device *dev) {}
-//static inline void pm_runtime_drop_link(struct device_link *link) {}
+static inline void pm_runtime_drop_link(struct device_link *link) {}
 
 #endif /* !CONFIG_PM */
 

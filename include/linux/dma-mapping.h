@@ -272,12 +272,12 @@ static inline dma_addr_t dma_map_single_attrs(struct device *dev, void *ptr,
 		size_t size, enum dma_data_direction dir, unsigned long attrs)
 {
 	/* DMA must never operate on areas that might be remapped. */
-//	if (dev_WARN_ONCE(dev, is_vmalloc_addr(ptr),
-//			  "rejecting DMA map of vmalloc memory\n"))
+	if (dev_WARN_ONCE(dev, is_vmalloc_addr(ptr),
+			  "rejecting DMA map of vmalloc memory\n"))
 		return DMA_MAPPING_ERROR;
-//	debug_dma_map_single(dev, ptr, size);
-//	return dma_map_page_attrs(dev, virt_to_page(ptr), offset_in_page(ptr),
-//			size, dir, attrs);
+	debug_dma_map_single(dev, ptr, size);
+	return dma_map_page_attrs(dev, virt_to_page(ptr), offset_in_page(ptr),
+			size, dir, attrs);
 }
 
 static inline void dma_unmap_single_attrs(struct device *dev, dma_addr_t addr,
@@ -406,8 +406,8 @@ static inline void dma_free_coherent(struct device *dev, size_t size,
 
 static inline u64 dma_get_mask(struct device *dev)
 {
-//	if (dev->dma_mask && *dev->dma_mask)
-//		return *dev->dma_mask;
+	if (dev->dma_mask && *dev->dma_mask)
+		return *dev->dma_mask;
 	return DMA_BIT_MASK(32);
 }
 
@@ -431,7 +431,7 @@ static inline int dma_set_mask_and_coherent(struct device *dev, u64 mask)
  */
 static inline int dma_coerce_mask_and_coherent(struct device *dev, u64 mask)
 {
-//	dev->dma_mask = &dev->coherent_dma_mask;
+	dev->dma_mask = &dev->coherent_dma_mask;
 	return dma_set_mask_and_coherent(dev, mask);
 }
 
@@ -445,31 +445,30 @@ static inline int dma_coerce_mask_and_coherent(struct device *dev, u64 mask)
  */
 static inline bool dma_addressing_limited(struct device *dev)
 {
-//	return min_not_zero(dma_get_mask(dev), dev->bus_dma_limit) <
-//			    dma_get_required_mask(dev);
-    return true;
+	return min_not_zero(dma_get_mask(dev), dev->bus_dma_limit) <
+			    dma_get_required_mask(dev);
 }
 
 static inline unsigned int dma_get_max_seg_size(struct device *dev)
 {
-//	if (dev->dma_parms && dev->dma_parms->max_segment_size)
-//		return dev->dma_parms->max_segment_size;
+	if (dev->dma_parms && dev->dma_parms->max_segment_size)
+		return dev->dma_parms->max_segment_size;
 	return SZ_64K;
 }
 
 static inline int dma_set_max_seg_size(struct device *dev, unsigned int size)
 {
-//	if (dev->dma_parms) {
-//		dev->dma_parms->max_segment_size = size;
-//		return 0;
-//	}
+	if (dev->dma_parms) {
+		dev->dma_parms->max_segment_size = size;
+		return 0;
+	}
 	return -EIO;
 }
 
 static inline unsigned long dma_get_seg_boundary(struct device *dev)
 {
-//	if (dev->dma_parms && dev->dma_parms->segment_boundary_mask)
-//		return dev->dma_parms->segment_boundary_mask;
+	if (dev->dma_parms && dev->dma_parms->segment_boundary_mask)
+		return dev->dma_parms->segment_boundary_mask;
 	return ULONG_MAX;
 }
 
@@ -494,18 +493,34 @@ static inline unsigned long dma_get_seg_boundary_nr_pages(struct device *dev,
 
 static inline int dma_set_seg_boundary(struct device *dev, unsigned long mask)
 {
-//	if (dev->dma_parms) {
-//		dev->dma_parms->segment_boundary_mask = mask;
-//		return 0;
-//	}
+	if (dev->dma_parms) {
+		dev->dma_parms->segment_boundary_mask = mask;
+		return 0;
+	}
 	return -EIO;
+}
+
+static inline unsigned int dma_get_min_align_mask(struct device *dev)
+{
+	if (dev->dma_parms)
+		return dev->dma_parms->min_align_mask;
+	return 0;
+}
+
+static inline int dma_set_min_align_mask(struct device *dev,
+		unsigned int min_align_mask)
+{
+	if (WARN_ON_ONCE(!dev->dma_parms))
+		return -EIO;
+	dev->dma_parms->min_align_mask = min_align_mask;
+	return 0;
 }
 
 static inline int dma_get_cache_alignment(void)
 {
-//#ifdef ARCH_DMA_MINALIGN
-//	return ARCH_DMA_MINALIGN;
-//#endif
+#ifdef ARCH_DMA_MINALIGN
+	return ARCH_DMA_MINALIGN;
+#endif
 	return 1;
 }
 

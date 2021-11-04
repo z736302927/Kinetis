@@ -2,7 +2,7 @@
 #ifndef _ASM_GENERIC_ERROR_INJECTION_H
 #define _ASM_GENERIC_ERROR_INJECTION_H
 
-//#if defined(__KERNEL__) && !defined(__ASSEMBLY__)
+#if defined(__KERNEL__) && !defined(__ASSEMBLY__)
 enum {
 	EI_ETYPE_NONE,		/* Dummy value for undefined case */
 	EI_ETYPE_NULL,		/* Return NULL if failure */
@@ -37,6 +37,6 @@ void override_function_with_return(struct pt_regs *regs);
 
 static inline void override_function_with_return(struct pt_regs *regs) { }
 #endif
-//#endif
+#endif
 
 #endif /* _ASM_GENERIC_ERROR_INJECTION_H */

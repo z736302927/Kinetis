@@ -3,7 +3,7 @@
 #define _LINUX_MMAN_H
 
 #include <linux/mm.h>
-//#include <linux/percpu_counter.h>
+#include <linux/percpu_counter.h>
 
 #include <linux/atomic.h>
 #include <uapi/linux/mman.h>
@@ -67,15 +67,15 @@ static inline void mm_compute_batch(int overcommit_policy)
 
 unsigned long vm_memory_committed(void);
 
-//static inline void vm_acct_memory(long pages)
-//{
-//	percpu_counter_add_batch(&vm_committed_as, pages, vm_committed_as_batch);
-//}
+static inline void vm_acct_memory(long pages)
+{
+	percpu_counter_add_batch(&vm_committed_as, pages, vm_committed_as_batch);
+}
 
-//static inline void vm_unacct_memory(long pages)
-//{
-//	vm_acct_memory(-pages);
-//}
+static inline void vm_unacct_memory(long pages)
+{
+	vm_acct_memory(-pages);
+}
 
 /*
  * Allow architectures to handle additional protection and flag bits. The
@@ -101,10 +101,10 @@ unsigned long vm_memory_committed(void);
  *
  * Returns true if the prot flags are valid
  */
-//static inline bool arch_validate_prot(unsigned long prot, unsigned long addr)
-//{
-//	return (prot & ~(PROT_READ | PROT_WRITE | PROT_EXEC | PROT_SEM)) == 0;
-//}
+static inline bool arch_validate_prot(unsigned long prot, unsigned long addr)
+{
+	return (prot & ~(PROT_READ | PROT_WRITE | PROT_EXEC | PROT_SEM)) == 0;
+}
 #define arch_validate_prot arch_validate_prot
 #endif
 
@@ -135,27 +135,27 @@ static inline bool arch_validate_flags(unsigned long flags)
 /*
  * Combine the mmap "prot" argument into "vm_flags" used internally.
  */
-//static inline unsigned long
-//calc_vm_prot_bits(unsigned long prot, unsigned long pkey)
-//{
-//	return _calc_vm_trans(prot, PROT_READ,  VM_READ ) |
-//	       _calc_vm_trans(prot, PROT_WRITE, VM_WRITE) |
-//	       _calc_vm_trans(prot, PROT_EXEC,  VM_EXEC) |
-//	       arch_calc_vm_prot_bits(prot, pkey);
-//}
+static inline unsigned long
+calc_vm_prot_bits(unsigned long prot, unsigned long pkey)
+{
+	return _calc_vm_trans(prot, PROT_READ,  VM_READ ) |
+	       _calc_vm_trans(prot, PROT_WRITE, VM_WRITE) |
+	       _calc_vm_trans(prot, PROT_EXEC,  VM_EXEC) |
+	       arch_calc_vm_prot_bits(prot, pkey);
+}
 
-///*
-// * Combine the mmap "flags" argument into "vm_flags" used internally.
-// */
-//static inline unsigned long
-//calc_vm_flag_bits(unsigned long flags)
-//{
-//	return _calc_vm_trans(flags, MAP_GROWSDOWN,  VM_GROWSDOWN ) |
-//	       _calc_vm_trans(flags, MAP_DENYWRITE,  VM_DENYWRITE ) |
-//	       _calc_vm_trans(flags, MAP_LOCKED,     VM_LOCKED    ) |
-//	       _calc_vm_trans(flags, MAP_SYNC,	     VM_SYNC      ) |
-//	       arch_calc_vm_flag_bits(flags);
-//}
+/*
+ * Combine the mmap "flags" argument into "vm_flags" used internally.
+ */
+static inline unsigned long
+calc_vm_flag_bits(unsigned long flags)
+{
+	return _calc_vm_trans(flags, MAP_GROWSDOWN,  VM_GROWSDOWN ) |
+	       _calc_vm_trans(flags, MAP_DENYWRITE,  VM_DENYWRITE ) |
+	       _calc_vm_trans(flags, MAP_LOCKED,     VM_LOCKED    ) |
+	       _calc_vm_trans(flags, MAP_SYNC,	     VM_SYNC      ) |
+	       arch_calc_vm_flag_bits(flags);
+}
 
 unsigned long vm_commit_limit(void);
 #endif /* _LINUX_MMAN_H */

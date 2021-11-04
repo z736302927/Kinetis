@@ -12,12 +12,6 @@
 #include <asm/page.h>
 #include <uapi/linux/serial.h>
 
-struct serial_attribute {
-	__u8	id;
-	void __iomem	*membase;
-	bool	hw_flow_ctrl;
-	bool	has_rtscts;
-};
 
 /*
  * Counters of the input lines (CTS, DSR, RI, CD) interrupts

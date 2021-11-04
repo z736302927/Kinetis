@@ -24,23 +24,24 @@
  *	with nanosecond accuracy
  */
 
+#include <generated/deconfig.h> 
 #include <linux/export.h>
 #include <linux/kernel.h>
 #include <linux/timex.h>
-//#include <linux/capability.h>
+#include <linux/capability.h>
 #include <linux/timekeeper_internal.h>
 #include <linux/errno.h>
-//#include <linux/syscalls.h>
-//#include <linux/security.h>
-//#include <linux/fs.h>
+#include <linux/syscalls.h>
+#include <linux/security.h>
+#include <linux/fs.h>
 #include <linux/math64.h>
-//#include <linux/ptrace.h>
+#include <linux/ptrace.h>
 
-//#include <linux/uaccess.h>
-//#include <linux/compat.h>
-//#include <asm/unistd.h>
+#include <linux/uaccess.h>
+#include <linux/compat.h>
+#include <asm/unistd.h>
 
-//#include <generated/timeconst.h>
+#include <generated/timeconst.h>
 #include "timekeeping.h"
 
 /*
@@ -137,23 +138,23 @@ SYSCALL_DEFINE1(stime32, old_time32_t __user *, tptr)
 #endif /* __ARCH_WANT_SYS_TIME32 */
 #endif
 
-//SYSCALL_DEFINE2(gettimeofday, struct __kernel_old_timeval __user *, tv,
-//		struct timezone __user *, tz)
-//{
-//	if (likely(tv != NULL)) {
-//		struct timespec64 ts;
+SYSCALL_DEFINE2(gettimeofday, struct __kernel_old_timeval __user *, tv,
+		struct timezone __user *, tz)
+{
+	if (likely(tv != NULL)) {
+		struct timespec64 ts;
 
-//		ktime_get_real_ts64(&ts);
-//		if (put_user(ts.tv_sec, &tv->tv_sec) ||
-//		    put_user(ts.tv_nsec / 1000, &tv->tv_usec))
-//			return -EFAULT;
-//	}
-//	if (unlikely(tz != NULL)) {
-//		if (copy_to_user(tz, &sys_tz, sizeof(sys_tz)))
-//			return -EFAULT;
-//	}
-//	return 0;
-//}
+		ktime_get_real_ts64(&ts);
+		if (put_user(ts.tv_sec, &tv->tv_sec) ||
+		    put_user(ts.tv_nsec / 1000, &tv->tv_usec))
+			return -EFAULT;
+	}
+	if (unlikely(tz != NULL)) {
+		if (copy_to_user(tz, &sys_tz, sizeof(sys_tz)))
+			return -EFAULT;
+	}
+	return 0;
+}
 
 /*
  * In case for some reason the CMOS clock has not already been running
@@ -166,59 +167,59 @@ SYSCALL_DEFINE1(stime32, old_time32_t __user *, tptr)
  * various programs will get confused when the clock gets warped.
  */
 
-//int do_sys_settimeofday64(const struct timespec64 *tv, const struct timezone *tz)
-//{
-//	static int firsttime = 1;
-//	int error = 0;
+int do_sys_settimeofday64(const struct timespec64 *tv, const struct timezone *tz)
+{
+	static int firsttime = 1;
+	int error = 0;
 
-//	if (tv && !timespec64_valid_settod(tv))
-//		return -EINVAL;
+	if (tv && !timespec64_valid_settod(tv))
+		return -EINVAL;
 
 //	error = security_settime64(tv, tz);
 //	if (error)
 //		return error;
 
-//	if (tz) {
-//		/* Verify we're within the +-15 hrs range */
-//		if (tz->tz_minuteswest > 15*60 || tz->tz_minuteswest < -15*60)
-//			return -EINVAL;
+	if (tz) {
+		/* Verify we're within the +-15 hrs range */
+		if (tz->tz_minuteswest > 15*60 || tz->tz_minuteswest < -15*60)
+			return -EINVAL;
 
-//		sys_tz = *tz;
-//		update_vsyscall_tz();
-//		if (firsttime) {
-//			firsttime = 0;
-//			if (!tv)
-//				timekeeping_warp_clock();
-//		}
-//	}
-//	if (tv)
-//		return do_settimeofday64(tv);
-//	return 0;
-//}
+		sys_tz = *tz;
+		update_vsyscall_tz();
+		if (firsttime) {
+			firsttime = 0;
+			if (!tv)
+				timekeeping_warp_clock();
+		}
+	}
+	if (tv)
+		return do_settimeofday64(tv);
+	return 0;
+}
 
-//SYSCALL_DEFINE2(settimeofday, struct __kernel_old_timeval __user *, tv,
-//		struct timezone __user *, tz)
-//{
-//	struct timespec64 new_ts;
-//	struct timezone new_tz;
+SYSCALL_DEFINE2(settimeofday, struct __kernel_old_timeval __user *, tv,
+		struct timezone __user *, tz)
+{
+	struct timespec64 new_ts;
+	struct timezone new_tz;
 
-//	if (tv) {
-//		if (get_user(new_ts.tv_sec, &tv->tv_sec) ||
-//		    get_user(new_ts.tv_nsec, &tv->tv_usec))
-//			return -EFAULT;
+	if (tv) {
+		if (get_user(new_ts.tv_sec, &tv->tv_sec) ||
+		    get_user(new_ts.tv_nsec, &tv->tv_usec))
+			return -EFAULT;
 
-//		if (new_ts.tv_nsec > USEC_PER_SEC || new_ts.tv_nsec < 0)
-//			return -EINVAL;
+		if (new_ts.tv_nsec > USEC_PER_SEC || new_ts.tv_nsec < 0)
+			return -EINVAL;
 
-//		new_ts.tv_nsec *= NSEC_PER_USEC;
-//	}
-//	if (tz) {
-//		if (copy_from_user(&new_tz, tz, sizeof(*tz)))
-//			return -EFAULT;
-//	}
+		new_ts.tv_nsec *= NSEC_PER_USEC;
+	}
+	if (tz) {
+		if (copy_from_user(&new_tz, tz, sizeof(*tz)))
+			return -EFAULT;
+	}
 
-//	return do_sys_settimeofday64(tv ? &new_ts : NULL, tz ? &new_tz : NULL);
-//}
+	return do_sys_settimeofday64(tv ? &new_ts : NULL, tz ? &new_tz : NULL);
+}
 
 #ifdef CONFIG_COMPAT
 COMPAT_SYSCALL_DEFINE2(gettimeofday, struct old_timeval32 __user *, tv,
@@ -778,132 +779,132 @@ struct timespec64 timespec64_add_safe(const struct timespec64 lhs,
 	return res;
 }
 
-//int get_timespec64(struct timespec64 *ts,
-//		   const struct __kernel_timespec __user *uts)
-//{
-//	struct __kernel_timespec kts;
-//	int ret;
+int get_timespec64(struct timespec64 *ts,
+		   const struct __kernel_timespec __user *uts)
+{
+	struct __kernel_timespec kts;
+	int ret;
 
-//	ret = copy_from_user(&kts, uts, sizeof(kts));
-//	if (ret)
-//		return -EFAULT;
+	ret = copy_from_user(&kts, uts, sizeof(kts));
+	if (ret)
+		return -EFAULT;
 
-//	ts->tv_sec = kts.tv_sec;
+	ts->tv_sec = kts.tv_sec;
 
-//	/* Zero out the padding in compat mode */
-////	if (in_compat_syscall())
-////		kts.tv_nsec &= 0xFFFFFFFFUL;
+	/* Zero out the padding in compat mode */
+	if (in_compat_syscall())
+		kts.tv_nsec &= 0xFFFFFFFFUL;
 
-//	/* In 32-bit mode, this drops the padding */
-//	ts->tv_nsec = kts.tv_nsec;
+	/* In 32-bit mode, this drops the padding */
+	ts->tv_nsec = kts.tv_nsec;
 
-//	return 0;
-//}
-//EXPORT_SYMBOL_GPL(get_timespec64);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(get_timespec64);
 
-//int put_timespec64(const struct timespec64 *ts,
-//		   struct __kernel_timespec __user *uts)
-//{
-//	struct __kernel_timespec kts = {
-//		.tv_sec = ts->tv_sec,
-//		.tv_nsec = ts->tv_nsec
-//	};
+int put_timespec64(const struct timespec64 *ts,
+		   struct __kernel_timespec __user *uts)
+{
+	struct __kernel_timespec kts = {
+		.tv_sec = ts->tv_sec,
+		.tv_nsec = ts->tv_nsec
+	};
 
-//	return copy_to_user(uts, &kts, sizeof(kts)) ? -EFAULT : 0;
-//}
-//EXPORT_SYMBOL_GPL(put_timespec64);
+	return copy_to_user(uts, &kts, sizeof(kts)) ? -EFAULT : 0;
+}
+EXPORT_SYMBOL_GPL(put_timespec64);
 
-//static int __get_old_timespec32(struct timespec64 *ts64,
-//				   const struct old_timespec32 __user *cts)
-//{
-//	struct old_timespec32 ts;
-//	int ret;
+static int __get_old_timespec32(struct timespec64 *ts64,
+				   const struct old_timespec32 __user *cts)
+{
+	struct old_timespec32 ts;
+	int ret;
 
-//	ret = copy_from_user(&ts, cts, sizeof(ts));
-//	if (ret)
-//		return -EFAULT;
+	ret = copy_from_user(&ts, cts, sizeof(ts));
+	if (ret)
+		return -EFAULT;
 
-//	ts64->tv_sec = ts.tv_sec;
-//	ts64->tv_nsec = ts.tv_nsec;
+	ts64->tv_sec = ts.tv_sec;
+	ts64->tv_nsec = ts.tv_nsec;
 
-//	return 0;
-//}
+	return 0;
+}
 
-//static int __put_old_timespec32(const struct timespec64 *ts64,
-//				   struct old_timespec32 __user *cts)
-//{
-//	struct old_timespec32 ts = {
-//		.tv_sec = ts64->tv_sec,
-//		.tv_nsec = ts64->tv_nsec
-//	};
-//	return copy_to_user(cts, &ts, sizeof(ts)) ? -EFAULT : 0;
-//}
+static int __put_old_timespec32(const struct timespec64 *ts64,
+				   struct old_timespec32 __user *cts)
+{
+	struct old_timespec32 ts = {
+		.tv_sec = ts64->tv_sec,
+		.tv_nsec = ts64->tv_nsec
+	};
+	return copy_to_user(cts, &ts, sizeof(ts)) ? -EFAULT : 0;
+}
 
-//int get_old_timespec32(struct timespec64 *ts, const void __user *uts)
-//{
-//	if (COMPAT_USE_64BIT_TIME)
-//		return copy_from_user(ts, uts, sizeof(*ts)) ? -EFAULT : 0;
-//	else
-//		return __get_old_timespec32(ts, uts);
-//}
-//EXPORT_SYMBOL_GPL(get_old_timespec32);
+int get_old_timespec32(struct timespec64 *ts, const void __user *uts)
+{
+	if (COMPAT_USE_64BIT_TIME)
+		return copy_from_user(ts, uts, sizeof(*ts)) ? -EFAULT : 0;
+	else
+		return __get_old_timespec32(ts, uts);
+}
+EXPORT_SYMBOL_GPL(get_old_timespec32);
 
-//int put_old_timespec32(const struct timespec64 *ts, void __user *uts)
-//{
-//	if (COMPAT_USE_64BIT_TIME)
-//		return copy_to_user(uts, ts, sizeof(*ts)) ? -EFAULT : 0;
-//	else
-//		return __put_old_timespec32(ts, uts);
-//}
-//EXPORT_SYMBOL_GPL(put_old_timespec32);
+int put_old_timespec32(const struct timespec64 *ts, void __user *uts)
+{
+	if (COMPAT_USE_64BIT_TIME)
+		return copy_to_user(uts, ts, sizeof(*ts)) ? -EFAULT : 0;
+	else
+		return __put_old_timespec32(ts, uts);
+}
+EXPORT_SYMBOL_GPL(put_old_timespec32);
 
-//int get_itimerspec64(struct itimerspec64 *it,
-//			const struct __kernel_itimerspec __user *uit)
-//{
-//	int ret;
+int get_itimerspec64(struct itimerspec64 *it,
+			const struct __kernel_itimerspec __user *uit)
+{
+	int ret;
 
-//	ret = get_timespec64(&it->it_interval, &uit->it_interval);
-//	if (ret)
-//		return ret;
+	ret = get_timespec64(&it->it_interval, &uit->it_interval);
+	if (ret)
+		return ret;
 
-//	ret = get_timespec64(&it->it_value, &uit->it_value);
+	ret = get_timespec64(&it->it_value, &uit->it_value);
 
-//	return ret;
-//}
-//EXPORT_SYMBOL_GPL(get_itimerspec64);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(get_itimerspec64);
 
-//int put_itimerspec64(const struct itimerspec64 *it,
-//			struct __kernel_itimerspec __user *uit)
-//{
-//	int ret;
+int put_itimerspec64(const struct itimerspec64 *it,
+			struct __kernel_itimerspec __user *uit)
+{
+	int ret;
 
-//	ret = put_timespec64(&it->it_interval, &uit->it_interval);
-//	if (ret)
-//		return ret;
+	ret = put_timespec64(&it->it_interval, &uit->it_interval);
+	if (ret)
+		return ret;
 
-//	ret = put_timespec64(&it->it_value, &uit->it_value);
+	ret = put_timespec64(&it->it_value, &uit->it_value);
 
-//	return ret;
-//}
-//EXPORT_SYMBOL_GPL(put_itimerspec64);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(put_itimerspec64);
 
-//int get_old_itimerspec32(struct itimerspec64 *its,
-//			const struct old_itimerspec32 __user *uits)
-//{
+int get_old_itimerspec32(struct itimerspec64 *its,
+			const struct old_itimerspec32 __user *uits)
+{
 
-//	if (__get_old_timespec32(&its->it_interval, &uits->it_interval) ||
-//	    __get_old_timespec32(&its->it_value, &uits->it_value))
-//		return -EFAULT;
-//	return 0;
-//}
-//EXPORT_SYMBOL_GPL(get_old_itimerspec32);
+	if (__get_old_timespec32(&its->it_interval, &uits->it_interval) ||
+	    __get_old_timespec32(&its->it_value, &uits->it_value))
+		return -EFAULT;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(get_old_itimerspec32);
 
-//int put_old_itimerspec32(const struct itimerspec64 *its,
-//			struct old_itimerspec32 __user *uits)
-//{
-//	if (__put_old_timespec32(&its->it_interval, &uits->it_interval) ||
-//	    __put_old_timespec32(&its->it_value, &uits->it_value))
-//		return -EFAULT;
-//	return 0;
-//}
-//EXPORT_SYMBOL_GPL(put_old_itimerspec32);
+int put_old_itimerspec32(const struct itimerspec64 *its,
+			struct old_itimerspec32 __user *uits)
+{
+	if (__put_old_timespec32(&its->it_interval, &uits->it_interval) ||
+	    __put_old_timespec32(&its->it_value, &uits->it_value))
+		return -EFAULT;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(put_old_itimerspec32);

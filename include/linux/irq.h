@@ -12,11 +12,11 @@
 
 #include <linux/cache.h>
 #include <linux/spinlock.h>
-//#include <linux/cpumask.h>
+#include <linux/cpumask.h>
 #include <linux/irqhandler.h>
 #include <linux/irqreturn.h>
 #include <linux/irqnr.h>
-//#include <linux/topology.h>
+#include <linux/topology.h>
 #include <linux/io.h>
 #include <linux/slab.h>
 
@@ -149,7 +149,7 @@ struct irq_common_data {
 #endif
 	void			*handler_data;
 	struct msi_desc		*msi_desc;
-//	cpumask_var_t		affinity;
+	cpumask_var_t		affinity;
 #ifdef CONFIG_GENERIC_IRQ_EFFECTIVE_AFF_MASK
 	cpumask_var_t		effective_affinity;
 #endif
@@ -514,7 +514,7 @@ struct irq_chip {
 	void		(*irq_unmask)(struct irq_data *data);
 	void		(*irq_eoi)(struct irq_data *data);
 
-//	int		(*irq_set_affinity)(struct irq_data *data, const struct cpumask *dest, bool force);
+	int		(*irq_set_affinity)(struct irq_data *data, const struct cpumask *dest, bool force);
 	int		(*irq_retrigger)(struct irq_data *data);
 	int		(*irq_set_type)(struct irq_data *data, unsigned int flow_type);
 	int		(*irq_set_wake)(struct irq_data *data, unsigned int on);
@@ -544,7 +544,7 @@ struct irq_chip {
 	int		(*irq_set_vcpu_affinity)(struct irq_data *data, void *vcpu_info);
 
 	void		(*ipi_send_single)(struct irq_data *data, unsigned int cpu);
-//	void		(*ipi_send_mask)(struct irq_data *data, const struct cpumask *dest);
+	void		(*ipi_send_mask)(struct irq_data *data, const struct cpumask *dest);
 
 	int		(*irq_nmi_setup)(struct irq_data *data);
 	void		(*irq_nmi_teardown)(struct irq_data *data);
@@ -647,6 +647,7 @@ static inline int irq_set_parent(int irq, int parent_irq)
  */
 extern void handle_level_irq(struct irq_desc *desc);
 extern void handle_fasteoi_irq(struct irq_desc *desc);
+extern void handle_percpu_devid_fasteoi_ipi(struct irq_desc *desc);
 extern void handle_edge_irq(struct irq_desc *desc);
 extern void handle_edge_eoi_irq(struct irq_desc *desc);
 extern void handle_simple_irq(struct irq_desc *desc);
@@ -871,47 +872,40 @@ static inline int irq_data_get_node(struct irq_data *d)
 	return irq_common_data_get_node(d->common);
 }
 
-//static inline struct cpumask *irq_get_affinity_mask(int irq)
-//{
-//	struct irq_data *d = irq_get_irq_data(irq);
+static inline struct cpumask *irq_get_affinity_mask(int irq)
+{
+	struct irq_data *d = irq_get_irq_data(irq);
 
-//	return d ? d->common->affinity : NULL;
-//}
+	return d ? d->common->affinity : NULL;
+}
 
-//static inline struct cpumask *irq_data_get_affinity_mask(struct irq_data *d)
-//{
-//	return d->common->affinity;
-//}
+static inline struct cpumask *irq_data_get_affinity_mask(struct irq_data *d)
+{
+	return d->common->affinity;
+}
 
-//#ifdef CONFIG_GENERIC_IRQ_EFFECTIVE_AFF_MASK
-//static inline
-//struct cpumask *irq_data_get_effective_affinity_mask(struct irq_data *d)
-//{
-//	return d->common->effective_affinity;
-//}
-//static inline void irq_data_update_effective_affinity(struct irq_data *d,
-//						      const struct cpumask *m)
-//{
-//	cpumask_copy(d->common->effective_affinity, m);
-//}
-//#else
-//static inline void irq_data_update_effective_affinity(struct irq_data *d,
-//						      const struct cpumask *m)
-//{
-//}
-//static inline
-//struct cpumask *irq_data_get_effective_affinity_mask(struct irq_data *d)
-//{
-//	return d->common->affinity;
-//}
-//#endif
-
-//static inline struct cpumask *irq_get_effective_affinity_mask(unsigned int irq)
-//{
-//	struct irq_data *d = irq_get_irq_data(irq);
-
-//	return d ? irq_data_get_effective_affinity_mask(d) : NULL;
-//}
+#ifdef CONFIG_GENERIC_IRQ_EFFECTIVE_AFF_MASK
+static inline
+struct cpumask *irq_data_get_effective_affinity_mask(struct irq_data *d)
+{
+	return d->common->effective_affinity;
+}
+static inline void irq_data_update_effective_affinity(struct irq_data *d,
+						      const struct cpumask *m)
+{
+	cpumask_copy(d->common->effective_affinity, m);
+}
+#else
+static inline void irq_data_update_effective_affinity(struct irq_data *d,
+						      const struct cpumask *m)
+{
+}
+static inline
+struct cpumask *irq_data_get_effective_affinity_mask(struct irq_data *d)
+{
+	return d->common->affinity;
+}
+#endif
 
 unsigned int arch_dynirq_lower_bound(unsigned int from);
 
@@ -959,6 +953,21 @@ static inline void irq_free_desc(unsigned int irq)
 {
 	irq_free_descs(irq, 1);
 }
+
+#ifdef CONFIG_GENERIC_IRQ_LEGACY_ALLOC_HWIRQ
+unsigned int irq_alloc_hwirqs(int cnt, int node);
+static inline unsigned int irq_alloc_hwirq(int node)
+{
+	return irq_alloc_hwirqs(1, node);
+}
+void irq_free_hwirqs(unsigned int from, int cnt);
+static inline void irq_free_hwirq(unsigned int irq)
+{
+	return irq_free_hwirqs(irq, 1);
+}
+int arch_setup_hwirq(unsigned int irq, int node);
+void arch_teardown_hwirq(unsigned int irq);
+#endif
 
 #ifdef CONFIG_GENERIC_IRQ_LEGACY
 void irq_init_desc(unsigned int irq);

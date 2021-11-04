@@ -9,8 +9,6 @@
 #ifndef _INDUSTRIAL_IO_SYSFS_H_
 #define _INDUSTRIAL_IO_SYSFS_H_
 
-#include <linux/device.h>
-
 struct iio_chan_spec;
 
 /**

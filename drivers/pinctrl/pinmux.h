@@ -9,8 +9,6 @@
  *
  * Author: Linus Walleij <linus.walleij@linaro.org>
  */
-#define CONFIG_PINMUX
-
 #ifdef CONFIG_PINMUX
 
 int pinmux_check_ops(struct pinctrl_dev *pctldev);
@@ -103,20 +101,20 @@ void pinmux_init_device_debugfs(struct dentry *devroot,
 
 #else
 
-//static inline void pinmux_show_map(struct seq_file *s,
-//				   const struct pinctrl_map *map)
-//{
-//}
+static inline void pinmux_show_map(struct seq_file *s,
+				   const struct pinctrl_map *map)
+{
+}
 
-//static inline void pinmux_show_setting(struct seq_file *s,
-//				       const struct pinctrl_setting *setting)
-//{
-//}
+static inline void pinmux_show_setting(struct seq_file *s,
+				       const struct pinctrl_setting *setting)
+{
+}
 
-//static inline void pinmux_init_device_debugfs(struct dentry *devroot,
-//					      struct pinctrl_dev *pctldev)
-//{
-//}
+static inline void pinmux_init_device_debugfs(struct dentry *devroot,
+					      struct pinctrl_dev *pctldev)
+{
+}
 
 #endif
 

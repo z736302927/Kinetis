@@ -28,7 +28,7 @@
   do { __acquire(lock); (void)(lock); } while (0)
 
 #define __LOCK(lock) \
-  do { ___LOCK(lock); } while (0)
+  do { preempt_disable(); ___LOCK(lock); } while (0)
 
 #define __LOCK_BH(lock) \
   do { __local_bh_disable_ip(_THIS_IP_, SOFTIRQ_LOCK_OFFSET); ___LOCK(lock); } while (0)
@@ -43,7 +43,7 @@
   do { __release(lock); (void)(lock); } while (0)
 
 #define __UNLOCK(lock) \
-  do { ___UNLOCK(lock); } while (0)
+  do { preempt_enable(); ___UNLOCK(lock); } while (0)
 
 #define __UNLOCK_BH(lock) \
   do { __local_bh_enable_ip(_THIS_IP_, SOFTIRQ_LOCK_OFFSET); \

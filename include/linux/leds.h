@@ -10,13 +10,13 @@
 
 #include <dt-bindings/leds/common.h>
 #include <linux/device.h>
-//#include <linux/kernfs.h>
+#include <linux/kernfs.h>
 #include <linux/list.h>
-//#include <linux/mutex.h>
-//#include <linux/rwsem.h>
-//#include <linux/spinlock.h>
+#include <linux/mutex.h>
+#include <linux/rwsem.h>
+#include <linux/spinlock.h>
 #include <linux/timer.h>
-//#include <linux/workqueue.h>
+#include <linux/workqueue.h>
 
 struct device;
 struct led_pattern;
@@ -133,7 +133,7 @@ struct led_classdev {
 	int			 new_blink_brightness;
 	void			(*flash_resume)(struct led_classdev *led_cdev);
 
-//	struct work_struct	set_brightness_work;
+	struct work_struct	set_brightness_work;
 	int			delayed_set_value;
 
 #ifdef CONFIG_LEDS_TRIGGERS
@@ -156,7 +156,7 @@ struct led_classdev {
 #endif
 
 	/* Ensures consistent access to the LED Flash Class device */
-//	struct mutex		led_access;
+	struct mutex		led_access;
 };
 
 /**
@@ -587,7 +587,7 @@ enum led_audio {
 	NUM_AUDIO_LEDS
 };
 
-#ifdef CONFIG_LEDS_TRIGGER_AUDIO
+#if IS_ENABLED(CONFIG_LEDS_TRIGGER_AUDIO)
 enum led_brightness ledtrig_audio_get(enum led_audio type);
 void ledtrig_audio_set(enum led_audio type, enum led_brightness state);
 #else

@@ -45,11 +45,12 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
-#include <string.h>
 
-#include "../fs/fatfs/ff_gen_drv.h"
+#include <generated/deconfig.h>
+#include <linux/spi/w25qxxx.h>
+#include <linux/string.h>
 
-#include "kinetis/w25qxxx.h"
+#include "../ff_gen_drv.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -101,12 +102,12 @@ DSTATUS flash_disk_initialize(BYTE lun)
 
     switch (lun) {
         case 0:
-            w25qxxx_init(W25Q128);
+//            w25qxxx_init(W25Q128);
             disk_stat = disk_status(0);
             break;
 
         case 1:
-            w25qxxx_init(W25Q256);
+//            w25qxxx_init(W25Q256);
             disk_stat = disk_status(1);
             break;
 
@@ -129,13 +130,13 @@ DSTATUS flash_disk_status(BYTE lun)
 
     switch (lun) {
         case 0:
-            if (w25qxxx_release_device_id(W25Q128) != 0)
+//            if (w25qxxx_release_device_id(W25Q128) != 0)
                 disk_stat &= ~STA_NOINIT;
 
             break;
 
         case 1:
-            if (w25qxxx_release_device_id(W25Q256) != 0)
+//            if (w25qxxx_release_device_id(W25Q256) != 0)
                 disk_stat &= ~STA_NOINIT;
 
             break;
@@ -160,11 +161,17 @@ DRESULT flash_disk_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
 {
     switch (lun) {
         case 0:
-            w25qxxx_read_data(W25Q128, sector << STORAGE_SEC_SIZ_POWER, buff, count << STORAGE_SEC_SIZ_POWER);
+            spi_nor_read_data(W25Q128,
+                sector << STORAGE_SEC_SIZ_POWER,
+                count << STORAGE_SEC_SIZ_POWER,
+                buff);
             break;
 
         case 1:
-            w25qxxx_read_data(W25Q256, sector << STORAGE_SEC_SIZ_POWER, buff, count << STORAGE_SEC_SIZ_POWER);
+            spi_nor_read_data(W25Q256,
+                sector << STORAGE_SEC_SIZ_POWER,
+                count << STORAGE_SEC_SIZ_POWER,
+                buff);
             break;
 
         default:
@@ -187,11 +194,17 @@ DRESULT flash_disk_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
 {
     switch (lun) {
         case 0:
-            w25qxxx_write_data(W25Q128, sector << STORAGE_SEC_SIZ_POWER, (BYTE *)buff, count << STORAGE_SEC_SIZ_POWER);
+            spi_nor_write_data(W25Q128,
+                sector << STORAGE_SEC_SIZ_POWER,
+                count << STORAGE_SEC_SIZ_POWER,
+                buff);
             break;
 
         case 1:
-            w25qxxx_write_data(W25Q256, sector << STORAGE_SEC_SIZ_POWER, (BYTE *)buff, count << STORAGE_SEC_SIZ_POWER);
+            spi_nor_write_data(W25Q256,
+                sector << STORAGE_SEC_SIZ_POWER,
+                count << STORAGE_SEC_SIZ_POWER,
+                buff);
             break;
 
         default:

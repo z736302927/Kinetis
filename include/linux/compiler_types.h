@@ -56,27 +56,26 @@ static inline void __chk_io_ptr(const volatile void __iomem *ptr) { }
 #endif /* __CHECKER__ */
 
 /* Indirect macros required for expanded argument pasting, eg. __LINE__. */
-#ifndef __PASTE
 #define ___PASTE(a,b) a##b
+#undef __PASTE
 #define __PASTE(a,b) ___PASTE(a,b)
-#endif
 
-//#ifdef __KERNEL__
+#ifdef __KERNEL__
 
 /* Attributes */
 #include <linux/compiler_attributes.h>
 
 /* Compiler specific macros. */
-//#ifdef __clang__
-//#include <linux/compiler-clang.h>
-//#elif defined(__INTEL_COMPILER)
-//#include <linux/compiler-intel.h>
-//#elif defined(__GNUC__)
-///* The above compilers also define __GNUC__, so order is important here. */
-//#include <linux/compiler-gcc.h>
-//#else
-//#error "Unknown compiler"
-//#endif
+#ifdef __clang__
+#include <linux/compiler-clang.h>
+#elif defined(__INTEL_COMPILER)
+#include <linux/compiler-intel.h>
+#elif defined(__GNUC__)
+/* The above compilers also define __GNUC__, so order is important here. */
+#include <linux/compiler-gcc.h>
+#else
+#error "Unknown compiler"
+#endif
 
 /*
  * Some architectures need to provide custom definitions of macros provided
@@ -209,7 +208,7 @@ struct ftrace_likely_data {
 	noinline notrace __attribute((__section__(".noinstr.text")))	\
 	__no_kcsan __no_sanitize_address
 
-//#endif /* __KERNEL__ */
+#endif /* __KERNEL__ */
 
 #endif /* __ASSEMBLY__ */
 
@@ -290,7 +289,7 @@ struct ftrace_likely_data {
 # define __compiletime_error(message)
 #endif
 
-#ifndef __OPTIMIZE__
+#ifdef __OPTIMIZE__
 # define __compiletime_assert(condition, msg, prefix, suffix)		\
 	do {								\
 		extern void prefix ## suffix(void) __compiletime_error(msg); \

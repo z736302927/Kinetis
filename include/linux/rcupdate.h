@@ -22,8 +22,13 @@
 
 #include <linux/types.h>
 #include <linux/compiler.h>
+#include <linux/atomic.h>
 #include <linux/irqflags.h>
-#include <linux/bug.h>
+#include <linux/preempt.h>
+#include <linux/bottom_half.h>
+#include <linux/lockdep.h>
+#include <asm/processor.h>
+#include <linux/cpumask.h>
 
 #define ULONG_CMP_GE(a, b)	(ULONG_MAX / 2 >= (a) - (b))
 #define ULONG_CMP_LT(a, b)	(ULONG_MAX / 2 < (a) - (b))
@@ -58,10 +63,12 @@ void rcu_read_unlock_strict(void);
 
 static inline void __rcu_read_lock(void)
 {
+	preempt_disable();
 }
 
 static inline void __rcu_read_unlock(void)
 {
+	preempt_enable();
 	rcu_read_unlock_strict();
 }
 
@@ -74,10 +81,16 @@ static inline int rcu_preempt_depth(void)
 
 /* Internal to kernel */
 void rcu_init(void);
-extern int rcu_scheduler_active;
+extern int rcu_scheduler_active __read_mostly;
 void rcu_sched_clock_irq(int user);
 void rcu_report_dead(unsigned int cpu);
 void rcutree_migrate_callbacks(int cpu);
+
+#ifdef CONFIG_TASKS_RCU_GENERIC
+void rcu_init_tasks_generic(void);
+#else
+static inline void rcu_init_tasks_generic(void) { }
+#endif
 
 #ifdef CONFIG_RCU_STALL_COMMON
 void rcu_sysrq_start(void);
@@ -97,8 +110,10 @@ static inline void rcu_user_exit(void) { }
 
 #ifdef CONFIG_RCU_NOCB_CPU
 void rcu_init_nohz(void);
+void rcu_nocb_flush_deferred_wakeup(void);
 #else /* #ifdef CONFIG_RCU_NOCB_CPU */
 static inline void rcu_init_nohz(void) { }
+static inline void rcu_nocb_flush_deferred_wakeup(void) { }
 #endif /* #else #ifdef CONFIG_RCU_NOCB_CPU */
 
 /**
@@ -204,8 +219,8 @@ do { \
 #include <linux/rcutree.h>
 #elif defined(CONFIG_TINY_RCU)
 #include <linux/rcutiny.h>
-//#else
-//#error "Unknown RCU implementation specified to kernel configuration"
+#else
+#error "Unknown RCU implementation specified to kernel configuration"
 #endif
 
 /*
@@ -273,12 +288,12 @@ static inline int rcu_read_lock_bh_held(void)
 
 static inline int rcu_read_lock_sched_held(void)
 {
-	return 1;
+	return !preemptible();
 }
 
 static inline int rcu_read_lock_any_held(void)
 {
-	return 1;
+	return !preemptible();
 }
 
 #endif /* #else #ifdef CONFIG_DEBUG_LOCK_ALLOC */
@@ -702,6 +717,7 @@ static inline void rcu_read_unlock(void)
  */
 static inline void rcu_read_lock_bh(void)
 {
+	local_bh_disable();
 	__acquire(RCU_BH);
 	rcu_lock_acquire(&rcu_bh_lock_map);
 	RCU_LOCKDEP_WARN(!rcu_is_watching(),
@@ -719,6 +735,7 @@ static inline void rcu_read_unlock_bh(void)
 			 "rcu_read_unlock_bh() used illegally while idle");
 	rcu_lock_release(&rcu_bh_lock_map);
 	__release(RCU_BH);
+	local_bh_enable();
 }
 
 /**
@@ -735,6 +752,7 @@ static inline void rcu_read_unlock_bh(void)
  */
 static inline void rcu_read_lock_sched(void)
 {
+	preempt_disable();
 	__acquire(RCU_SCHED);
 	rcu_lock_acquire(&rcu_sched_lock_map);
 	RCU_LOCKDEP_WARN(!rcu_is_watching(),
@@ -744,6 +762,7 @@ static inline void rcu_read_lock_sched(void)
 /* Used by lockdep and tracing: cannot be traced, cannot call lockdep. */
 static inline notrace void rcu_read_lock_sched_notrace(void)
 {
+	preempt_disable_notrace();
 	__acquire(RCU_SCHED);
 }
 
@@ -758,12 +777,14 @@ static inline void rcu_read_unlock_sched(void)
 			 "rcu_read_unlock_sched() used illegally while idle");
 	rcu_lock_release(&rcu_sched_lock_map);
 	__release(RCU_SCHED);
+	preempt_enable();
 }
 
 /* Used by lockdep and tracing: cannot be traced, cannot call lockdep. */
 static inline notrace void rcu_read_unlock_sched_notrace(void)
 {
 	__release(RCU_SCHED);
+	preempt_enable_notrace();
 }
 
 /**

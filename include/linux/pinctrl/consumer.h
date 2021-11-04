@@ -13,7 +13,7 @@
 
 #include <linux/err.h>
 #include <linux/list.h>
-//#include <linux/seq_file.h>
+#include <linux/seq_file.h>
 #include <linux/pinctrl/pinctrl-state.h>
 
 /* This struct is private to the core and should be regarded as a cookie */

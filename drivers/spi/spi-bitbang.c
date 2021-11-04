@@ -3,10 +3,10 @@
  * polling/bitbanging SPI master controller driver utilities
  */
 
-//#include <linux/spinlock.h>
-//#include <linux/workqueue.h>
+#include <linux/spinlock.h>
+#include <linux/workqueue.h>
 #include <linux/interrupt.h>
-//#include <linux/module.h>
+#include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/errno.h>
 #include <linux/platform_device.h>
@@ -181,6 +181,8 @@ int spi_bitbang_setup(struct spi_device *spi)
 {
 	struct spi_bitbang_cs	*cs = spi->controller_state;
 	struct spi_bitbang	*bitbang;
+	bool			initial_setup = false;
+	int			retval;
 
 	bitbang = spi_master_get_devdata(spi->master);
 
@@ -189,22 +191,30 @@ int spi_bitbang_setup(struct spi_device *spi)
 		if (!cs)
 			return -ENOMEM;
 		spi->controller_state = cs;
+		initial_setup = true;
 	}
 
 	/* per-word shift register access, in hardware or bitbanging */
 	cs->txrx_word = bitbang->txrx_word[spi->mode & (SPI_CPOL|SPI_CPHA)];
-	if (!cs->txrx_word)
-		return -EINVAL;
+	if (!cs->txrx_word) {
+		retval = -EINVAL;
+		goto err_free;
+	}
 
 	if (bitbang->setup_transfer) {
-		int retval = bitbang->setup_transfer(spi, NULL);
+		retval = bitbang->setup_transfer(spi, NULL);
 		if (retval < 0)
-			return retval;
+			goto err_free;
 	}
 
 	dev_dbg(&spi->dev, "%s, %u nsec/bit\n", __func__, 2 * cs->nsecs);
 
 	return 0;
+
+err_free:
+	if (initial_setup)
+		kfree(cs);
+	return retval;
 }
 EXPORT_SYMBOL_GPL(spi_bitbang_setup);
 
@@ -261,9 +271,9 @@ static int spi_bitbang_prepare_hardware(struct spi_master *spi)
 
 	bitbang = spi_master_get_devdata(spi);
 
-//	mutex_lock(&bitbang->lock);
+	mutex_lock(&bitbang->lock);
 	bitbang->busy = 1;
-//	mutex_unlock(&bitbang->lock);
+	mutex_unlock(&bitbang->lock);
 
 	return 0;
 }
@@ -301,9 +311,9 @@ static int spi_bitbang_unprepare_hardware(struct spi_master *spi)
 
 	bitbang = spi_master_get_devdata(spi);
 
-//	mutex_lock(&bitbang->lock);
+	mutex_lock(&bitbang->lock);
 	bitbang->busy = 0;
-//	mutex_unlock(&bitbang->lock);
+	mutex_unlock(&bitbang->lock);
 
 	return 0;
 }
@@ -345,7 +355,7 @@ int spi_bitbang_init(struct spi_bitbang *bitbang)
 	if (custom_cs && !bitbang->chipselect)
 		return -EINVAL;
 
-//	mutex_init(&bitbang->lock);
+	mutex_init(&bitbang->lock);
 
 	if (!master->mode_bits)
 		master->mode_bits = SPI_CPOL | SPI_CPHA | bitbang->flags;
@@ -419,9 +429,9 @@ int spi_bitbang_start(struct spi_bitbang *bitbang)
 	/* driver may get busy before register() returns, especially
 	 * if someone registered boardinfo for devices
 	 */
-	ret = spi_register_master(master);
-//	if (ret)
-//		spi_master_put(master);
+	ret = spi_register_master(spi_master_get(master));
+	if (ret)
+		spi_master_put(master);
 
 	return ret;
 }
@@ -436,5 +446,5 @@ void spi_bitbang_stop(struct spi_bitbang *bitbang)
 }
 EXPORT_SYMBOL_GPL(spi_bitbang_stop);
 
-//MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL");
 

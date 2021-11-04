@@ -11,8 +11,8 @@
 
 #include <linux/device.h>
 #include <linux/fb.h>
-//#include <linux/mutex.h>
-//#include <linux/notifier.h>
+#include <linux/mutex.h>
+#include <linux/notifier.h>
 
 /**
  * enum backlight_update_reason - what method was used to update backlight
@@ -291,7 +291,7 @@ struct backlight_device {
 	 * when calling the update_status() operation. The update_lock shall not
 	 * be used by backlight drivers.
 	 */
-//	struct mutex update_lock;
+	struct mutex update_lock;
 
 	/**
 	 * @ops_lock: The lock used around everything related to backlight_ops.
@@ -300,7 +300,7 @@ struct backlight_device {
 	 * and is used around all accesses to ops and when the operations are
 	 * invoked. The ops_lock shall not be used by backlight drivers.
 	 */
-//	struct mutex ops_lock;
+	struct mutex ops_lock;
 
 	/**
 	 * @ops: Pointer to the backlight operations.
@@ -314,7 +314,7 @@ struct backlight_device {
 	/**
 	 * @fb_notif: The framebuffer notifier block
 	 */
-//	struct notifier_block fb_notif;
+	struct notifier_block fb_notif;
 
 	/**
 	 * @entry: List entry of all registered backlight devices
@@ -348,10 +348,10 @@ static inline int backlight_update_status(struct backlight_device *bd)
 {
 	int ret = -ENOENT;
 
-//	mutex_lock(&bd->update_lock);
+	mutex_lock(&bd->update_lock);
 	if (bd->ops && bd->ops->update_status)
 		ret = bd->ops->update_status(bd);
-//	mutex_unlock(&bd->update_lock);
+	mutex_unlock(&bd->update_lock);
 
 	return ret;
 }
@@ -476,7 +476,7 @@ of_find_backlight_by_node(struct device_node *node)
 }
 #endif
 
-#ifdef CONFIG_BACKLIGHT_CLASS_DEVICE
+#if IS_ENABLED(CONFIG_BACKLIGHT_CLASS_DEVICE)
 struct backlight_device *devm_of_find_backlight(struct device *dev);
 #else
 static inline struct backlight_device *
@@ -485,8 +485,5 @@ devm_of_find_backlight(struct device *dev)
 	return NULL;
 }
 #endif
-
-void __exit backlight_class_exit(void);
-int __init backlight_class_init(void);
 
 #endif

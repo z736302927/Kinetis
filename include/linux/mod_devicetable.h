@@ -8,9 +8,11 @@
 #ifndef LINUX_MOD_DEVICETABLE_H
 #define LINUX_MOD_DEVICETABLE_H
 
+#ifdef __KERNEL__
 #include <linux/types.h>
 #include <linux/uuid.h>
 typedef unsigned long kernel_ulong_t;
+#endif
 
 #define PCI_ANY_ID (~0)
 
@@ -833,14 +835,6 @@ struct wmi_device_id {
  */
 struct mhi_device_id {
 	const char chan[MHI_NAME_SIZE];
-	kernel_ulong_t driver_data;
-};
-
-#define AUXILIARY_NAME_SIZE 32
-#define AUXILIARY_MODULE_PREFIX "auxiliary:"
-
-struct auxiliary_device_id {
-	char name[AUXILIARY_NAME_SIZE];
 	kernel_ulong_t driver_data;
 };
 

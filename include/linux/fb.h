@@ -2,15 +2,15 @@
 #ifndef _LINUX_FB_H
 #define _LINUX_FB_H
 
-//#include <linux/kgdb.h>
+#include <linux/kgdb.h>
 #include <uapi/linux/fb.h>
 
-//#define FBIO_CURSOR            _IOWR('F', 0x08, struct fb_cursor_user)
+#define FBIO_CURSOR            _IOWR('F', 0x08, struct fb_cursor_user)
 
-//#include <linux/fs.h>
+#include <linux/fs.h>
 #include <linux/init.h>
-//#include <linux/workqueue.h>
-//#include <linux/notifier.h>
+#include <linux/workqueue.h>
+#include <linux/notifier.h>
 #include <linux/list.h>
 #include <linux/backlight.h>
 #include <linux/slab.h>
@@ -433,7 +433,6 @@ struct fb_tile_ops {
  */
 #define FBINFO_HIDE_SMEM_START  0x200000
 
-#define CONFIG_FB_BACKLIGHT
 
 struct fb_info {
 	atomic_t count;
@@ -444,26 +443,26 @@ struct fb_info {
 	 * a lcd is not mounted upright and fbcon should rotate to compensate.
 	 */
 	int fbcon_rotate_hint;
-//	struct mutex lock;		/* Lock for open/release/ioctl funcs */
-//	struct mutex mm_lock;		/* Lock for fb_mmap and smem_* fields */
+	struct mutex lock;		/* Lock for open/release/ioctl funcs */
+	struct mutex mm_lock;		/* Lock for fb_mmap and smem_* fields */
 	struct fb_var_screeninfo var;	/* Current var */
 	struct fb_fix_screeninfo fix;	/* Current fix */
 	struct fb_monspecs monspecs;	/* Current Monitor specs */
-//	struct work_struct queue;	/* Framebuffer event queue */
+	struct work_struct queue;	/* Framebuffer event queue */
 	struct fb_pixmap pixmap;	/* Image hardware mapper */
 	struct fb_pixmap sprite;	/* Cursor hardware mapper */
 	struct fb_cmap cmap;		/* Current cmap */
 	struct list_head modelist;      /* mode list */
 	struct fb_videomode *mode;	/* current mode */
 
-#ifdef CONFIG_FB_BACKLIGHT
+#if IS_ENABLED(CONFIG_FB_BACKLIGHT)
 	/* assigned backlight device */
 	/* set before framebuffer registration,
 	   remove after unregister */
 	struct backlight_device *bl_dev;
 
 	/* Backlight level curve */
-//	struct mutex bl_curve_mutex;
+	struct mutex bl_curve_mutex;
 	u8 bl_curve[FB_BACKLIGHT_LEVELS];
 #endif
 #ifdef CONFIG_FB_DEFERRED_IO
@@ -632,15 +631,15 @@ extern struct class *fb_class;
 	for (i = 0; i < FB_MAX; i++)		\
 		if (!registered_fb[i]) {} else
 
-//static inline void lock_fb_info(struct fb_info *info)
-//{
-//	mutex_lock(&info->lock);
-//}
+static inline void lock_fb_info(struct fb_info *info)
+{
+	mutex_lock(&info->lock);
+}
 
-//static inline void unlock_fb_info(struct fb_info *info)
-//{
-//	mutex_unlock(&info->lock);
-//}
+static inline void unlock_fb_info(struct fb_info *info)
+{
+	mutex_unlock(&info->lock);
+}
 
 static inline void __fb_pad_aligned_buffer(u8 *dst, u32 d_pitch,
 					   u8 *src, u32 s_pitch, u32 height)
@@ -657,20 +656,15 @@ static inline void __fb_pad_aligned_buffer(u8 *dst, u32 d_pitch,
 	}
 }
 
-int __init
-fbmem_init(void);
-void __exit
-fbmem_exit(void);
-
 /* drivers/video/fb_defio.c */
-//int fb_deferred_io_mmap(struct fb_info *info, struct vm_area_struct *vma);
-//extern void fb_deferred_io_init(struct fb_info *info);
-//extern void fb_deferred_io_open(struct fb_info *info,
-//				struct inode *inode,
-//				struct file *file);
-//extern void fb_deferred_io_cleanup(struct fb_info *info);
-//extern int fb_deferred_io_fsync(struct file *file, loff_t start,
-//				loff_t end, int datasync);
+int fb_deferred_io_mmap(struct fb_info *info, struct vm_area_struct *vma);
+extern void fb_deferred_io_init(struct fb_info *info);
+extern void fb_deferred_io_open(struct fb_info *info,
+				struct inode *inode,
+				struct file *file);
+extern void fb_deferred_io_cleanup(struct fb_info *info);
+extern int fb_deferred_io_fsync(struct file *file, loff_t start,
+				loff_t end, int datasync);
 
 static inline bool fb_be_math(struct fb_info *info)
 {

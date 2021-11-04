@@ -14,8 +14,9 @@
 #ifndef _DEVICE_BUS_H_
 #define _DEVICE_BUS_H_
 
+#include <linux/kobject.h>
 #include <linux/klist.h>
-#include <linux/sysfs.h>
+#include <linux/pm.h>
 
 struct device_driver;
 struct fwnode_handle;
@@ -87,7 +88,7 @@ struct bus_type {
 	const struct attribute_group **drv_groups;
 
 	int (*match)(struct device *dev, struct device_driver *drv);
-	int (*uevent)(struct device *dev, void *env);
+	int (*uevent)(struct device *dev, struct kobj_uevent_env *env);
 	int (*probe)(struct device *dev);
 	void (*sync_state)(struct device *dev);
 	int (*remove)(struct device *dev);
@@ -96,7 +97,7 @@ struct bus_type {
 	int (*online)(struct device *dev);
 	int (*offline)(struct device *dev);
 
-	int (*suspend)(struct device *dev, int state);
+	int (*suspend)(struct device *dev, pm_message_t state);
 	int (*resume)(struct device *dev);
 
 	int (*num_vf)(struct device *dev);
@@ -182,7 +183,7 @@ static inline struct device *bus_find_device_by_name(struct bus_type *bus,
  * @np: of_node of the device to match.
  */
 static inline struct device *
-bus_find_device_by_of_node(struct bus_type *bus, void *np)
+bus_find_device_by_of_node(struct bus_type *bus, const struct device_node *np)
 {
 	return bus_find_device(bus, NULL, np, device_match_of_node);
 }
@@ -247,7 +248,6 @@ bus_find_device_by_acpi_dev(struct bus_type *bus, const void *adev)
 
 struct device *subsys_find_device_by_id(struct bus_type *bus, unsigned int id,
 					struct device *hint);
-struct device_driver *next_driver(struct klist_iter *i);
 int bus_for_each_drv(struct bus_type *bus, struct device_driver *start,
 		     void *data, int (*fn)(struct device_driver *, void *));
 void bus_sort_breadthfirst(struct bus_type *bus,

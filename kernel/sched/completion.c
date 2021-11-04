@@ -11,12 +11,7 @@
  * typically be used for exclusion which gives rise to priority inversion.
  * Waiting for completion is a typically sync point, but not an exclusion point.
  */
-#include <linux/completion.h>
-#include <linux/export.h>
-#include <linux/limits.h>
-#include <linux/jiffies.h>
-#include <linux/printk.h>
-#include <linux/errno.h>
+#include "sched.h"
 
 /**
  * complete: - signals a single thread waiting on this completion
@@ -32,8 +27,14 @@
  */
 void complete(struct completion *x)
 {
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&x->wait.lock, flags);
+
 	if (x->done != UINT_MAX)
 		x->done++;
+//	swake_up_locked(&x->wait);
+	raw_spin_unlock_irqrestore(&x->wait.lock, flags);
 }
 EXPORT_SYMBOL(complete);
 
@@ -55,56 +56,71 @@ EXPORT_SYMBOL(complete);
  */
 void complete_all(struct completion *x)
 {
+	unsigned long flags;
+
+	lockdep_assert_RT_in_threaded_ctx();
+
+	raw_spin_lock_irqsave(&x->wait.lock, flags);
 	x->done = UINT_MAX;
+//	swake_up_all_locked(&x->wait);
+	raw_spin_unlock_irqrestore(&x->wait.lock, flags);
 }
 EXPORT_SYMBOL(complete_all);
 
-static inline long
+static inline long __sched
 do_wait_for_common(struct completion *x,
 		   long (*action)(long), long timeout, int state)
 {
-    unsigned long expired = jiffies + timeout;
-
 	if (!x->done) {
+		DECLARE_SWAITQUEUE(wait);
+
 		do {
-			if (time_after(jiffies, expired)) {
-    			printk(KERN_ERR "schedule_timeout: wrong timeout "
-    				"value %ld\n", timeout);
-                goto out;
-			};
-		} while (!x->done);
+			if (signal_pending_state(state, current)) {
+				timeout = -ERESTARTSYS;
+				break;
+			}
+//			__prepare_to_swait(&x->wait, &wait);
+			__set_current_state(state);
+			raw_spin_unlock_irq(&x->wait.lock);
+			timeout = action(timeout);
+			raw_spin_lock_irq(&x->wait.lock);
+		} while (!x->done && timeout);
+//		__finish_swait(&x->wait, &wait);
+		if (!x->done)
+			return timeout;
 	}
 	if (x->done != UINT_MAX)
 		x->done--;
-    
-	timeout = expired - jiffies;
- out:
-	return timeout < 0 ? 0 : timeout;
+	return timeout ?: 1;
 }
 
-static inline long
+static inline long __sched
 __wait_for_common(struct completion *x,
 		  long (*action)(long), long timeout, int state)
 {
+	might_sleep();
+
 	complete_acquire(x);
 
+	raw_spin_lock_irq(&x->wait.lock);
 	timeout = do_wait_for_common(x, action, timeout, state);
+	raw_spin_unlock_irq(&x->wait.lock);
 
 	complete_release(x);
 
 	return timeout;
 }
 
-static long
+static long __sched
 wait_for_common(struct completion *x, long timeout, int state)
 {
-	return __wait_for_common(x, NULL, timeout, state);
+	return __wait_for_common(x, schedule_timeout, timeout, state);
 }
 
-static long
+static long __sched
 wait_for_common_io(struct completion *x, long timeout, int state)
 {
-	return __wait_for_common(x, NULL, timeout, state);
+	return __wait_for_common(x, io_schedule_timeout, timeout, state);
 }
 
 /**
@@ -117,9 +133,9 @@ wait_for_common_io(struct completion *x, long timeout, int state)
  * See also similar routines (i.e. wait_for_completion_timeout()) with timeout
  * and interrupt capability. Also see complete().
  */
-void wait_for_completion(struct completion *x)
+void __sched wait_for_completion(struct completion *x)
 {
-	wait_for_common(x, LONG_MAX, 0x0002);
+	wait_for_common(x, MAX_SCHEDULE_TIMEOUT, TASK_UNINTERRUPTIBLE);
 }
 EXPORT_SYMBOL(wait_for_completion);
 
@@ -135,10 +151,10 @@ EXPORT_SYMBOL(wait_for_completion);
  * Return: 0 if timed out, and positive (at least 1, or number of jiffies left
  * till timeout) if completed.
  */
-unsigned long
+unsigned long __sched
 wait_for_completion_timeout(struct completion *x, unsigned long timeout)
 {
-	return wait_for_common(x, timeout, 0x0002);
+	return wait_for_common(x, timeout, TASK_UNINTERRUPTIBLE);
 }
 EXPORT_SYMBOL(wait_for_completion_timeout);
 
@@ -150,9 +166,9 @@ EXPORT_SYMBOL(wait_for_completion_timeout);
  * interruptible and there is no timeout. The caller is accounted as waiting
  * for IO (which traditionally means blkio only).
  */
-void wait_for_completion_io(struct completion *x)
+void __sched wait_for_completion_io(struct completion *x)
 {
-	wait_for_common_io(x, LONG_MAX, 0x0002);
+	wait_for_common_io(x, MAX_SCHEDULE_TIMEOUT, TASK_UNINTERRUPTIBLE);
 }
 EXPORT_SYMBOL(wait_for_completion_io);
 
@@ -169,10 +185,10 @@ EXPORT_SYMBOL(wait_for_completion_io);
  * Return: 0 if timed out, and positive (at least 1, or number of jiffies left
  * till timeout) if completed.
  */
-unsigned long
+unsigned long __sched
 wait_for_completion_io_timeout(struct completion *x, unsigned long timeout)
 {
-	return wait_for_common_io(x, timeout, 0x0002);
+	return wait_for_common_io(x, timeout, TASK_UNINTERRUPTIBLE);
 }
 EXPORT_SYMBOL(wait_for_completion_io_timeout);
 
@@ -185,9 +201,9 @@ EXPORT_SYMBOL(wait_for_completion_io_timeout);
  *
  * Return: -ERESTARTSYS if interrupted, 0 if completed.
  */
-int wait_for_completion_interruptible(struct completion *x)
+int __sched wait_for_completion_interruptible(struct completion *x)
 {
-	long t = wait_for_common(x, LONG_MAX, 0x0002);
+	long t = wait_for_common(x, MAX_SCHEDULE_TIMEOUT, TASK_INTERRUPTIBLE);
 	if (t == -ERESTARTSYS)
 		return t;
 	return 0;
@@ -205,11 +221,11 @@ EXPORT_SYMBOL(wait_for_completion_interruptible);
  * Return: -ERESTARTSYS if interrupted, 0 if timed out, positive (at least 1,
  * or number of jiffies left till timeout) if completed.
  */
-long
+long __sched
 wait_for_completion_interruptible_timeout(struct completion *x,
 					  unsigned long timeout)
 {
-	return wait_for_common(x, timeout, 0x0002);
+	return wait_for_common(x, timeout, TASK_INTERRUPTIBLE);
 }
 EXPORT_SYMBOL(wait_for_completion_interruptible_timeout);
 
@@ -222,9 +238,9 @@ EXPORT_SYMBOL(wait_for_completion_interruptible_timeout);
  *
  * Return: -ERESTARTSYS if interrupted, 0 if completed.
  */
-int wait_for_completion_killable(struct completion *x)
+int __sched wait_for_completion_killable(struct completion *x)
 {
-	long t = wait_for_common(x, LONG_MAX, 0x0002);
+	long t = wait_for_common(x, MAX_SCHEDULE_TIMEOUT, TASK_KILLABLE);
 	if (t == -ERESTARTSYS)
 		return t;
 	return 0;
@@ -243,11 +259,11 @@ EXPORT_SYMBOL(wait_for_completion_killable);
  * Return: -ERESTARTSYS if interrupted, 0 if timed out, positive (at least 1,
  * or number of jiffies left till timeout) if completed.
  */
-long
+long __sched
 wait_for_completion_killable_timeout(struct completion *x,
 				     unsigned long timeout)
 {
-	return wait_for_common(x, timeout, 0x0002);
+	return wait_for_common(x, timeout, TASK_KILLABLE);
 }
 EXPORT_SYMBOL(wait_for_completion_killable_timeout);
 
@@ -277,10 +293,12 @@ bool try_wait_for_completion(struct completion *x)
 	if (!READ_ONCE(x->done))
 		return false;
 
+	raw_spin_lock_irqsave(&x->wait.lock, flags);
 	if (!x->done)
 		ret = false;
 	else if (x->done != UINT_MAX)
 		x->done--;
+	raw_spin_unlock_irqrestore(&x->wait.lock, flags);
 	return ret;
 }
 EXPORT_SYMBOL(try_wait_for_completion);
@@ -306,6 +324,8 @@ bool completion_done(struct completion *x)
 	 * otherwise we can end up freeing the completion before complete()
 	 * is done referencing it.
 	 */
+	raw_spin_lock_irqsave(&x->wait.lock, flags);
+	raw_spin_unlock_irqrestore(&x->wait.lock, flags);
 	return true;
 }
 EXPORT_SYMBOL(completion_done);

@@ -5,8 +5,9 @@
  *
  * Author: Boris Brezillon <boris.brezillon@bootlin.com>
  */
+#include <generated/deconfig.h>
 #include <linux/dmaengine.h>
-//#include <linux/pm_runtime.h>
+#include <linux/pm_runtime.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi-mem.h>
 
@@ -238,33 +239,33 @@ static int spi_mem_access_start(struct spi_mem *mem)
 	 */
 	spi_flush_queue(ctlr);
 
-//	if (ctlr->auto_runtime_pm) {
-//		int ret;
+	if (ctlr->auto_runtime_pm) {
+		int ret;
 
-//		ret = pm_runtime_get_sync(ctlr->dev.parent);
-//		if (ret < 0) {
-//			pm_runtime_put_noidle(ctlr->dev.parent);
-//			dev_err(&ctlr->dev, "Failed to power device: %d\n",
-//				ret);
-//			return ret;
-//		}
-//	}
+		ret = pm_runtime_get_sync(ctlr->dev.parent);
+		if (ret < 0) {
+			pm_runtime_put_noidle(ctlr->dev.parent);
+			dev_err(&ctlr->dev, "Failed to power device: %d\n",
+				ret);
+			return ret;
+		}
+	}
 
-//	mutex_lock(&ctlr->bus_lock_mutex);
-//	mutex_lock(&ctlr->io_mutex);
+	mutex_lock(&ctlr->bus_lock_mutex);
+	mutex_lock(&ctlr->io_mutex);
 
 	return 0;
 }
 
 static void spi_mem_access_end(struct spi_mem *mem)
 {
-//	struct spi_controller *ctlr = mem->spi->controller;
+	struct spi_controller *ctlr = mem->spi->controller;
 
-//	mutex_unlock(&ctlr->io_mutex);
-//	mutex_unlock(&ctlr->bus_lock_mutex);
+	mutex_unlock(&ctlr->io_mutex);
+	mutex_unlock(&ctlr->bus_lock_mutex);
 
-//	if (ctlr->auto_runtime_pm)
-//		pm_runtime_put(ctlr->dev.parent);
+	if (ctlr->auto_runtime_pm)
+		pm_runtime_put(ctlr->dev.parent);
 }
 
 /**
@@ -744,7 +745,7 @@ static int spi_mem_probe(struct spi_device *spi)
 		mem->name = dev_name(&spi->dev);
 
 	if (IS_ERR_OR_NULL(mem->name))
-		return PTR_ERR_OR_ZERO(mem->name);
+		return PTR_ERR(mem->name);
 
 	spi_set_drvdata(spi, mem);
 

@@ -3,6 +3,7 @@
  *  Copyright (C) 1991, 1992, 1993, 1994  Linus Torvalds
  */
 
+#include <generated/deconfig.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/termios.h>
@@ -222,7 +223,6 @@ EXPORT_SYMBOL_GPL(tty_termios_encode_baud_rate);
 
 /**
  *	tty_encode_baud_rate		-	set baud rate of the tty
- *	@tty:   terminal device
  *	@ibaud: input baud rate
  *	@obaud: output baud rate
  *

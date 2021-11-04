@@ -12,6 +12,7 @@
  * size and improve performance, 2015.
  */
 
+#include <generated/deconfig.h> 
 #include <linux/bitops.h>
 #include <linux/bitmap.h>
 #include <linux/export.h>
@@ -28,7 +29,7 @@
  *    searching it for one bits.
  *  - The optional "addr2", which is anded with "addr1" if present.
  */
-static unsigned long _find_next_bit(const unsigned long *addr1,
+unsigned long _find_next_bit(const unsigned long *addr1,
 		const unsigned long *addr2, unsigned long nbits,
 		unsigned long start, unsigned long invert, unsigned long le)
 {

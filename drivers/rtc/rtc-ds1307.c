@@ -8,21 +8,21 @@
  *  Copyright (C) 2012 Bertrand Achard (nvram access fixes)
  */
 
+#include <linux/acpi.h>
 #include <linux/bcd.h>
 #include <linux/i2c.h>
 #include <linux/init.h>
-#include <linux/mod_devicetable.h>
-//#include <linux/module.h>
-//#include <linux/property.h>
+#include <linux/module.h>
+#include <linux/of_device.h>
 #include <linux/rtc/ds1307.h>
 #include <linux/rtc.h>
 #include <linux/slab.h>
 #include <linux/string.h>
-//#include <linux/hwmon.h>
-//#include <linux/hwmon-sysfs.h>
+#include <linux/hwmon.h>
+#include <linux/hwmon-sysfs.h>
 #include <linux/clk-provider.h>
 #include <linux/regmap.h>
-//#include <linux/watchdog.h>
+#include <linux/watchdog.h>
 
 /*
  * We can't determine type by probing, but if we expect pre-Linux code
@@ -31,7 +31,6 @@
  * That's a natural job for a factory or repair bench.
  */
 enum ds_type {
-	unknown_ds_type, /* always first and 0 */
 	ds_1307,
 	ds_1308,
 	ds_1337,
@@ -167,8 +166,6 @@ enum ds_type {
 #define M41TXX_MIN_OFFSET	((-31) * M41TXX_NEG_OFFSET_STEP_PPB)
 #define M41TXX_MAX_OFFSET	((31) * M41TXX_POS_OFFSET_STEP_PPB)
 
-#define CONFIG_COMMON_CLK
-
 struct ds1307 {
 	enum ds_type		type;
 	unsigned long		flags;
@@ -213,8 +210,7 @@ static const struct chip_desc chips[last_ds_type];
 static int ds1307_get_time(struct device *dev, struct rtc_time *t)
 {
 	struct ds1307	*ds1307 = dev_get_drvdata(dev);
-    u32 tmp;
-	int	ret;
+	int		tmp, ret;
 	const struct chip_desc *chip = &chips[ds1307->type];
 	u8 regs[7];
 
@@ -299,15 +295,18 @@ static int ds1307_get_time(struct device *dev, struct rtc_time *t)
 	t->tm_min = bcd2bin(regs[DS1307_REG_MIN] & 0x7f);
 	tmp = regs[DS1307_REG_HOUR] & 0x3f;
 	t->tm_hour = bcd2bin(tmp);
-	t->tm_wday = bcd2bin(regs[DS1307_REG_WDAY] & 0x07) - 1;
+	/* rx8130 is bit position, not BCD */
+	if (ds1307->type == rx_8130)
+		t->tm_wday = fls(regs[DS1307_REG_WDAY] & 0x7f);
+	else
+		t->tm_wday = bcd2bin(regs[DS1307_REG_WDAY] & 0x07) - 1;
 	t->tm_mday = bcd2bin(regs[DS1307_REG_MDAY] & 0x3f);
 	tmp = regs[DS1307_REG_MONTH] & 0x1f;
 	t->tm_mon = bcd2bin(tmp) - 1;
 	t->tm_year = bcd2bin(regs[DS1307_REG_YEAR]) + 100;
 
-//	if (regs[chip->century_reg] & chip->century_bit &&
-//	    IS_ENABLED(CONFIG_RTC_DRV_DS1307_CENTURY))
-	if (regs[chip->century_reg] & chip->century_bit)
+	if (regs[chip->century_reg] & chip->century_bit &&
+	    IS_ENABLED(CONFIG_RTC_DRV_DS1307_CENTURY))
 		t->tm_year += 100;
 
 	dev_dbg(dev, "%s secs=%d, mins=%d, "
@@ -347,7 +346,11 @@ static int ds1307_set_time(struct device *dev, struct rtc_time *t)
 	regs[DS1307_REG_SECS] = bin2bcd(t->tm_sec);
 	regs[DS1307_REG_MIN] = bin2bcd(t->tm_min);
 	regs[DS1307_REG_HOUR] = bin2bcd(t->tm_hour);
-	regs[DS1307_REG_WDAY] = bin2bcd(t->tm_wday + 1);
+	/* rx8130 is bit position, not BCD */
+	if (ds1307->type == rx_8130)
+		regs[DS1307_REG_WDAY] = 1 << t->tm_wday;
+	else
+		regs[DS1307_REG_WDAY] = bin2bcd(t->tm_wday + 1);
 	regs[DS1307_REG_MDAY] = bin2bcd(t->tm_mday);
 	regs[DS1307_REG_MONTH] = bin2bcd(t->tm_mon + 1);
 
@@ -562,11 +565,11 @@ static u8 do_trickle_setup_rx8130(struct ds1307 *ds1307, u32 ohms, bool diode)
 static irqreturn_t rx8130_irq(int irq, void *dev_id)
 {
 	struct ds1307           *ds1307 = dev_id;
-//	struct mutex            *lock = &ds1307->rtc->ops_lock;
+	struct mutex            *lock = &ds1307->rtc->ops_lock;
 	u8 ctl[3];
 	int ret;
 
-//	mutex_lock(lock);
+	mutex_lock(lock);
 
 	/* Read control registers. */
 	ret = regmap_bulk_read(ds1307->regmap, RX8130_REG_EXTENSION, ctl,
@@ -586,7 +589,7 @@ static irqreturn_t rx8130_irq(int irq, void *dev_id)
 	rtc_update_irq(ds1307->rtc, 1, RTC_AF | RTC_IRQF);
 
 out:
-//	mutex_unlock(lock);
+	mutex_unlock(lock);
 
 	return IRQ_HANDLED;
 }
@@ -684,8 +687,7 @@ static int rx8130_set_alarm(struct device *dev, struct rtc_wkalrm *t)
 static int rx8130_alarm_irq_enable(struct device *dev, unsigned int enabled)
 {
 	struct ds1307 *ds1307 = dev_get_drvdata(dev);
-	u32 reg;
-	int ret;
+	int ret, reg;
 
 	if (!test_bit(HAS_ALARM, &ds1307->flags))
 		return -EINVAL;
@@ -705,11 +707,10 @@ static int rx8130_alarm_irq_enable(struct device *dev, unsigned int enabled)
 static irqreturn_t mcp794xx_irq(int irq, void *dev_id)
 {
 	struct ds1307           *ds1307 = dev_id;
-//	struct mutex            *lock = &ds1307->rtc->ops_lock;
-	u32 reg;
-	int ret;
+	struct mutex            *lock = &ds1307->rtc->ops_lock;
+	int reg, ret;
 
-//	mutex_lock(lock);
+	mutex_lock(lock);
 
 	/* Check and clear alarm 0 interrupt flag. */
 	ret = regmap_read(ds1307->regmap, MCP794XX_REG_ALARM0_CTRL, &reg);
@@ -731,7 +732,7 @@ static irqreturn_t mcp794xx_irq(int irq, void *dev_id)
 	rtc_update_irq(ds1307->rtc, 1, RTC_AF | RTC_IRQF);
 
 out:
-//	mutex_unlock(lock);
+	mutex_unlock(lock);
 
 	return IRQ_HANDLED;
 }
@@ -1095,8 +1096,9 @@ static const struct i2c_device_id ds1307_id[] = {
 	{ "rx8130", rx_8130 },
 	{ }
 };
-//MODULE_DEVICE_TABLE(i2c, ds1307_id);
+MODULE_DEVICE_TABLE(i2c, ds1307_id);
 
+#ifdef CONFIG_OF
 static const struct of_device_id ds1307_of_match[] = {
 	{
 		.compatible = "dallas,ds1307",
@@ -1172,7 +1174,33 @@ static const struct of_device_id ds1307_of_match[] = {
 	},
 	{ }
 };
-//MODULE_DEVICE_TABLE(of, ds1307_of_match);
+MODULE_DEVICE_TABLE(of, ds1307_of_match);
+#endif
+
+#ifdef CONFIG_ACPI
+static const struct acpi_device_id ds1307_acpi_ids[] = {
+	{ .id = "DS1307", .driver_data = ds_1307 },
+	{ .id = "DS1308", .driver_data = ds_1308 },
+	{ .id = "DS1337", .driver_data = ds_1337 },
+	{ .id = "DS1338", .driver_data = ds_1338 },
+	{ .id = "DS1339", .driver_data = ds_1339 },
+	{ .id = "DS1388", .driver_data = ds_1388 },
+	{ .id = "DS1340", .driver_data = ds_1340 },
+	{ .id = "DS1341", .driver_data = ds_1341 },
+	{ .id = "DS3231", .driver_data = ds_3231 },
+	{ .id = "M41T0", .driver_data = m41t0 },
+	{ .id = "M41T00", .driver_data = m41t00 },
+	{ .id = "M41T11", .driver_data = m41t11 },
+	{ .id = "MCP7940X", .driver_data = mcp794xx },
+	{ .id = "MCP7941X", .driver_data = mcp794xx },
+	{ .id = "PT7C4338", .driver_data = ds_1307 },
+	{ .id = "RX8025", .driver_data = rx_8025 },
+	{ .id = "ISL12057", .driver_data = ds_1337 },
+	{ .id = "RX8130", .driver_data = rx_8130 },
+	{ }
+};
+MODULE_DEVICE_TABLE(acpi, ds1307_acpi_ids);
+#endif
 
 /*
  * The ds1337 and ds1339 both have two alarms, but we only use the first
@@ -1182,11 +1210,10 @@ static const struct of_device_id ds1307_of_match[] = {
 static irqreturn_t ds1307_irq(int irq, void *dev_id)
 {
 	struct ds1307		*ds1307 = dev_id;
-//	struct mutex		*lock = &ds1307->rtc->ops_lock;
-	u32 stat;
-	int ret;
+	struct mutex		*lock = &ds1307->rtc->ops_lock;
+	int			stat, ret;
 
-//	mutex_lock(lock);
+	mutex_lock(lock);
 	ret = regmap_read(ds1307->regmap, DS1337_REG_STATUS, &stat);
 	if (ret)
 		goto out;
@@ -1204,7 +1231,7 @@ static irqreturn_t ds1307_irq(int irq, void *dev_id)
 	}
 
 out:
-//	mutex_unlock(lock);
+	mutex_unlock(lock);
 
 	return IRQ_HANDLED;
 }
@@ -1315,38 +1342,38 @@ static u8 ds1307_trickle_init(struct ds1307 *ds1307,
 	if (!chip->do_trickle_setup)
 		return 0;
 
-//	if (device_property_read_u32(ds1307->dev, "trickle-resistor-ohms",
-//				     &ohms) && chip->requires_trickle_resistor)
-//		return 0;
-    ohms = 250;
+	if (device_property_read_u32(ds1307->dev, "trickle-resistor-ohms",
+				     &ohms) && chip->requires_trickle_resistor)
+		return 0;
+
 	/* aux-voltage-chargeable takes precedence over the deprecated
 	 * trickle-diode-disable
 	 */
-//	if (!device_property_read_u32(ds1307->dev, "aux-voltage-chargeable",
-//				     &chargeable)) {
-//		switch (chargeable) {
-//		case 0:
-//			diode = false;
-//			break;
-//		case 1:
-//			diode = true;
-//			break;
-//		default:
-//			dev_warn(ds1307->dev,
-//				 "unsupported aux-voltage-chargeable value\n");
-//			break;
-//		}
-//	} else if (device_property_read_bool(ds1307->dev,
-//					     "trickle-diode-disable")) {
+	if (!device_property_read_u32(ds1307->dev, "aux-voltage-chargeable",
+				     &chargeable)) {
+		switch (chargeable) {
+		case 0:
+			diode = false;
+			break;
+		case 1:
+			diode = true;
+			break;
+		default:
+			dev_warn(ds1307->dev,
+				 "unsupported aux-voltage-chargeable value\n");
+			break;
+		}
+	} else if (device_property_read_bool(ds1307->dev,
+					     "trickle-diode-disable")) {
 		diode = false;
-//	}
+	}
 
 	return chip->do_trickle_setup(ds1307, ohms, diode);
 }
 
 /*----------------------------------------------------------------------*/
 
-#ifdef CONFIG_HWMON
+#if IS_REACHABLE(CONFIG_HWMON)
 
 /*
  * Temperature sensor support for ds3231 devices.
@@ -1452,13 +1479,13 @@ static int ds3231_clk_sqw_rates[] = {
 
 static int ds1337_write_control(struct ds1307 *ds1307, u8 mask, u8 value)
 {
-//	struct mutex *lock = &ds1307->rtc->ops_lock;
+	struct mutex *lock = &ds1307->rtc->ops_lock;
 	int ret;
 
-//	mutex_lock(lock);
+	mutex_lock(lock);
 	ret = regmap_update_bits(ds1307->regmap, DS1337_REG_CONTROL,
 				 mask, value);
-//	mutex_unlock(lock);
+	mutex_unlock(lock);
 
 	return ret;
 }
@@ -1467,8 +1494,8 @@ static unsigned long ds3231_clk_sqw_recalc_rate(struct clk_hw *hw,
 						unsigned long parent_rate)
 {
 	struct ds1307 *ds1307 = clk_sqw_to_ds1307(hw);
-	u32 control;
-	int rate_sel = 0, ret;
+	int control, ret;
+	int rate_sel = 0;
 
 	ret = regmap_read(ds1307->regmap, DS1337_REG_CONTROL, &control);
 	if (ret)
@@ -1536,8 +1563,7 @@ static void ds3231_clk_sqw_unprepare(struct clk_hw *hw)
 static int ds3231_clk_sqw_is_prepared(struct clk_hw *hw)
 {
 	struct ds1307 *ds1307 = clk_sqw_to_ds1307(hw);
-	u32 control;
-	int ret;
+	int control, ret;
 
 	ret = regmap_read(ds1307->regmap, DS1337_REG_CONTROL, &control);
 	if (ret)
@@ -1563,14 +1589,14 @@ static unsigned long ds3231_clk_32khz_recalc_rate(struct clk_hw *hw,
 
 static int ds3231_clk_32khz_control(struct ds1307 *ds1307, bool enable)
 {
-//	struct mutex *lock = &ds1307->rtc->ops_lock;
+	struct mutex *lock = &ds1307->rtc->ops_lock;
 	int ret;
 
-//	mutex_lock(lock);
+	mutex_lock(lock);
 	ret = regmap_update_bits(ds1307->regmap, DS1337_REG_STATUS,
 				 DS3231_BIT_EN32KHZ,
 				 enable ? DS3231_BIT_EN32KHZ : 0);
-//	mutex_unlock(lock);
+	mutex_unlock(lock);
 
 	return ret;
 }
@@ -1592,8 +1618,7 @@ static void ds3231_clk_32khz_unprepare(struct clk_hw *hw)
 static int ds3231_clk_32khz_is_prepared(struct clk_hw *hw)
 {
 	struct ds1307 *ds1307 = clk_32khz_to_ds1307(hw);
-	u32 status;
-	int ret;
+	int status, ret;
 
 	ret = regmap_read(ds1307->regmap, DS1337_REG_STATUS, &status);
 	if (ret)
@@ -1609,23 +1634,20 @@ static const struct clk_ops ds3231_clk_32khz_ops = {
 	.recalc_rate = ds3231_clk_32khz_recalc_rate,
 };
 
-static const char *ds3231_clks_names[] = {
-	[DS3231_CLK_SQW] = "ds3231_clk_sqw",
-	[DS3231_CLK_32KHZ] = "ds3231_clk_32khz",
-};
-
 static struct clk_init_data ds3231_clks_init[] = {
 	[DS3231_CLK_SQW] = {
+		.name = "ds3231_clk_sqw",
 		.ops = &ds3231_clk_sqw_ops,
 	},
 	[DS3231_CLK_32KHZ] = {
+		.name = "ds3231_clk_32khz",
 		.ops = &ds3231_clk_32khz_ops,
 	},
 };
 
 static int ds3231_clks_register(struct ds1307 *ds1307)
 {
-//	struct device_node *node = ds1307->dev->of_node;
+	struct device_node *node = ds1307->dev->of_node;
 	struct clk_onecell_data	*onecell;
 	int i;
 
@@ -1639,11 +1661,6 @@ static int ds3231_clks_register(struct ds1307 *ds1307)
 	if (!onecell->clks)
 		return -ENOMEM;
 
-	/* optional override of the clockname */
-//	device_property_read_string_array(ds1307->dev, "clock-output-names",
-//					  ds3231_clks_names,
-//					  ARRAY_SIZE(ds3231_clks_names));
-
 	for (i = 0; i < ARRAY_SIZE(ds3231_clks_init); i++) {
 		struct clk_init_data init = ds3231_clks_init[i];
 
@@ -1654,17 +1671,21 @@ static int ds3231_clks_register(struct ds1307 *ds1307)
 		if (i == DS3231_CLK_SQW && test_bit(HAS_ALARM, &ds1307->flags))
 			continue;
 
-		init.name = ds3231_clks_names[i];
+		/* optional override of the clockname */
+		of_property_read_string_index(node, "clock-output-names", i,
+					      &init.name);
 		ds1307->clks[i].init = &init;
 
-//		onecell->clks[i] = devm_clk_register(ds1307->dev,
-//						     &ds1307->clks[i]);
-//		if (IS_ERR(onecell->clks[i]))
-//			return PTR_ERR(onecell->clks[i]);
+		onecell->clks[i] = devm_clk_register(ds1307->dev,
+						     &ds1307->clks[i]);
+		if (IS_ERR(onecell->clks[i]))
+			return PTR_ERR(onecell->clks[i]);
 	}
 
-//	if (node)
-//		of_clk_add_provider(node, of_clk_src_onecell_get, onecell);
+	if (!node)
+		return 0;
+
+	of_clk_add_provider(node, of_clk_src_onecell_get, onecell);
 
 	return 0;
 }
@@ -1748,9 +1769,8 @@ static int ds1307_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
 	struct ds1307		*ds1307;
-	const void		*match;
 	int			err = -ENODEV;
-	u32			tmp;
+	int			tmp;
 	const struct chip_desc	*chip;
 	bool			want_irq;
 	bool			ds1307_can_wakeup_device = false;
@@ -1774,16 +1794,22 @@ static int ds1307_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, ds1307);
 
-//	match = device_get_match_data(&client->dev);
-//	if (match) {
-//		ds1307->type = (enum ds_type)match;
-//		chip = &chips[ds1307->type];
-//	} else 
-    if (id) {
+	if (client->dev.of_node) {
+		ds1307->type = (enum ds_type)
+			of_device_get_match_data(&client->dev);
+		chip = &chips[ds1307->type];
+	} else if (id) {
 		chip = &chips[id->driver_data];
 		ds1307->type = id->driver_data;
 	} else {
-		return -ENODEV;
+		const struct acpi_device_id *acpi_id;
+
+		acpi_id = acpi_match_device(ACPI_PTR(ds1307_acpi_ids),
+					    ds1307->dev);
+		if (!acpi_id)
+			return -ENODEV;
+		chip = &chips[acpi_id->driver_data];
+		ds1307->type = acpi_id->driver_data;
 	}
 
 	want_irq = client->irq > 0 && chip->alarm;
@@ -1801,6 +1827,7 @@ static int ds1307_probe(struct i2c_client *client,
 			     trickle_charger_setup);
 	}
 
+#ifdef CONFIG_OF
 /*
  * For devices with no IRQ directly connected to the SoC, the RTC chip
  * can be forced as a wakeup source by stating that explicitly in
@@ -1809,8 +1836,10 @@ static int ds1307_probe(struct i2c_client *client,
  * This will guarantee the 'wakealarm' sysfs entry is available on the device,
  * if supported by the RTC.
  */
-//	if (chip->alarm && device_property_read_bool(&client->dev, "wakeup-source"))
+	if (chip->alarm && of_property_read_bool(client->dev.of_node,
+						 "wakeup-source"))
 		ds1307_can_wakeup_device = true;
+#endif
 
 	switch (ds1307->type) {
 	case ds_1337:
@@ -1976,7 +2005,7 @@ static int ds1307_probe(struct i2c_client *client,
 	}
 
 	if (want_irq || ds1307_can_wakeup_device) {
-//		device_set_wakeup_capable(ds1307->dev, true);
+		device_set_wakeup_capable(ds1307->dev, true);
 		set_bit(HAS_ALARM, &ds1307->flags);
 	}
 
@@ -1992,18 +2021,18 @@ static int ds1307_probe(struct i2c_client *client,
 	}
 
 	if (want_irq) {
-//		err = devm_request_threaded_irq(ds1307->dev, client->irq, NULL,
-//						chip->irq_handler ?: ds1307_irq,
-//						IRQF_SHARED | IRQF_ONESHOT,
-//						ds1307->name, ds1307);
-//		if (err) {
-//			client->irq = 0;
-////			device_set_wakeup_capable(ds1307->dev, false);
-//			clear_bit(HAS_ALARM, &ds1307->flags);
-//			dev_err(ds1307->dev, "unable to request IRQ!\n");
-//		} else {
-//			dev_dbg(ds1307->dev, "got IRQ %d\n", client->irq);
-//		}
+		err = devm_request_threaded_irq(ds1307->dev, client->irq, NULL,
+						chip->irq_handler ?: ds1307_irq,
+						IRQF_SHARED | IRQF_ONESHOT,
+						ds1307->name, ds1307);
+		if (err) {
+			client->irq = 0;
+			device_set_wakeup_capable(ds1307->dev, false);
+			clear_bit(HAS_ALARM, &ds1307->flags);
+			dev_err(ds1307->dev, "unable to request IRQ!\n");
+		} else {
+			dev_dbg(ds1307->dev, "got IRQ %d\n", client->irq);
+		}
 	}
 
 	ds1307->rtc->ops = chip->rtc_ops ?: &ds13xx_rtc_ops;
@@ -2011,7 +2040,7 @@ static int ds1307_probe(struct i2c_client *client,
 	if (err)
 		return err;
 
-	err = devm_rtc_register_device(ds1307->rtc);
+	err = rtc_register_device(ds1307->rtc);
 	if (err)
 		return err;
 
@@ -2026,7 +2055,8 @@ static int ds1307_probe(struct i2c_client *client,
 			.priv = ds1307,
 		};
 
-		devm_rtc_nvmem_register(ds1307->rtc, &nvmem_cfg);
+		ds1307->rtc->nvram_old_abi = true;
+		rtc_nvmem_register(ds1307->rtc, &nvmem_cfg);
 	}
 
 	ds1307_hwmon_register(ds1307);
@@ -2042,29 +2072,14 @@ exit:
 static struct i2c_driver ds1307_driver = {
 	.driver = {
 		.name	= "rtc-ds1307",
-		.of_match_table = ds1307_of_match,
+		.of_match_table = of_match_ptr(ds1307_of_match),
+		.acpi_match_table = ACPI_PTR(ds1307_acpi_ids),
 	},
 	.probe		= ds1307_probe,
 	.id_table	= ds1307_id,
 };
 
-//module_i2c_driver(ds1307_driver);
+module_i2c_driver(ds1307_driver);
 
-int __init ds1307_driver_init(void)
-{
-	int ret;
-
-	ret = i2c_add_driver(&ds1307_driver);
-	if (ret)
-		printk(KERN_ERR "ds1307_driver: probe failed: %d\n", ret);
-    
-	return ret;
-}
-
-void __exit ds1307_driver_exit(void)
-{
-	i2c_del_driver(&ds1307_driver);
-}
-
-//MODULE_DESCRIPTION("RTC driver for DS1307 and similar chips");
-//MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("RTC driver for DS1307 and similar chips");
+MODULE_LICENSE("GPL");

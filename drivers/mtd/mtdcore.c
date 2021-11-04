@@ -7,27 +7,27 @@
  * Copyright © 2006      Red Hat UK Limited 
  */
 
-//#include <linux/module.h>
+#include <generated/deconfig.h>
+#include <linux/module.h>
 #include <linux/kernel.h>
-//#include <linux/ptrace.h>
-//#include <linux/seq_file.h>
+#include <linux/ptrace.h>
+#include <linux/seq_file.h>
 #include <linux/string.h>
 #include <linux/timer.h>
 #include <linux/major.h>
-//#include <linux/fs.h>
+#include <linux/fs.h>
 #include <linux/err.h>
-//#include <linux/ioctl.h>
+#include <linux/ioctl.h>
 #include <linux/init.h>
-//#include <linux/of.h>
-//#include <linux/proc_fs.h>
+#include <linux/of.h>
+#include <linux/proc_fs.h>
 #include <linux/idr.h>
-//#include <linux/backing-dev.h>
+#include <linux/backing-dev.h>
 #include <linux/gfp.h>
 #include <linux/slab.h>
-//#include <linux/reboot.h>
+#include <linux/reboot.h>
 #include <linux/leds.h>
-#include <linux/kdev_t.h>
-//#include <linux/debugfs.h>
+#include <linux/debugfs.h>
 #include <linux/nvmem-provider.h>
 
 #include <linux/mtd/mtd.h>
@@ -35,7 +35,7 @@
 
 #include "mtdcore.h"
 
-struct backing_dev_info *mtd_bdi;
+//struct backing_dev_info *mtd_bdi;
 
 #ifdef CONFIG_PM_SLEEP
 
@@ -71,7 +71,7 @@ static DEFINE_IDR(mtd_idr);
 
 /* These are exported solely for the purpose of mtd_blkdevs.c. You
    should not use them for _anything_ else */
-//DEFINE_MUTEX(mtd_table_mutex);
+DEFINE_MUTEX(mtd_table_mutex);
 EXPORT_SYMBOL_GPL(mtd_table_mutex);
 
 struct mtd_info *__mtd_next_device(int i)
@@ -85,256 +85,256 @@ static LIST_HEAD(mtd_notifiers);
 
 #define MTD_DEVT(index) MKDEV(MTD_CHAR_MAJOR, (index)*2)
 
-/* REVISIT once MTD uses the driver model better, whoever allocates
- * the mtd_info will probably want to use the release() hook...
- */
-static void mtd_release(struct device *dev)
-{
-	struct mtd_info *mtd = dev_get_drvdata(dev);
-	dev_t index = MTD_DEVT(mtd->index);
+///* REVISIT once MTD uses the driver model better, whoever allocates
+// * the mtd_info will probably want to use the release() hook...
+// */
+//static void mtd_release(struct device *dev)
+//{
+//	struct mtd_info *mtd = dev_get_drvdata(dev);
+//	dev_t index = MTD_DEVT(mtd->index);
 
-	/* remove /dev/mtdXro node */
-	device_destroy(&mtd_class, index + 1);
-}
+//	/* remove /dev/mtdXro node */
+//	device_destroy(&mtd_class, index + 1);
+//}
 
-static ssize_t mtd_type_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct mtd_info *mtd = dev_get_drvdata(dev);
-	char *type;
+//static ssize_t mtd_type_show(struct device *dev,
+//		struct device_attribute *attr, char *buf)
+//{
+//	struct mtd_info *mtd = dev_get_drvdata(dev);
+//	char *type;
 
-	switch (mtd->type) {
-	case MTD_ABSENT:
-		type = "absent";
-		break;
-	case MTD_RAM:
-		type = "ram";
-		break;
-	case MTD_ROM:
-		type = "rom";
-		break;
-	case MTD_NORFLASH:
-		type = "nor";
-		break;
-	case MTD_NANDFLASH:
-		type = "nand";
-		break;
-	case MTD_DATAFLASH:
-		type = "dataflash";
-		break;
-	case MTD_UBIVOLUME:
-		type = "ubi";
-		break;
-	case MTD_MLCNANDFLASH:
-		type = "mlc-nand";
-		break;
-	default:
-		type = "unknown";
-	}
+//	switch (mtd->type) {
+//	case MTD_ABSENT:
+//		type = "absent";
+//		break;
+//	case MTD_RAM:
+//		type = "ram";
+//		break;
+//	case MTD_ROM:
+//		type = "rom";
+//		break;
+//	case MTD_NORFLASH:
+//		type = "nor";
+//		break;
+//	case MTD_NANDFLASH:
+//		type = "nand";
+//		break;
+//	case MTD_DATAFLASH:
+//		type = "dataflash";
+//		break;
+//	case MTD_UBIVOLUME:
+//		type = "ubi";
+//		break;
+//	case MTD_MLCNANDFLASH:
+//		type = "mlc-nand";
+//		break;
+//	default:
+//		type = "unknown";
+//	}
 
-	return snprintf(buf, PAGE_SIZE, "%s\n", type);
-}
-static DEVICE_ATTR(type, S_IRUGO, mtd_type_show, NULL);
+//	return snprintf(buf, PAGE_SIZE, "%s\n", type);
+//}
+//static DEVICE_ATTR(type, S_IRUGO, mtd_type_show, NULL);
 
-static ssize_t mtd_flags_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct mtd_info *mtd = dev_get_drvdata(dev);
+//static ssize_t mtd_flags_show(struct device *dev,
+//		struct device_attribute *attr, char *buf)
+//{
+//	struct mtd_info *mtd = dev_get_drvdata(dev);
 
-	return snprintf(buf, PAGE_SIZE, "0x%lx\n", (unsigned long)mtd->flags);
-}
-static DEVICE_ATTR(flags, S_IRUGO, mtd_flags_show, NULL);
+//	return snprintf(buf, PAGE_SIZE, "0x%lx\n", (unsigned long)mtd->flags);
+//}
+//static DEVICE_ATTR(flags, S_IRUGO, mtd_flags_show, NULL);
 
-static ssize_t mtd_size_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct mtd_info *mtd = dev_get_drvdata(dev);
+//static ssize_t mtd_size_show(struct device *dev,
+//		struct device_attribute *attr, char *buf)
+//{
+//	struct mtd_info *mtd = dev_get_drvdata(dev);
 
-	return snprintf(buf, PAGE_SIZE, "%llu\n",
-		(unsigned long long)mtd->size);
-}
-static DEVICE_ATTR(size, S_IRUGO, mtd_size_show, NULL);
+//	return snprintf(buf, PAGE_SIZE, "%llu\n",
+//		(unsigned long long)mtd->size);
+//}
+//static DEVICE_ATTR(size, S_IRUGO, mtd_size_show, NULL);
 
-static ssize_t mtd_erasesize_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct mtd_info *mtd = dev_get_drvdata(dev);
+//static ssize_t mtd_erasesize_show(struct device *dev,
+//		struct device_attribute *attr, char *buf)
+//{
+//	struct mtd_info *mtd = dev_get_drvdata(dev);
 
-	return snprintf(buf, PAGE_SIZE, "%lu\n", (unsigned long)mtd->erasesize);
-}
-static DEVICE_ATTR(erasesize, S_IRUGO, mtd_erasesize_show, NULL);
+//	return snprintf(buf, PAGE_SIZE, "%lu\n", (unsigned long)mtd->erasesize);
+//}
+//static DEVICE_ATTR(erasesize, S_IRUGO, mtd_erasesize_show, NULL);
 
-static ssize_t mtd_writesize_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct mtd_info *mtd = dev_get_drvdata(dev);
+//static ssize_t mtd_writesize_show(struct device *dev,
+//		struct device_attribute *attr, char *buf)
+//{
+//	struct mtd_info *mtd = dev_get_drvdata(dev);
 
-	return snprintf(buf, PAGE_SIZE, "%lu\n", (unsigned long)mtd->writesize);
-}
-static DEVICE_ATTR(writesize, S_IRUGO, mtd_writesize_show, NULL);
+//	return snprintf(buf, PAGE_SIZE, "%lu\n", (unsigned long)mtd->writesize);
+//}
+//static DEVICE_ATTR(writesize, S_IRUGO, mtd_writesize_show, NULL);
 
-static ssize_t mtd_subpagesize_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct mtd_info *mtd = dev_get_drvdata(dev);
-	unsigned int subpagesize = mtd->writesize >> mtd->subpage_sft;
+//static ssize_t mtd_subpagesize_show(struct device *dev,
+//		struct device_attribute *attr, char *buf)
+//{
+//	struct mtd_info *mtd = dev_get_drvdata(dev);
+//	unsigned int subpagesize = mtd->writesize >> mtd->subpage_sft;
 
-	return snprintf(buf, PAGE_SIZE, "%u\n", subpagesize);
-}
-static DEVICE_ATTR(subpagesize, S_IRUGO, mtd_subpagesize_show, NULL);
+//	return snprintf(buf, PAGE_SIZE, "%u\n", subpagesize);
+//}
+//static DEVICE_ATTR(subpagesize, S_IRUGO, mtd_subpagesize_show, NULL);
 
-static ssize_t mtd_oobsize_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct mtd_info *mtd = dev_get_drvdata(dev);
+//static ssize_t mtd_oobsize_show(struct device *dev,
+//		struct device_attribute *attr, char *buf)
+//{
+//	struct mtd_info *mtd = dev_get_drvdata(dev);
 
-	return snprintf(buf, PAGE_SIZE, "%lu\n", (unsigned long)mtd->oobsize);
-}
-static DEVICE_ATTR(oobsize, S_IRUGO, mtd_oobsize_show, NULL);
+//	return snprintf(buf, PAGE_SIZE, "%lu\n", (unsigned long)mtd->oobsize);
+//}
+//static DEVICE_ATTR(oobsize, S_IRUGO, mtd_oobsize_show, NULL);
 
-static ssize_t mtd_oobavail_show(struct device *dev,
-				 struct device_attribute *attr, char *buf)
-{
-	struct mtd_info *mtd = dev_get_drvdata(dev);
+//static ssize_t mtd_oobavail_show(struct device *dev,
+//				 struct device_attribute *attr, char *buf)
+//{
+//	struct mtd_info *mtd = dev_get_drvdata(dev);
 
-	return snprintf(buf, PAGE_SIZE, "%u\n", mtd->oobavail);
-}
-static DEVICE_ATTR(oobavail, S_IRUGO, mtd_oobavail_show, NULL);
+//	return snprintf(buf, PAGE_SIZE, "%u\n", mtd->oobavail);
+//}
+//static DEVICE_ATTR(oobavail, S_IRUGO, mtd_oobavail_show, NULL);
 
-static ssize_t mtd_numeraseregions_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct mtd_info *mtd = dev_get_drvdata(dev);
+//static ssize_t mtd_numeraseregions_show(struct device *dev,
+//		struct device_attribute *attr, char *buf)
+//{
+//	struct mtd_info *mtd = dev_get_drvdata(dev);
 
-	return snprintf(buf, PAGE_SIZE, "%u\n", mtd->numeraseregions);
-}
-static DEVICE_ATTR(numeraseregions, S_IRUGO, mtd_numeraseregions_show,
-	NULL);
+//	return snprintf(buf, PAGE_SIZE, "%u\n", mtd->numeraseregions);
+//}
+//static DEVICE_ATTR(numeraseregions, S_IRUGO, mtd_numeraseregions_show,
+//	NULL);
 
-static ssize_t mtd_name_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct mtd_info *mtd = dev_get_drvdata(dev);
+//static ssize_t mtd_name_show(struct device *dev,
+//		struct device_attribute *attr, char *buf)
+//{
+//	struct mtd_info *mtd = dev_get_drvdata(dev);
 
-	return snprintf(buf, PAGE_SIZE, "%s\n", mtd->name);
-}
-static DEVICE_ATTR(name, S_IRUGO, mtd_name_show, NULL);
+//	return snprintf(buf, PAGE_SIZE, "%s\n", mtd->name);
+//}
+//static DEVICE_ATTR(name, S_IRUGO, mtd_name_show, NULL);
 
-static ssize_t mtd_ecc_strength_show(struct device *dev,
-				     struct device_attribute *attr, char *buf)
-{
-	struct mtd_info *mtd = dev_get_drvdata(dev);
+//static ssize_t mtd_ecc_strength_show(struct device *dev,
+//				     struct device_attribute *attr, char *buf)
+//{
+//	struct mtd_info *mtd = dev_get_drvdata(dev);
 
-	return snprintf(buf, PAGE_SIZE, "%u\n", mtd->ecc_strength);
-}
-static DEVICE_ATTR(ecc_strength, S_IRUGO, mtd_ecc_strength_show, NULL);
+//	return snprintf(buf, PAGE_SIZE, "%u\n", mtd->ecc_strength);
+//}
+//static DEVICE_ATTR(ecc_strength, S_IRUGO, mtd_ecc_strength_show, NULL);
 
-static ssize_t mtd_bitflip_threshold_show(struct device *dev,
-					  struct device_attribute *attr,
-					  char *buf)
-{
-	struct mtd_info *mtd = dev_get_drvdata(dev);
+//static ssize_t mtd_bitflip_threshold_show(struct device *dev,
+//					  struct device_attribute *attr,
+//					  char *buf)
+//{
+//	struct mtd_info *mtd = dev_get_drvdata(dev);
 
-	return snprintf(buf, PAGE_SIZE, "%u\n", mtd->bitflip_threshold);
-}
+//	return snprintf(buf, PAGE_SIZE, "%u\n", mtd->bitflip_threshold);
+//}
 
-static ssize_t mtd_bitflip_threshold_store(struct device *dev,
-					   struct device_attribute *attr,
-					   const char *buf, size_t count)
-{
-	struct mtd_info *mtd = dev_get_drvdata(dev);
-	unsigned int bitflip_threshold;
-	int retval;
+//static ssize_t mtd_bitflip_threshold_store(struct device *dev,
+//					   struct device_attribute *attr,
+//					   const char *buf, size_t count)
+//{
+//	struct mtd_info *mtd = dev_get_drvdata(dev);
+//	unsigned int bitflip_threshold;
+//	int retval;
 
-	retval = kstrtouint(buf, 0, &bitflip_threshold);
-	if (retval)
-		return retval;
+//	retval = kstrtouint(buf, 0, &bitflip_threshold);
+//	if (retval)
+//		return retval;
 
-	mtd->bitflip_threshold = bitflip_threshold;
-	return count;
-}
-static DEVICE_ATTR(bitflip_threshold, S_IRUGO | S_IWUSR,
-		   mtd_bitflip_threshold_show,
-		   mtd_bitflip_threshold_store);
+//	mtd->bitflip_threshold = bitflip_threshold;
+//	return count;
+//}
+//static DEVICE_ATTR(bitflip_threshold, S_IRUGO | S_IWUSR,
+//		   mtd_bitflip_threshold_show,
+//		   mtd_bitflip_threshold_store);
 
-static ssize_t mtd_ecc_step_size_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct mtd_info *mtd = dev_get_drvdata(dev);
+//static ssize_t mtd_ecc_step_size_show(struct device *dev,
+//		struct device_attribute *attr, char *buf)
+//{
+//	struct mtd_info *mtd = dev_get_drvdata(dev);
 
-	return snprintf(buf, PAGE_SIZE, "%u\n", mtd->ecc_step_size);
+//	return snprintf(buf, PAGE_SIZE, "%u\n", mtd->ecc_step_size);
 
-}
-static DEVICE_ATTR(ecc_step_size, S_IRUGO, mtd_ecc_step_size_show, NULL);
+//}
+//static DEVICE_ATTR(ecc_step_size, S_IRUGO, mtd_ecc_step_size_show, NULL);
 
-static ssize_t mtd_ecc_stats_corrected_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct mtd_info *mtd = dev_get_drvdata(dev);
-	struct mtd_ecc_stats *ecc_stats = &mtd->ecc_stats;
+//static ssize_t mtd_ecc_stats_corrected_show(struct device *dev,
+//		struct device_attribute *attr, char *buf)
+//{
+//	struct mtd_info *mtd = dev_get_drvdata(dev);
+//	struct mtd_ecc_stats *ecc_stats = &mtd->ecc_stats;
 
-	return snprintf(buf, PAGE_SIZE, "%u\n", ecc_stats->corrected);
-}
-static DEVICE_ATTR(corrected_bits, S_IRUGO,
-		   mtd_ecc_stats_corrected_show, NULL);
+//	return snprintf(buf, PAGE_SIZE, "%u\n", ecc_stats->corrected);
+//}
+//static DEVICE_ATTR(corrected_bits, S_IRUGO,
+//		   mtd_ecc_stats_corrected_show, NULL);
 
-static ssize_t mtd_ecc_stats_errors_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct mtd_info *mtd = dev_get_drvdata(dev);
-	struct mtd_ecc_stats *ecc_stats = &mtd->ecc_stats;
+//static ssize_t mtd_ecc_stats_errors_show(struct device *dev,
+//		struct device_attribute *attr, char *buf)
+//{
+//	struct mtd_info *mtd = dev_get_drvdata(dev);
+//	struct mtd_ecc_stats *ecc_stats = &mtd->ecc_stats;
 
-	return snprintf(buf, PAGE_SIZE, "%u\n", ecc_stats->failed);
-}
-static DEVICE_ATTR(ecc_failures, S_IRUGO, mtd_ecc_stats_errors_show, NULL);
+//	return snprintf(buf, PAGE_SIZE, "%u\n", ecc_stats->failed);
+//}
+//static DEVICE_ATTR(ecc_failures, S_IRUGO, mtd_ecc_stats_errors_show, NULL);
 
-static ssize_t mtd_badblocks_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct mtd_info *mtd = dev_get_drvdata(dev);
-	struct mtd_ecc_stats *ecc_stats = &mtd->ecc_stats;
+//static ssize_t mtd_badblocks_show(struct device *dev,
+//		struct device_attribute *attr, char *buf)
+//{
+//	struct mtd_info *mtd = dev_get_drvdata(dev);
+//	struct mtd_ecc_stats *ecc_stats = &mtd->ecc_stats;
 
-	return snprintf(buf, PAGE_SIZE, "%u\n", ecc_stats->badblocks);
-}
-static DEVICE_ATTR(bad_blocks, S_IRUGO, mtd_badblocks_show, NULL);
+//	return snprintf(buf, PAGE_SIZE, "%u\n", ecc_stats->badblocks);
+//}
+//static DEVICE_ATTR(bad_blocks, S_IRUGO, mtd_badblocks_show, NULL);
 
-static ssize_t mtd_bbtblocks_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct mtd_info *mtd = dev_get_drvdata(dev);
-	struct mtd_ecc_stats *ecc_stats = &mtd->ecc_stats;
+//static ssize_t mtd_bbtblocks_show(struct device *dev,
+//		struct device_attribute *attr, char *buf)
+//{
+//	struct mtd_info *mtd = dev_get_drvdata(dev);
+//	struct mtd_ecc_stats *ecc_stats = &mtd->ecc_stats;
 
-	return snprintf(buf, PAGE_SIZE, "%u\n", ecc_stats->bbtblocks);
-}
-static DEVICE_ATTR(bbt_blocks, S_IRUGO, mtd_bbtblocks_show, NULL);
+//	return snprintf(buf, PAGE_SIZE, "%u\n", ecc_stats->bbtblocks);
+//}
+//static DEVICE_ATTR(bbt_blocks, S_IRUGO, mtd_bbtblocks_show, NULL);
 
-static struct attribute *mtd_attrs[] = {
-	&dev_attr_type.attr,
-	&dev_attr_flags.attr,
-	&dev_attr_size.attr,
-	&dev_attr_erasesize.attr,
-	&dev_attr_writesize.attr,
-	&dev_attr_subpagesize.attr,
-	&dev_attr_oobsize.attr,
-	&dev_attr_oobavail.attr,
-	&dev_attr_numeraseregions.attr,
-	&dev_attr_name.attr,
-	&dev_attr_ecc_strength.attr,
-	&dev_attr_ecc_step_size.attr,
-	&dev_attr_corrected_bits.attr,
-	&dev_attr_ecc_failures.attr,
-	&dev_attr_bad_blocks.attr,
-	&dev_attr_bbt_blocks.attr,
-	&dev_attr_bitflip_threshold.attr,
-	NULL,
-};
-ATTRIBUTE_GROUPS(mtd);
+//static struct attribute *mtd_attrs[] = {
+//	&dev_attr_type.attr,
+//	&dev_attr_flags.attr,
+//	&dev_attr_size.attr,
+//	&dev_attr_erasesize.attr,
+//	&dev_attr_writesize.attr,
+//	&dev_attr_subpagesize.attr,
+//	&dev_attr_oobsize.attr,
+//	&dev_attr_oobavail.attr,
+//	&dev_attr_numeraseregions.attr,
+//	&dev_attr_name.attr,
+//	&dev_attr_ecc_strength.attr,
+//	&dev_attr_ecc_step_size.attr,
+//	&dev_attr_corrected_bits.attr,
+//	&dev_attr_ecc_failures.attr,
+//	&dev_attr_bad_blocks.attr,
+//	&dev_attr_bbt_blocks.attr,
+//	&dev_attr_bitflip_threshold.attr,
+//	NULL,
+//};
+//ATTRIBUTE_GROUPS(mtd);
 
-static const struct device_type mtd_devtype = {
-	.name		= "mtd",
-	.groups		= mtd_groups,
-	.release	= mtd_release,
-};
+//static const struct device_type mtd_devtype = {
+//	.name		= "mtd",
+//	.groups		= mtd_groups,
+//	.release	= mtd_release,
+//};
 
 //static int mtd_partid_debug_show(struct seq_file *s, void *p)
 //{
@@ -380,33 +380,33 @@ static const struct device_type mtd_devtype = {
 //				    &mtd_partname_debug_fops);
 //}
 
-//#ifndef CONFIG_MMU
-//unsigned mtd_mmap_capabilities(struct mtd_info *mtd)
-//{
-//	switch (mtd->type) {
-//	case MTD_RAM:
-//		return NOMMU_MAP_COPY | NOMMU_MAP_DIRECT | NOMMU_MAP_EXEC |
-//			NOMMU_MAP_READ | NOMMU_MAP_WRITE;
-//	case MTD_ROM:
-//		return NOMMU_MAP_COPY | NOMMU_MAP_DIRECT | NOMMU_MAP_EXEC |
-//			NOMMU_MAP_READ;
-//	default:
-//		return NOMMU_MAP_COPY;
-//	}
-//}
-//EXPORT_SYMBOL_GPL(mtd_mmap_capabilities);
-//#endif
+#ifndef CONFIG_MMU
+unsigned mtd_mmap_capabilities(struct mtd_info *mtd)
+{
+	switch (mtd->type) {
+	case MTD_RAM:
+		return NOMMU_MAP_COPY | NOMMU_MAP_DIRECT | NOMMU_MAP_EXEC |
+			NOMMU_MAP_READ | NOMMU_MAP_WRITE;
+	case MTD_ROM:
+		return NOMMU_MAP_COPY | NOMMU_MAP_DIRECT | NOMMU_MAP_EXEC |
+			NOMMU_MAP_READ;
+	default:
+		return NOMMU_MAP_COPY;
+	}
+}
+EXPORT_SYMBOL_GPL(mtd_mmap_capabilities);
+#endif
 
-//static int mtd_reboot_notifier(struct notifier_block *n, unsigned long state,
-//			       void *cmd)
-//{
-//	struct mtd_info *mtd;
+static int mtd_reboot_notifier(struct notifier_block *n, unsigned long state,
+			       void *cmd)
+{
+	struct mtd_info *mtd;
 
-//	mtd = container_of(n, struct mtd_info, reboot_notifier);
-//	mtd->_reboot(mtd);
+	mtd = container_of(n, struct mtd_info, reboot_notifier);
+	mtd->_reboot(mtd);
 
-//	return NOTIFY_DONE;
-//}
+	return NOTIFY_DONE;
+}
 
 /**
  * mtd_wunit_to_pairing_info - get pairing information of a wunit
@@ -611,7 +611,7 @@ int add_mtd_device(struct mtd_info *mtd)
 	     !master->pairing || master->_writev))
 		return -EINVAL;
 
-//	mutex_lock(&mtd_table_mutex);
+	mutex_lock(&mtd_table_mutex);
 
 	i = idr_alloc(&mtd_idr, mtd, 0, 0, GFP_KERNEL);
 	if (i < 0) {
@@ -661,12 +661,12 @@ int add_mtd_device(struct mtd_info *mtd)
 	/* Caller should have set dev.parent to match the
 	 * physical device, if appropriate.
 	 */
-	mtd->dev.type = &mtd_devtype;
+//	mtd->dev.type = &mtd_devtype;
 	mtd->dev.class = &mtd_class;
 	mtd->dev.devt = MTD_DEVT(i);
 	dev_set_name(&mtd->dev, "mtd%d", i);
 	dev_set_drvdata(&mtd->dev, mtd);
-//	of_node_get(mtd_get_of_node(mtd));
+	of_node_get(mtd_get_of_node(mtd));
 	error = device_register(&mtd->dev);
 	if (error)
 		goto fail_added;
@@ -678,8 +678,8 @@ int add_mtd_device(struct mtd_info *mtd)
 
 //	mtd_debugfs_populate(mtd);
 
-//	device_create(&mtd_class, mtd->dev.parent, MTD_DEVT(i) + 1, NULL,
-//		      "mtd%dro", i);
+	device_create(&mtd_class, mtd->dev.parent, MTD_DEVT(i) + 1, NULL,
+		      "mtd%dro", i);
 
 	pr_debug("mtd: Giving out device %d to %s\n", i, mtd->name);
 	/* No need to get a refcount on the module containing
@@ -687,21 +687,21 @@ int add_mtd_device(struct mtd_info *mtd)
 	list_for_each_entry(not, &mtd_notifiers, list)
 		not->add(mtd);
 
-//	mutex_unlock(&mtd_table_mutex);
+	mutex_unlock(&mtd_table_mutex);
 	/* We _know_ we aren't being removed, because
 	   our caller is still holding us here. So none
 	   of this try_ nonsense, and no bitching about it
 	   either. :) */
-//	__module_get(THIS_MODULE);
+	__module_get(THIS_MODULE);
 	return 0;
 
 fail_nvmem_add:
 	device_unregister(&mtd->dev);
 fail_added:
-//	of_node_put(mtd_get_of_node(mtd));
+	of_node_put(mtd_get_of_node(mtd));
 	idr_remove(&mtd_idr, i);
 fail_locked:
-//	mutex_unlock(&mtd_table_mutex);
+	mutex_unlock(&mtd_table_mutex);
 	return error;
 }
 
@@ -720,9 +720,9 @@ int del_mtd_device(struct mtd_info *mtd)
 	int ret;
 	struct mtd_notifier *not;
 
-//	mutex_lock(&mtd_table_mutex);
+	mutex_lock(&mtd_table_mutex);
 
-//	debugfs_remove_recursive(mtd->dbg.dfs_dir);
+	debugfs_remove_recursive(mtd->dbg.dfs_dir);
 
 	if (idr_find(&mtd_idr, mtd->index) != mtd) {
 		ret = -ENODEV;
@@ -746,14 +746,14 @@ int del_mtd_device(struct mtd_info *mtd)
 		device_unregister(&mtd->dev);
 
 		idr_remove(&mtd_idr, mtd->index);
-//		of_node_put(mtd_get_of_node(mtd));
+		of_node_put(mtd_get_of_node(mtd));
 
-//		module_put(THIS_MODULE);
+		module_put(THIS_MODULE);
 		ret = 0;
 	}
 
 out_error:
-//	mutex_unlock(&mtd_table_mutex);
+	mutex_unlock(&mtd_table_mutex);
 	return ret;
 }
 
@@ -764,8 +764,8 @@ out_error:
 static void mtd_set_dev_defaults(struct mtd_info *mtd)
 {
 	if (mtd->dev.parent) {
-//		if (!mtd->owner && mtd->dev.parent->driver)
-//			mtd->owner = mtd->dev.parent->driver->owner;
+		if (!mtd->owner && mtd->dev.parent->driver)
+			mtd->owner = mtd->dev.parent->driver->owner;
 		if (!mtd->name)
 			mtd->name = dev_name(mtd->dev.parent);
 	} else {
@@ -773,7 +773,7 @@ static void mtd_set_dev_defaults(struct mtd_info *mtd)
 	}
 
 	INIT_LIST_HEAD(&mtd->partitions);
-//	mutex_init(&mtd->master.partitions_lock);
+	mutex_init(&mtd->master.partitions_lock);
 }
 
 /**
@@ -813,14 +813,17 @@ int mtd_device_parse_register(struct mtd_info *mtd, const char * const *types,
 
 	mtd_set_dev_defaults(mtd);
 
-#ifdef CONFIG_MTD_PARTITIONED_MASTER
-    ret = add_mtd_device(mtd);
-    if (ret)
-        return ret;
-#endif
+	if (IS_ENABLED(CONFIG_MTD_PARTITIONED_MASTER)) {
+		ret = add_mtd_device(mtd);
+		if (ret)
+			return ret;
+	}
 
 	/* Prefer parsed partitions over driver-provided fallback */
 	ret = parse_mtd_partitions(mtd, types, parser_data);
+	if (ret == -EPROBE_DEFER)
+		goto out;
+
 	if (ret > 0)
 		ret = 0;
 	else if (nr_parts)
@@ -841,6 +844,8 @@ int mtd_device_parse_register(struct mtd_info *mtd, const char * const *types,
 	 * does cause problems with parse_mtd_partitions() above (e.g.,
 	 * cmdlineparts will register partitions more than once).
 	 */
+	WARN_ONCE(mtd->_reboot,
+		  "MTD already registered\n");
 //	WARN_ONCE(mtd->_reboot && mtd->reboot_notifier.notifier_call,
 //		  "MTD already registered\n");
 //	if (mtd->_reboot && !mtd->reboot_notifier.notifier_call) {
@@ -892,16 +897,16 @@ void register_mtd_user (struct mtd_notifier *new)
 {
 	struct mtd_info *mtd;
 
-//	mutex_lock(&mtd_table_mutex);
+	mutex_lock(&mtd_table_mutex);
 
 	list_add(&new->list, &mtd_notifiers);
 
-//	__module_get(THIS_MODULE);
+	__module_get(THIS_MODULE);
 
 	mtd_for_each_device(mtd)
 		new->add(mtd);
 
-//	mutex_unlock(&mtd_table_mutex);
+	mutex_unlock(&mtd_table_mutex);
 }
 EXPORT_SYMBOL_GPL(register_mtd_user);
 
@@ -918,15 +923,15 @@ int unregister_mtd_user (struct mtd_notifier *old)
 {
 	struct mtd_info *mtd;
 
-//	mutex_lock(&mtd_table_mutex);
+	mutex_lock(&mtd_table_mutex);
 
-//	module_put(THIS_MODULE);
+	module_put(THIS_MODULE);
 
 	mtd_for_each_device(mtd)
 		old->remove(mtd);
 
 	list_del(&old->list);
-//	mutex_unlock(&mtd_table_mutex);
+	mutex_unlock(&mtd_table_mutex);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(unregister_mtd_user);
@@ -947,7 +952,7 @@ struct mtd_info *get_mtd_device(struct mtd_info *mtd, int num)
 	struct mtd_info *ret = NULL, *other;
 	int err = -ENODEV;
 
-//	mutex_lock(&mtd_table_mutex);
+	mutex_lock(&mtd_table_mutex);
 
 	if (num == -1) {
 		mtd_for_each_device(other) {
@@ -971,7 +976,7 @@ struct mtd_info *get_mtd_device(struct mtd_info *mtd, int num)
 	if (err)
 		ret = ERR_PTR(err);
 out:
-//	mutex_unlock(&mtd_table_mutex);
+	mutex_unlock(&mtd_table_mutex);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(get_mtd_device);
@@ -982,14 +987,14 @@ int __get_mtd_device(struct mtd_info *mtd)
 	struct mtd_info *master = mtd_get_master(mtd);
 	int err;
 
-//	if (!try_module_get(master->owner))
-//		return -ENODEV;
+	if (!try_module_get(master->owner))
+		return -ENODEV;
 
 	if (master->_get_device) {
 		err = master->_get_device(mtd);
 
 		if (err) {
-//			module_put(master->owner);
+			module_put(master->owner);
 			return err;
 		}
 	}
@@ -1018,7 +1023,7 @@ struct mtd_info *get_mtd_device_nm(const char *name)
 	int err = -ENODEV;
 	struct mtd_info *mtd = NULL, *other;
 
-//	mutex_lock(&mtd_table_mutex);
+	mutex_lock(&mtd_table_mutex);
 
 	mtd_for_each_device(other) {
 		if (!strcmp(name, other->name)) {
@@ -1034,20 +1039,20 @@ struct mtd_info *get_mtd_device_nm(const char *name)
 	if (err)
 		goto out_unlock;
 
-//	mutex_unlock(&mtd_table_mutex);
+	mutex_unlock(&mtd_table_mutex);
 	return mtd;
 
 out_unlock:
-//	mutex_unlock(&mtd_table_mutex);
+	mutex_unlock(&mtd_table_mutex);
 	return ERR_PTR(err);
 }
 EXPORT_SYMBOL_GPL(get_mtd_device_nm);
 
 void put_mtd_device(struct mtd_info *mtd)
 {
-//	mutex_lock(&mtd_table_mutex);
+	mutex_lock(&mtd_table_mutex);
 	__put_mtd_device(mtd);
-//	mutex_unlock(&mtd_table_mutex);
+	mutex_unlock(&mtd_table_mutex);
 
 }
 EXPORT_SYMBOL_GPL(put_mtd_device);
@@ -1067,7 +1072,7 @@ void __put_mtd_device(struct mtd_info *mtd)
 	if (master->_put_device)
 		master->_put_device(master);
 
-//	module_put(master->owner);
+	module_put(master->owner);
 }
 EXPORT_SYMBOL_GPL(__put_mtd_device);
 
@@ -1583,7 +1588,7 @@ static int mtd_ooblayout_find_region(struct mtd_info *mtd, int byte,
  *				  ECC byte
  * @mtd: mtd info structure
  * @eccbyte: the byte we are searching for
- * @section: pointer where the section id will be stored
+ * @sectionp: pointer where the section id will be stored
  * @oobregion: OOB region information
  *
  * Works like mtd_ooblayout_find_region() except it searches for a specific ECC
@@ -2225,8 +2230,8 @@ int __init init_mtd(void)
 //	if (proc_mtd)
 //		remove_proc_entry("mtd", NULL);
 //	bdi_put(mtd_bdi);
-err_bdi:
-	class_unregister(&mtd_class);
+//err_bdi:
+//	class_unregister(&mtd_class);
 err_reg:
 	pr_err("Error registering mtd class or bdi: %d\n", ret);
 	return ret;
@@ -2243,9 +2248,9 @@ void __exit cleanup_mtd(void)
 	idr_destroy(&mtd_idr);
 }
 
-//module_init(init_mtd);
-//module_exit(cleanup_mtd);
+module_init(init_mtd);
+module_exit(cleanup_mtd);
 
-//MODULE_LICENSE("GPL");
-//MODULE_AUTHOR("David Woodhouse <dwmw2@infradead.org>");
-//MODULE_DESCRIPTION("Core MTD registration and access routines");
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("David Woodhouse <dwmw2@infradead.org>");
+MODULE_DESCRIPTION("Core MTD registration and access routines");
