@@ -14,6 +14,7 @@
 #define LLONG_MAX	((long long)(~0ULL >> 1))
 #define LLONG_MIN	(-LLONG_MAX - 1)
 #define ULLONG_MAX	(~0ULL)
+#undef UINTPTR_MAX
 #define UINTPTR_MAX	ULONG_MAX
 
 #endif /* __VDSO_LIMITS_H */

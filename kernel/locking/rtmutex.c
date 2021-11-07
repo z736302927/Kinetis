@@ -11,6 +11,7 @@
  *
  *  See Documentation/locking/rt-mutex-design.rst for details.
  */
+#include <generated/deconfig.h>
 #include <linux/spinlock.h>
 #include <linux/export.h>
 #include <linux/sched/signal.h>

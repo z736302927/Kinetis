@@ -19,6 +19,7 @@
  * warranty of any kind, whether express or implied.
  */
 
+#include <generated/deconfig.h>
 #include <linux/acpi.h>
 #include <linux/i2c.h>
 #include <linux/i2c-mux.h>
@@ -142,72 +143,72 @@ static unsigned int i2c_mux_parent_classes(struct i2c_adapter *parent)
 
 static void i2c_mux_lock_bus(struct i2c_adapter *adapter, unsigned int flags)
 {
-	struct i2c_mux_priv *priv = adapter->algo_data;
-	struct i2c_adapter *parent = priv->muxc->parent;
+//	struct i2c_mux_priv *priv = adapter->algo_data;
+//	struct i2c_adapter *parent = priv->muxc->parent;
 
-	rt_mutex_lock_nested(&parent->mux_lock, i2c_adapter_depth(adapter));
-	if (!(flags & I2C_LOCK_ROOT_ADAPTER))
-		return;
-	i2c_lock_bus(parent, flags);
+//	rt_mutex_lock_nested(&parent->mux_lock, i2c_adapter_depth(adapter));
+//	if (!(flags & I2C_LOCK_ROOT_ADAPTER))
+//		return;
+//	i2c_lock_bus(parent, flags);
 }
 
 static int i2c_mux_trylock_bus(struct i2c_adapter *adapter, unsigned int flags)
 {
-	struct i2c_mux_priv *priv = adapter->algo_data;
-	struct i2c_adapter *parent = priv->muxc->parent;
+//	struct i2c_mux_priv *priv = adapter->algo_data;
+//	struct i2c_adapter *parent = priv->muxc->parent;
 
-	if (!rt_mutex_trylock(&parent->mux_lock))
-		return 0;	/* mux_lock not locked, failure */
-	if (!(flags & I2C_LOCK_ROOT_ADAPTER))
-		return 1;	/* we only want mux_lock, success */
-	if (i2c_trylock_bus(parent, flags))
-		return 1;	/* parent locked too, success */
-	rt_mutex_unlock(&parent->mux_lock);
+//	if (!rt_mutex_trylock(&parent->mux_lock))
+//		return 0;	/* mux_lock not locked, failure */
+//	if (!(flags & I2C_LOCK_ROOT_ADAPTER))
+//		return 1;	/* we only want mux_lock, success */
+//	if (i2c_trylock_bus(parent, flags))
+//		return 1;	/* parent locked too, success */
+//	rt_mutex_unlock(&parent->mux_lock);
 	return 0;		/* parent not locked, failure */
 }
 
 static void i2c_mux_unlock_bus(struct i2c_adapter *adapter, unsigned int flags)
 {
-	struct i2c_mux_priv *priv = adapter->algo_data;
-	struct i2c_adapter *parent = priv->muxc->parent;
+//	struct i2c_mux_priv *priv = adapter->algo_data;
+//	struct i2c_adapter *parent = priv->muxc->parent;
 
-	if (flags & I2C_LOCK_ROOT_ADAPTER)
-		i2c_unlock_bus(parent, flags);
-	rt_mutex_unlock(&parent->mux_lock);
+//	if (flags & I2C_LOCK_ROOT_ADAPTER)
+//		i2c_unlock_bus(parent, flags);
+//	rt_mutex_unlock(&parent->mux_lock);
 }
 
 static void i2c_parent_lock_bus(struct i2c_adapter *adapter,
 				unsigned int flags)
 {
-	struct i2c_mux_priv *priv = adapter->algo_data;
-	struct i2c_adapter *parent = priv->muxc->parent;
+//	struct i2c_mux_priv *priv = adapter->algo_data;
+//	struct i2c_adapter *parent = priv->muxc->parent;
 
-	rt_mutex_lock_nested(&parent->mux_lock, i2c_adapter_depth(adapter));
-	i2c_lock_bus(parent, flags);
+//	rt_mutex_lock_nested(&parent->mux_lock, i2c_adapter_depth(adapter));
+//	i2c_lock_bus(parent, flags);
 }
 
 static int i2c_parent_trylock_bus(struct i2c_adapter *adapter,
 				  unsigned int flags)
 {
-	struct i2c_mux_priv *priv = adapter->algo_data;
-	struct i2c_adapter *parent = priv->muxc->parent;
+//	struct i2c_mux_priv *priv = adapter->algo_data;
+//	struct i2c_adapter *parent = priv->muxc->parent;
 
-	if (!rt_mutex_trylock(&parent->mux_lock))
-		return 0;	/* mux_lock not locked, failure */
-	if (i2c_trylock_bus(parent, flags))
-		return 1;	/* parent locked too, success */
-	rt_mutex_unlock(&parent->mux_lock);
+//	if (!rt_mutex_trylock(&parent->mux_lock))
+//		return 0;	/* mux_lock not locked, failure */
+//	if (i2c_trylock_bus(parent, flags))
+//		return 1;	/* parent locked too, success */
+//	rt_mutex_unlock(&parent->mux_lock);
 	return 0;		/* parent not locked, failure */
 }
 
 static void i2c_parent_unlock_bus(struct i2c_adapter *adapter,
 				  unsigned int flags)
 {
-	struct i2c_mux_priv *priv = adapter->algo_data;
-	struct i2c_adapter *parent = priv->muxc->parent;
+//	struct i2c_mux_priv *priv = adapter->algo_data;
+//	struct i2c_adapter *parent = priv->muxc->parent;
 
-	i2c_unlock_bus(parent, flags);
-	rt_mutex_unlock(&parent->mux_lock);
+//	i2c_unlock_bus(parent, flags);
+//	rt_mutex_unlock(&parent->mux_lock);
 }
 
 struct i2c_adapter *i2c_root_adapter(struct device *dev)

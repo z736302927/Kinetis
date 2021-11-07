@@ -7,6 +7,7 @@
 #include <linux/spi/spi-mem.h>
 #include <linux/spi/flash.h>
 #include <linux/spi/w25qxxx.h>
+#include <linux/i2c.h>
 
 #include "stm32-core.h"
 #include "stdio.h"
@@ -77,6 +78,15 @@ struct spi_board_info __initdata w25q256_spi_flash_info[] = {
 	},
 };
 
+/*
+ * I2C Devices:
+ * I2C0: 256 Bytes nvem
+ */
+struct i2c_board_info __initdata fire_i2c_board_info[] = {
+	{I2C_BOARD_INFO("at24c02", 0x50)},
+	{I2C_BOARD_INFO("mpu6050", 0x68)},
+};
+
 //static int w25qxxx_port_transmmit(u8 w25qxxx,
 //								  void *pdata, u32 length)
 //{
@@ -145,11 +155,21 @@ int __init spi_init(void);
 int __init init_mtd(void);
 int __init nvmem_init(void);
 int __init gpiolib_dev_init(void);
+int __init at24_init(void);
+void __exit at24_exit(void);
 
 extern struct spi_mem_driver spi_nor_driver;
 extern struct platform_driver stm32_qspi_driver;
-
 struct platform_device stm32_qspi_device = {
+	.name	= "stm32-qspi",
+	.id		= 0,
+//	.dev	= {
+//		.platform_data	= &i2c_gpio_config,
+//	}
+};
+
+extern struct platform_driver stm32f4_i2c_driver;
+struct platform_device stm32f4_i2c_device = {
 	.name	= "stm32-qspi",
 	.id		= 0,
 //	.dev	= {
@@ -223,6 +243,28 @@ int stm32h7_glue_func(void)
 
 	if (ret)
 		return ret;
+
+	ret = at24_init();
+
+	if (ret)
+		return ret;
+
+	ret = platform_driver_register(&stm32f4_i2c_driver);
+
+	if (ret)
+		return ret;
+
+	ret = platform_device_register(&stm32f4_i2c_device);
+
+	if (ret)
+		return ret;
+
+	ret = i2c_register_board_info(1, fire_i2c_board_info,
+								  ARRAY_SIZE(fire_i2c_board_info));
+
+	if (ret)
+		pr_warn("%s: i2c info registration failed: %d\n",
+				__func__, ret);
 
 	ret = spi_mem_driver_register(&spi_nor_driver);
 

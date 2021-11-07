@@ -115,21 +115,21 @@ static int i2c_device_match(struct device *dev, struct device_driver *drv)
 	return 0;
 }
 
-static int i2c_device_uevent(struct device *dev, struct kobj_uevent_env *env)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	int rc;
-
-	rc = of_device_uevent_modalias(dev, env);
-	if (rc != -ENODEV)
-		return rc;
-
-	rc = acpi_device_uevent_modalias(dev, env);
-	if (rc != -ENODEV)
-		return rc;
-
-	return add_uevent_var(env, "MODALIAS=%s%s", I2C_MODULE_PREFIX, client->name);
-}
+//static int i2c_device_uevent(struct device *dev, struct kobj_uevent_env *env)
+//{
+//	struct i2c_client *client = to_i2c_client(dev);
+//	int rc;
+//
+//	rc = of_device_uevent_modalias(dev, env);
+//	if (rc != -ENODEV)
+//		return rc;
+//
+//	rc = acpi_device_uevent_modalias(dev, env);
+//	if (rc != -ENODEV)
+//		return rc;
+//
+//	return add_uevent_var(env, "MODALIAS=%s%s", I2C_MODULE_PREFIX, client->name);
+//}
 
 /* i2c bus recovery routines */
 static int get_scl_gpio_value(struct i2c_adapter *adap)
@@ -422,21 +422,21 @@ static int i2c_init_recovery(struct i2c_adapter *adap)
 	return -EINVAL;
 }
 
-static int i2c_smbus_host_notify_to_irq(const struct i2c_client *client)
-{
-	struct i2c_adapter *adap = client->adapter;
-	unsigned int irq;
-
-	if (!adap->host_notify_domain)
-		return -ENXIO;
-
-	if (client->flags & I2C_CLIENT_TEN)
-		return -EINVAL;
-
-	irq = irq_create_mapping(adap->host_notify_domain, client->addr);
-
-	return irq > 0 ? irq : -ENXIO;
-}
+//static int i2c_smbus_host_notify_to_irq(const struct i2c_client *client)
+//{
+//	struct i2c_adapter *adap = client->adapter;
+//	unsigned int irq;
+//
+//	if (!adap->host_notify_domain)
+//		return -ENXIO;
+//
+//	if (client->flags & I2C_CLIENT_TEN)
+//		return -EINVAL;
+//
+//	irq = irq_create_mapping(adap->host_notify_domain, client->addr);
+//
+//	return irq > 0 ? irq : -ENXIO;
+//}
 
 static int i2c_device_probe(struct device *dev)
 {
@@ -447,33 +447,33 @@ static int i2c_device_probe(struct device *dev)
 	if (!client)
 		return 0;
 
-	client->irq = client->init_irq;
-
-	if (!client->irq) {
-		int irq = -ENOENT;
-
-		if (client->flags & I2C_CLIENT_HOST_NOTIFY) {
-			dev_dbg(dev, "Using Host Notify IRQ\n");
-			/* Keep adapter active when Host Notify is required */
-			pm_runtime_get_sync(&client->adapter->dev);
-			irq = i2c_smbus_host_notify_to_irq(client);
-		} else if (dev->of_node) {
-			irq = of_irq_get_byname(dev->of_node, "irq");
-			if (irq == -EINVAL || irq == -ENODATA)
-				irq = of_irq_get(dev->of_node, 0);
-		} else if (ACPI_COMPANION(dev)) {
-			irq = i2c_acpi_get_irq(client);
-		}
-		if (irq == -EPROBE_DEFER) {
-			status = irq;
-			goto put_sync_adapter;
-		}
-
-		if (irq < 0)
-			irq = 0;
-
-		client->irq = irq;
-	}
+//	client->irq = client->init_irq;
+//
+//	if (!client->irq) {
+//		int irq = -ENOENT;
+//
+//		if (client->flags & I2C_CLIENT_HOST_NOTIFY) {
+//			dev_dbg(dev, "Using Host Notify IRQ\n");
+//			/* Keep adapter active when Host Notify is required */
+//			pm_runtime_get_sync(&client->adapter->dev);
+//			irq = i2c_smbus_host_notify_to_irq(client);
+//		} else if (dev->of_node) {
+//			irq = of_irq_get_byname(dev->of_node, "irq");
+//			if (irq == -EINVAL || irq == -ENODATA)
+//				irq = of_irq_get(dev->of_node, 0);
+//		} else if (ACPI_COMPANION(dev)) {
+//			irq = i2c_acpi_get_irq(client);
+//		}
+//		if (irq == -EPROBE_DEFER) {
+//			status = irq;
+//			goto put_sync_adapter;
+//		}
+//
+//		if (irq < 0)
+//			irq = 0;
+//
+//		client->irq = irq;
+//	}
 
 	driver = to_i2c_driver(dev->driver);
 
@@ -638,7 +638,7 @@ EXPORT_SYMBOL_GPL(i2c_bus_type);
 
 struct device_type i2c_client_type = {
 	.groups		= i2c_dev_groups,
-	.uevent		= i2c_device_uevent,
+//	.uevent		= i2c_device_uevent,
 	.release	= i2c_client_dev_release,
 };
 EXPORT_SYMBOL_GPL(i2c_client_type);
@@ -777,7 +777,7 @@ static int i2c_check_addr_busy(struct i2c_adapter *adapter, int addr)
 static void i2c_adapter_lock_bus(struct i2c_adapter *adapter,
 				 unsigned int flags)
 {
-	rt_mutex_lock_nested(&adapter->bus_lock, i2c_adapter_depth(adapter));
+//	rt_mutex_lock_nested(&adapter->bus_lock, i2c_adapter_depth(adapter));
 }
 
 /**
@@ -789,7 +789,8 @@ static void i2c_adapter_lock_bus(struct i2c_adapter *adapter,
 static int i2c_adapter_trylock_bus(struct i2c_adapter *adapter,
 				   unsigned int flags)
 {
-	return rt_mutex_trylock(&adapter->bus_lock);
+//	return rt_mutex_trylock(&adapter->bus_lock);
+    return 0;
 }
 
 /**
@@ -801,7 +802,7 @@ static int i2c_adapter_trylock_bus(struct i2c_adapter *adapter,
 static void i2c_adapter_unlock_bus(struct i2c_adapter *adapter,
 				   unsigned int flags)
 {
-	rt_mutex_unlock(&adapter->bus_lock);
+//	rt_mutex_unlock(&adapter->bus_lock);
 }
 
 static void i2c_dev_set_name(struct i2c_adapter *adap,
@@ -1320,78 +1321,78 @@ static const struct i2c_lock_operations i2c_adapter_lock_ops = {
 	.unlock_bus =  i2c_adapter_unlock_bus,
 };
 
-static void i2c_host_notify_irq_teardown(struct i2c_adapter *adap)
-{
-	struct irq_domain *domain = adap->host_notify_domain;
-	irq_hw_number_t hwirq;
-
-	if (!domain)
-		return;
-
-	for (hwirq = 0 ; hwirq < I2C_ADDR_7BITS_COUNT ; hwirq++)
-		irq_dispose_mapping(irq_find_mapping(domain, hwirq));
-
-	irq_domain_remove(domain);
-	adap->host_notify_domain = NULL;
-}
-
-static int i2c_host_notify_irq_map(struct irq_domain *h,
-					  unsigned int virq,
-					  irq_hw_number_t hw_irq_num)
-{
-	irq_set_chip_and_handler(virq, &dummy_irq_chip, handle_simple_irq);
-
-	return 0;
-}
-
-static const struct irq_domain_ops i2c_host_notify_irq_ops = {
-	.map = i2c_host_notify_irq_map,
-};
-
-static int i2c_setup_host_notify_irq_domain(struct i2c_adapter *adap)
-{
-	struct irq_domain *domain;
-
-	if (!i2c_check_functionality(adap, I2C_FUNC_SMBUS_HOST_NOTIFY))
-		return 0;
-
-	domain = irq_domain_create_linear(adap->dev.parent->fwnode,
-					  I2C_ADDR_7BITS_COUNT,
-					  &i2c_host_notify_irq_ops, adap);
-	if (!domain)
-		return -ENOMEM;
-
-	adap->host_notify_domain = domain;
-
-	return 0;
-}
-
-/**
- * i2c_handle_smbus_host_notify - Forward a Host Notify event to the correct
- * I2C client.
- * @adap: the adapter
- * @addr: the I2C address of the notifying device
- * Context: can't sleep
- *
- * Helper function to be called from an I2C bus driver's interrupt
- * handler. It will schedule the Host Notify IRQ.
- */
-int i2c_handle_smbus_host_notify(struct i2c_adapter *adap, unsigned short addr)
-{
-	int irq;
-
-	if (!adap)
-		return -EINVAL;
-
-	irq = irq_find_mapping(adap->host_notify_domain, addr);
-	if (irq <= 0)
-		return -ENXIO;
-
-	generic_handle_irq(irq);
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(i2c_handle_smbus_host_notify);
+//static void i2c_host_notify_irq_teardown(struct i2c_adapter *adap)
+//{
+//	struct irq_domain *domain = adap->host_notify_domain;
+//	irq_hw_number_t hwirq;
+//
+//	if (!domain)
+//		return;
+//
+//	for (hwirq = 0 ; hwirq < I2C_ADDR_7BITS_COUNT ; hwirq++)
+//		irq_dispose_mapping(irq_find_mapping(domain, hwirq));
+//
+//	irq_domain_remove(domain);
+//	adap->host_notify_domain = NULL;
+//}
+//
+//static int i2c_host_notify_irq_map(struct irq_domain *h,
+//					  unsigned int virq,
+//					  irq_hw_number_t hw_irq_num)
+//{
+//	irq_set_chip_and_handler(virq, &dummy_irq_chip, handle_simple_irq);
+//
+//	return 0;
+//}
+//
+//static const struct irq_domain_ops i2c_host_notify_irq_ops = {
+//	.map = i2c_host_notify_irq_map,
+//};
+//
+//static int i2c_setup_host_notify_irq_domain(struct i2c_adapter *adap)
+//{
+//	struct irq_domain *domain;
+//
+//	if (!i2c_check_functionality(adap, I2C_FUNC_SMBUS_HOST_NOTIFY))
+//		return 0;
+//
+//	domain = irq_domain_create_linear(adap->dev.parent->fwnode,
+//					  I2C_ADDR_7BITS_COUNT,
+//					  &i2c_host_notify_irq_ops, adap);
+//	if (!domain)
+//		return -ENOMEM;
+//
+//	adap->host_notify_domain = domain;
+//
+//	return 0;
+//}
+//
+///**
+// * i2c_handle_smbus_host_notify - Forward a Host Notify event to the correct
+// * I2C client.
+// * @adap: the adapter
+// * @addr: the I2C address of the notifying device
+// * Context: can't sleep
+// *
+// * Helper function to be called from an I2C bus driver's interrupt
+// * handler. It will schedule the Host Notify IRQ.
+// */
+//int i2c_handle_smbus_host_notify(struct i2c_adapter *adap, unsigned short addr)
+//{
+//	int irq;
+//
+//	if (!adap)
+//		return -EINVAL;
+//
+//	irq = irq_find_mapping(adap->host_notify_domain, addr);
+//	if (irq <= 0)
+//		return -ENXIO;
+//
+//	generic_handle_irq(irq);
+//
+//	return 0;
+//}
+//EXPORT_SYMBOL_GPL(i2c_handle_smbus_host_notify);
 
 static int i2c_register_adapter(struct i2c_adapter *adap)
 {
@@ -1416,8 +1417,8 @@ static int i2c_register_adapter(struct i2c_adapter *adap)
 		adap->lock_ops = &i2c_adapter_lock_ops;
 
 	adap->locked_flags = 0;
-	rt_mutex_init(&adap->bus_lock);
-	rt_mutex_init(&adap->mux_lock);
+//	rt_mutex_init(&adap->bus_lock);
+//	rt_mutex_init(&adap->mux_lock);
 	mutex_init(&adap->userspace_clients_lock);
 	INIT_LIST_HEAD(&adap->userspace_clients);
 
@@ -1426,12 +1427,12 @@ static int i2c_register_adapter(struct i2c_adapter *adap)
 		adap->timeout = HZ;
 
 	/* register soft irqs for Host Notify */
-	res = i2c_setup_host_notify_irq_domain(adap);
-	if (res) {
-		pr_err("adapter '%s': can't create Host Notify IRQs (%d)\n",
-		       adap->name, res);
-		goto out_list;
-	}
+//	res = i2c_setup_host_notify_irq_domain(adap);
+//	if (res) {
+//		pr_err("adapter '%s': can't create Host Notify IRQs (%d)\n",
+//		       adap->name, res);
+//		goto out_list;
+//	}
 
 	dev_set_name(&adap->dev, "i2c-%d", adap->nr);
 	adap->dev.bus = &i2c_bus_type;
@@ -1679,7 +1680,7 @@ void i2c_del_adapter(struct i2c_adapter *adap)
 
 	pm_runtime_disable(&adap->dev);
 
-	i2c_host_notify_irq_teardown(adap);
+//	i2c_host_notify_irq_teardown(adap);
 
 	/* wait until all references to the device are gone
 	 *

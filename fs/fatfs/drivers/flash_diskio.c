@@ -49,8 +49,10 @@
 #include <generated/deconfig.h>
 #include <linux/spi/w25qxxx.h>
 #include <linux/string.h>
+#include <linux/mtd/mtd.h>
 
 #include "../ff_gen_drv.h"
+#include "stm32-core.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -75,14 +77,14 @@ DRESULT flash_disk_ioctl(BYTE, BYTE, void *);
 #endif /* _USE_IOCTL == 1 */
 
 const Diskio_drvTypeDef flash_disk_driver = {
-    flash_disk_initialize,
-    flash_disk_status,
-    flash_disk_read,
+	flash_disk_initialize,
+	flash_disk_status,
+	flash_disk_read,
 #if  _USE_WRITE == 1
-    flash_disk_write,
+	flash_disk_write,
 #endif /* _USE_WRITE == 1 */
 #if  _USE_IOCTL == 1
-    flash_disk_ioctl,
+	flash_disk_ioctl,
 #endif /* _USE_IOCTL == 1 */
 };
 
@@ -95,28 +97,28 @@ const Diskio_drvTypeDef flash_disk_driver = {
   */
 DSTATUS flash_disk_initialize(BYTE lun)
 {
-    disk_stat = STA_NOINIT;
+	disk_stat = STA_NOINIT;
 
-    /* Configure the FLASH device */
-    disk_stat = STA_NOINIT;
+	/* Configure the FLASH device */
+	disk_stat = STA_NOINIT;
 
-    switch (lun) {
-        case 0:
+	switch (lun) {
+	case 0:
 //            w25qxxx_init(W25Q128);
-            disk_stat = disk_status(0);
-            break;
+		disk_stat = disk_status(0);
+		break;
 
-        case 1:
+	case 1:
 //            w25qxxx_init(W25Q256);
-            disk_stat = disk_status(1);
-            break;
+		disk_stat = disk_status(1);
+		break;
 
-        default:
-            disk_stat = STA_NOINIT;
-            break;
-    }
+	default:
+		disk_stat = STA_NOINIT;
+		break;
+	}
 
-    return disk_stat;
+	return disk_stat;
 }
 
 /**
@@ -126,27 +128,27 @@ DSTATUS flash_disk_initialize(BYTE lun)
   */
 DSTATUS flash_disk_status(BYTE lun)
 {
-    disk_stat = STA_NOINIT;
+	disk_stat = STA_NOINIT;
 
-    switch (lun) {
-        case 0:
+	switch (lun) {
+	case 0:
 //            if (w25qxxx_release_device_id(W25Q128) != 0)
-                disk_stat &= ~STA_NOINIT;
+		disk_stat &= ~STA_NOINIT;
 
-            break;
+		break;
 
-        case 1:
+	case 1:
 //            if (w25qxxx_release_device_id(W25Q256) != 0)
-                disk_stat &= ~STA_NOINIT;
+		disk_stat &= ~STA_NOINIT;
 
-            break;
+		break;
 
-        default:
-            disk_stat = STA_NOINIT;
-            break;
-    }
+	default:
+		disk_stat = STA_NOINIT;
+		break;
+	}
 
-    return disk_stat;
+	return disk_stat;
 }
 
 /**
@@ -159,26 +161,31 @@ DSTATUS flash_disk_status(BYTE lun)
   */
 DRESULT flash_disk_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
 {
-    switch (lun) {
-        case 0:
-            spi_nor_read_data(W25Q128,
-                sector << STORAGE_SEC_SIZ_POWER,
-                count << STORAGE_SEC_SIZ_POWER,
-                buff);
-            break;
+	struct stm32_val *stm32_val = lib_get_stm32_val();
+	size_t retlen;
 
-        case 1:
-            spi_nor_read_data(W25Q256,
-                sector << STORAGE_SEC_SIZ_POWER,
-                count << STORAGE_SEC_SIZ_POWER,
-                buff);
-            break;
+	switch (lun) {
+	case 0:
+		mtd_write(&stm32_val->nor->mtd,
+			sector << STORAGE_SEC_SIZ_POWER,
+			count << STORAGE_SEC_SIZ_POWER,
+			&retlen,
+			buff);
+		break;
 
-        default:
-            break;
-    }
+	case 1:
+		mtd_write(&stm32_val->nor->mtd,
+			sector << STORAGE_SEC_SIZ_POWER,
+			count << STORAGE_SEC_SIZ_POWER,
+			&retlen,
+			buff);
+		break;
 
-    return RES_OK;
+	default:
+		break;
+	}
+
+	return RES_OK;
 }
 
 /**
@@ -192,26 +199,31 @@ DRESULT flash_disk_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
 #if _USE_WRITE == 1
 DRESULT flash_disk_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
 {
-    switch (lun) {
-        case 0:
-            spi_nor_write_data(W25Q128,
-                sector << STORAGE_SEC_SIZ_POWER,
-                count << STORAGE_SEC_SIZ_POWER,
-                buff);
-            break;
+	struct stm32_val *stm32_val = lib_get_stm32_val();
+	size_t retlen;
 
-        case 1:
-            spi_nor_write_data(W25Q256,
-                sector << STORAGE_SEC_SIZ_POWER,
-                count << STORAGE_SEC_SIZ_POWER,
-                buff);
-            break;
+	switch (lun) {
+	case 0:
+		mtd_write(&stm32_val->nor->mtd,
+			sector << STORAGE_SEC_SIZ_POWER,
+			count << STORAGE_SEC_SIZ_POWER,
+			&retlen,
+			buff);
+		break;
 
-        default:
-            break;
-    }
+	case 1:
+		mtd_write(&stm32_val->nor->mtd,
+			sector << STORAGE_SEC_SIZ_POWER,
+			count << STORAGE_SEC_SIZ_POWER,
+			&retlen,
+			buff);
+		break;
 
-    return RES_OK;
+	default:
+		break;
+	}
+
+	return RES_OK;
 }
 #endif /* _USE_WRITE == 1 */
 
@@ -225,78 +237,78 @@ DRESULT flash_disk_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
 #if _USE_IOCTL == 1
 DRESULT flash_disk_ioctl(BYTE lun, BYTE cmd, void *buff)
 {
-    DRESULT res = RES_ERROR;
+	DRESULT res = RES_ERROR;
 
-    if (disk_stat & STA_NOINIT)
-        return RES_NOTRDY;
+	if (disk_stat & STA_NOINIT)
+		return RES_NOTRDY;
 
-    switch (lun) {
-        case 0:
-            switch (cmd) {
-                /* Make sure that no pending write process */
-                case CTRL_SYNC :
-                    res = RES_OK;
-                    break;
+	switch (lun) {
+	case 0:
+		switch (cmd) {
+		/* Make sure that no pending write process */
+		case CTRL_SYNC :
+			res = RES_OK;
+			break;
 
-                /* Get number of sectors on the disk (DWORD) */
-                case GET_SECTOR_COUNT :
-                    *(DWORD *)buff = STORAGE_SEC_NBR / 2;
-                    res = RES_OK;
-                    break;
+		/* Get number of sectors on the disk (DWORD) */
+		case GET_SECTOR_COUNT :
+			*(DWORD *)buff = STORAGE_SEC_NBR / 2;
+			res = RES_OK;
+			break;
 
-                /* Get R/W sector size (WORD) */
-                case GET_SECTOR_SIZE :
-                    *(WORD *)buff = STORAGE_SEC_SIZ;
-                    res = RES_OK;
-                    break;
+		/* Get R/W sector size (WORD) */
+		case GET_SECTOR_SIZE :
+			*(WORD *)buff = STORAGE_SEC_SIZ;
+			res = RES_OK;
+			break;
 
-                /* Get erase block size in unit of sector (DWORD) */
-                case GET_BLOCK_SIZE :
-                    *(DWORD *)buff = STORAGE_BLK_SIZ;
-                    res = RES_OK;
-                    break;
+		/* Get erase block size in unit of sector (DWORD) */
+		case GET_BLOCK_SIZE :
+			*(DWORD *)buff = STORAGE_BLK_SIZ;
+			res = RES_OK;
+			break;
 
-                default:
-                    res = RES_PARERR;
-                    break;
-            }
+		default:
+			res = RES_PARERR;
+			break;
+		}
 
-            break;
+		break;
 
-        case 1:
-            switch (cmd) {
-                /* Make sure that no pending write process */
-                case CTRL_SYNC :
-                    res = RES_OK;
-                    break;
+	case 1:
+		switch (cmd) {
+		/* Make sure that no pending write process */
+		case CTRL_SYNC :
+			res = RES_OK;
+			break;
 
-                /* Get number of sectors on the disk (DWORD) */
-                case GET_SECTOR_COUNT :
-                    *(DWORD *)buff = STORAGE_SEC_NBR;
-                    res = RES_OK;
-                    break;
+		/* Get number of sectors on the disk (DWORD) */
+		case GET_SECTOR_COUNT :
+			*(DWORD *)buff = STORAGE_SEC_NBR;
+			res = RES_OK;
+			break;
 
-                /* Get R/W sector size (WORD) */
-                case GET_SECTOR_SIZE :
-                    *(WORD *)buff = STORAGE_SEC_SIZ;
-                    res = RES_OK;
-                    break;
+		/* Get R/W sector size (WORD) */
+		case GET_SECTOR_SIZE :
+			*(WORD *)buff = STORAGE_SEC_SIZ;
+			res = RES_OK;
+			break;
 
-                /* Get erase block size in unit of sector (DWORD) */
-                case GET_BLOCK_SIZE :
-                    *(DWORD *)buff = STORAGE_BLK_SIZ;
-                    res = RES_OK;
-                    break;
+		/* Get erase block size in unit of sector (DWORD) */
+		case GET_BLOCK_SIZE :
+			*(DWORD *)buff = STORAGE_BLK_SIZ;
+			res = RES_OK;
+			break;
 
-                default:
-                    res = RES_PARERR;
-                    break;
-            }
+		default:
+			res = RES_PARERR;
+			break;
+		}
 
-            break;
-    }
+		break;
+	}
 
-    return res;
+	return res;
 }
 #endif /* _USE_IOCTL == 1 */
 
