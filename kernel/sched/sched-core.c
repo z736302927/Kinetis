@@ -4791,15 +4791,16 @@ EXPORT_SYMBOL(schedule);
 //
 //	exception_exit(prev_state);
 //}
-//
-//int default_wake_function(wait_queue_entry_t *curr, unsigned mode, int wake_flags,
-//			  void *key)
-//{
+
+int default_wake_function(wait_queue_entry_t *curr, unsigned mode, int wake_flags,
+			  void *key)
+{
 //	WARN_ON_ONCE(IS_ENABLED(CONFIG_SCHED_DEBUG) && wake_flags & ~WF_SYNC);
 //	return try_to_wake_up(curr->private, mode, wake_flags);
-//}
-//EXPORT_SYMBOL(default_wake_function);
-//
+	return 1;
+}
+EXPORT_SYMBOL(default_wake_function);
+
 //#ifdef CONFIG_RT_MUTEXES
 //
 //static inline int __rt_effective_prio(struct task_struct *pi_task, int prio)

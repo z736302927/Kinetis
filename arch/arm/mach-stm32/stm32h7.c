@@ -9,11 +9,15 @@
 #include <linux/spi/w25qxxx.h>
 #include <linux/i2c.h>
 
-#include "stm32-core.h"
+#include "kinetis-core.h"
 #include "stdio.h"
 #include "usart.h"
 #include "tim.h"
 //#include "spi.h"
+
+#include <cm_backtrace.h>
+
+struct task_struct init_task;
 
 #define STM32_SERIAL_NAME "ttySTM"
 
@@ -31,33 +35,10 @@ int fputc(int ch, FILE *f)
 	return ch;
 }
 
-static void stm32_usart_console_write(struct console *co, const char *s,
-									  unsigned int cnt)
+int _putc(int ch)
 {
-	unsigned int i;
-
-	for (i = 0; i < cnt; i++, s++) {
-		if (*s == '\n')
-			HAL_UART_Transmit(&huart1, (u8 *)'\r', 1, 100);
-
-		HAL_UART_Transmit(&huart1, (u8 *)s, 1, 100);
-	}
+	return HAL_UART_Transmit(&huart1, (u8 *)&ch, 1, 100);
 }
-
-static int stm32_usart_console_setup(struct console *co, char *options)
-{
-	return 0;
-}
-
-static struct console stm32_console = {
-	.name		= STM32_SERIAL_NAME,
-//	.device		= uart_console_device,
-	.write		= stm32_usart_console_write,
-	.setup		= stm32_usart_console_setup,
-	.flags		= CON_PRINTBUFFER,
-	.index		= -1,
-//	.data		= &stm32_usart_driver,
-};
 
 /*
  * SPI Devices:
@@ -83,7 +64,7 @@ struct spi_board_info __initdata w25q256_spi_flash_info[] = {
  * I2C0: 256 Bytes nvem
  */
 struct i2c_board_info __initdata fire_i2c_board_info[] = {
-	{I2C_BOARD_INFO("at24c02", 0x50)},
+	{I2C_BOARD_INFO("24c02", 0x50)},
 	{I2C_BOARD_INFO("mpu6050", 0x68)},
 };
 
@@ -146,20 +127,51 @@ int __init initialize_ptr_random(void);
 void __init timekeeping_init(void);
 int __init find_bit_test(void);
 void __init radix_tree_init(void);
+int __init btree_module_init(void);
 int __init software_node_init(void);
 int __init devices_init(void);
 int __init buses_init(void);
 int __init platform_bus_init(void);
+int __init input_init(void);
+void __exit input_exit(void);
+int __init iio_init(void);
+void __exit iio_exit(void);
 int __init gpiolib_dev_init(void);
 int __init spi_init(void);
+int __init i2c_init(void);
 int __init init_mtd(void);
 int __init nvmem_init(void);
 int __init gpiolib_dev_init(void);
 int __init at24_init(void);
 void __exit at24_exit(void);
+int __init stm32_qspi_driver_init(void);
+void __exit stm32_qspi_driver_exit(void);
+int __init stm32f4_i2c_driver_init(void);
+void __exit stm32f4_i2c_driver_exit(void);
+int __init stm32_usart_init(void);
+int __init stm32h743_pinctrl_init(void);
+int __init dht11_driver_init(void);
+void __exit dht11_driver_exit(void);
+int __init gpio_keys_init(void);
+void __exit gpio_keys_exit(void);
+int __init gpio_beeper_platform_driver_init(void);
+void __exit gpio_beeper_platform_driver_exit(void);
+int __init leds_init(void);
+void __exit leds_exit(void);
+int __init inv_mpu_driver_init(void);
+void __exit inv_mpu_driver_exit(void);
+
+struct platform_device stm32_pinctrl_device = {
+	.name	= "stm32h743-pinctrl",
+	.id		= 0,
+//	.dev	= {
+//		.platform_data	= &i2c_gpio_config,
+//	}
+};
+
+extern struct console stm32_console;
 
 extern struct spi_mem_driver spi_nor_driver;
-extern struct platform_driver stm32_qspi_driver;
 struct platform_device stm32_qspi_device = {
 	.name	= "stm32-qspi",
 	.id		= 0,
@@ -168,28 +180,67 @@ struct platform_device stm32_qspi_device = {
 //	}
 };
 
-extern struct platform_driver stm32f4_i2c_driver;
 struct platform_device stm32f4_i2c_device = {
-	.name	= "stm32-qspi",
+	.name	= "stm32f4-i2c",
 	.id		= 0,
 //	.dev	= {
 //		.platform_data	= &i2c_gpio_config,
 //	}
 };
 
-static struct stm32_val stm32_common_val;
+struct platform_device stm32_usart_device = {
+	.name	= "stm32-usart",
+	.id		= 0,
+//	.dev	= {
+//		.platform_data	= &i2c_gpio_config,
+//	}
+};
 
-struct stm32_val *lib_get_stm32_val(void)
+static struct kineits_system stm32_common_val;
+
+struct kineits_system *lib_get_stm32_val(void)
 {
 	return &stm32_common_val;
 }
 
+static int fill_stm32_dt(void)
+{
+	struct kineits_system *kineits = lib_get_stm32_val();
+	
+	kineits->dt.at24.byte_len = 256;
+	kineits->dt.at24.page_size = 8;
+
+	kineits->dt.gpio.gpio_bank = 11;
+	kineits->dt.gpio.base = kcalloc(11, sizeof(*kineits->dt.gpio.base),
+		GFP_KERNEL);
+	if (!kineits->dt.gpio.base)
+		return -ENOMEM;
+
+	kineits->dt.gpio.base[0] = (void *)GPIOA;
+	kineits->dt.gpio.base[1] = (void *)GPIOB;
+	kineits->dt.gpio.base[2] = (void *)GPIOC;
+	kineits->dt.gpio.base[3] = (void *)GPIOD;
+	kineits->dt.gpio.base[4] = (void *)GPIOE;
+	kineits->dt.gpio.base[5] = (void *)GPIOF;
+	kineits->dt.gpio.base[6] = (void *)GPIOG;
+	kineits->dt.gpio.base[7] = (void *)GPIOH;
+	kineits->dt.gpio.base[8] = (void *)GPIOI;
+	kineits->dt.gpio.base[9] = (void *)GPIOJ;
+	kineits->dt.gpio.base[10] = (void *)GPIOK;
+
+	return 0;
+}
+
 int stm32h7_glue_func(void)
 {
+	struct stm32f4_i2c_dev *stm32f4_i2c_priv;
+    struct i2c_client *client_mpu6050;
+    struct i2c_client *client_at24;
 	int ret = 0;
 
-	ret = initialize_ptr_random();
+	cm_backtrace_init("CmBacktrace", "V1.0.0", "V0.1.0");
 
+	ret = initialize_ptr_random();
 	if (ret)
 		return ret;
 
@@ -198,96 +249,146 @@ int stm32h7_glue_func(void)
 
 	register_console(&stm32_console);
 
+	ret = fill_stm32_dt();
+	if (ret)
+		return ret;
+
 //    ret = find_bit_test();
 //    if (ret)
 //        return ret;
 
 	radix_tree_init();
 
-	ret = software_node_init();
+	ret = btree_module_init();
+	if (ret)
+		return ret;
 
+	ret = software_node_init();
 	if (ret)
 		return ret;
 
 	ret = devices_init();
-
 	if (ret)
 		return ret;
 
 	ret = buses_init();
-
 	if (ret)
 		return ret;
 
 	ret = platform_bus_init();
+	if (ret)
+		return ret;
 
+	ret = input_init();
+	if (ret)
+		return ret;
+
+	ret = iio_init();
 	if (ret)
 		return ret;
 
 	ret = gpiolib_dev_init();
-
 	if (ret)
 		return ret;
 
 	ret = spi_init();
+	if (ret)
+		return ret;
 
+	ret = i2c_init();
 	if (ret)
 		return ret;
 
 	ret = init_mtd();
-
 	if (ret)
 		return ret;
 
 	ret = nvmem_init();
-
 	if (ret)
 		return ret;
 
 	ret = at24_init();
-
 	if (ret)
 		return ret;
 
-	ret = platform_driver_register(&stm32f4_i2c_driver);
+	ret = stm32h743_pinctrl_init();
+	if (ret)
+		return ret;
 
+	ret = platform_device_register(&stm32_pinctrl_device);
+	if (ret)
+		return ret;
+
+//	ret = stm32_usart_init();
+//	if (ret)
+//		return ret;
+
+	ret = platform_device_register(&stm32_usart_device);
+	if (ret)
+		return ret;
+
+	ret = stm32f4_i2c_driver_init();
 	if (ret)
 		return ret;
 
 	ret = platform_device_register(&stm32f4_i2c_device);
-
 	if (ret)
 		return ret;
 
 	ret = i2c_register_board_info(1, fire_i2c_board_info,
 								  ARRAY_SIZE(fire_i2c_board_info));
-
 	if (ret)
 		pr_warn("%s: i2c info registration failed: %d\n",
 				__func__, ret);
 
-	ret = spi_mem_driver_register(&spi_nor_driver);
+	stm32f4_i2c_priv = platform_get_drvdata(&stm32f4_i2c_device);
+    if (IS_ERR(stm32f4_i2c_priv))
+        return -ENODEV;
+	client_at24 = i2c_new_client_device(&stm32f4_i2c_priv->adap, &fire_i2c_board_info[0]);
+    if (IS_ERR(client_at24))
+        return -ENODEV;
+	client_mpu6050 = i2c_new_client_device(&stm32f4_i2c_priv->adap, &fire_i2c_board_info[1]);
+    if (IS_ERR(client_mpu6050))
+        return -ENODEV;
 
+	ret = inv_mpu_driver_init();
 	if (ret)
 		return ret;
 
-	ret = platform_driver_register(&stm32_qspi_driver);
+	ret = spi_mem_driver_register(&spi_nor_driver);
+	if (ret)
+		return ret;
 
+	ret = stm32_qspi_driver_init();
 	if (ret)
 		return ret;
 
 	ret = platform_device_register(&stm32_qspi_device);
-
 	if (ret)
 		return ret;
 
 	ret = spi_register_board_info(w25q256_spi_flash_info,
 								  ARRAY_SIZE(w25q256_spi_flash_info));
-
 	if (ret)
 		pr_warn("%s: spi info registration failed: %d\n",
 				__func__, ret);
 
-	return ret;
+	ret = dht11_driver_init();
+	if (ret)
+		return ret;
+
+	ret = gpio_keys_init();
+	if (ret)
+		return ret;
+
+	ret = gpio_beeper_platform_driver_init();
+	if (ret)
+		return ret;
+
+	ret = leds_init();
+	if (ret)
+		return ret;
+
+	return 0;
 }
 

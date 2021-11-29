@@ -6,6 +6,7 @@
 //
 // Author: Mark Brown <broonie@opensource.wolfsonmicro.com>
 
+#include <generated/deconfig.h>
 #include <linux/regmap.h>
 #include <linux/i2c.h>
 #include <linux/module.h>

@@ -63,6 +63,10 @@ static inline unsigned long get_random_long(void)
 	return get_random_u32();
 #endif
 }
+static inline u32 get_random_range(u32 max, u32 min)
+{
+	return min + (get_random_u32() % (max - min));
+}
 
 /*
  * On 64-bit architectures, protect against non-terminated C string overflows

@@ -1867,7 +1867,7 @@ void i2c_clients_command(struct i2c_adapter *adap, unsigned int cmd, void *arg)
 }
 EXPORT_SYMBOL(i2c_clients_command);
 
-static int __init i2c_init(void)
+int __init i2c_init(void)
 {
 	int retval;
 
@@ -1912,7 +1912,7 @@ bus_err:
 	return retval;
 }
 
-static void __exit i2c_exit(void)
+void __exit i2c_exit(void)
 {
 	if (IS_ENABLED(CONFIG_ACPI))
 		WARN_ON(acpi_reconfig_notifier_unregister(&i2c_acpi_notifier));
@@ -2135,7 +2135,7 @@ int i2c_transfer_buffer_flags(const struct i2c_client *client, char *buf,
 		.addr = client->addr,
 		.flags = flags | (client->flags & I2C_M_TEN),
 		.len = count,
-		.buf = buf,
+		.buf = (u8 *)buf,
 	};
 
 	ret = i2c_transfer(client->adapter, &msg, 1);

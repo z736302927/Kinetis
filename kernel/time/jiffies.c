@@ -60,6 +60,17 @@ static struct clocksource clocksource_jiffies = {
 	.mult		= TICK_NSEC << JIFFIES_SHIFT, /* details above */
 	.shift		= JIFFIES_SHIFT,
 	.max_cycles	= 10,
+	.max_idle_ns	= 0,
+	.maxadj		= 0,
+	.vdso_clock_mode	= 0,
+	.flags		= 0,
+	.enable		= NULL,
+	.disable	= NULL,
+	.suspend	= NULL,
+	.resume		= NULL,
+	.mark_unstable	= NULL,
+	.tick_stable	= NULL,
+	.owner		= NULL,
 };
 
 __cacheline_aligned_in_smp DEFINE_RAW_SPINLOCK(jiffies_lock);

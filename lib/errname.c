@@ -39,7 +39,6 @@ static const char *names_0[] = {
 	E(ECOMM),
 	E(ECONNABORTED),
 	E(ECONNRESET),
-	E(EDEADLOCK),
 	E(EDESTADDRREQ),
 	E(EDOM),
 	E(EDOTDOT),

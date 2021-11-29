@@ -3,11 +3,13 @@
  * Copyright (C) STMicroelectronics 2017
  * Author:  Alexandre Torgue <alexandre.torgue@st.com> for STMicroelectronics.
  */
+#include <generated/deconfig.h>
 #include <linux/init.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 
 #include "pinctrl-stm32.h"
+#include "kinetis-core.h"
 
 static const struct stm32_desc_pin stm32h743_pins[] = {
 	STM32_PIN(
@@ -1977,8 +1979,12 @@ static struct platform_driver stm32h743_pinctrl_driver = {
 	},
 };
 
-static int __init stm32h743_pinctrl_init(void)
+int __init stm32h743_pinctrl_init(void)
 {
+	struct kineits_system *kineits = lib_get_stm32_val();
+
+	kineits->dt.gpio.match_data = stm32h743_pctrl_match;
+
 	return platform_driver_register(&stm32h743_pinctrl_driver);
 }
 arch_initcall(stm32h743_pinctrl_init);

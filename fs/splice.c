@@ -283,51 +283,51 @@ const struct pipe_buf_operations page_cache_pipe_buf_ops = {
 //	kfree(spd->partial);
 //}
 
-///**
-// * generic_file_splice_read - splice data from file to a pipe
-// * @in:		file to splice from
-// * @ppos:	position in @in
-// * @pipe:	pipe to splice to
-// * @len:	number of bytes to splice
-// * @flags:	splice modifier flags
-// *
-// * Description:
-// *    Will read pages from given file and fill them into a pipe. Can be
-// *    used as long as it has more or less sane ->read_iter().
-// *
-// */
-//ssize_t generic_file_splice_read(struct file *in, loff_t *ppos,
-//				 struct pipe_inode_info *pipe, size_t len,
-//				 unsigned int flags)
-//{
-//	struct iov_iter to;
-//	struct kiocb kiocb;
-//	unsigned int i_head;
-//	int ret;
+/**
+ * generic_file_splice_read - splice data from file to a pipe
+ * @in:		file to splice from
+ * @ppos:	position in @in
+ * @pipe:	pipe to splice to
+ * @len:	number of bytes to splice
+ * @flags:	splice modifier flags
+ *
+ * Description:
+ *    Will read pages from given file and fill them into a pipe. Can be
+ *    used as long as it has more or less sane ->read_iter().
+ *
+ */
+ssize_t generic_file_splice_read(struct file *in, loff_t *ppos,
+				 struct pipe_inode_info *pipe, size_t len,
+				 unsigned int flags)
+{
+	struct iov_iter to;
+	struct kiocb kiocb;
+	unsigned int i_head;
+	int ret;
 
-//	iov_iter_pipe(&to, READ, pipe, len);
-//	i_head = to.head;
-//	init_sync_kiocb(&kiocb, in);
-//	kiocb.ki_pos = *ppos;
-//	ret = call_read_iter(in, &kiocb, &to);
-//	if (ret > 0) {
-//		*ppos = kiocb.ki_pos;
+	iov_iter_pipe(&to, READ, pipe, len);
+	i_head = to.head;
+	init_sync_kiocb(&kiocb, in);
+	kiocb.ki_pos = *ppos;
+	ret = call_read_iter(in, &kiocb, &to);
+	if (ret > 0) {
+		*ppos = kiocb.ki_pos;
 //		file_accessed(in);
-//	} else if (ret < 0) {
-//		to.head = i_head;
-//		to.iov_offset = 0;
-//		iov_iter_advance(&to, 0); /* to free what was emitted */
-//		/*
-//		 * callers of ->splice_read() expect -EAGAIN on
-//		 * "can't put anything in there", rather than -EFAULT.
-//		 */
-//		if (ret == -EFAULT)
-//			ret = -EAGAIN;
-//	}
+	} else if (ret < 0) {
+		to.head = i_head;
+		to.iov_offset = 0;
+		iov_iter_advance(&to, 0); /* to free what was emitted */
+		/*
+		 * callers of ->splice_read() expect -EAGAIN on
+		 * "can't put anything in there", rather than -EFAULT.
+		 */
+		if (ret == -EFAULT)
+			ret = -EAGAIN;
+	}
 
-//	return ret;
-//}
-//EXPORT_SYMBOL(generic_file_splice_read);
+	return ret;
+}
+EXPORT_SYMBOL(generic_file_splice_read);
 
 const struct pipe_buf_operations default_pipe_buf_ops = {
 	.release	= generic_pipe_buf_release,

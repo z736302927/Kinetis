@@ -168,11 +168,11 @@ static struct tty_ldisc *tty_ldisc_get(struct tty_struct *tty, int disc)
 
 	/*
 	 * Get the ldisc ops - we may need to request them to be loaded
-	 * dynamically and try again.
+	 * dynamically and try again.!capable(CAP_SYS_MODULE) && 
 	 */
 	ldops = get_ldops(disc);
 	if (IS_ERR(ldops)) {
-		if (!capable(CAP_SYS_MODULE) && !tty_ldisc_autoload)
+		if (!tty_ldisc_autoload)
 			return ERR_PTR(-EPERM);
 		request_module("tty-ldisc-%d", disc);
 		ldops = get_ldops(disc);
@@ -228,7 +228,7 @@ static int tty_ldiscs_seq_show(struct seq_file *m, void *v)
 	ldops = get_ldops(i);
 	if (IS_ERR(ldops))
 		return 0;
-	seq_printf(m, "%-10s %2d\n", ldops->name ? ldops->name : "???", i);
+	printk("%-10s %2d\n", ldops->name ? ldops->name : "???", i);
 	put_ldops(ldops);
 	return 0;
 }
@@ -850,38 +850,38 @@ void tty_ldisc_deinit(struct tty_struct *tty)
 	tty->ldisc = NULL;
 }
 
-static struct ctl_table tty_table[] = {
-	{
-		.procname	= "ldisc_autoload",
-		.data		= &tty_ldisc_autoload,
-		.maxlen		= sizeof(tty_ldisc_autoload),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
-		.extra1		= SYSCTL_ZERO,
-		.extra2		= SYSCTL_ONE,
-	},
-	{ }
-};
-
-static struct ctl_table tty_dir_table[] = {
-	{
-		.procname	= "tty",
-		.mode		= 0555,
-		.child		= tty_table,
-	},
-	{ }
-};
-
-static struct ctl_table tty_root_table[] = {
-	{
-		.procname	= "dev",
-		.mode		= 0555,
-		.child		= tty_dir_table,
-	},
-	{ }
-};
+//static struct ctl_table tty_table[] = {
+//	{
+//		.procname	= "ldisc_autoload",
+//		.data		= &tty_ldisc_autoload,
+//		.maxlen		= sizeof(tty_ldisc_autoload),
+//		.mode		= 0644,
+//		.proc_handler	= proc_dointvec,
+//		.extra1		= SYSCTL_ZERO,
+//		.extra2		= SYSCTL_ONE,
+//	},
+//	{ }
+//};
+//
+//static struct ctl_table tty_dir_table[] = {
+//	{
+//		.procname	= "tty",
+//		.mode		= 0555,
+//		.child		= tty_table,
+//	},
+//	{ }
+//};
+//
+//static struct ctl_table tty_root_table[] = {
+//	{
+//		.procname	= "dev",
+//		.mode		= 0555,
+//		.child		= tty_dir_table,
+//	},
+//	{ }
+//};
 
 void tty_sysctl_init(void)
 {
-	register_sysctl_table(tty_root_table);
+//	register_sysctl_table(tty_root_table);
 }

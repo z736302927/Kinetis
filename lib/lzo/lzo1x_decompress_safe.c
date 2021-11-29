@@ -12,6 +12,7 @@
  *  Richard Purdie <rpurdie@openedhand.com>
  */
 
+#include <generated/deconfig.h>
 #ifndef STATIC
 #include <linux/module.h>
 #include <linux/kernel.h>

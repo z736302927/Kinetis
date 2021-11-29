@@ -3,6 +3,7 @@
 * Copyright (C) 2012 Invensense, Inc.
 */
 
+#include <generated/deconfig.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/i2c.h>
@@ -143,7 +144,6 @@ static const struct inv_mpu6050_hw hw_info[] = {
 		.config = &chip_config_6050,
 		.fifo_size = 1024,
 		.temp = {INV_MPU6050_TEMP_OFFSET, INV_MPU6050_TEMP_SCALE},
-		.startup_time = {INV_MPU6050_GYRO_STARTUP_TIME, INV_MPU6050_ACCEL_STARTUP_TIME},
 	},
 	{
 		.whoami = INV_MPU6500_WHOAMI_VALUE,
@@ -152,7 +152,6 @@ static const struct inv_mpu6050_hw hw_info[] = {
 		.config = &chip_config_6500,
 		.fifo_size = 512,
 		.temp = {INV_MPU6500_TEMP_OFFSET, INV_MPU6500_TEMP_SCALE},
-		.startup_time = {INV_MPU6500_GYRO_STARTUP_TIME, INV_MPU6500_ACCEL_STARTUP_TIME},
 	},
 	{
 		.whoami = INV_MPU6515_WHOAMI_VALUE,
@@ -161,7 +160,6 @@ static const struct inv_mpu6050_hw hw_info[] = {
 		.config = &chip_config_6500,
 		.fifo_size = 512,
 		.temp = {INV_MPU6500_TEMP_OFFSET, INV_MPU6500_TEMP_SCALE},
-		.startup_time = {INV_MPU6500_GYRO_STARTUP_TIME, INV_MPU6500_ACCEL_STARTUP_TIME},
 	},
 	{
 		.whoami = INV_MPU6880_WHOAMI_VALUE,
@@ -170,7 +168,6 @@ static const struct inv_mpu6050_hw hw_info[] = {
 		.config = &chip_config_6500,
 		.fifo_size = 4096,
 		.temp = {INV_MPU6500_TEMP_OFFSET, INV_MPU6500_TEMP_SCALE},
-		.startup_time = {INV_MPU6500_GYRO_STARTUP_TIME, INV_MPU6500_ACCEL_STARTUP_TIME},
 	},
 	{
 		.whoami = INV_MPU6000_WHOAMI_VALUE,
@@ -179,7 +176,6 @@ static const struct inv_mpu6050_hw hw_info[] = {
 		.config = &chip_config_6050,
 		.fifo_size = 1024,
 		.temp = {INV_MPU6050_TEMP_OFFSET, INV_MPU6050_TEMP_SCALE},
-		.startup_time = {INV_MPU6050_GYRO_STARTUP_TIME, INV_MPU6050_ACCEL_STARTUP_TIME},
 	},
 	{
 		.whoami = INV_MPU9150_WHOAMI_VALUE,
@@ -188,7 +184,6 @@ static const struct inv_mpu6050_hw hw_info[] = {
 		.config = &chip_config_6050,
 		.fifo_size = 1024,
 		.temp = {INV_MPU6050_TEMP_OFFSET, INV_MPU6050_TEMP_SCALE},
-		.startup_time = {INV_MPU6050_GYRO_STARTUP_TIME, INV_MPU6050_ACCEL_STARTUP_TIME},
 	},
 	{
 		.whoami = INV_MPU9250_WHOAMI_VALUE,
@@ -197,7 +192,6 @@ static const struct inv_mpu6050_hw hw_info[] = {
 		.config = &chip_config_6500,
 		.fifo_size = 512,
 		.temp = {INV_MPU6500_TEMP_OFFSET, INV_MPU6500_TEMP_SCALE},
-		.startup_time = {INV_MPU6500_GYRO_STARTUP_TIME, INV_MPU6500_ACCEL_STARTUP_TIME},
 	},
 	{
 		.whoami = INV_MPU9255_WHOAMI_VALUE,
@@ -206,7 +200,6 @@ static const struct inv_mpu6050_hw hw_info[] = {
 		.config = &chip_config_6500,
 		.fifo_size = 512,
 		.temp = {INV_MPU6500_TEMP_OFFSET, INV_MPU6500_TEMP_SCALE},
-		.startup_time = {INV_MPU6500_GYRO_STARTUP_TIME, INV_MPU6500_ACCEL_STARTUP_TIME},
 	},
 	{
 		.whoami = INV_ICM20608_WHOAMI_VALUE,
@@ -215,7 +208,6 @@ static const struct inv_mpu6050_hw hw_info[] = {
 		.config = &chip_config_6500,
 		.fifo_size = 512,
 		.temp = {INV_ICM20608_TEMP_OFFSET, INV_ICM20608_TEMP_SCALE},
-		.startup_time = {INV_MPU6500_GYRO_STARTUP_TIME, INV_MPU6500_ACCEL_STARTUP_TIME},
 	},
 	{
 		.whoami = INV_ICM20609_WHOAMI_VALUE,
@@ -224,7 +216,6 @@ static const struct inv_mpu6050_hw hw_info[] = {
 		.config = &chip_config_6500,
 		.fifo_size = 4 * 1024,
 		.temp = {INV_ICM20608_TEMP_OFFSET, INV_ICM20608_TEMP_SCALE},
-		.startup_time = {INV_MPU6500_GYRO_STARTUP_TIME, INV_MPU6500_ACCEL_STARTUP_TIME},
 	},
 	{
 		.whoami = INV_ICM20689_WHOAMI_VALUE,
@@ -233,7 +224,6 @@ static const struct inv_mpu6050_hw hw_info[] = {
 		.config = &chip_config_6500,
 		.fifo_size = 4 * 1024,
 		.temp = {INV_ICM20608_TEMP_OFFSET, INV_ICM20608_TEMP_SCALE},
-		.startup_time = {INV_MPU6500_GYRO_STARTUP_TIME, INV_MPU6500_ACCEL_STARTUP_TIME},
 	},
 	{
 		.whoami = INV_ICM20602_WHOAMI_VALUE,
@@ -242,7 +232,6 @@ static const struct inv_mpu6050_hw hw_info[] = {
 		.config = &chip_config_6500,
 		.fifo_size = 1008,
 		.temp = {INV_ICM20608_TEMP_OFFSET, INV_ICM20608_TEMP_SCALE},
-		.startup_time = {INV_ICM20602_GYRO_STARTUP_TIME, INV_ICM20602_ACCEL_STARTUP_TIME},
 	},
 	{
 		.whoami = INV_ICM20690_WHOAMI_VALUE,
@@ -251,7 +240,6 @@ static const struct inv_mpu6050_hw hw_info[] = {
 		.config = &chip_config_6500,
 		.fifo_size = 1024,
 		.temp = {INV_ICM20608_TEMP_OFFSET, INV_ICM20608_TEMP_SCALE},
-		.startup_time = {INV_ICM20690_GYRO_STARTUP_TIME, INV_ICM20690_ACCEL_STARTUP_TIME},
 	},
 	{
 		.whoami = INV_IAM20680_WHOAMI_VALUE,
@@ -260,7 +248,6 @@ static const struct inv_mpu6050_hw hw_info[] = {
 		.config = &chip_config_6500,
 		.fifo_size = 512,
 		.temp = {INV_ICM20608_TEMP_OFFSET, INV_ICM20608_TEMP_SCALE},
-		.startup_time = {INV_MPU6500_GYRO_STARTUP_TIME, INV_MPU6500_ACCEL_STARTUP_TIME},
 	},
 };
 
@@ -393,12 +380,12 @@ int inv_mpu6050_switch_engine(struct inv_mpu6050_state *st, bool en,
 		sleep = 0;
 		if (en) {
 			if (mask & INV_MPU6050_SENSOR_ACCL) {
-				if (sleep < st->hw->startup_time.accel)
-					sleep = st->hw->startup_time.accel;
+				if (sleep < INV_MPU6050_ACCEL_UP_TIME)
+					sleep = INV_MPU6050_ACCEL_UP_TIME;
 			}
 			if (mask & INV_MPU6050_SENSOR_GYRO) {
-				if (sleep < st->hw->startup_time.gyro)
-					sleep = st->hw->startup_time.gyro;
+				if (sleep < INV_MPU6050_GYRO_UP_TIME)
+					sleep = INV_MPU6050_GYRO_UP_TIME;
 			}
 		} else {
 			if (mask & INV_MPU6050_SENSOR_GYRO) {
@@ -584,9 +571,11 @@ static int inv_mpu6050_read_channel_data(struct iio_dev *indio_dev,
 	freq_hz = INV_MPU6050_DIVIDER_TO_FIFO_RATE(st->chip_config.divider);
 	period_us = 1000000 / freq_hz;
 
-	result = pm_runtime_resume_and_get(pdev);
-	if (result)
+	result = pm_runtime_get_sync(pdev);
+	if (result < 0) {
+		pm_runtime_put_noidle(pdev);
 		return result;
+	}
 
 	switch (chan->type) {
 	case IIO_ANGL_VEL:
@@ -824,9 +813,11 @@ static int inv_mpu6050_write_raw(struct iio_dev *indio_dev,
 		return result;
 
 	mutex_lock(&st->lock);
-	result = pm_runtime_resume_and_get(pdev);
-	if (result)
+	result = pm_runtime_get_sync(pdev);
+	if (result < 0) {
+		pm_runtime_put_noidle(pdev);
 		goto error_write_raw_unlock;
+	}
 
 	switch (mask) {
 	case IIO_CHAN_INFO_SCALE:
@@ -940,9 +931,11 @@ inv_mpu6050_fifo_rate_store(struct device *dev, struct device_attribute *attr,
 		result = 0;
 		goto fifo_rate_fail_unlock;
 	}
-	result = pm_runtime_resume_and_get(pdev);
-	if (result)
+	result = pm_runtime_get_sync(pdev);
+	if (result < 0) {
+		pm_runtime_put_noidle(pdev);
 		goto fifo_rate_fail_unlock;
+	}
 
 	result = regmap_write(st->map, st->reg->sample_rate_div, d);
 	if (result)
@@ -1322,7 +1315,8 @@ static int inv_check_and_setup_chip(struct inv_mpu6050_state *st)
 		for (i = 0; i < INV_NUM_PARTS; ++i) {
 			if (regval == hw_info[i].whoami) {
 				dev_warn(regmap_get_device(st->map),
-					"whoami mismatch got 0x%02x (%s) expected 0x%02x (%s)\n",
+					"whoami mismatch got %#02x (%s)"
+					"expected %#02hhx (%s)\n",
 					regval, hw_info[i].name,
 					st->hw->whoami, st->hw->name);
 				break;
@@ -1330,7 +1324,7 @@ static int inv_check_and_setup_chip(struct inv_mpu6050_state *st)
 		}
 		if (i >= INV_NUM_PARTS) {
 			dev_err(regmap_get_device(st->map),
-				"invalid whoami 0x%02x expected 0x%02x (%s)\n",
+				"invalid whoami %#02x expected %#02hhx (%s)\n",
 				regval, st->hw->whoami, st->hw->name);
 			return -ENODEV;
 		}
@@ -1384,53 +1378,54 @@ error_power_off:
 	return result;
 }
 
-static int inv_mpu_core_enable_regulator_vddio(struct inv_mpu6050_state *st)
-{
-	int result;
-
-	result = regulator_enable(st->vddio_supply);
-	if (result) {
-		dev_err(regmap_get_device(st->map),
-			"Failed to enable vddio regulator: %d\n", result);
-	} else {
-		/* Give the device a little bit of time to start up. */
-		usleep_range(3000, 5000);
-	}
-
-	return result;
-}
-
-static int inv_mpu_core_disable_regulator_vddio(struct inv_mpu6050_state *st)
-{
-	int result;
-
-	result = regulator_disable(st->vddio_supply);
-	if (result)
-		dev_err(regmap_get_device(st->map),
-			"Failed to disable vddio regulator: %d\n", result);
-
-	return result;
-}
-
-static void inv_mpu_core_disable_regulator_action(void *_data)
-{
-	struct inv_mpu6050_state *st = _data;
-	int result;
-
-	result = regulator_disable(st->vdd_supply);
-	if (result)
-		dev_err(regmap_get_device(st->map),
-			"Failed to disable vdd regulator: %d\n", result);
-
-	inv_mpu_core_disable_regulator_vddio(st);
-}
-
-static void inv_mpu_pm_disable(void *data)
-{
-	struct device *dev = data;
-
-	pm_runtime_disable(dev);
-}
+//static int inv_mpu_core_enable_regulator_vddio(struct inv_mpu6050_state *st)
+//{
+//	int result;
+//
+//	result = regulator_enable(st->vddio_supply);
+//	if (result) {
+//		dev_err(regmap_get_device(st->map),
+//			"Failed to enable vddio regulator: %d\n", result);
+//	} else {
+//		/* Give the device a little bit of time to start up. */
+//		usleep_range(3000, 5000);
+//	}
+//
+//	return result;
+//}
+//
+//static int inv_mpu_core_disable_regulator_vddio(struct inv_mpu6050_state *st)
+//{
+//	int result;
+//
+//	result = regulator_disable(st->vddio_supply);
+//	if (result)
+//		dev_err(regmap_get_device(st->map),
+//			"Failed to disable vddio regulator: %d\n", result);
+//
+//	return result;
+//}
+//
+//static void inv_mpu_core_disable_regulator_action(void *_data)
+//{
+//	struct inv_mpu6050_state *st = _data;
+//	int result;
+//
+//	result = regulator_disable(st->vdd_supply);
+//	if (result)
+//		dev_err(regmap_get_device(st->map),
+//			"Failed to disable vdd regulator: %d\n", result);
+//
+//	inv_mpu_core_disable_regulator_vddio(st);
+//}
+//
+//static void inv_mpu_pm_disable(void *data)
+//{
+//	struct device *dev = data;
+//
+//	pm_runtime_put_sync_suspend(dev);
+//	pm_runtime_disable(dev);
+//}
 
 int inv_mpu_core_probe(struct regmap *regmap, int irq, const char *name,
 		int (*inv_mpu_bus_setup)(struct iio_dev *), int chip_type)
@@ -1461,7 +1456,8 @@ int inv_mpu_core_probe(struct regmap *regmap, int irq, const char *name,
 
 	pdata = dev_get_platdata(dev);
 	if (!pdata) {
-		result = iio_read_mount_matrix(dev, &st->orientation);
+		result = iio_read_mount_matrix(dev, "mount-matrix",
+					       &st->orientation);
 		if (result) {
 			dev_err(dev, "Failed to retrieve mounting matrix %d\n",
 				result);
@@ -1502,36 +1498,36 @@ int inv_mpu_core_probe(struct regmap *regmap, int irq, const char *name,
 		return -EINVAL;
 	}
 
-	st->vdd_supply = devm_regulator_get(dev, "vdd");
-	if (IS_ERR(st->vdd_supply))
-		return dev_err_probe(dev, PTR_ERR(st->vdd_supply),
-				     "Failed to get vdd regulator\n");
-
-	st->vddio_supply = devm_regulator_get(dev, "vddio");
-	if (IS_ERR(st->vddio_supply))
-		return dev_err_probe(dev, PTR_ERR(st->vddio_supply),
-				     "Failed to get vddio regulator\n");
-
-	result = regulator_enable(st->vdd_supply);
-	if (result) {
-		dev_err(dev, "Failed to enable vdd regulator: %d\n", result);
-		return result;
-	}
+//	st->vdd_supply = devm_regulator_get(dev, "vdd");
+//	if (IS_ERR(st->vdd_supply))
+//		return dev_err_probe(dev, PTR_ERR(st->vdd_supply),
+//				     "Failed to get vdd regulator\n");
+//
+//	st->vddio_supply = devm_regulator_get(dev, "vddio");
+//	if (IS_ERR(st->vddio_supply))
+//		return dev_err_probe(dev, PTR_ERR(st->vddio_supply),
+//				     "Failed to get vddio regulator\n");
+//
+//	result = regulator_enable(st->vdd_supply);
+//	if (result) {
+//		dev_err(dev, "Failed to enable vdd regulator: %d\n", result);
+//		return result;
+//	}
 	msleep(INV_MPU6050_POWER_UP_TIME);
 
-	result = inv_mpu_core_enable_regulator_vddio(st);
-	if (result) {
-		regulator_disable(st->vdd_supply);
-		return result;
-	}
-
-	result = devm_add_action_or_reset(dev, inv_mpu_core_disable_regulator_action,
-				 st);
-	if (result) {
-		dev_err(dev, "Failed to setup regulator cleanup action %d\n",
-			result);
-		return result;
-	}
+//	result = inv_mpu_core_enable_regulator_vddio(st);
+//	if (result) {
+//		regulator_disable(st->vdd_supply);
+//		return result;
+//	}
+//
+//	result = devm_add_action_or_reset(dev, inv_mpu_core_disable_regulator_action,
+//				 st);
+//	if (result) {
+//		dev_err(dev, "Failed to setup regulator cleanup action %d\n",
+//			result);
+//		return result;
+//	}
 
 	/* fill magnetometer orientation */
 	result = inv_mpu_magn_set_orient(st);
@@ -1564,17 +1560,17 @@ int inv_mpu_core_probe(struct regmap *regmap, int irq, const char *name,
 	}
 
 	/* chip init is done, turning on runtime power management */
-	result = pm_runtime_set_active(dev);
-	if (result)
-		goto error_power_off;
-	pm_runtime_get_noresume(dev);
-	pm_runtime_enable(dev);
-	pm_runtime_set_autosuspend_delay(dev, INV_MPU6050_SUSPEND_DELAY_MS);
-	pm_runtime_use_autosuspend(dev);
-	pm_runtime_put(dev);
-	result = devm_add_action_or_reset(dev, inv_mpu_pm_disable, dev);
-	if (result)
-		return result;
+//	result = pm_runtime_set_active(dev);
+//	if (result)
+//		goto error_power_off;
+//	pm_runtime_get_noresume(dev);
+//	pm_runtime_enable(dev);
+//	pm_runtime_set_autosuspend_delay(dev, INV_MPU6050_SUSPEND_DELAY_MS);
+//	pm_runtime_use_autosuspend(dev);
+//	pm_runtime_put(dev);
+//	result = devm_add_action_or_reset(dev, inv_mpu_pm_disable, dev);
+//	if (result)
+//		return result;
 
 	switch (chip_type) {
 	case INV_MPU9150:
@@ -1612,18 +1608,18 @@ int inv_mpu_core_probe(struct regmap *regmap, int irq, const char *name,
 	indio_dev->info = &mpu_info;
 
 	if (irq > 0) {
-		/*
-		 * The driver currently only supports buffered capture with its
-		 * own trigger. So no IRQ, no trigger, no buffer
-		 */
-		result = devm_iio_triggered_buffer_setup(dev, indio_dev,
-							 iio_pollfunc_store_time,
-							 inv_mpu6050_read_fifo,
-							 NULL);
-		if (result) {
-			dev_err(dev, "configure buffer fail %d\n", result);
-			return result;
-		}
+//		/*
+//		 * The driver currently only supports buffered capture with its
+//		 * own trigger. So no IRQ, no trigger, no buffer
+//		 */
+//		result = devm_iio_triggered_buffer_setup(dev, indio_dev,
+//							 iio_pollfunc_store_time,
+//							 inv_mpu6050_read_fifo,
+//							 NULL);
+//		if (result) {
+//			dev_err(dev, "configure buffer fail %d\n", result);
+//			return result;
+//		}
 
 		result = inv_mpu6050_probe_trigger(indio_dev, irq_type);
 		if (result) {
@@ -1653,9 +1649,9 @@ static int __maybe_unused inv_mpu_resume(struct device *dev)
 	int result;
 
 	mutex_lock(&st->lock);
-	result = inv_mpu_core_enable_regulator_vddio(st);
-	if (result)
-		goto out_unlock;
+//	result = inv_mpu_core_enable_regulator_vddio(st);
+//	if (result)
+//		goto out_unlock;
 
 	result = inv_mpu6050_set_power_itg(st, true);
 	if (result)
@@ -1687,10 +1683,10 @@ static int __maybe_unused inv_mpu_suspend(struct device *dev)
 	mutex_lock(&st->lock);
 
 	st->suspended_sensors = 0;
-	if (pm_runtime_suspended(dev)) {
-		result = 0;
-		goto out_unlock;
-	}
+//	if (pm_runtime_suspended(dev)) {
+//		result = 0;
+//		goto out_unlock;
+//	}
 
 	if (iio_buffer_enabled(indio_dev)) {
 		result = inv_mpu6050_prepare_fifo(st, false);
@@ -1714,7 +1710,7 @@ static int __maybe_unused inv_mpu_suspend(struct device *dev)
 	if (result)
 		goto out_unlock;
 
-	inv_mpu_core_disable_regulator_vddio(st);
+//	inv_mpu_core_disable_regulator_vddio(st);
 out_unlock:
 	mutex_unlock(&st->lock);
 
@@ -1739,7 +1735,7 @@ static int __maybe_unused inv_mpu_runtime_suspend(struct device *dev)
 	if (ret)
 		goto out_unlock;
 
-	inv_mpu_core_disable_regulator_vddio(st);
+//	inv_mpu_core_disable_regulator_vddio(st);
 
 out_unlock:
 	mutex_unlock(&st->lock);
@@ -1749,11 +1745,11 @@ out_unlock:
 static int __maybe_unused inv_mpu_runtime_resume(struct device *dev)
 {
 	struct inv_mpu6050_state *st = iio_priv(dev_get_drvdata(dev));
-	int ret;
-
-	ret = inv_mpu_core_enable_regulator_vddio(st);
-	if (ret)
-		return ret;
+//	int ret;
+//
+//	ret = inv_mpu_core_enable_regulator_vddio(st);
+//	if (ret)
+//		return ret;
 
 	return inv_mpu6050_set_power_itg(st, true);
 }

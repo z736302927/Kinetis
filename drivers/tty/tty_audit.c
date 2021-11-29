@@ -7,6 +7,7 @@
  * Authors: Miloslav Trmac <mitr@redhat.com>
  */
 
+#include <generated/deconfig.h>
 #include <linux/audit.h>
 #include <linux/slab.h>
 #include <linux/tty.h>

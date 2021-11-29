@@ -126,7 +126,6 @@ TRACE_EVENT(regcache_sync,
 		__string(       name,           regmap_name(map)	)
 		__string(	status,		status			)
 		__string(	type,		type			)
-		__field(	int,		type			)
 	),
 
 	TP_fast_assign(
@@ -248,11 +247,11 @@ TRACE_EVENT(regcache_drop_region,
 
 #endif /* _TRACE_REGMAP_H */
 
-#undef TRACE_INCLUDE_PATH
-#define TRACE_INCLUDE_PATH .
+//#undef TRACE_INCLUDE_PATH
+//#define TRACE_INCLUDE_PATH .
 
-#undef TRACE_INCLUDE_FILE
-#define TRACE_INCLUDE_FILE trace
+//#undef TRACE_INCLUDE_FILE
+//#define TRACE_INCLUDE_FILE trace
 
-/* This part must be outside protection */
-#include <trace/define_trace.h>
+///* This part must be outside protection */
+//#include <trace/define_trace.h>

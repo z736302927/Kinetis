@@ -92,8 +92,6 @@ struct vc_state {
  * in the figure.
  */
 struct vc_data {
-	struct tty_port port;			/* Upper level data */
-
 	struct vc_state state, saved_state;
 
 	unsigned short	vc_num;			/* Console number */
@@ -161,6 +159,7 @@ struct vc_data {
 	struct uni_pagedir **vc_uni_pagedir_loc; /* [!] Location of uni_pagedir variable for this console */
 	struct uni_screen *vc_uni_screen;	/* unicode screen content */
 	/* additional information is in vt_kern.h */
+	struct tty_port port;			/* Upper level data */
 };
 
 struct vc {

@@ -256,12 +256,12 @@ void driver_init(void);
  * drivers, and do not use it on its own.
  */
 #define module_driver(__driver, __register, __unregister, ...) \
-static int __init __driver##_init(void) \
+int __init __driver##_init(void) \
 { \
 	return __register(&(__driver) , ##__VA_ARGS__); \
 } \
 module_init(__driver##_init); \
-static void __exit __driver##_exit(void) \
+void __exit __driver##_exit(void) \
 { \
 	__unregister(&(__driver) , ##__VA_ARGS__); \
 } \

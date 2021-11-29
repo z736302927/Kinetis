@@ -52,7 +52,7 @@
 #include <linux/mtd/mtd.h>
 
 #include "../ff_gen_drv.h"
-#include "stm32-core.h"
+#include "kinetis-core.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -161,12 +161,12 @@ DSTATUS flash_disk_status(BYTE lun)
   */
 DRESULT flash_disk_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
 {
-	struct stm32_val *stm32_val = lib_get_stm32_val();
+	struct kineits_system *kineits = lib_get_stm32_val();
 	size_t retlen;
 
 	switch (lun) {
 	case 0:
-		mtd_write(&stm32_val->nor->mtd,
+		mtd_write(&kineits->nor->mtd,
 			sector << STORAGE_SEC_SIZ_POWER,
 			count << STORAGE_SEC_SIZ_POWER,
 			&retlen,
@@ -174,7 +174,7 @@ DRESULT flash_disk_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
 		break;
 
 	case 1:
-		mtd_write(&stm32_val->nor->mtd,
+		mtd_write(&kineits->nor->mtd,
 			sector << STORAGE_SEC_SIZ_POWER,
 			count << STORAGE_SEC_SIZ_POWER,
 			&retlen,
@@ -199,12 +199,12 @@ DRESULT flash_disk_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
 #if _USE_WRITE == 1
 DRESULT flash_disk_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
 {
-	struct stm32_val *stm32_val = lib_get_stm32_val();
+	struct kineits_system *kineits = lib_get_stm32_val();
 	size_t retlen;
 
 	switch (lun) {
 	case 0:
-		mtd_write(&stm32_val->nor->mtd,
+		mtd_write(&kineits->nor->mtd,
 			sector << STORAGE_SEC_SIZ_POWER,
 			count << STORAGE_SEC_SIZ_POWER,
 			&retlen,
@@ -212,7 +212,7 @@ DRESULT flash_disk_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
 		break;
 
 	case 1:
-		mtd_write(&stm32_val->nor->mtd,
+		mtd_write(&kineits->nor->mtd,
 			sector << STORAGE_SEC_SIZ_POWER,
 			count << STORAGE_SEC_SIZ_POWER,
 			&retlen,

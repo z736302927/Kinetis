@@ -5,6 +5,7 @@
  * Copyright (c) 2016 Intel Corporation
  */
 
+#include <generated/deconfig.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/kmod.h>

@@ -5,6 +5,7 @@
  * Copyright (C) 2014 Paratronic S.A.
  */
 
+#include <generated/deconfig.h>
 #include <linux/err.h>
 #include <linux/device.h>
 #include <linux/irq.h>
@@ -215,20 +216,20 @@ struct mctrl_gpios *mctrl_gpio_init(struct uart_port *port, unsigned int idx)
 		}
 		gpios->irq[i] = ret;
 
-		/* irqs should only be enabled in .enable_ms */
-		irq_set_status_flags(gpios->irq[i], IRQ_NOAUTOEN);
-
-		ret = devm_request_irq(port->dev, gpios->irq[i],
-				       mctrl_gpio_irq_handle,
-				       IRQ_TYPE_EDGE_BOTH, dev_name(port->dev),
-				       gpios);
-		if (ret) {
-			/* alternatively implement polling */
-			dev_err(port->dev,
-				"failed to request irq for %s (idx=%d, err=%d)\n",
-				mctrl_gpios_desc[i].name, idx, ret);
-			return ERR_PTR(ret);
-		}
+//		/* irqs should only be enabled in .enable_ms */
+//		irq_set_status_flags(gpios->irq[i], IRQ_NOAUTOEN);
+//
+//		ret = devm_request_irq(port->dev, gpios->irq[i],
+//				       mctrl_gpio_irq_handle,
+//				       IRQ_TYPE_EDGE_BOTH, dev_name(port->dev),
+//				       gpios);
+//		if (ret) {
+//			/* alternatively implement polling */
+//			dev_err(port->dev,
+//				"failed to request irq for %s (idx=%d, err=%d)\n",
+//				mctrl_gpios_desc[i].name, idx, ret);
+//			return ERR_PTR(ret);
+//		}
 	}
 
 	return gpios;
@@ -243,8 +244,8 @@ void mctrl_gpio_free(struct device *dev, struct mctrl_gpios *gpios)
 		return;
 
 	for (i = 0; i < UART_GPIO_MAX; i++) {
-		if (gpios->irq[i])
-			devm_free_irq(gpios->port->dev, gpios->irq[i], gpios);
+//		if (gpios->irq[i])
+//			devm_free_irq(gpios->port->dev, gpios->irq[i], gpios);
 
 		if (gpios->gpio[i])
 			devm_gpiod_put(dev, gpios->gpio[i]);
@@ -269,12 +270,12 @@ void mctrl_gpio_enable_ms(struct mctrl_gpios *gpios)
 	/* get initial status of modem lines GPIOs */
 	mctrl_gpio_get(gpios, &gpios->mctrl_prev);
 
-	for (i = 0; i < UART_GPIO_MAX; ++i) {
-		if (!gpios->irq[i])
-			continue;
-
-		enable_irq(gpios->irq[i]);
-	}
+//	for (i = 0; i < UART_GPIO_MAX; ++i) {
+//		if (!gpios->irq[i])
+//			continue;
+//
+//		enable_irq(gpios->irq[i]);
+//	}
 }
 EXPORT_SYMBOL_GPL(mctrl_gpio_enable_ms);
 
@@ -290,12 +291,12 @@ void mctrl_gpio_disable_ms(struct mctrl_gpios *gpios)
 
 	gpios->mctrl_on = false;
 
-	for (i = 0; i < UART_GPIO_MAX; ++i) {
-		if (!gpios->irq[i])
-			continue;
-
-		disable_irq(gpios->irq[i]);
-	}
+//	for (i = 0; i < UART_GPIO_MAX; ++i) {
+//		if (!gpios->irq[i])
+//			continue;
+//
+//		disable_irq(gpios->irq[i]);
+//	}
 }
 EXPORT_SYMBOL_GPL(mctrl_gpio_disable_ms);
 

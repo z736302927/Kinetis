@@ -5,6 +5,7 @@
  * Copyright (c) Harald Geyer <harald@ccbib.org>
  */
 
+#include <generated/deconfig.h>
 #include <linux/err.h>
 #include <linux/interrupt.h>
 #include <linux/device.h>
@@ -224,16 +225,16 @@ static int dht11_read_raw(struct iio_dev *iio_dev,
 		if (ret)
 			goto err;
 
-		ret = request_irq(dht11->irq, dht11_handle_irq,
-				  IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-				  iio_dev->name, iio_dev);
-		if (ret)
-			goto err;
+//		ret = request_irq(dht11->irq, dht11_handle_irq,
+//				  IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+//				  iio_dev->name, iio_dev);
+//		if (ret)
+//			goto err;
 
 		ret = wait_for_completion_killable_timeout(&dht11->completion,
 							   HZ);
 
-		free_irq(dht11->irq, iio_dev);
+//		free_irq(dht11->irq, iio_dev);
 
 #ifdef CONFIG_DYNAMIC_DEBUG
 		dht11_edges_print(dht11);

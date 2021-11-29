@@ -472,11 +472,11 @@ static void tty_show_fdinfo(struct seq_file *m, struct file *file)
 }
 
 static const struct file_operations tty_fops = {
-	.llseek		= no_llseek,
+//	.llseek		= no_llseek,
 	.read_iter	= tty_read,
 	.write_iter	= tty_write,
 	.splice_read	= generic_file_splice_read,
-	.splice_write	= iter_file_splice_write,
+//	.splice_write	= iter_file_splice_write,
 	.poll		= tty_poll,
 	.unlocked_ioctl	= tty_ioctl,
 	.compat_ioctl	= tty_compat_ioctl,
@@ -487,11 +487,11 @@ static const struct file_operations tty_fops = {
 };
 
 static const struct file_operations console_fops = {
-	.llseek		= no_llseek,
+//	.llseek		= no_llseek,
 	.read_iter	= tty_read,
 	.write_iter	= redirected_tty_write,
 	.splice_read	= generic_file_splice_read,
-	.splice_write	= iter_file_splice_write,
+//	.splice_write	= iter_file_splice_write,
 	.poll		= tty_poll,
 	.unlocked_ioctl	= tty_ioctl,
 	.compat_ioctl	= tty_compat_ioctl,
@@ -501,7 +501,7 @@ static const struct file_operations console_fops = {
 };
 
 static const struct file_operations hung_up_tty_fops = {
-	.llseek		= no_llseek,
+//	.llseek		= no_llseek,
 	.read_iter	= hung_up_tty_read,
 	.write_iter	= hung_up_tty_write,
 	.poll		= hung_up_tty_poll,
@@ -617,18 +617,18 @@ static void __tty_hangup(struct tty_struct *tty, int exit_session)
 	}
 	spin_unlock(&tty->files_lock);
 
-	refs = tty_signal_session_leader(tty, exit_session);
-	/* Account for the p->signal references we killed */
-	while (refs--)
-		tty_kref_put(tty);
+//	refs = tty_signal_session_leader(tty, exit_session);
+//	/* Account for the p->signal references we killed */
+//	while (refs--)
+//		tty_kref_put(tty);
 
 	tty_ldisc_hangup(tty, cons_filp != NULL);
 
 	spin_lock_irq(&tty->ctrl_lock);
 	clear_bit(TTY_THROTTLED, &tty->flags);
 	clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
-	put_pid(tty->session);
-	put_pid(tty->pgrp);
+//	put_pid(tty->session);
+//	put_pid(tty->pgrp);
 	tty->session = NULL;
 	tty->pgrp = NULL;
 	tty->ctrl_status = 0;
@@ -655,8 +655,8 @@ static void __tty_hangup(struct tty_struct *tty, int exit_session)
 	clear_bit(TTY_HUPPING, &tty->flags);
 	tty_unlock(tty);
 
-	if (f)
-		fput(f);
+//	if (f)
+//		fput(f);
 }
 
 static void do_tty_hangup(struct work_struct *work)
@@ -849,7 +849,7 @@ static int iterate_tty_read(struct tty_ldisc *ld, struct tty_struct *tty,
 	int retval = 0;
 	void *cookie = NULL;
 	unsigned long offset = 0;
-	char kernel_buf[64];
+	unsigned char kernel_buf[64];
 	size_t count = iov_iter_count(to);
 
 	do {
@@ -1073,7 +1073,7 @@ void tty_write_message(struct tty_struct *tty, char *msg)
 		mutex_lock(&tty->atomic_write_lock);
 		tty_lock(tty);
 		if (tty->ops->write && tty->count > 0)
-			tty->ops->write(tty, msg, strlen(msg));
+			tty->ops->write(tty, (u8 *)msg, strlen(msg));
 		tty_unlock(tty);
 		tty_write_unlock(tty);
 	}
@@ -1142,7 +1142,7 @@ ssize_t redirected_tty_write(struct kiocb *iocb, struct iov_iter *iter)
 	if (p) {
 		ssize_t res;
 		res = file_tty_write(p, iocb, iter);
-		fput(p);
+//		fput(p);
 		return res;
 	}
 	return tty_write(iocb, iter);
@@ -1173,7 +1173,7 @@ int tty_send_xchar(struct tty_struct *tty, char ch)
 	down_read(&tty->termios_rwsem);
 	if (was_stopped)
 		start_tty(tty);
-	tty->ops->write(tty, &ch, 1);
+	tty->ops->write(tty, (u8 *)&ch, 1);
 	if (was_stopped)
 		stop_tty(tty);
 	up_read(&tty->termios_rwsem);
@@ -1350,7 +1350,8 @@ static int tty_reopen(struct tty_struct *tty)
 	if (!tty->count)
 		return -EAGAIN;
 
-	if (test_bit(TTY_EXCLUSIVE, &tty->flags) && !capable(CAP_SYS_ADMIN))
+	if (test_bit(TTY_EXCLUSIVE, &tty->flags))
+//	if (test_bit(TTY_EXCLUSIVE, &tty->flags) && !capable(CAP_SYS_ADMIN))
 		return -EBUSY;
 
 	ld = tty_ldisc_ref_wait(tty);
@@ -1545,8 +1546,8 @@ static void release_one_tty(struct work_struct *work)
 	list_del_init(&tty->tty_files);
 	spin_unlock(&tty->files_lock);
 
-	put_pid(tty->pgrp);
-	put_pid(tty->session);
+//	put_pid(tty->pgrp);
+//	put_pid(tty->session);
 	free_tty_struct(tty);
 }
 
@@ -1600,10 +1601,10 @@ static void release_tty(struct tty_struct *tty, int idx)
 		tty->port->itty = NULL;
 	if (tty->link)
 		tty->link->port->itty = NULL;
-	if (tty->port)
-		tty_buffer_cancel_work(tty->port);
-	if (tty->link)
-		tty_buffer_cancel_work(tty->link->port);
+//	if (tty->port)
+//		tty_buffer_cancel_work(tty->port);
+//	if (tty->link)
+//		tty_buffer_cancel_work(tty->link->port);
 
 	tty_kref_put(tty->link);
 	tty_kref_put(tty);
@@ -1843,13 +1844,13 @@ int tty_release(struct inode *inode, struct file *filp)
 	 * processes that still think tty or o_tty is their controlling
 	 * tty.
 	 */
-	if (!tty->count) {
-		read_lock(&tasklist_lock);
-		session_clear_tty(tty->session);
-		if (o_tty)
-			session_clear_tty(o_tty->session);
-		read_unlock(&tasklist_lock);
-	}
+//	if (!tty->count) {
+//		read_lock(&tasklist_lock);
+//		session_clear_tty(tty->session);
+//		if (o_tty)
+//			session_clear_tty(o_tty->session);
+//		read_unlock(&tasklist_lock);
+//	}
 
 	/* check whether both sides are closing ... */
 	final = !tty->count && !(o_tty && o_tty->count);
@@ -2102,7 +2103,7 @@ static int tty_open(struct inode *inode, struct file *filp)
 	dev_t device = inode->i_rdev;
 	unsigned saved_flags = filp->f_flags;
 
-	nonseekable_open(inode, filp);
+//	nonseekable_open(inode, filp);
 
 retry_open:
 	retval = tty_alloc_file(filp);
@@ -2159,8 +2160,8 @@ retry_open:
 		 device == MKDEV(TTYAUX_MAJOR, 1) ||
 		 (tty->driver->type == TTY_DRIVER_TYPE_PTY &&
 		  tty->driver->subtype == PTY_TYPE_MASTER);
-	if (!noctty)
-		tty_open_proc_set_tty(filp, tty);
+//	if (!noctty)
+//		tty_open_proc_set_tty(filp, tty);
 	tty_unlock(tty);
 	return 0;
 }
@@ -2267,7 +2268,8 @@ static int tiocsti(struct tty_struct *tty, char __user *p)
 	char ch, mbz = 0;
 	struct tty_ldisc *ld;
 
-	if ((current->signal->tty != tty) && !capable(CAP_SYS_ADMIN))
+//	if ((current->signal->tty != tty) && !capable(CAP_SYS_ADMIN))
+	if ((current->signal->tty != tty))
 		return -EPERM;
 	if (get_user(ch, p))
 		return -EFAULT;
@@ -2276,7 +2278,7 @@ static int tiocsti(struct tty_struct *tty, char __user *p)
 	if (!ld)
 		return -EIO;
 	if (ld->ops->receive_buf)
-		ld->ops->receive_buf(tty, &ch, &mbz, 1);
+		ld->ops->receive_buf(tty, (u8 *)&ch, &mbz, 1);
 	tty_ldisc_deref(ld);
 	return 0;
 }
@@ -2322,10 +2324,10 @@ int tty_do_resize(struct tty_struct *tty, struct winsize *ws)
 		goto done;
 
 	/* Signal the foreground process group */
-	pgrp = tty_get_pgrp(tty);
-	if (pgrp)
-		kill_pgrp(pgrp, SIGWINCH, 1);
-	put_pid(pgrp);
+//	pgrp = tty_get_pgrp(tty);
+//	if (pgrp)
+//		kill_pgrp(pgrp, SIGWINCH, 1);
+//	put_pid(pgrp);
 
 	tty->winsize = *ws;
 done:
@@ -2372,16 +2374,16 @@ static int tiocswinsz(struct tty_struct *tty, struct winsize __user *arg)
 
 static int tioccons(struct file *file)
 {
-	if (!capable(CAP_SYS_ADMIN))
-		return -EPERM;
+//	if (!capable(CAP_SYS_ADMIN))
+//		return -EPERM;
 	if (file->f_op->write_iter == redirected_tty_write) {
 		struct file *f;
 		spin_lock(&redirect_lock);
 		f = redirect;
 		redirect = NULL;
 		spin_unlock(&redirect_lock);
-		if (f)
-			fput(f);
+//		if (f)
+//			fput(f);
 		return 0;
 	}
 	if (file->f_op->write_iter != tty_write)
@@ -2640,9 +2642,9 @@ long tty_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case TIOCCBRK:
 	case TCSBRK:
 	case TCSBRKP:
-		retval = tty_check_change(tty);
-		if (retval)
-			return retval;
+//		retval = tty_check_change(tty);
+//		if (retval)
+//			return retval;
 		if (cmd != TIOCCBRK) {
 			tty_wait_until_sent(tty, 0);
 			if (signal_pending(current))
@@ -2679,8 +2681,8 @@ long tty_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case TIOCSETD:
 		return tiocsetd(tty, p);
 	case TIOCVHANGUP:
-		if (!capable(CAP_SYS_ADMIN))
-			return -EPERM;
+//		if (!capable(CAP_SYS_ADMIN))
+//			return -EPERM;
 		tty_vhangup(tty);
 		return 0;
 	case TIOCGDEV:
@@ -3002,7 +3004,7 @@ void __do_SAK(struct tty_struct *tty)
 	do_each_pid_task(session, PIDTYPE_SID, p) {
 		tty_notice(tty, "SAK: killed process %d (%s): by session\n",
 			   task_pid_nr(p), p->comm);
-		group_send_sig_info(SIGKILL, SEND_SIG_PRIV, p, PIDTYPE_SID);
+//		group_send_sig_info(SIGKILL, SEND_SIG_PRIV, p, PIDTYPE_SID);
 	} while_each_pid_task(session, PIDTYPE_SID, p);
 
 	/* Now kill any processes that happen to have the tty open */
@@ -3010,20 +3012,20 @@ void __do_SAK(struct tty_struct *tty)
 		if (p->signal->tty == tty) {
 			tty_notice(tty, "SAK: killed process %d (%s): by controlling tty\n",
 				   task_pid_nr(p), p->comm);
-			group_send_sig_info(SIGKILL, SEND_SIG_PRIV, p, PIDTYPE_SID);
+//			group_send_sig_info(SIGKILL, SEND_SIG_PRIV, p, PIDTYPE_SID);
 			continue;
 		}
-		task_lock(p);
-		i = iterate_fd(p->files, 0, this_tty, tty);
-		if (i != 0) {
-			tty_notice(tty, "SAK: killed process %d (%s): by fd#%d\n",
-				   task_pid_nr(p), p->comm, i - 1);
-			group_send_sig_info(SIGKILL, SEND_SIG_PRIV, p, PIDTYPE_SID);
-		}
-		task_unlock(p);
+//		task_lock(p);
+//		i = iterate_fd(p->files, 0, this_tty, tty);
+//		if (i != 0) {
+//			tty_notice(tty, "SAK: killed process %d (%s): by fd#%d\n",
+//				   task_pid_nr(p), p->comm, i - 1);
+////			group_send_sig_info(SIGKILL, SEND_SIG_PRIV, p, PIDTYPE_SID);
+//		}
+//		task_unlock(p);
 	} while_each_thread(g, p);
 	read_unlock(&tasklist_lock);
-	put_pid(session);
+//	put_pid(session);
 #endif
 }
 
@@ -3127,22 +3129,22 @@ EXPORT_SYMBOL_GPL(tty_put_char);
 
 struct class *tty_class;
 
-static int tty_cdev_add(struct tty_driver *driver, dev_t dev,
-		unsigned int index, unsigned int count)
-{
-	int err;
+//static int tty_cdev_add(struct tty_driver *driver, dev_t dev,
+//		unsigned int index, unsigned int count)
+//{
+//	int err;
 
-	/* init here, since reused cdevs cause crashes */
-	driver->cdevs[index] = cdev_alloc();
-	if (!driver->cdevs[index])
-		return -ENOMEM;
-	driver->cdevs[index]->ops = &tty_fops;
-	driver->cdevs[index]->owner = driver->owner;
-	err = cdev_add(driver->cdevs[index], dev, count);
-	if (err)
-		kobject_put(&driver->cdevs[index]->kobj);
-	return err;
-}
+//	/* init here, since reused cdevs cause crashes */
+//	driver->cdevs[index] = cdev_alloc();
+//	if (!driver->cdevs[index])
+//		return -ENOMEM;
+//	driver->cdevs[index]->ops = &tty_fops;
+//	driver->cdevs[index]->owner = driver->owner;
+//	err = cdev_add(driver->cdevs[index], dev, count);
+//	if (err)
+//		kobject_put(&driver->cdevs[index]->kobj);
+//	return err;
+//}
 
 /**
  *	tty_register_device - register a tty device
@@ -3230,7 +3232,7 @@ struct device *tty_register_device_attr(struct tty_driver *driver,
 	dev->groups = attr_grp;
 	dev_set_drvdata(dev, drvdata);
 
-	dev_set_uevent_suppress(dev, 1);
+//	dev_set_uevent_suppress(dev, 1);
 
 	retval = device_register(dev);
 	if (retval)
@@ -3247,13 +3249,13 @@ struct device *tty_register_device_attr(struct tty_driver *driver,
 			kfree(tp);
 		}
 
-		retval = tty_cdev_add(driver, devt, index, 1);
-		if (retval)
-			goto err_del;
+//		retval = tty_cdev_add(driver, devt, index, 1);
+//		if (retval)
+//			goto err_del;
 	}
 
-	dev_set_uevent_suppress(dev, 0);
-	kobject_uevent(&dev->kobj, KOBJ_ADD);
+//	dev_set_uevent_suppress(dev, 0);
+//	kobject_uevent(&dev->kobj, KOBJ_ADD);
 
 	return dev;
 
@@ -3282,7 +3284,7 @@ void tty_unregister_device(struct tty_driver *driver, unsigned index)
 	device_destroy(tty_class,
 		MKDEV(driver->major, driver->minor_start) + index);
 	if (!(driver->flags & TTY_DRIVER_DYNAMIC_ALLOC)) {
-		cdev_del(driver->cdevs[index]);
+//		cdev_del(driver->cdevs[index]);
 		driver->cdevs[index] = NULL;
 	}
 }
@@ -3372,8 +3374,8 @@ static void destruct_tty_driver(struct kref *kref)
 				tty_unregister_device(driver, i);
 		}
 		proc_tty_unregister_driver(driver);
-		if (driver->flags & TTY_DRIVER_DYNAMIC_ALLOC)
-			cdev_del(driver->cdevs[0]);
+//		if (driver->flags & TTY_DRIVER_DYNAMIC_ALLOC)
+//			cdev_del(driver->cdevs[0]);
 	}
 	kfree(driver->cdevs);
 	kfree(driver->ports);
@@ -3457,7 +3459,7 @@ err_unreg_devs:
 	mutex_unlock(&tty_mutex);
 
 err_unreg_char:
-	unregister_chrdev_region(dev, driver->num);
+//	unregister_chrdev_region(dev, driver->num);
 err:
 	return error;
 }
@@ -3473,8 +3475,8 @@ int tty_unregister_driver(struct tty_driver *driver)
 	if (driver->refcount)
 		return -EBUSY;
 #endif
-	unregister_chrdev_region(MKDEV(driver->major, driver->minor_start),
-				driver->num);
+//	unregister_chrdev_region(MKDEV(driver->major, driver->minor_start),
+//				driver->num);
 	mutex_lock(&tty_mutex);
 	list_del(&driver->tty_drivers);
 	mutex_unlock(&tty_mutex);

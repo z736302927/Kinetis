@@ -23,7 +23,7 @@
 #include <linux/spi/flash.h>
 #include <linux/mtd/spi-nor.h>
 
-#include "stm32-core.h"
+#include "kinetis-core.h"
 
 #include "core.h"
 
@@ -3328,7 +3328,7 @@ static int spi_nor_create_write_dirmap(struct spi_nor *nor)
 
 static int spi_nor_probe(struct spi_mem *spimem)
 {
-	struct stm32_val *stm32_val = lib_get_stm32_val();
+	struct kineits_system *kineits = lib_get_stm32_val();
 	struct spi_device *spi = spimem->spi;
 	struct flash_platform_data *data = dev_get_platdata(&spi->dev);
 	struct spi_nor *nor;
@@ -3396,7 +3396,7 @@ static int spi_nor_probe(struct spi_mem *spimem)
 	if (ret)
 		return ret;
 
-	stm32_val->nor = nor;
+	kineits->nor = nor;
 
 	return mtd_device_register(&nor->mtd, data ? data->parts : NULL,
 				   data ? data->nr_parts : 0);

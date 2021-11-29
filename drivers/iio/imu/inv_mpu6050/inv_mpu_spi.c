@@ -2,6 +2,7 @@
 /*
 * Copyright (C) 2015 Intel Corporation Inc.
 */
+#include <generated/deconfig.h>
 #include <linux/module.h>
 #include <linux/acpi.h>
 #include <linux/of.h>

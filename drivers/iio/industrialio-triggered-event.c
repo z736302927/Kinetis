@@ -3,6 +3,7 @@
  * Copyright (C) 2015 Cogent Embedded, Inc.
  */
 
+#include <generated/deconfig.h>
 #include <linux/kernel.h>
 #include <linux/export.h>
 #include <linux/module.h>
@@ -37,7 +38,7 @@ int iio_triggered_event_setup(struct iio_dev *indio_dev,
 						       indio_dev,
 						       "%s_consumer%d",
 						       indio_dev->name,
-						       iio_device_id(indio_dev));
+						       indio_dev->id);
 	if (indio_dev->pollfunc_event == NULL)
 		return -ENOMEM;
 

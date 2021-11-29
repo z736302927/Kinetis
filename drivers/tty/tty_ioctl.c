@@ -364,10 +364,10 @@ static int set_termios(struct tty_struct *tty, void __user *arg, int opt)
 {
 	struct ktermios tmp_termios;
 	struct tty_ldisc *ld;
-	int retval = tty_check_change(tty);
+//	int retval = tty_check_change(tty);
 
-	if (retval)
-		return retval;
+//	if (retval)
+//		return retval;
 
 	down_read(&tty->termios_rwsem);
 	tmp_termios = tty->termios;
@@ -759,8 +759,8 @@ int tty_mode_ioctl(struct tty_struct *tty, struct file *file,
 			ret = -EFAULT;
 		return ret;
 	case TIOCSLCKTRMIOS:
-		if (!capable(CAP_SYS_ADMIN))
-			return -EPERM;
+//		if (!capable(CAP_SYS_ADMIN))
+//			return -EPERM;
 		copy_termios_locked(real_tty, &kterm);
 		if (user_termios_to_kernel_termios_1(&kterm,
 					       (struct termios __user *) arg))
@@ -823,9 +823,11 @@ static int __tty_perform_flush(struct tty_struct *tty, unsigned long arg)
 int tty_perform_flush(struct tty_struct *tty, unsigned long arg)
 {
 	struct tty_ldisc *ld;
-	int retval = tty_check_change(tty);
-	if (retval)
-		return retval;
+	int retval;
+
+//	retval = tty_check_change(tty);
+//	if (retval)
+//		return retval;
 
 	ld = tty_ldisc_ref_wait(tty);
 	retval = __tty_perform_flush(tty, arg);
@@ -842,9 +844,9 @@ int n_tty_ioctl_helper(struct tty_struct *tty, struct file *file,
 
 	switch (cmd) {
 	case TCXONC:
-		retval = tty_check_change(tty);
-		if (retval)
-			return retval;
+//		retval = tty_check_change(tty);
+//		if (retval)
+//			return retval;
 		switch (arg) {
 		case TCOOFF:
 			spin_lock_irq(&tty->flow_lock);
@@ -875,9 +877,9 @@ int n_tty_ioctl_helper(struct tty_struct *tty, struct file *file,
 		}
 		return retval;
 	case TCFLSH:
-		retval = tty_check_change(tty);
-		if (retval)
-			return retval;
+//		retval = tty_check_change(tty);
+//		if (retval)
+//			return retval;
 		return __tty_perform_flush(tty, arg);
 	default:
 		/* Try the mode commands */

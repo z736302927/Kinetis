@@ -1705,7 +1705,7 @@ int add_random_ready_callback(struct random_ready_callback *rdy)
 //	owner = NULL;
 
 //	list_add(&rdy->list, &random_ready_list);
-//	err = 0;
+	err = 0;
 
 //out:
 //	spin_unlock_irqrestore(&random_ready_list_lock, flags);

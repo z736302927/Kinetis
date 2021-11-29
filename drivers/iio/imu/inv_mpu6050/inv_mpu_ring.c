@@ -3,6 +3,7 @@
 * Copyright (C) 2012 Invensense, Inc.
 */
 
+#include <generated/deconfig.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/err.h>
@@ -122,7 +123,7 @@ irqreturn_t inv_mpu6050_read_fifo(int irq, void *p)
 	int result;
 	u16 fifo_count;
 	s64 timestamp;
-	int int_status;
+	u32 int_status;
 	size_t i, nb;
 
 	mutex_lock(&st->lock);
@@ -194,7 +195,7 @@ irqreturn_t inv_mpu6050_read_fifo(int irq, void *p)
 
 end_session:
 	mutex_unlock(&st->lock);
-	iio_trigger_notify_done(indio_dev->trig);
+//	iio_trigger_notify_done(indio_dev->trig);
 
 	return IRQ_HANDLED;
 
@@ -202,7 +203,7 @@ flush_fifo:
 	/* Flush HW and SW FIFOs. */
 	inv_reset_fifo(indio_dev);
 	mutex_unlock(&st->lock);
-	iio_trigger_notify_done(indio_dev->trig);
+//	iio_trigger_notify_done(indio_dev->trig);
 
 	return IRQ_HANDLED;
 }

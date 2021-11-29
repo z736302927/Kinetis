@@ -21,6 +21,8 @@
 #define KBUILD_MODNAME "name"
 #define KBUILD_MODFILE "file"
 #define __LINUX_ARM_ARCH__ 7
-#define DEBUG 1
+
+//#define DEBUG 1
+//#define VERBOSE_DEBUG 1
 
 #endif /* __KINETIS_DECONFIG_H */

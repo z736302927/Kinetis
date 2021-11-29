@@ -7,6 +7,7 @@
  *  Copyright 1999 ARM Limited
  *  Copyright (C) 2000-2001 Deep Blue Solutions Ltd.
  */
+#include <generated/deconfig.h>
 #include <linux/module.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
@@ -206,7 +207,7 @@ static int uart_port_startup(struct tty_struct *tty, struct uart_state *state,
 
 	uart_port_lock(state, flags);
 	if (!state->xmit.buf) {
-		state->xmit.buf = (unsigned char *) page;
+		state->xmit.buf = (char *) page;
 		uart_circ_clear(&state->xmit);
 		uart_port_unlock(uport, flags);
 	} else {
@@ -240,9 +241,9 @@ static int uart_port_startup(struct tty_struct *tty, struct uart_state *state,
 	/*
 	 * This is to allow setserial on this port. People may want to set
 	 * port/irq/type and then reconfigure the port properly if it failed
-	 * now.
+	 * now. && capable(CAP_SYS_ADMIN)
 	 */
-	if (retval && capable(CAP_SYS_ADMIN))
+	if (retval)
 		return 1;
 
 	return retval;
@@ -759,8 +760,6 @@ static int uart_get_info(struct tty_port *port, struct serial_struct *retinfo)
 	struct uart_port *uport;
 	int ret = -ENODEV;
 
-	memset(retinfo, 0, sizeof(*retinfo));
-
 	/*
 	 * Ensure the state we copy is consistent and no hardware changes
 	 * occur as we go
@@ -849,27 +848,25 @@ static int uart_set_info(struct tty_struct *tty, struct tty_port *port,
 	new_flags = (__force upf_t)new_info->flags;
 	old_custom_divisor = uport->custom_divisor;
 
-	if (!capable(CAP_SYS_ADMIN)) {
-		retval = -EPERM;
-		if (change_irq || change_port ||
-		    (new_info->baud_base != uport->uartclk / 16) ||
-		    (close_delay != port->close_delay) ||
-		    (closing_wait != port->closing_wait) ||
-		    (new_info->xmit_fifo_size &&
-		     new_info->xmit_fifo_size != uport->fifosize) ||
-		    (((new_flags ^ old_flags) & ~UPF_USR_MASK) != 0))
-			goto exit;
-		uport->flags = ((uport->flags & ~UPF_USR_MASK) |
-			       (new_flags & UPF_USR_MASK));
-		uport->custom_divisor = new_info->custom_divisor;
-		goto check_and_exit;
-	}
+//	if (!capable(CAP_SYS_ADMIN)) {
+//		retval = -EPERM;
+//		if (change_irq || change_port ||
+//		    (new_info->baud_base != uport->uartclk / 16) ||
+//		    (close_delay != port->close_delay) ||
+//		    (closing_wait != port->closing_wait) ||
+//		    (new_info->xmit_fifo_size &&
+//		     new_info->xmit_fifo_size != uport->fifosize) ||
+//		    (((new_flags ^ old_flags) & ~UPF_USR_MASK) != 0))
+//			goto exit;
+//		uport->flags = ((uport->flags & ~UPF_USR_MASK) |
+//			       (new_flags & UPF_USR_MASK));
+//		uport->custom_divisor = new_info->custom_divisor;
+//		goto check_and_exit;
+//	}
 
-	if (change_irq || change_port) {
-		retval = security_locked_down(LOCKDOWN_TIOCSSERIAL);
-		if (retval)
-			goto exit;
-	}
+	retval = security_locked_down(LOCKDOWN_TIOCSSERIAL);
+	if (retval && (change_irq || change_port))
+		goto exit;
 
 	/*
 	 * Ask the low level driver to verify the settings.
@@ -877,8 +874,9 @@ static int uart_set_info(struct tty_struct *tty, struct tty_port *port,
 	if (uport->ops->verify_port)
 		retval = uport->ops->verify_port(uport, new_info);
 
-	if ((new_info->irq >= nr_irqs) || (new_info->irq < 0) ||
-	    (new_info->baud_base < 9600))
+//	if ((new_info->irq >= nr_irqs) || (new_info->irq < 0) ||
+//	    (new_info->baud_base < 9600))
+	if ((new_info->baud_base < 9600))
 		retval = -EINVAL;
 
 	if (retval)
@@ -977,7 +975,6 @@ static int uart_set_info(struct tty_struct *tty, struct tty_port *port,
 	port->closing_wait    = closing_wait;
 	if (new_info->xmit_fifo_size)
 		uport->fifosize = new_info->xmit_fifo_size;
-	port->low_latency = (uport->flags & UPF_LOW_LATENCY) ? 1 : 0;
 
  check_and_exit:
 	retval = 0;
@@ -1129,8 +1126,8 @@ static int uart_do_autoconfig(struct tty_struct *tty, struct uart_state *state)
 	struct uart_port *uport;
 	int flags, ret;
 
-	if (!capable(CAP_SYS_ADMIN))
-		return -EPERM;
+//	if (!capable(CAP_SYS_ADMIN))
+//		return -EPERM;
 
 	/*
 	 * Take the per-port semaphore.  This prevents count from
@@ -1714,8 +1711,8 @@ static void uart_port_shutdown(struct tty_port *port)
 	/*
 	 * Ensure that the IRQ handler isn't running on another CPU.
 	 */
-	if (uport)
-		synchronize_irq(uport->irq);
+//	if (uport)
+//		synchronize_irq(uport->irq);
 }
 
 static int uart_carrier_raised(struct tty_port *port)
@@ -1796,8 +1793,6 @@ static int uart_port_activate(struct tty_port *port, struct tty_struct *tty)
 	uport = uart_port_check(state);
 	if (!uport || uport->flags & UPF_DEAD)
 		return -ENXIO;
-
-	port->low_latency = (uport->flags & UPF_LOW_LATENCY) ? 1 : 0;
 
 	/*
 	 * Start up the serial port.
@@ -2177,7 +2172,7 @@ int uart_suspend_port(struct uart_driver *drv, struct uart_port *uport)
 
 	tty_dev = device_find_child(uport->dev, &match, serial_match_port);
 	if (tty_dev && device_may_wakeup(tty_dev)) {
-		enable_irq_wake(uport->irq);
+//		enable_irq_wake(uport->irq);
 		put_device(tty_dev);
 		mutex_unlock(&port->mutex);
 		return 0;
@@ -2240,8 +2235,8 @@ int uart_resume_port(struct uart_driver *drv, struct uart_port *uport)
 
 	tty_dev = device_find_child(uport->dev, &match, serial_match_port);
 	if (!uport->suspended && device_may_wakeup(tty_dev)) {
-		if (irqd_is_wakeup_set(irq_get_irq_data((uport->irq))))
-			disable_irq_wake(uport->irq);
+//		if (irqd_is_wakeup_set(irq_get_irq_data((uport->irq))))
+//			disable_irq_wake(uport->irq);
 		put_device(tty_dev);
 		mutex_unlock(&port->mutex);
 		return 0;
@@ -2853,6 +2848,8 @@ static const struct attribute_group tty_dev_attr_group = {
  *	@drv: pointer to the uart low level driver structure for this port
  *	@uport: uart port structure to use for this port.
  *
+ *	Context: task context, might sleep
+ *
  *	This allows the driver to register its own uart_port structure
  *	with the core driver.  The main purpose is to allow the low
  *	level uart drivers to expand uart_port, rather than having yet
@@ -2865,8 +2862,6 @@ int uart_add_one_port(struct uart_driver *drv, struct uart_port *uport)
 	int ret = 0;
 	struct device *tty_dev;
 	int num_groups;
-
-	BUG_ON(in_interrupt());
 
 	if (uport->line >= drv->nr)
 		return -EINVAL;
@@ -2956,6 +2951,8 @@ int uart_add_one_port(struct uart_driver *drv, struct uart_port *uport)
  *	@drv: pointer to the uart low level driver structure for this port
  *	@uport: uart port structure for this port
  *
+ *	Context: task context, might sleep
+ *
  *	This unhooks (and hangs up) the specified port structure from the
  *	core driver.  No further calls will be made to the low-level code
  *	for this port.
@@ -2967,8 +2964,6 @@ int uart_remove_one_port(struct uart_driver *drv, struct uart_port *uport)
 	struct uart_port *uart_port;
 	struct tty_struct *tty;
 	int ret = 0;
-
-	BUG_ON(in_interrupt());
 
 	mutex_lock(&port_mutex);
 

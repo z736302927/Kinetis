@@ -490,14 +490,33 @@ static int stm32_qspi_send(struct spi_mem *mem, const struct spi_mem_op *op)
     qspi_cmd.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
     qspi_cmd.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
 
-    ret = HAL_QSPI_Command(&hqspi, &qspi_cmd, 1000);
+//	pr_info("%08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x\n",
+//		qspi_cmd.Instruction,
+//		qspi_cmd.Address,
+//		qspi_cmd.AlternateBytes,
+//		qspi_cmd.AddressSize,
+//		qspi_cmd.AlternateBytesSize,
+//		qspi_cmd.DummyCycles,
+//		qspi_cmd.InstructionMode,
+//		qspi_cmd.AddressMode,
+//		qspi_cmd.AlternateByteMode,
+//		qspi_cmd.DataMode,
+//		qspi_cmd.NbData,
+//		qspi_cmd.DdrMode,
+//		qspi_cmd.DdrHoldHalfCycle,
+//		qspi_cmd.SIOOMode);
+	
+    ret = HAL_QSPI_Command(&hqspi, &qspi_cmd, 5000);
     if (ret)
         return -ret;
-    
+
+	if (!op->data.nbytes)
+		return 0;
+
     if (op->data.dir == SPI_MEM_DATA_IN)
-        ret = HAL_QSPI_Receive(&hqspi, op->data.buf.in, 1000);
+        ret = HAL_QSPI_Receive(&hqspi, op->data.buf.in, 5000);
     else
-        ret = HAL_QSPI_Transmit(&hqspi, op->data.buf.out, 1000);
+        ret = HAL_QSPI_Transmit(&hqspi, op->data.buf.out, 5000);
     if (ret)
         return -ret;
 
@@ -951,7 +970,7 @@ static const struct of_device_id stm32_qspi_match[] = {
 };
 MODULE_DEVICE_TABLE(of, stm32_qspi_match);
 
-struct platform_driver stm32_qspi_driver = {
+static struct platform_driver stm32_qspi_driver = {
 	.probe	= stm32_qspi_probe,
 	.remove	= stm32_qspi_remove,
 	.driver	= {

@@ -479,7 +479,7 @@ receive_buf(struct tty_port *port, struct tty_buffer *head, int count)
 	if (~head->flags & TTYB_NORMAL)
 		f = flag_buf_ptr(head, head->read);
 
-	n = port->client_ops->receive_buf(port, p, f, count);
+	n = port->client_ops->receive_buf(port, p, (u8 *)f, count);
 	if (n > 0)
 		memset(p, 0, n);
 	return n;
@@ -609,10 +609,10 @@ bool tty_buffer_restart_work(struct tty_port *port)
 	return queue_work(system_unbound_wq, &port->buf.work);
 }
 
-bool tty_buffer_cancel_work(struct tty_port *port)
-{
-	return cancel_work_sync(&port->buf.work);
-}
+//bool tty_buffer_cancel_work(struct tty_port *port)
+//{
+//	return cancel_work_sync(&port->buf.work);
+//}
 
 void tty_buffer_flush_work(struct tty_port *port)
 {

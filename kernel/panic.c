@@ -34,6 +34,8 @@
 #include <linux/debugfs.h>
 #include <asm/sections.h>
 
+#include <cm_backtrace.h>
+
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
 
@@ -347,6 +349,8 @@ void panic(const char *fmt, ...)
 //#if defined(CONFIG_S390)
 //	disabled_wait();
 //#endif
+	cm_backtrace_assert(cmb_get_sp());
+
 	pr_emerg("---[ end Kernel panic - not syncing: %s ]---\n", buf);
 
 //	/* Do not scroll important messages printed above */

@@ -20,7 +20,9 @@
 #include <linux/reset.h>
 #include <linux/spi/spi.h>
 
-#define DRIVER_NAME "spi_stm32"
+#include "spi.h"
+
+#define DRIVER_NAME "spi-stm32"
 
 ///* STM32F4 SPI registers */
 //#define STM32F4_SPI_CR1			0x00
@@ -1652,12 +1654,12 @@ static int stm32_spi_transfer_one(struct spi_master *master,
 //	spi->tx_len = spi->tx_buf ? transfer->len : 0;
 //	spi->rx_len = spi->rx_buf ? transfer->len : 0;
 	if (transfer->tx_buf)
-        ret = HAL_SPI_Transmit(&hspi5,
-            transfer->tx_buf, transfer->len, 1000);
+        ret = HAL_SPI_Transmit(&hspi1,
+            (u8 *)transfer->tx_buf, transfer->len, 1000);
 
 	if (transfer->rx_buf)
-        ret = HAL_SPI_Receive(&hspi5,
-            transfer->tx_buf, transfer->len, 1000);
+        ret = HAL_SPI_Receive(&hspi1,
+            (u8 *)transfer->tx_buf, transfer->len, 1000);
 //	spi->cur_usedma = (master->can_dma &&
 //			   master->can_dma(master, spi_dev, transfer));
 //

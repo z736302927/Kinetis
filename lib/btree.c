@@ -781,14 +781,14 @@ size_t btree_grim_visitor(struct btree_head *head, struct btree_geo *geo,
 }
 EXPORT_SYMBOL_GPL(btree_grim_visitor);
 
-static int __init btree_module_init(void)
+int __init btree_module_init(void)
 {
 	btree_cachep = kmem_cache_create("btree_node", NODESIZE, 0,
 			SLAB_HWCACHE_ALIGN, NULL);
 	return 0;
 }
 
-static void __exit btree_module_exit(void)
+void __exit btree_module_exit(void)
 {
 	kmem_cache_destroy(btree_cachep);
 }

@@ -3,6 +3,7 @@
 * Copyright (C) 2012 Invensense, Inc.
 */
 
+#include <generated/deconfig.h>
 #include <linux/pm_runtime.h>
 #include "inv_mpu_iio.h"
 
@@ -91,11 +92,22 @@ static unsigned int inv_scan_query(struct iio_dev *indio_dev)
 
 static unsigned int inv_compute_skip_samples(const struct inv_mpu6050_state *st)
 {
-	unsigned int skip_samples = 0;
+	unsigned int gyro_skip = 0;
+	unsigned int magn_skip = 0;
+	unsigned int skip_samples;
+
+	/* gyro first sample is out of specs, skip it */
+	if (st->chip_config.gyro_fifo_enable)
+		gyro_skip = 1;
 
 	/* mag first sample is always not ready, skip it */
 	if (st->chip_config.magn_fifo_enable)
-		skip_samples = 1;
+		magn_skip = 1;
+
+	/* compute first samples to skip */
+	skip_samples = gyro_skip;
+	if (magn_skip > skip_samples)
+		skip_samples = magn_skip;
 
 	return skip_samples;
 }
@@ -162,9 +174,11 @@ static int inv_mpu6050_set_enable(struct iio_dev *indio_dev, bool enable)
 
 	if (enable) {
 		scan = inv_scan_query(indio_dev);
-		result = pm_runtime_resume_and_get(pdev);
-		if (result)
+		result = pm_runtime_get_sync(pdev);
+		if (result < 0) {
+			pm_runtime_put_noidle(pdev);
 			return result;
+		}
 		/*
 		 * In case autosuspend didn't trigger, turn off first not
 		 * required sensors.
@@ -219,33 +233,33 @@ static const struct iio_trigger_ops inv_mpu_trigger_ops = {
 
 int inv_mpu6050_probe_trigger(struct iio_dev *indio_dev, int irq_type)
 {
-	int ret;
-	struct inv_mpu6050_state *st = iio_priv(indio_dev);
-
-	st->trig = devm_iio_trigger_alloc(&indio_dev->dev,
-					  "%s-dev%d",
-					  indio_dev->name,
-					  iio_device_id(indio_dev));
-	if (!st->trig)
-		return -ENOMEM;
-
-	ret = devm_request_irq(&indio_dev->dev, st->irq,
-			       &iio_trigger_generic_data_rdy_poll,
-			       irq_type,
-			       "inv_mpu",
-			       st->trig);
-	if (ret)
-		return ret;
-
-	st->trig->dev.parent = regmap_get_device(st->map);
-	st->trig->ops = &inv_mpu_trigger_ops;
-	iio_trigger_set_drvdata(st->trig, indio_dev);
-
-	ret = devm_iio_trigger_register(&indio_dev->dev, st->trig);
-	if (ret)
-		return ret;
-
-	indio_dev->trig = iio_trigger_get(st->trig);
+//	int ret;
+//	struct inv_mpu6050_state *st = iio_priv(indio_dev);
+//
+//	st->trig = devm_iio_trigger_alloc(&indio_dev->dev,
+//					  "%s-dev%d",
+//					  indio_dev->name,
+//					  indio_dev->id);
+//	if (!st->trig)
+//		return -ENOMEM;
+//
+//	ret = devm_request_irq(&indio_dev->dev, st->irq,
+//			       &iio_trigger_generic_data_rdy_poll,
+//			       irq_type,
+//			       "inv_mpu",
+//			       st->trig);
+//	if (ret)
+//		return ret;
+//
+//	st->trig->dev.parent = regmap_get_device(st->map);
+//	st->trig->ops = &inv_mpu_trigger_ops;
+//	iio_trigger_set_drvdata(st->trig, indio_dev);
+//
+//	ret = devm_iio_trigger_register(&indio_dev->dev, st->trig);
+//	if (ret)
+//		return ret;
+//
+//	indio_dev->trig = iio_trigger_get(st->trig);
 
 	return 0;
 }

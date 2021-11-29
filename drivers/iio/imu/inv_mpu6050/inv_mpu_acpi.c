@@ -4,6 +4,8 @@
  * Copyright (c) 2015, Intel Corporation.
  */
 
+#include <generated/deconfig.h>
+
 #ifdef CONFIG_ACPI
 
 #include <linux/kernel.h>

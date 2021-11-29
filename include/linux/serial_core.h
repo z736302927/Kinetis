@@ -284,14 +284,14 @@ enum uart_pm_state {
  * This is the state information which is persistent across opens.
  */
 struct uart_state {
-	struct tty_port		port;
-
 	enum uart_pm_state	pm_state;
 	struct circ_buf		xmit;
 
 	atomic_t		refcount;
 	wait_queue_head_t	remove_wait;
 	struct uart_port	*uart_port;
+
+	struct tty_port		port;
 };
 
 #define UART_XMIT_SIZE	PAGE_SIZE

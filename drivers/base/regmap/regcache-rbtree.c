@@ -6,6 +6,7 @@
 //
 // Author: Dimitris Papastamos <dp@opensource.wolfsonmicro.com>
 
+#include <generated/deconfig.h>
 #include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/rbtree.h>
@@ -22,7 +23,7 @@ struct regcache_rbtree_node {
 	/* block of adjacent registers */
 	void *block;
 	/* Which registers are present */
-	long *cache_present;
+	unsigned long *cache_present;
 	/* base register handled by this block */
 	unsigned int base_reg;
 	/* number of registers available in the block */
