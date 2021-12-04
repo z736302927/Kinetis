@@ -205,7 +205,6 @@ void Scheduler_Run(void)
     uint8_t index = 0;
     //循环判断所有线程，是否应该执行
 
-
     for (index = 0; index < TASK_NUM; index++) {
         //获取系统当前时间，单位MS
         uint32_t tnow = SysTick_GetTick();
@@ -217,15 +216,6 @@ void Scheduler_Run(void)
             sched_tasks[index].last_run = tnow;
             //执行线程函数，使用的是函数指�?
             sched_tasks[index].task_func();
-
         }
     }
-
-
 }
-
-
-
-/******************* (C) COPYRIGHT 2014 ANO TECH *****END OF FILE************/
-
-

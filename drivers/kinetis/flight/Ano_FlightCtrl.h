@@ -35,27 +35,22 @@ enum {
     rol_up_down_2,  //蛇形上升下降
     yaw_up_dowm_1,  //旋转上升下降		2
     pit_rol_pn_2,   //蛇形前进后退		3
-
 };
 
-typedef struct {
+struct flight_state {
     s16 alt_ctrl_speed_set;
     float speed_set_h[VEC_XYZ];
     float speed_set_h_cms[VEC_XYZ];
 
     float speed_set_h_norm[VEC_XYZ];
     float speed_set_h_norm_lpf[VEC_XYZ];
+};
 
-} _flight_state_st;
-extern _flight_state_st fs;
-
-typedef struct {
+struct struct judge_sync_data {
     u8 of_qua;
     u16 of_alt;
     u16 valid_of_alt_cm;
-
-} _judge_sync_data_st;
-extern _judge_sync_data_st jsdata;
+};
 
 /* Exported constants --------------------------------------------------------*/
 extern float wifi_selfie_mode_yaw_vlue;

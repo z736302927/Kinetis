@@ -30,25 +30,23 @@ void w2h_2d_trans(float w[VEC_XYZ], float ref_ax[VEC_XYZ], float h[VEC_XYZ])
 {
     h[X] =  w[X] *  ref_ax[X]  + w[Y] * ref_ax[Y];
     h[Y] =  w[X] * (-ref_ax[Y]) + w[Y] * ref_ax[X];
-
 }
 //平面航向坐标XY转世界坐标平面XY
 void h2w_2d_trans(float h[VEC_XYZ], float ref_ax[VEC_XYZ], float w[VEC_XYZ])
 {
     w[X] = h[X] * ref_ax[X] + h[Y] * (-ref_ax[Y]);
     w[Y] = h[X] * ref_ax[Y] + h[Y] *  ref_ax[X];
-
 }
 
 //载体坐标转世界坐标（ANO约定等同与地理坐标）
 float att_matrix[3][3]; //必须由姿态解算算出该矩阵
 void a2w_3d_trans(float a[VEC_XYZ], float w[VEC_XYZ])
 {
+    float temp = 0;
+	
     for (u8 i = 0; i < 3; i++) {
-        float temp = 0;
 
         for (u8 j = 0; j < 3; j++)
-
             temp += a[j] * att_matrix[i][j];
 
         w[i] = temp;
@@ -57,20 +55,16 @@ void a2w_3d_trans(float a[VEC_XYZ], float w[VEC_XYZ])
 
 //float mag_yaw_calculate(float dT,float mag_val[VEC_XYZ],float g_z_vec[VEC_XYZ],float h_mag_val[VEC_XYZ])//
 //{
-
 //	vec_3dh_transition(g_z_vec, mag_val, h_mag_val);
 
-//	return (fast_atan2(h_mag_val[Y], h_mag_val[X]) *57.3f) ;//
+//	return (fast_atan2(h_mag_val[Y], h_mag_val[X]) *57.3f);
 //}
-
-
 
 #define USE_MAG
 #define USE_LENGTH_LIM
 
-
-
-_imu_st imu_data =  {1, 0, 0, 0,
+_imu_st imu_data =  {
+	1, 0, 0, 0,
     {0, 0, 0},
     {0, 0, 0},
     {0, 0, 0},
@@ -106,9 +100,6 @@ void IMU_update(float dT, _imu_state_st *state, float gyr[VEC_XYZ], float acc[VE
 
     float d_angle[VEC_XYZ];
 
-
-
-
 //		q0q0 = imu->w * imu->w;
     q0q1 = imu->w * imu->x;
     q0q2 = imu->w * imu->y;
@@ -119,7 +110,6 @@ void IMU_update(float dT, _imu_state_st *state, float gyr[VEC_XYZ], float acc[VE
     q3q3 = imu->z * imu->z;
     q1q2 = imu->x * imu->y;
     q0q3 = imu->w * imu->z;
-
 
     if (state->obs_en) {
         //计算机体坐标下的运动加速度观测量。坐标系为北西天
@@ -140,16 +130,12 @@ void IMU_update(float dT, _imu_state_st *state, float gyr[VEC_XYZ], float acc[VE
             imu->gra_acc[i] = acc[i];
     }
 
-    //
     acc_norm_l_recip = my_sqrt_reciprocal(my_pow(imu->gra_acc[X]) + my_pow(imu->gra_acc[Y]) + my_pow(imu->gra_acc[Z]));
     acc_norm_l = safe_div(1, acc_norm_l_recip, 0);
 
     // 加速度计的读数，单位化。
     for (u8 i = 0; i < 3; i++)
         acc_norm[i] = imu->gra_acc[i] * acc_norm_l_recip;
-
-
-
 
     // 载体坐标下的x方向向量，单位化。
     att_matrix[0][0] = imu->x_vec[X] = 1 - (2 * q2q2 + 2 * q3q3);
@@ -171,25 +157,21 @@ void IMU_update(float dT, _imu_state_st *state, float gyr[VEC_XYZ], float acc[VE
     imu->hx_vec[X] = att_matrix[0][0] * hx_vec_reci;
     imu->hx_vec[Y] = att_matrix[1][0] * hx_vec_reci;
 
-
     // 计算载体坐标下的运动加速度。(与姿态解算无关)
     for (u8 i = 0; i < 3; i++)
         imu->a_acc[i] = (s32)(acc[i] - 981 * imu->z_vec[i]);
-
 
     //计算世界坐标下的运动加速度。坐标系为北西天
     for (u8 i = 0; i < 3; i++) {
         s32 temp = 0;
 
         for (u8 j = 0; j < 3; j++)
-
             temp += imu->a_acc[j] * att_matrix[i][j];
 
         imu->w_acc[i] = temp;
     }
 
     w2h_2d_trans(imu->w_acc, imu_data.hx_vec, imu->h_acc);
-
 
     // 测量值与等效重力向量的叉积（计算向量误差）。
     vec_err[X] = (acc_norm[Y] * imu->z_vec[Z] - imu->z_vec[Y] * acc_norm[Z]);
@@ -219,13 +201,9 @@ void IMU_update(float dT, _imu_state_st *state, float gyr[VEC_XYZ], float acc[VE
         //若反向，直接给最大误差
         if (mag_err_dot_prudoct < 0)
             mag_yaw_err = my_sign(mag_yaw_err) * 1.0f;
-
-        //
-
     }
 
 #endif
-
     for (u8 i = 0; i < 3; i++) {
 
 #ifdef USE_EST_DEADZONE
@@ -244,7 +222,6 @@ void IMU_update(float dT, _imu_state_st *state, float gyr[VEC_XYZ], float acc[VE
         //误差积分
         vec_err_i[i] +=  LIMIT(vec_err[i], -0.1f, 0.1f) * dT * ki_use;
 
-
         // 构造增量旋转（含融合纠正）。
         //    d_angle[X] = (gyr[X] + (vec_err[X]  + vec_err_i[X]) * kp_use - mag_yaw_err *imu->z_vec[X] *kmp_use *RAD_PER_DEG) * dT / 2 ;
         //    d_angle[Y] = (gyr[Y] + (vec_err[Y]  + vec_err_i[Y]) * kp_use - mag_yaw_err *imu->z_vec[Y] *kmp_use *RAD_PER_DEG) * dT / 2 ;
@@ -259,10 +236,9 @@ void IMU_update(float dT, _imu_state_st *state, float gyr[VEC_XYZ], float acc[VE
     }
 
     // 计算姿态。
-
-    imu->w = imu->w            - imu->x * d_angle[X] - imu->y * d_angle[Y] - imu->z * d_angle[Z];
-    imu->x = imu->w * d_angle[X] + imu->x            + imu->y * d_angle[Z] - imu->z * d_angle[Y];
-    imu->y = imu->w * d_angle[Y] - imu->x * d_angle[Z] + imu->y            + imu->z * d_angle[X];
+    imu->w = imu->w - imu->x * d_angle[X] - imu->y * d_angle[Y] - imu->z * d_angle[Z];
+    imu->x = imu->w * d_angle[X] + imu->x + imu->y * d_angle[Z] - imu->z * d_angle[Y];
+    imu->y = imu->w * d_angle[Y] - imu->x * d_angle[Z] + imu->y + imu->z * d_angle[X];
     imu->z = imu->w * d_angle[Z] + imu->x * d_angle[Y] - imu->y * d_angle[X] + imu->z;
 
     q_norm_l = my_sqrt_reciprocal(imu->w * imu->w + imu->x * imu->x + imu->y * imu->y + imu->z * imu->z);
@@ -270,8 +246,6 @@ void IMU_update(float dT, _imu_state_st *state, float gyr[VEC_XYZ], float acc[VE
     imu->x *= q_norm_l;
     imu->y *= q_norm_l;
     imu->z *= q_norm_l;
-
-
 
     /////////////////////修正开关///////////////////////////
 #ifdef USE_MAG

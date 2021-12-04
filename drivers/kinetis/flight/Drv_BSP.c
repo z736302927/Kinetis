@@ -46,7 +46,7 @@ void rc_sbus_get_byte(struct rc_input_state *rc, u8 data)
 		cnt = 24;
 
 		if ((datatmp[0] == 0x0F &&
-				(datatmp[24] == 0x00 || datatmp[24] == frame_end[frame_cnt]))) {
+			(datatmp[24] == 0x00 || datatmp[24] == frame_end[frame_cnt]))) {
 			cnt = 0;
 			rc->sbus_ch[0] = (s16)(datatmp[2] & 0x07) << 8 | datatmp[1];
 			rc->sbus_ch[1] = (s16)(datatmp[3] & 0x3f) << 5 | (datatmp[2] >> 3);

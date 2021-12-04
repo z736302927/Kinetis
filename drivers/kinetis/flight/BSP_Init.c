@@ -32,25 +32,49 @@ struct ano_tc_fmu {
 	struct rc_input_state rc;
 	struct fmu_sensor_state sensor_state;
 	struct fc_state fc_stv;
-	
-	//角度环控制参数
-	_PID_arg_st arg_2[VEC_RPY];
-	
-	//角速度环控制参数
-	_PID_arg_st arg_1[VEC_RPY];
-	
-	
-	//角度环控制数据
-	_PID_val_st val_2[VEC_RPY];
-	
-	//角速度环控制数据
-	_PID_val_st val_1[VEC_RPY];
+
+	struct pid_coefficient angle_coe[VEC_RPY];
+	struct pid_op_result angle_res[VEC_RPY];
+	struct pid_coefficient angle_df_coe[VEC_RPY];
+	struct pid_op_result angle_df_res[VEC_RPY];
+    
+    struct pid_coefficient position_coe[2];
+    struct pid_op_result position_res[2];
+    struct pid_coefficient position_fix_coe[2];
+    struct pid_op_result position_fix_res[2];
+    
+    u8 mode_f[2];
 
 	u8 mag_type;
 #define MAG_NULL		0
 #define MAG_AK09915		1
 #define MAG_AK8975		2
 
+	s16 auto_taking_off_speed;
+#define AUTO_TAKE_OFF_KP 2.0f
+
+	struct pid_coefficient height_coe;
+	struct pid_op_result height_res;
+	struct pid_coefficient height_df_coe;
+	struct pid_op_result height_df_res;
+
+	float err_i_comp;
+	float w_acc_z_lpf;
+	
+	_att_2l_ct_st att_2l_ct;
+	s32 max_yaw_speed, set_yaw_av_tmp;
+	#define POS_V_DAMPING 0.02f
+	float exp_rol_tmp;
+	float exp_pit_tmp;
+	struct att_1l_ct att_1l_ct;
+	float ct_val[4];
+	struct rolling_state rolling_flag;
+
+	struct flight_state fs;
+	
+	_fly_ct_st program_ctrl;
+	
+	_imu_st imu_data
 };
 
 struct ano_tc_fmu *kinetis_fmu;
@@ -58,73 +82,73 @@ struct ano_tc_fmu *kinetis_fmu;
 
 void CheckSenser(void)
 {
-    if (fmu_ak09915_check())
-        kinetis_fmu->mag_type = MAG_AK09915;
-    else if (fmu_ak8975_check())
-        kinetis_fmu->mag_type = MAG_AK8975;
-    else
-        kinetis_fmu->mag_type = MAG_NUL;
+	if (fmu_ak09915_check())
+		kinetis_fmu->mag_type = MAG_AK09915;
+	else if (fmu_ak8975_check())
+		kinetis_fmu->mag_type = MAG_AK8975;
+	else
+		kinetis_fmu->mag_type = MAG_NUL;
 }
 
 u8 of_init_type;
 u8 All_Init()
 {
-    NVIC_PriorityGroupConfig(NVIC_GROUP);		
+	NVIC_PriorityGroupConfig(NVIC_GROUP);
 
-    SysTick_Configuration(); 		
+	SysTick_Configuration();
 
-    mdelay(100);					
-    Drv_LED_Init();					
+	mdelay(100);
+	Drv_LED_Init();
 
-    Flash_Init();             		
+	Flash_Init();
 
-    para_read();              		
+	para_read();
 
-    rc_module_init();
+	rc_module_init();
 
-    pwm_out_init();					
-    mdelay(50);					
+	pwm_out_init();
+	mdelay(50);
 
-    Drv_SPI2_init();          		
-    Drv_AK8975CSPin_Init();   		
-    Drv_SPL06CSPin_Init();    		
-    DrvGpioSenser088CsPinInit();
-    mdelay(10);	
-	
-    CheckSenser();
-    kinetis_fmu->gyro_ok = kinetis_fmu->acc_ok = DrvBmi088Init();
+	Drv_SPI2_init();
+	Drv_AK8975CSPin_Init();
+	Drv_SPL06CSPin_Init();
+	DrvGpioSenser088CsPinInit();
+	mdelay(10);
 
-    if (kinetis_fmu->mag_type == MAG_NUL) {
-        kinetis_fmu->mag_ok = 0;
-        LED_STA.errMag = 1;
-    } else {
-        kinetis_fmu->mag_ok = 1;       //鏍囪缃楃洏OK
+	CheckSenser();
+	kinetis_fmu->gyro_ok = kinetis_fmu->acc_ok = DrvBmi088Init();
 
-        if (kinetis_fmu->mag_type == MAG_AK09915)
-            DrvAk09915Init();
-    }
+	if (kinetis_fmu->mag_type == MAG_NUL) {
+		kinetis_fmu->mag_ok = 0;
+		LED_STA.errMag = 1;
+	} else {
+		kinetis_fmu->mag_ok = 1;       //鏍囪缃楃洏OK
 
-    kinetis_fmu->baro_ok = Drv_Spl0601_Init();       		//姘斿帇璁″垵濮嬪寲
+		if (kinetis_fmu->mag_type == MAG_AK09915)
+			DrvAk09915Init();
+	}
 
-    Usb_Hid_Init();					//椋炴帶usb鎺ュ彛鐨刪id鍒濆鍖?
-    mdelay(100);					//寤舵椂
+	kinetis_fmu->baro_ok = Drv_Spl0601_Init();       		//姘斿帇璁″垵濮嬪寲
 
-    Usart2_Init(500000);			//涓插彛2鍒濆鍖栵紝鍑芥暟鍙傛暟涓烘尝鐗圭巼
-    mdelay(10);					//寤舵椂
+	Usb_Hid_Init();					//椋炴帶usb鎺ュ彛鐨刪id鍒濆鍖?
+	mdelay(100);					//寤舵椂
+
+	Usart2_Init(500000);			//涓插彛2鍒濆鍖栵紝鍑芥暟鍙傛暟涓烘尝鐗圭巼
+	mdelay(10);					//寤舵椂
 //	Uart4_Init(115200);				//棣栧厛鍒ゆ柇鏄惁杩炴帴鐨勬槸婵�鍏夋ā鍧?
 //	if(!Drv_Laser_Init())			//婵�鍏夋病鏈夋湁鏁堣繛鎺ワ紝鍒欓厤缃负鍏夋祦妯″紡
 //		Uart4_Init(500000);
 //	mdelay(10);					//寤舵椂
 //	Usart3_Init(500000);			//杩炴帴UWB
 //	mdelay(10);					//寤舵椂
-    //
-    Usart3_Init(500000);			//杩炴帴OPENMV
-    //
+	//
+	Usart3_Init(500000);			//杩炴帴OPENMV
+	//
 //	Uart4_Init(19200);	//鎺ヤ紭鍍忓厜娴?
 //  Uart5_Init(115200);//鎺ュぇ鍔熺巼婵�鍏?
-    Uart5_Init(500000); //鏁颁紶
+	Uart5_Init(500000); //鏁颁紶
 //	MyDelayMs(200);
-    //浼樺儚鍏夋祦鍒濆鍖?
+	//浼樺儚鍏夋祦鍒濆鍖?
 //	of_init_type = (Drv_OFInit()==0)?0:2;
 //	if(of_init_type==2)//浼樺儚鍏夋祦鍒濆鍖栨垚鍔?
 //	{
@@ -133,42 +157,42 @@ u8 All_Init()
 //	}
 //	else if(of_init_type==0)//浼樺儚鍏夋祦鍒濆鍖栧け璐?
 //	{
-    Uart4_Init(500000);	//鎺ュ尶鍚嶅厜娴?
+	Uart4_Init(500000);	//鎺ュ尶鍚嶅厜娴?
 //	}
-    //
+	//
 
-    Drv_AdcInit();
-    mdelay(100);					//寤舵椂
+	Drv_AdcInit();
+	mdelay(100);					//寤舵椂
 
-    fmu_pid_init();               		//PID鍒濆鍖?
+	fmu_pid_init();               		//PID鍒濆鍖?
 
-    mdelay(100);					//寤舵椂
-    Drv_GpsPin_Init();				//GPS鍒濆鍖?涓插彛1
+	mdelay(100);					//寤舵椂
+	Drv_GpsPin_Init();				//GPS鍒濆鍖?涓插彛1
 
-    Drv_HeatingInit();
-    //
-    Sensor_Basic_Init();
-    //
-    ANO_DT_Init();
-    //浼犳劅鍣ㄧ伒鏁忓害鍒濆鍖?
-    ImuSensitivityInit(Ano_Parame.set.acc_calibrated, (float *)Ano_Parame.set.acc_sensitivity_ref); //test_st.test);//
-    //
-    AnoDTSendStr(USE_HID | USE_U2, SWJ_ADDR, LOG_COLOR_GREEN, "SYS init OK!");
-    return (1);
+	Drv_HeatingInit();
+	//
+	Sensor_Basic_Init();
+	//
+	ANO_DT_Init();
+	//浼犳劅鍣ㄧ伒鏁忓害鍒濆鍖?
+	ImuSensitivityInit(Ano_Parame.set.acc_calibrated, (float *)Ano_Parame.set.acc_sensitivity_ref); //test_st.test);//
+	//
+	AnoDTSendStr(USE_HID | USE_U2, SWJ_ADDR, LOG_COLOR_GREEN, "SYS init OK!");
+	return (1);
 }
 
 void DrvGpioCsPinCtrlBmi088Acc(u8 ena)
 {
-    if (ena)
-        GPIO_ResetBits(BMI088_CSPOT_ACC, BMI088_CSPIN_ACC);
-    else
-        GPIO_SetBits(BMI088_CSPOT_ACC, BMI088_CSPIN_ACC);
+	if (ena)
+		GPIO_ResetBits(BMI088_CSPOT_ACC, BMI088_CSPIN_ACC);
+	else
+		GPIO_SetBits(BMI088_CSPOT_ACC, BMI088_CSPIN_ACC);
 }
 void DrvGpioCsPinCtrlBmi088Gyr(u8 ena)
 {
-    if (ena)
-        GPIO_ResetBits(BMI088_CSPOT_GYR, BMI088_CSPIN_GYR);
-    else
-        GPIO_SetBits(BMI088_CSPOT_GYR, BMI088_CSPIN_GYR);
+	if (ena)
+		GPIO_ResetBits(BMI088_CSPOT_GYR, BMI088_CSPIN_GYR);
+	else
+		GPIO_SetBits(BMI088_CSPOT_GYR, BMI088_CSPIN_GYR);
 }
 /******************* (C) COPYRIGHT 2014 ANO TECH *****END OF FILE************/

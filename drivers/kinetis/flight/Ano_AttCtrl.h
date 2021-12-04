@@ -8,15 +8,13 @@
 #include "Ano_Pid.h"
 /* Exported types ------------------------------------------------------------*/
 
-enum {
-    ROLL_END = 0,
-    ROLL_UP,
-    ROLL_ROLLING,
-    ROLL_KEEP,
-};
-
-typedef struct {
+struct rolling_state {
     u8 roll_mode;
+#define ROLL_END		0
+#define ROLL_UP		    1
+#define ROLL_ROLLING	2
+#define ROLL_KEEP		3
+
     u8 rolling_step;
     u8 roll_thr_step;
 
@@ -28,20 +26,18 @@ typedef struct {
     u16 keep_cnt;
     s16 roll_up_speed;
     u8 roll_height_ok;
-//	s16 roll_acc_fix;
-} _rolling_flag_st;
-extern _rolling_flag_st rolling_flag;
+	s16 roll_acc_fix;
+};
 
-typedef struct {
+struct att_1l_ct {
     float set_yaw_speed;
 
     float exp_angular_velocity[VEC_RPY];
 
     float fb_angular_velocity[VEC_RPY];
-} _att_1l_ct_st;
-extern _att_1l_ct_st att_1l_ct;
+};
 
-typedef struct {
+struct att_2l_ct {
     float yaw_err;
     float exp_rol_adj;
     float exp_pit_adj;
@@ -49,27 +45,17 @@ typedef struct {
     float exp_rol, exp_pit, exp_yaw;
     float fb_rol, fb_pit, fb_yaw;
 
-} _att_2l_ct_st;
-extern _att_2l_ct_st att_2l_ct;
+};
 
 /* Exported constants --------------------------------------------------------*/
 /* Exported macro ------------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */
-void Att_2level_PID_Init(void);
-void Att_1level_PID_Init(void);
+void angle_pid_init(void);
+void angle_df_pid_init(void);
 void Set_Att_1level_Ki(u8 mode);
 void Set_Att_2level_Ki(u8 mode);
 
 void Att_2level_Ctrl(float dT, s16 *CH_N);
 void Att_1level_Ctrl(float dT);
-
-
-extern _PID_arg_st arg_2[VEC_RPY] ;
-
-extern _PID_arg_st arg_1[VEC_RPY] ;
-
-extern _PID_val_st val_2[VEC_RPY];
-
-extern _PID_val_st val_1[VEC_RPY];
 
 #endif

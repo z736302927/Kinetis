@@ -34,9 +34,6 @@ static void Mag_Cal_XY(s16 mag_in[])
         max_t[i] = max(max_t[i], mag_in[i]);
         min_t[i] = min(min_t[i], mag_in[i]);
     }
-
-
-
 }
 
 static void Mag_Cal_Z(s16 mag_in[])
@@ -54,14 +51,12 @@ void Mag_Data_Deal_Task(u8 dT_ms, s16 mag_in[], float z_vec_z, float gyro_deg_x,
     float t_length;
     float mag_val[3], mag_nb[3];
 
-    //
     for (u8 i = 0; i < 3; i++) {
         //Ano_Parame.set.mag_gain[i] = LIMIT(Ano_Parame.set.mag_gain[i],20,10000);
         mag_val[i] = (mag_in[i] - Ano_Parame.set.mag_offset[i]) * 200 / Ano_Parame.set.mag_gain[i];
 
     }
 
-    //
     if (Ano_Parame.set.mag_calibrated != 0) {
         /*转换坐标轴为ANO坐标*/
         Vec3f_Mul_MatrixT(mag_val, Ano_Parame.set.iem, mag_nb);
@@ -73,7 +68,6 @@ void Mag_Data_Deal_Task(u8 dT_ms, s16 mag_in[], float z_vec_z, float gyro_deg_x,
             mag.val[i] = mag_in[i];
     }
 
-///////////////////cali//////////////////////////////////////////////////////
     if (mag.mag_CALIBRATE == 1 && flag.unlock_sta == 0) {
         switch (mag_cal_step) {
         case 0://第一步，水平旋转
@@ -158,7 +152,6 @@ void Mag_Data_Deal_Task(u8 dT_ms, s16 mag_in[], float z_vec_z, float gyro_deg_x,
             break;
         }
 
-
         if (mag_cal_step == 0 || mag_cal_step == 3) {
             //长时间出错，退出校准逻辑
             if (cali_cnt < 15000)
@@ -178,7 +171,6 @@ void Mag_Data_Deal_Task(u8 dT_ms, s16 mag_in[], float z_vec_z, float gyro_deg_x,
 
         mag_cal_step = 0;
 
-//////////////////////////////////////////////
         t_length = my_3_norm(mag.val[X], mag.val[Y], mag.val[Z]);
 
         if (t_length < 150 || t_length > 350) {
@@ -192,7 +184,5 @@ void Mag_Data_Deal_Task(u8 dT_ms, s16 mag_in[], float z_vec_z, float gyro_deg_x,
 //				LED_state = 0;
 //			}
         }
-
-///////////////////////////////////////////////
     }
 }

@@ -8,79 +8,65 @@
 #include "Ano_UWB.h"
 
 
-//位置速度环控制参数
-_PID_arg_st loc_arg_1[2] ;
-
-//位置速度环控制数据
-_PID_val_st loc_val_1[2] ;
-
-//位置速度环修正控制参数
-_PID_arg_st loc_arg_1_fix[2] ;
-
-//位置速度环修正控制数据
-_PID_val_st loc_val_1_fix[2] ;
-
-static u8 mode_f[2];
-
 /*角度环PID参数初始化*/
-void Loc_1level_PID_Init()
+void position_pid_init()
 {
     //GPS
     if (mode_f[1] == 2) {
         //normal
-        loc_arg_1[X].kp = Ano_Parame.set.pid_gps_loc_1level[KP];//0.22f  ;
-        loc_arg_1[X].ki = 0  ;
-        loc_arg_1[X].kd_ex = 0.00f ;
-        loc_arg_1[X].kd_fb = Ano_Parame.set.pid_gps_loc_1level[KD];
-        loc_arg_1[X].k_ff = 0.02f;
+        position_coe[X].kp = Ano_Parame.set.pid_gps_loc_1level[KP];//0.22f  ;
+        position_coe[X].ki = 0  ;
+        position_coe[X].kd_ex = 0.00f ;
+        position_coe[X].kd_fb = Ano_Parame.set.pid_gps_loc_1level[KD];
+        position_coe[X].k_ff = 0.02f;
 
-        loc_arg_1[Y] = loc_arg_1[X];
+        position_coe[Y] = position_coe[X];
         //fix
-        loc_arg_1_fix[X].kp = 0.0f  ;
-        loc_arg_1_fix[X].ki = Ano_Parame.set.pid_gps_loc_1level[KI] ;
-        loc_arg_1_fix[X].kd_ex = 0.00f;
-        loc_arg_1_fix[X].kd_fb = 0.00f;
-        loc_arg_1_fix[X].k_ff = 0.0f;
+        position_fix_coe[X].kp = 0.0f  ;
+        position_fix_coe[X].ki = Ano_Parame.set.pid_gps_loc_1level[KI] ;
+        position_fix_coe[X].kd_ex = 0.00f;
+        position_fix_coe[X].kd_fb = 0.00f;
+        position_fix_coe[X].k_ff = 0.0f;
 
-        loc_arg_1_fix[Y] = loc_arg_1_fix[X];
+        position_fix_coe[Y] = position_fix_coe[X];
     }
     //OF
     else if (mode_f[1] == 1) {
         //normal
-        loc_arg_1[X].kp = Ano_Parame.set.pid_loc_1level[KP];//0.22f  ;
-        loc_arg_1[X].ki = 0.0f  ;
-        loc_arg_1[X].kd_ex = 0.00f ;
-        loc_arg_1[X].kd_fb = Ano_Parame.set.pid_loc_1level[KD];
-        loc_arg_1[X].k_ff = 0.02f;
+        position_coe[X].kp = Ano_Parame.set.pid_loc_1level[KP];//0.22f  ;
+        position_coe[X].ki = 0.0f  ;
+        position_coe[X].kd_ex = 0.00f ;
+        position_coe[X].kd_fb = Ano_Parame.set.pid_loc_1level[KD];
+        position_coe[X].k_ff = 0.02f;
 
-        loc_arg_1[Y] = loc_arg_1[X];
+        position_coe[Y] = position_coe[X];
         //fix
-        loc_arg_1_fix[X].kp = 0.0f  ;
-        loc_arg_1_fix[X].ki = Ano_Parame.set.pid_loc_1level[KI] ;
-        loc_arg_1_fix[X].kd_ex = 0.00f;
-        loc_arg_1_fix[X].kd_fb = 0.00f;
-        loc_arg_1_fix[X].k_ff = 0.0f;
+        position_fix_coe[X].kp = 0.0f  ;
+        position_fix_coe[X].ki = Ano_Parame.set.pid_loc_1level[KI] ;
+        position_fix_coe[X].kd_ex = 0.00f;
+        position_fix_coe[X].kd_fb = 0.00f;
+        position_fix_coe[X].k_ff = 0.0f;
 
-        loc_arg_1_fix[Y] = loc_arg_1_fix[X];
+        position_fix_coe[Y] = position_fix_coe[X];
     }
     //UWB 、UWB AND OF
     else if (mode_f[1] == 3 || mode_f[1] == 4) {
         //normal
-        loc_arg_1[X].kp = Ano_Parame.set.pid_loc_1level[KP];//0.22f  ;
-        loc_arg_1[X].ki = 0.0f  ;
-        loc_arg_1[X].kd_ex = 0.00f ;
-        loc_arg_1[X].kd_fb = Ano_Parame.set.pid_loc_1level[KD];
-        loc_arg_1[X].k_ff = 0.02f;
+        position_coe[X].kp = Ano_Parame.set.pid_loc_1level[KP];//0.22f  ;
+        position_coe[X].ki = 0.0f  ;
+        position_coe[X].kd_ex = 0.00f ;
+        position_coe[X].kd_fb = Ano_Parame.set.pid_loc_1level[KD];
+        position_coe[X].k_ff = 0.02f;
 
-        loc_arg_1[Y] = loc_arg_1[X];
+        position_coe[Y] = position_coe[X];
         //fix
-        loc_arg_1_fix[X].kp = 0.0f  ;
-        loc_arg_1_fix[X].ki = Ano_Parame.set.pid_loc_1level[KI] ;
-        loc_arg_1_fix[X].kd_ex = 0.00f;
-        loc_arg_1_fix[X].kd_fb = 0.00f;
-        loc_arg_1_fix[X].k_ff = 0.0f;
+        position_fix_coe[X].kp = 0.0f  ;
+        position_fix_coe[X].ki = Ano_Parame.set.pid_loc_1level[KI] ;
+        position_fix_coe[X].kd_ex = 0.00f;
+        position_fix_coe[X].kd_fb = 0.00f;
+        position_fix_coe[X].k_ff = 0.0f;
 
-        loc_arg_1_fix[Y] = loc_arg_1_fix[X];
+        position_fix_coe[Y] = position_fix_coe[X];
     }
     //
     else {
@@ -112,7 +98,7 @@ void Loc_1level_Ctrl(u16 dT_ms, s16 *CH_N)
         mode_f[1] = 3;
 
         if (mode_f[1] != mode_f[0]) {
-            Loc_1level_PID_Init();
+            position_pid_init();
             mode_f[0] = mode_f[1];
         }
 
@@ -127,7 +113,7 @@ void Loc_1level_Ctrl(u16 dT_ms, s16 *CH_N)
         mode_f[1] = 4;
 
         if (mode_f[1] != mode_f[0]) {
-            Loc_1level_PID_Init();
+            position_pid_init();
             mode_f[0] = mode_f[1];
         }
 
@@ -159,28 +145,28 @@ void Loc_1level_Ctrl(u16 dT_ms, s16 *CH_N)
         fb_speed_fix[1] = uwb_data.w_vel_cmps[1];
 
         for (u8 i = 0; i < 2; i++) {
-            PID_calculate(dT_ms * 1e-3f,           //周期（单位：秒）
+            pid_calculate(dT_ms * 1e-3f,           //周期（单位：秒）
                 loc_ctrl_1.exp[i],				//前馈值
                 loc_ctrl_1.exp[i],				//期望值（设定值）
                 loc_ctrl_1.fb[i],			//反馈值（）
-                &loc_arg_1[i], //PID参数结构体
-                &loc_val_1[i],	//PID数据结构体
+                &position_coe[i], //PID参数结构体
+                &position_res[i],	//PID数据结构体
                 50,//积分误差限幅
                 10 * flag.taking_off			//integration limit，积分限幅
             )	;
 
             //fix
-            PID_calculate(dT_ms * 1e-3f,           //周期（单位：秒）
+            pid_calculate(dT_ms * 1e-3f,           //周期（单位：秒）
                 loc_ctrl_1.exp[i],				//前馈值
                 loc_ctrl_1.exp[i],				//期望值（设定值）
                 fb_speed_fix[i],			//反馈值（）
-                &loc_arg_1_fix[i], //PID参数结构体
-                &loc_val_1_fix[i],	//PID数据结构体
+                &position_fix_coe[i], //PID参数结构体
+                &position_fix_res[i],	//PID数据结构体
                 50,//积分误差限幅
                 10 * flag.taking_off			//integration limit，积分限幅
             )	;
 
-            pos_ctrl_w_out[i] = loc_val_1[i].out + loc_val_1_fix[i].out;	//(PD)+(I)
+            pos_ctrl_w_out[i] = position_res[i].out + position_fix_res[i].out;	//(PD)+(I)
         }
 
         //NWU转HXYZ水平航向坐标
@@ -194,7 +180,7 @@ void Loc_1level_Ctrl(u16 dT_ms, s16 *CH_N)
         mode_f[1] = 1;
 
         if (mode_f[1] != mode_f[0]) {
-            Loc_1level_PID_Init();
+            position_pid_init();
             mode_f[0] = mode_f[1];
         }
 
@@ -220,28 +206,28 @@ void Loc_1level_Ctrl(u16 dT_ms, s16 *CH_N)
         }
 
         for (u8 i = 0; i < 2; i++) {
-            PID_calculate(dT_ms * 1e-3f,           //周期（单位：秒）
+            pid_calculate(dT_ms * 1e-3f,           //周期（单位：秒）
                 loc_ctrl_1.exp[i],				//前馈值
                 loc_ctrl_1.exp[i],				//期望值（设定值）
                 loc_ctrl_1.fb[i],			//反馈值（）
-                &loc_arg_1[i], //PID参数结构体
-                &loc_val_1[i],	//PID数据结构体
+                &position_coe[i], //PID参数结构体
+                &position_res[i],	//PID数据结构体
                 50,//积分误差限幅
                 10 * flag.taking_off			//integration limit，积分限幅
             )	;
 
             //fix
-            PID_calculate(dT_ms * 1e-3f,           //周期（单位：秒）
+            pid_calculate(dT_ms * 1e-3f,           //周期（单位：秒）
                 loc_ctrl_1.exp[i],				//前馈值
                 loc_ctrl_1.exp[i],				//期望值（设定值）
                 fb_speed_fix[i],			//反馈值（）
-                &loc_arg_1_fix[i], //PID参数结构体
-                &loc_val_1_fix[i],	//PID数据结构体
+                &position_fix_coe[i], //PID参数结构体
+                &position_fix_res[i],	//PID数据结构体
                 50,//积分误差限幅
                 10 * flag.taking_off			//integration limit，积分限幅
             )	;
 
-            loc_ctrl_1.out[i] = loc_val_1[i].out + loc_val_1_fix[i].out;	//(PD)+(I)
+            loc_ctrl_1.out[i] = position_res[i].out + position_fix_res[i].out;	//(PD)+(I)
         }
 
 
@@ -251,7 +237,7 @@ void Loc_1level_Ctrl(u16 dT_ms, s16 *CH_N)
         mode_f[1] = 2;
 
         if (mode_f[1] != mode_f[0]) {
-            Loc_1level_PID_Init();
+            position_pid_init();
             mode_f[0] = mode_f[1];
         }
 
@@ -315,34 +301,34 @@ void Loc_1level_Ctrl(u16 dT_ms, s16 *CH_N)
         fb_speed_fix[Y] = -(Gps_information.last_E_vel);
 
         for (u8 i = 0; i < 2; i++) {
-            PID_calculate(dT_ms * 1e-3f,           //周期（单位：秒）
+            pid_calculate(dT_ms * 1e-3f,           //周期（单位：秒）
                 loc_ctrl_1.exp[i],				//前馈值
                 loc_ctrl_1.exp[i],				//期望值（设定值）
                 loc_ctrl_1.fb[i],			//反馈值（）
-                &loc_arg_1[i], //PID参数结构体
-                &loc_val_1[i],	//PID数据结构体
+                &position_coe[i], //PID参数结构体
+                &position_res[i],	//PID数据结构体
                 50,//积分误差限幅
                 10 * flag.taking_off			//integration limit，积分限幅
             )	;
 
             //fix
-            PID_calculate(dT_ms * 1e-3f,           //周期（单位：秒）
+            pid_calculate(dT_ms * 1e-3f,           //周期（单位：秒）
                 loc_ctrl_1.exp[i],				//前馈值
                 loc_ctrl_1.exp[i],				//期望值（设定值）
                 fb_speed_fix[i],			//反馈值（）
-                &loc_arg_1_fix[i], //PID参数结构体
-                &loc_val_1_fix[i],	//PID数据结构体
+                &position_fix_coe[i], //PID参数结构体
+                &position_fix_res[i],	//PID数据结构体
                 50,//积分误差限幅
                 10 * flag.taking_off			//integration limit，积分限幅
             )	;
 
             if (!flag.taking_off)
-                loc_val_1_fix[i].err_i = 0;
+                position_fix_res[i].err_i = 0;
         }
 
         //
-        pos_ctrl_w_out[0] = loc_val_1[0].out + loc_val_1_fix[0].out;//(PD)+(I)
-        pos_ctrl_w_out[1] = loc_val_1[1].out + loc_val_1_fix[1].out;//(PD)+(I)
+        pos_ctrl_w_out[0] = position_res[0].out + position_fix_res[0].out;//(PD)+(I)
+        pos_ctrl_w_out[1] = position_res[1].out + position_fix_res[1].out;//(PD)+(I)
         w2h_2d_trans(pos_ctrl_w_out, imu_data.hx_vec, pos_ctrl_h_out);	//世界坐标（NWU）控制结果转换到航向坐标下
         loc_ctrl_1.out[X] = pos_ctrl_h_out[0];
         loc_ctrl_1.out[Y] = pos_ctrl_h_out[1];
@@ -352,7 +338,7 @@ void Loc_1level_Ctrl(u16 dT_ms, s16 *CH_N)
         mode_f[1] = 255;
 
         if (mode_f[1] != mode_f[0]) {
-            Loc_1level_PID_Init();
+            position_pid_init();
             mode_f[0] = mode_f[1];
         }
 

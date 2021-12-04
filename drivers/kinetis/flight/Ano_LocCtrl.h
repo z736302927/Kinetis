@@ -19,11 +19,11 @@ extern _loc_ctrl_st loc_ctrl_1;
 extern _loc_ctrl_st loc_ctrl_2;
 /* Exported constants --------------------------------------------------------*/
 
-extern _PID_arg_st loc_arg_1[] ;
-extern _PID_val_st loc_val_1[] ;
+extern struct pid_coefficient position_coe[] ;
+extern struct pid_op_result position_res[] ;
 /* Exported macro ------------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */
 
-void Loc_1level_PID_Init(void);
+void position_pid_init(void);
 void Loc_1level_Ctrl(u16 dT_ms, s16 *CH_N);
 #endif

@@ -2,14 +2,11 @@
 #include "Ano_DT.h"
 #include "include.h"
 
-_fly_ct_st program_ctrl;
 //设计成单一线程执行命令。
 static u16 val, spd;
 
 void FlyCtrlDataAnl(u8 *data)
 {
-
-
     val = ((*(data + 3)) << 8) + (*(data + 4));
     spd = ((*(data + 5)) << 8) + (*(data + 6));
     program_ctrl.cmd_state[0] = *(data + 2);
@@ -26,7 +23,6 @@ void FlyCtrl_Task(u8 dT_ms)
         //指令更新，复位数据,停止之前操作
         FlyCtrlReset();
 
-        //
         if (rc_in.no_signal == 0 && flag.flight_mode == LOC_HOLD && (switchs.of_flow_on || switchs.gps_on))
             program_ctrl.state_ok = 1;
         else {
@@ -36,12 +32,10 @@ void FlyCtrl_Task(u8 dT_ms)
             //复位指令状态
             program_ctrl.cmd_state[0] = 0;
         }
-
     }
 
     switch (program_ctrl.cmd_state[0]) {
     case (0x01): { //起飞
-
         if (program_ctrl.state_ok != 0) {
             //起飞状态为初始状态，且遥控有信号,且光流或者GPS有效
             if (flag.auto_take_off_land == AUTO_TAKE_OFF_NULL) {
@@ -53,7 +47,6 @@ void FlyCtrl_Task(u8 dT_ms)
                     //一键起飞
                     one_key_take_off();
                 }
-
             } else if (flag.auto_take_off_land == AUTO_TAKE_OFF_FINISH) {
                 //发送字符串
                 AnoDTSendStr(USE_HID | USE_U2, SWJ_ADDR, LOG_COLOR_GREEN, "Take off OK!");
@@ -66,7 +59,6 @@ void FlyCtrl_Task(u8 dT_ms)
                 program_ctrl.cmd_state[0] = 0;
             }
         }
-
     }
     break;
 
@@ -338,13 +330,10 @@ void FlyCtrl_Task(u8 dT_ms)
 
 void FlyCtrlReset()
 {
-    //
     cmd_take_off_f = 0;
 
-    //
     for (u8 i = 0; i < 4; i++) {
         if (i < 3) {
-            //
             program_ctrl.vel_cmps_ref[i] = 0;
             program_ctrl.vel_cmps_w[i] = 0;
             program_ctrl.vel_cmps_h[i] = 0;
@@ -354,5 +343,4 @@ void FlyCtrlReset()
         program_ctrl.exp_process_t_ms[i] = 0;
         program_ctrl.fb_process_t_ms[i] = 0;
     }
-
 }

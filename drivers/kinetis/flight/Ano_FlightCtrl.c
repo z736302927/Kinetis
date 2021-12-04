@@ -22,58 +22,44 @@
 #include "Ano_ProgramCtrl_User.h"
 #include "Drv_OpenMV.h"
 
-/////////////////////////////////////////////////////////
-/////////////////////////////////////////////////////////
-
-
-/////////////////////////////////////////////////////////
-
 /*PID参数初始化*/
 void fmu_pid_init(void)
 {
     /*姿态控制，角速度PID初始化*/
-    Att_1level_PID_Init();
+    angle_df_pid_init();
 
     /*姿态控制，角度PID初始化*/
-    Att_2level_PID_Init();
+    angle_pid_init();
 
     /*高度控制，高度速度PID初始化*/
-    Alt_1level_PID_Init();
+    height_df_pid_init();
 
     /*高度控制，高度PID初始化*/
-    Alt_2level_PID_Init();
-
+    height_pid_init();
 
     /*位置速度控制PID初始化*/
-    Loc_1level_PID_Init();
+    position_pid_init();
 
 }
 
 /*控制参数改变任务*/
 void ctrl_parameter_change_task()
 {
-
-
     if (0)
         Set_Att_2level_Ki(0);
-
     else {
         if (flag.auto_take_off_land == AUTO_TAKE_OFF)
-
             Set_Att_1level_Ki(2);
         else
-
             Set_Att_1level_Ki(1);
 
         Set_Att_2level_Ki(1);
     }
 }
 
-
 /*一键翻滚（暂无）*/
 void one_key_roll()
 {
-
     if (flag.flying && flag.auto_take_off_land == AUTO_TAKE_OFF_FINISH) {
         if (rolling_flag.roll_mode == 0)
             rolling_flag.roll_mode = 1;
@@ -124,12 +110,7 @@ void one_key_land()
     flag.auto_take_off_land = AUTO_LAND;
 }
 
-//////////////////////////////////////////////////////////////////
-
-
-
-//////////////////////////////////////////////////////////////////
-_flight_state_st fs;
+struct flight_state fs;
 
 s16 flying_cnt, landing_cnt;
 
@@ -138,7 +119,6 @@ extern s32 ref_height_get;
 float stop_baro_hpf;
 
 /*降落检测*/
-
 static s16 ld_delay_cnt ;
 void land_discriminat(s16 dT_ms)
 {
@@ -169,20 +149,15 @@ void land_discriminat(s16 dT_ms)
                 flag.unlock_cmd = 0;
 
                 flag.flying = 0;
-
             }
         } else
             landing_cnt = 0;
-
-
     } else
         landing_cnt  = 0;
-
 }
 
 
 /*飞行状态任务*/
-
 void Flight_State_Task(u8 dT_ms, s16 *CH_N)
 {
     s16 thr_deadzone;
@@ -198,13 +173,10 @@ void Flight_State_Task(u8 dT_ms, s16 *CH_N)
             flag.taking_off = 1;
     }
 
-    //
     fc_stv.vel_limit_z_p = MAX_Z_SPEED_UP;
     fc_stv.vel_limit_z_n = -MAX_Z_SPEED_DW;
 
-    //
     if (flag.taking_off) {
-
         if (flying_cnt < 1000) //800ms
             flying_cnt += dT_ms;
         else {
@@ -319,7 +291,7 @@ static s16 of_alt_delay;
 static u8 of_tof_on_tmp;
 //
 
-_judge_sync_data_st jsdata;
+struct judge_sync_data jsdata;
 void Swtich_State_Task(u8 dT_ms)
 {
     switchs.baro_on = 1;
@@ -440,15 +412,11 @@ void Flight_Mode_Set(u8 dT_ms)
 {
     Speed_Mode_Switch();
 
-
     if (speed_mode_old != flag.speed_mode) { //状态改变
         speed_mode_old = flag.speed_mode;
         //xy_speed_pid_init(flag.speed_mode);////////////
     }
 
-///////////////////////////////////////////////////////
-
-    ////
     if (CH_N[AUX1] < -300)
         flag.flight_mode = ATT_STAB;
     else if (CH_N[AUX1] < 200)
@@ -456,16 +424,12 @@ void Flight_Mode_Set(u8 dT_ms)
     else
         flag.flight_mode = RETURN_HOME;
 
-
-
     if (flight_mode_old != flag.flight_mode) { //摇杆对应模式状态改变
         flight_mode_old = flag.flight_mode;
 
         flag.rc_loss_back_home = 0;
-
     }
 
-    //
     if (rc_in.no_signal == 0) { //flag.rc_loss ==0)//接收机有信号
         //CH_N[]+1500为上位机显示通道值
         if (CH_N[AUX2] < -300) //<1200
@@ -476,6 +440,5 @@ void Flight_Mode_Set(u8 dT_ms)
             flag.flight_mode2 = 2;
     } else
         flag.flight_mode2 = 0;
-
 }
 

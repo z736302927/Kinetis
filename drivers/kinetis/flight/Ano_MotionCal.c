@@ -10,12 +10,9 @@ _inte_fix_filter_st wcz_acc_fus;
 _fix_inte_filter_st wcz_spe_fus, wcz_hei_fus;
 
 s32 ref_height_old, ref_speed_old;
-
 s32 wcz_ref_height, wcz_ref_speed, wcz_ref_acc;
 
 //static float wcz_acc_deadzone;
-
-
 static s32 wcz_acc;
 #define N_TIMES 20
 
@@ -36,7 +33,6 @@ void WCZ_Data_Calc(u8 dT_ms, u8 wcz_f_pause, s32 wcz_acc_get, s32 ref_height)
 //
 //	wz_acc_comp = roll_acc_fix ;//- LIMIT(5 *(0.996f - imu_data.z_vec[Z] *imu_data.z_vec[Z]),0,1) *5 ;
 
-
     cyc_xn ++;
     cyc_xn %= N_TIMES;
 
@@ -47,12 +43,7 @@ void WCZ_Data_Calc(u8 dT_ms, u8 wcz_f_pause, s32 wcz_acc_get, s32 ref_height)
 
         ref_height_old = wcz_ref_height;
         ref_speed_old = wcz_ref_speed;
-
     }
-
-    ////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////
 
     wcz_acc_fus.fix_ki = 0.05f;
     wcz_acc_fus.in_est = wcz_acc;
@@ -73,13 +64,6 @@ void WCZ_Data_Calc(u8 dT_ms, u8 wcz_f_pause, s32 wcz_acc_get, s32 ref_height)
     wcz_hei_fus.in_obs = ref_height;
     wcz_hei_fus.e_limit = 100;
     fix_inte_filter(dT_ms * 1e-3f, &wcz_hei_fus);
-
-
-
-///////////////////////////////////////////////////////////////
-
-
-
 }
 
 
@@ -93,5 +77,4 @@ void WCZ_Data_Reset()
 
     wcz_hei_fus.out = 0;
     wcz_hei_fus.e = 0;
-
 }
