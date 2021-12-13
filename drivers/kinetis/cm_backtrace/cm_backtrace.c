@@ -26,7 +26,7 @@
  * Created on: 2016-12-15
  */
 
-#include <cm_backtrace.h>
+#include "cm_backtrace.h"
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
@@ -107,11 +107,11 @@
 
 //static const char * const print_info[] = {
 #if (CMB_PRINT_LANGUAGE == CMB_PRINT_LANGUAGE_ENGLISH)
-    #include "Languages/en-US/cmb_en_US.h"
+    #include "cmb_en_US.h"
 #elif (CMB_PRINT_LANGUAGE == CMB_PRINT_LANGUAGE_CHINESE)
-    #include "Languages/zh-CN/cmb_zh_CN.h"
+    #include "cmb_zh_CN.h"
 #elif (CMB_PRINT_LANGUAGE == CMB_PRINT_LANGUAGE_CHINESE_UTF8)
-    #include "Languages/zh-CN/cmb_zh_CN_UTF8.h"
+    #include "cmb_zh_CN_UTF8.h"
 #else
     #error "CMB_PRINT_LANGUAGE defined error in 'cmb_cfg.h'"
 #endif

@@ -34,10 +34,15 @@
 #include <linux/debugfs.h>
 #include <asm/sections.h>
 
-#include <cm_backtrace.h>
-
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
+
+__attribute__( ( always_inline ) ) static inline uint32_t cmb_get_sp(void) {
+        register uint32_t result;
+        __asm volatile ("MOV %0, sp\n" : "=r" (result) );
+        return(result);
+    }
+void cm_backtrace_assert(uint32_t sp);
 
 //#ifdef CONFIG_SMP
 ///*
