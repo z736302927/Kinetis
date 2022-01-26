@@ -5,6 +5,7 @@
  * Copyright (C) 2009/2010 Stefani Seibold <stefani@seibold.net>
  */
 
+#include <generated/deconfig.h>
 #include <linux/kernel.h>
 #include <linux/export.h>
 #include <linux/slab.h>

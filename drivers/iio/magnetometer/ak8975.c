@@ -7,6 +7,8 @@
  * Copyright (c) 2010, NVIDIA Corporation.
  */
 
+#include <generated/deconfig.h>
+#include <generated/deconfig.h>
 #include <linux/module.h>
 #include <linux/mod_devicetable.h>
 #include <linux/kernel.h>
