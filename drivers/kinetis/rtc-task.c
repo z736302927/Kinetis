@@ -4,7 +4,7 @@
 #include <linux/errno.h>
 #include <linux/iopoll.h>
 
-#include "rtc-task.h"
+#include <kinetis/rtc-task.h>
 
 
 //rtc_task rtc_task list head.

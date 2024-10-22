@@ -3,7 +3,7 @@
 #include <linux/slab.h>
 #include <linux/errno.h>
 
-#include "tim-task.h"
+#include <kinetis/tim-task.h>
 
 //tim_task handle list head.
 static LIST_HEAD(tim_task_head);
@@ -21,55 +21,16 @@ static LIST_HEAD(tim_task_suspend_head);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-/**
-  * @brief  add the tim_task struct handle.
-  * @param  tim_task: the tim_task handle strcut.
-  * @param  timeout_cb: Timeout callback.
-  * @param  timeout: time out time.
-  * @param  repeat: repeat interval time.
-  * @retval None
-  */
-int tim_task_add(u32 interval, bool auto_load, void(*callback)())
+const char *
+tim_task_decode(struct tim_task *task)
 {
-    struct tim_task *tim_task;
+	static char buf[DBG_BUF_EN];
 
-    tim_task = kmalloc(sizeof(*tim_task), GFP_KERNEL);
+	snprintf(buf, DBG_BUF_EN, "task: %s, interval:%u, timeout:%lld, %s",
+		task->name, task->interval,
+		task->timeout, task->auto_load ? "auto_load" : "");
 
-    if (!tim_task)
-        return -ENOMEM;
-
-    if (!callback)
-        return -EINVAL;
-
-    tim_task->callback = callback;
-    tim_task->timeout = ktime_to_ms(ktime_get()) + interval;
-    tim_task->interval = interval;
-    tim_task->auto_load = auto_load;
-    tim_task->self_alloc = true;
-
-    list_add_tail(&tim_task->list, &tim_task_head);
-
-    return 0;
-}
-
-/**
-  * @brief  drop the tim_task struct handle.
-  * @param  tim_task: the tim_task tim_task strcut.
-  * @retval None
-  */
-int tim_task_drop(void(*callback)())
-{
-    struct tim_task *tim_task, *tmp;
-
-    list_for_each_entry_safe(tim_task, tmp, &tim_task_head, list) {
-        if (tim_task->callback == callback) {
-            list_del(&tim_task->list);
-            kfree(tim_task);
-            return 0;
-        }
-    }
-
-    return -EINVAL;
+	return buf;
 }
 
 /**
@@ -80,18 +41,31 @@ int tim_task_drop(void(*callback)())
   * @param  repeat: repeat interval time.
   * @retval None
   */
-int tim_task_enqueue(struct tim_task *tim_task,
-    u32 interval, void(*callback)(struct tim_task *))
+int tim_task_add(struct tim_task *tim_task,
+	char *name, u32 interval, bool auto_load, bool sched,
+	tim_task_cb callback)
 {
-    tim_task->callback = callback;
-    tim_task->timeout = ktime_to_ms(ktime_get()) + interval;
-    tim_task->interval = interval;
-    tim_task->auto_load = false;
-    tim_task->self_alloc = false;
+	int ret;
 
-    list_add_tail(&tim_task->list, &tim_task_head);
+	if (!callback || !name)
+		return -EINVAL;
 
-    return 0;
+	tim_task->name = kstrdup_const(name, GFP_KERNEL);
+	tim_task->callback = callback;
+	tim_task->timeout = ktime_to_ms(ktime_get()) + interval;
+	tim_task->interval = interval;
+	tim_task->auto_load = auto_load;
+
+	if (sched) {
+		ret = fmu_sch_add_task(tim_task);
+		if (ret)
+			return ret;
+		tim_task->sched = true;
+	}
+
+	list_add_tail(&tim_task->list, &tim_task_head);
+
+	return 0;
 }
 
 /**
@@ -99,9 +73,15 @@ int tim_task_enqueue(struct tim_task *tim_task,
   * @param  tim_task: the tim_task tim_task strcut.
   * @retval None
   */
-void tim_task_dequeue(struct tim_task *tim_task)
+void tim_task_drop(struct tim_task *tim_task)
 {
-    list_del(&tim_task->list);
+	list_del(&tim_task->list);
+
+	if (tim_task->sched)
+		fmu_sch_drop_task(tim_task);
+
+	kfree(tim_task->name);
+	kfree(tim_task);
 }
 
 /**
@@ -109,18 +89,9 @@ void tim_task_dequeue(struct tim_task *tim_task)
   * @param  tim_task: the tim_task tim_task strcut.
   * @retval None
   */
-int tim_task_suspend(void(*callback)())
+void tim_task_suspend(struct tim_task *tim_task)
 {
-    struct tim_task *tim_task, *tmp;
-
-    list_for_each_entry_safe(tim_task, tmp, &tim_task_head, list) {
-        if (tim_task->callback == callback) {
-            list_move_tail(&tim_task->list, &tim_task_suspend_head);
-            return 0;
-        }
-    }
-
-    return -EINVAL;
+	list_move_tail(&tim_task->list, &tim_task_suspend_head);
 }
 
 /**
@@ -128,18 +99,9 @@ int tim_task_suspend(void(*callback)())
   * @param  tim_task: the tim_task tim_task strcut.
   * @retval None
   */
-int tim_task_resume(void(*callback)())
+void tim_task_resume(struct tim_task *tim_task)
 {
-    struct tim_task *tim_task, *tmp;
-
-    list_for_each_entry_safe(tim_task, tmp, &tim_task_suspend_head, list) {
-        if (tim_task->callback == callback) {
-            list_move_tail(&tim_task->list, &tim_task_head);
-            return 0;
-        }
-    }
-
-    return -EINVAL;
+	list_move_tail(&tim_task->list, &tim_task_head);
 }
 
 /**
@@ -149,23 +111,19 @@ int tim_task_resume(void(*callback)())
   */
 void tim_task_loop(void)
 {
-    struct tim_task *tim_task, *tmp;
+	struct tim_task *tim_task, *tmp;
 
-    list_for_each_entry_safe(tim_task, tmp, &tim_task_head, list) {
-        if (tim_task->timeout <= ktime_to_ms(ktime_get())) {
-            tim_task->callback(tim_task);
+	list_for_each_entry_safe(tim_task, tmp, &tim_task_head, list) {
+		if (tim_task->timeout <= ktime_to_ms(ktime_get())) {
+			tim_task->callback(tim_task);
 
-            if (tim_task->auto_load == true)
-                tim_task->timeout =
-                    ktime_to_ms(ktime_get()) + tim_task->interval;
-            else {
-                list_del(&tim_task->list);
-
-                if (tim_task->self_alloc == true)
-                    kfree(tim_task);
-            }
-        }
-    }
+			if (tim_task->auto_load == true)
+				tim_task->timeout = ktime_to_ms(ktime_get()) +
+					tim_task->interval;
+			else
+				list_del(&tim_task->list);
+		}
+	}
 }
 
 #ifdef DESIGN_VERIFICATION_TIMTASK
@@ -179,32 +137,32 @@ static u64 time_stamp;
 
 void tim_task_callback(void)
 {
-    time_stamp = basic_timer_get_ms() - time_stamp;
-    printk(KERN_DEBUG "timeout! tim_task elapse time = %llu ms.\n", time_stamp);
+	time_stamp = basic_timer_get_ms() - time_stamp;
+	printk(KERN_DEBUG "timeout! tim_task elapse time = %llu ms.\n", time_stamp);
 
-    if (time_stamp >= 900 && time_stamp <= 1100)
-        printk(KERN_DEBUG "PASS\n");
-    else
-        printk(KERN_DEBUG "FAIL\n");
+	if (time_stamp >= 900 && time_stamp <= 1100)
+		printk(KERN_DEBUG "PASS\n");
+	else
+		printk(KERN_DEBUG "FAIL\n");
 }
 
 int t_tim_task_add(int argc, char **argv)
 {
-    int ret;
+	int ret;
 
-    time_stamp = basic_timer_get_ms();
+	time_stamp = basic_timer_get_ms();
 
-    ret = tim_task_add(1000, false, tim_task_callback); //1s loop
+	ret = tim_task_add(1000, false, tim_task_callback); //1s loop
 
-    if (ret)
-        goto err;
+	if (ret)
+		goto err;
 
-    return PASS;
+	return PASS;
 
 err:
-    printk(KERN_ERR "Failed to execute %s(), error code: %d\n",
-        __func__, ret);
-    return FAIL;
+	printk(KERN_ERR "Failed to execute %s(), error code: %d\n",
+		__func__, ret);
+	return FAIL;
 }
 
 #endif

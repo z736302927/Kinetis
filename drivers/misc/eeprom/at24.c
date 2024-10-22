@@ -436,11 +436,11 @@ static int at24_read(void *priv, unsigned int off, void *val, size_t count)
 	if (off + count > at24->byte_len)
 		return -EINVAL;
 
-//	ret = pm_runtime_get_sync(dev);
-//	if (ret < 0) {
-//		pm_runtime_put_noidle(dev);
-//		return ret;
-//	}
+	ret = pm_runtime_get_sync(dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(dev);
+		return ret;
+	}
 
 	/*
 	 * Read data from chip, protecting against concurrent updates
@@ -452,14 +452,14 @@ static int at24_read(void *priv, unsigned int off, void *val, size_t count)
 		ret = at24_regmap_read(at24, buf + i, off + i, count);
 		if (ret < 0) {
 			mutex_unlock(&at24->lock);
-//			pm_runtime_put(dev);
+			pm_runtime_put(dev);
 			return ret;
 		}
 	}
 
 	mutex_unlock(&at24->lock);
 
-//	pm_runtime_put(dev);
+	pm_runtime_put(dev);
 
 	if (unlikely(at24->read_post))
 		at24->read_post(off, buf, i);
@@ -483,11 +483,11 @@ static int at24_write(void *priv, unsigned int off, void *val, size_t count)
 	if (off + count > at24->byte_len)
 		return -EINVAL;
 
-//	ret = pm_runtime_get_sync(dev);
-//	if (ret < 0) {
-//		pm_runtime_put_noidle(dev);
-//		return ret;
-//	}
+	ret = pm_runtime_get_sync(dev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(dev);
+		return ret;
+	}
 
 	/*
 	 * Write data to chip, protecting against concurrent updates

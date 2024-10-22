@@ -122,7 +122,8 @@ struct i2c_board_info __initdata fire_i2c_board_info[] = {
 //};
 
 int __init initialize_ptr_random(void);
-void cm_backtrace_init(const char *firmware_name, const char *hardware_ver, const char *software_ver);
+void cm_backtrace_init(const char *firmware_name,
+	const char *hardware_ver, const char *software_ver);
 void __init timekeeping_init(void);
 int __init find_bit_test(void);
 void __init radix_tree_init(void);

@@ -1289,23 +1289,23 @@ static int stm32_usart_serial_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, &stm32port->port);
 
-//	pm_runtime_get_noresume(&pdev->dev);
-//	pm_runtime_set_active(&pdev->dev);
-//	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_noresume(&pdev->dev);
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
 
 	ret = uart_add_one_port(&stm32_usart_driver, &stm32port->port);
 	if (ret)
 		goto err_port;
 
-//	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_put_sync(&pdev->dev);
 
 	return 0;
 
 err_port:
-//	pm_runtime_disable(&pdev->dev);
-//	pm_runtime_set_suspended(&pdev->dev);
-//	pm_runtime_put_noidle(&pdev->dev);
-//
+	pm_runtime_disable(&pdev->dev);
+	pm_runtime_set_suspended(&pdev->dev);
+	pm_runtime_put_noidle(&pdev->dev);
+
 //	if (stm32port->rx_ch) {
 //		dmaengine_terminate_async(stm32port->rx_ch);
 //		dma_release_channel(stm32port->rx_ch);
@@ -1346,15 +1346,15 @@ static int stm32_usart_serial_remove(struct platform_device *pdev)
 //	const struct stm32_usart_offsets *ofs = &stm32_port->info->ofs;
 	int err;
 
-//	pm_runtime_get_sync(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
 	err = uart_remove_one_port(&stm32_usart_driver, port);
 	if (err)
 		return(err);
 
-//	pm_runtime_disable(&pdev->dev);
-//	pm_runtime_set_suspended(&pdev->dev);
-//	pm_runtime_put_noidle(&pdev->dev);
-//
+	pm_runtime_disable(&pdev->dev);
+	pm_runtime_set_suspended(&pdev->dev);
+	pm_runtime_put_noidle(&pdev->dev);
+
 //	stm32_usart_clr_bits(port, ofs->cr3, USART_CR3_DMAR);
 //
 //	if (stm32_port->rx_ch) {
@@ -1391,6 +1391,7 @@ static int stm32_usart_serial_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_SERIAL_STM32_CONSOLE
 int _putc(int ch);
+int _puts(char *string, int cnt);
 
 static void stm32_usart_console_putchar(struct uart_port *port, int ch)
 {
@@ -1430,7 +1431,7 @@ static void stm32_usart_console_write(struct console *co, const char *s,
 //	writel_relaxed(new_cr1, port->membase + ofs->cr1);
 
 	uart_console_write(port, s, cnt, stm32_usart_console_putchar);
-
+//	_puts(s, cnt);
 //	/* Restore interrupt state */
 //	writel_relaxed(old_cr1, port->membase + ofs->cr1);
 //

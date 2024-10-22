@@ -6,6 +6,7 @@
  * Copyright (c) 2018-2021, Topic Embedded Products
  */
 
+#include <generated/deconfig.h>
 #include <linux/delay.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -16,6 +17,8 @@
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <asm/unaligned.h>
+
+#include <kinetis/fmu.h>
 
 #include "bmi088-accel.h"
 
@@ -79,7 +82,7 @@ enum bmi088_accel_axis {
 	AXIS_Z,
 };
 
-static const int bmi088_sample_freqs[] = {
+static const int bmi088_accel_sample_freqs[] = {
 	12, 500000,
 	25, 0,
 	50, 0,
@@ -91,14 +94,14 @@ static const int bmi088_sample_freqs[] = {
 };
 
 /* Available OSR (over sampling rate) sets the 3dB cut-off frequency */
-enum bmi088_osr_modes {
+enum bmi088_accel_osr_modes {
 	BMI088_ACCEL_MODE_OSR_NORMAL = 0xA,
 	BMI088_ACCEL_MODE_OSR_2 = 0x9,
 	BMI088_ACCEL_MODE_OSR_4 = 0x8,
 };
 
 /* Available ODR (output data rates) in Hz */
-enum bmi088_odr_modes {
+enum bmi088_accel_odr_modes {
 	BMI088_ACCEL_MODE_ODR_12_5 = 0x5,
 	BMI088_ACCEL_MODE_ODR_25 = 0x6,
 	BMI088_ACCEL_MODE_ODR_50 = 0x7,
@@ -109,7 +112,7 @@ enum bmi088_odr_modes {
 	BMI088_ACCEL_MODE_ODR_1600 = 0xc,
 };
 
-struct bmi088_scale_info {
+struct bmi088_accel_scale_info {
 	int scale;
 	u8 reg_range;
 };
@@ -127,26 +130,26 @@ struct bmi088_accel_data {
 	u8 buffer[2] ____cacheline_aligned; /* shared DMA safe buffer */
 };
 
-static const struct regmap_range bmi088_volatile_ranges[] = {
+static const struct regmap_range bmi088_accel_volatile_ranges[] = {
 	/* All registers below 0x40 are volatile, except the CHIP ID. */
 	regmap_reg_range(BMI088_ACCEL_REG_ERROR, 0x3f),
 	/* Mark the RESET as volatile too, it is self-clearing */
 	regmap_reg_range(BMI088_ACCEL_REG_RESET, BMI088_ACCEL_REG_RESET),
 };
 
-static const struct regmap_access_table bmi088_volatile_table = {
-	.yes_ranges	= bmi088_volatile_ranges,
-	.n_yes_ranges	= ARRAY_SIZE(bmi088_volatile_ranges),
+static const struct regmap_access_table bmi088_accel_volatile_table = {
+	.yes_ranges	= bmi088_accel_volatile_ranges,
+	.n_yes_ranges	= ARRAY_SIZE(bmi088_accel_volatile_ranges),
 };
 
-const struct regmap_config bmi088_regmap_conf = {
+const struct regmap_config bmi088_accel_regmap_conf = {
 	.reg_bits = 8,
 	.val_bits = 8,
 	.max_register = 0x7E,
-	.volatile_table = &bmi088_volatile_table,
+	.volatile_table = &bmi088_accel_volatile_table,
 	.cache_type = REGCACHE_RBTREE,
 };
-EXPORT_SYMBOL_GPL(bmi088_regmap_conf);
+EXPORT_SYMBOL_GPL(bmi088_accel_regmap_conf);
 
 static int bmi088_accel_power_up(struct bmi088_accel_data *data)
 {
@@ -209,11 +212,11 @@ static int bmi088_accel_get_sample_freq(struct bmi088_accel_data *data,
 	value -= BMI088_ACCEL_MODE_ODR_12_5;
 	value <<= 1;
 
-	if (value >= ARRAY_SIZE(bmi088_sample_freqs) - 1)
+	if (value >= ARRAY_SIZE(bmi088_accel_sample_freqs) - 1)
 		return -EINVAL;
 
-	*val = bmi088_sample_freqs[value];
-	*val2 = bmi088_sample_freqs[value + 1];
+	*val = bmi088_accel_sample_freqs[value];
+	*val2 = bmi088_accel_sample_freqs[value + 1];
 
 	return IIO_VAL_INT_PLUS_MICRO;
 }
@@ -223,11 +226,11 @@ static int bmi088_accel_set_sample_freq(struct bmi088_accel_data *data, int val)
 	unsigned int regval;
 	int index = 0;
 
-	while (index < ARRAY_SIZE(bmi088_sample_freqs) &&
-	       bmi088_sample_freqs[index] != val)
+	while (index < ARRAY_SIZE(bmi088_accel_sample_freqs) &&
+	       bmi088_accel_sample_freqs[index] != val)
 		index += 2;
 
-	if (index >= ARRAY_SIZE(bmi088_sample_freqs))
+	if (index >= ARRAY_SIZE(bmi088_accel_sample_freqs))
 		return -EINVAL;
 
 	regval = (index >> 1) + BMI088_ACCEL_MODE_ODR_12_5;
@@ -273,6 +276,33 @@ static int bmi088_accel_get_axis(struct bmi088_accel_data *data,
 	return IIO_VAL_INT;
 }
 
+int bmi088_accel_get_all_axis(void)
+{
+	struct fmu_core *fmu = get_fmu_core();
+	struct iio_dev *indio_dev = dev_get_drvdata(fmu->bmi088_accel_dev);
+	struct bmi088_accel_data *data = iio_priv(indio_dev);
+	u16 buffer[3];
+	int ret;
+
+	ret = regmap_bulk_read(data->regmap,
+			       BMI088_ACCEL_AXIS_TO_REG(0),
+			       (u8 *)buffer, 6);
+	if (ret)
+		return ret;
+
+	fmu->ahrs.accel.x = (float)buffer[0];
+	fmu->ahrs.accel.y = (float)buffer[1];
+	fmu->ahrs.accel.z = (float)buffer[2];
+
+	fmu->accel_cmpss.x = ((float)buffer[0] - fmu->para.accel_offset.x) * fmu->accel_scale.x;
+	fmu->accel_cmpss.y = ((float)buffer[1] - fmu->para.accel_offset.y) * fmu->accel_scale.y;
+	fmu->accel_cmpss.z = ((float)buffer[2] - fmu->para.accel_offset.z) * fmu->accel_scale.z;
+
+	vector_x_matrix_t(&fmu->accel_cmpss.x, fmu->para.iem, &fmu->accel_cmpss_nb.x);
+	
+	return 0;
+}
+
 static int bmi088_accel_read_raw(struct iio_dev *indio_dev,
 				 struct iio_chan_spec const *chan,
 				 int *val, int *val2, long mask)
@@ -285,11 +315,17 @@ static int bmi088_accel_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_RAW:
 		switch (chan->type) {
 		case IIO_TEMP:
-			pm_runtime_get_sync(dev);
+			ret = pm_runtime_resume_and_get(dev);
+			if (ret)
+				return ret;
+
 			ret = bmi088_accel_get_temp(data, val);
 			goto out_read_raw_pm_put;
 		case IIO_ACCEL:
-			pm_runtime_get_sync(dev);
+			ret = pm_runtime_resume_and_get(dev);
+			if (ret)
+				return ret;
+
 			ret = iio_device_claim_direct_mode(indio_dev);
 			if (ret)
 				goto out_read_raw_pm_put;
@@ -319,9 +355,12 @@ static int bmi088_accel_read_raw(struct iio_dev *indio_dev,
 			*val = BMI088_ACCEL_TEMP_UNIT;
 			return IIO_VAL_INT;
 		case IIO_ACCEL:
-			pm_runtime_get_sync(dev);
+			ret = pm_runtime_resume_and_get(dev);
+			if (ret)
+				return ret;
+
 			ret = regmap_read(data->regmap,
-					  BMI088_ACCEL_REG_ACC_RANGE, val);
+					  BMI088_ACCEL_REG_ACC_RANGE, (unsigned int *)val);
 			if (ret)
 				goto out_read_raw_pm_put;
 
@@ -334,7 +373,10 @@ static int bmi088_accel_read_raw(struct iio_dev *indio_dev,
 			return -EINVAL;
 		}
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		pm_runtime_get_sync(dev);
+		ret = pm_runtime_resume_and_get(dev);
+		if (ret)
+			return ret;
+
 		ret = bmi088_accel_get_sample_freq(data, val, val2);
 		goto out_read_raw_pm_put;
 	default:
@@ -358,8 +400,8 @@ static int bmi088_accel_read_avail(struct iio_dev *indio_dev,
 	switch (mask) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		*type = IIO_VAL_INT_PLUS_MICRO;
-		*vals = bmi088_sample_freqs;
-		*length = ARRAY_SIZE(bmi088_sample_freqs);
+		*vals = bmi088_accel_sample_freqs;
+		*length = ARRAY_SIZE(bmi088_accel_sample_freqs);
 		return IIO_AVAIL_LIST;
 	default:
 		return -EINVAL;
@@ -376,7 +418,10 @@ static int bmi088_accel_write_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		pm_runtime_get_sync(dev);
+		ret = pm_runtime_resume_and_get(dev);
+		if (ret)
+			return ret;
+
 		ret = bmi088_accel_set_sample_freq(data, val);
 		pm_runtime_mark_last_busy(dev);
 		pm_runtime_put_autosuspend(dev);
@@ -457,7 +502,7 @@ static int bmi088_accel_chip_init(struct bmi088_accel_data *data)
 	/* Read chip ID */
 	ret = regmap_read(data->regmap, BMI088_ACCEL_REG_CHIP_ID, &val);
 	if (ret) {
-		dev_err(dev, "Error: Reading chip id\n");
+		dev_err(dev, "Error: Reading accel chip id\n");
 		return ret;
 	}
 
@@ -469,7 +514,7 @@ static int bmi088_accel_chip_init(struct bmi088_accel_data *data)
 		}
 	}
 	if (i == ARRAY_SIZE(bmi088_accel_chip_info_tbl)) {
-		dev_err(dev, "Invalid chip %x\n", val);
+		dev_err(dev, "Invalid accel chip %x\n", val);
 		return -ENODEV;
 	}
 
@@ -496,7 +541,6 @@ int bmi088_accel_core_probe(struct device *dev, struct regmap *regmap,
 	if (ret)
 		return ret;
 
-	indio_dev->dev.parent = dev;
 	indio_dev->channels = data->chip_info->channels;
 	indio_dev->num_channels = data->chip_info->num_channels;
 	indio_dev->name = name ? name : data->chip_info->name;
@@ -521,8 +565,7 @@ int bmi088_accel_core_probe(struct device *dev, struct regmap *regmap,
 }
 EXPORT_SYMBOL_GPL(bmi088_accel_core_probe);
 
-
-int bmi088_accel_core_remove(struct device *dev)
+void bmi088_accel_core_remove(struct device *dev)
 {
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct bmi088_accel_data *data = iio_priv(indio_dev);
@@ -531,10 +574,7 @@ int bmi088_accel_core_remove(struct device *dev)
 
 	pm_runtime_disable(dev);
 	pm_runtime_set_suspended(dev);
-	pm_runtime_put_noidle(dev);
 	bmi088_accel_power_down(data);
-
-	return 0;
 }
 EXPORT_SYMBOL_GPL(bmi088_accel_core_remove);
 

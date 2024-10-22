@@ -4,6 +4,7 @@
  * Copyright (C) STMicroelectronics 2017
  * Author:  Maxime Coquelin <mcoquelin.stm32@gmail.com>
  */
+#include <generated/deconfig.h> 
 #include <linux/init.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -1585,7 +1586,7 @@ static struct platform_driver stm32f429_pinctrl_driver = {
 	},
 };
 
-static int __init stm32f429_pinctrl_init(void)
+int __init stm32f429_pinctrl_init(void)
 {
 	return platform_driver_register(&stm32f429_pinctrl_driver);
 }

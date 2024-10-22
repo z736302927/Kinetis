@@ -6,6 +6,7 @@
  * Copyright (c) 2018-2020, Topic Embedded Products
  */
 
+#include <generated/deconfig.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
@@ -13,7 +14,7 @@
 
 #include "bmi088-accel.h"
 
-static int bmi088_regmap_spi_write(void *context, const void *data, size_t count)
+static int bmi088_accel_regmap_spi_write(void *context, const void *data, size_t count)
 {
 	struct spi_device *spi = context;
 
@@ -21,7 +22,7 @@ static int bmi088_regmap_spi_write(void *context, const void *data, size_t count
 	return spi_write(spi, data, count);
 }
 
-static int bmi088_regmap_spi_read(void *context, const void *reg,
+static int bmi088_accel_regmap_spi_read(void *context, const void *reg,
 				size_t reg_size, void *val, size_t val_size)
 {
 	struct spi_device *spi = context;
@@ -34,9 +35,9 @@ static int bmi088_regmap_spi_read(void *context, const void *reg,
 	return spi_write_then_read(spi, addr, sizeof(addr), val, val_size);
 }
 
-static struct regmap_bus bmi088_regmap_bus = {
-	.write = bmi088_regmap_spi_write,
-	.read = bmi088_regmap_spi_read,
+static struct regmap_bus bmi088_accel_regmap_bus = {
+	.write = bmi088_accel_regmap_spi_write,
+	.read = bmi088_accel_regmap_spi_read,
 };
 
 static int bmi088_accel_probe(struct spi_device *spi)
@@ -44,8 +45,8 @@ static int bmi088_accel_probe(struct spi_device *spi)
 	struct regmap *regmap;
 	const struct spi_device_id *id = spi_get_device_id(spi);
 
-	regmap = devm_regmap_init(&spi->dev, &bmi088_regmap_bus,
-			spi, &bmi088_regmap_conf);
+	regmap = devm_regmap_init(&spi->dev, &bmi088_accel_regmap_bus,
+			spi, &bmi088_accel_regmap_conf);
 
 	if (IS_ERR(regmap)) {
 		dev_err(&spi->dev, "Failed to initialize spi regmap\n");
@@ -58,7 +59,9 @@ static int bmi088_accel_probe(struct spi_device *spi)
 
 static int bmi088_accel_remove(struct spi_device *spi)
 {
-	return bmi088_accel_core_remove(&spi->dev);
+	bmi088_accel_core_remove(&spi->dev);
+
+	return 0;
 }
 
 static const struct spi_device_id bmi088_accel_id[] = {

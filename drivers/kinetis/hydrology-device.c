@@ -243,15 +243,15 @@ static void hydrology_device_make_up_header(enum hydrology_mode mode, enum hydro
 	header->frame_start[1] = SOH;
 	header->len += 2;
 
-	hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_CENTER,
-		&(header->center_addr), 1);
+	fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BA_CENTER, &(header->center_addr), 1);
 	header->len += 1;
-	hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_REMOTE,
-		header->remote_addr, 5);
+	fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BA_REMOTE, header->remote_addr, 5);
 	header->len += 5;
 
-	hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_PASSWORD,
-		header->password, 2);
+	fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BA_PASSWORD, header->password, 2);
 	header->len += 2;
 
 	header->funcode = funcode;
@@ -306,11 +306,11 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_REMOTE,
-			upbody->rtu_addr, 5);
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
 		upbody->len += 5;
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_RTUTYPE,
-			&(upbody->rtu_type), 1);
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_PDA_RTUTYPE, &(upbody->rtu_type), 1);
 		upbody->len += 1;
 		upbody->observationtimeid[0] = 0xF0;
 		upbody->observationtimeid[1] = 0xF0;
@@ -324,7 +324,8 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 					upbody->element[i]) == false)
 				return false;
 
-			hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, element_table[i].addr,
+			fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+				element_table[i].addr,
 				upbody->element[i]->value, upbody->element[i]->num);
 
 			upbody->len += upbody->element[i]->num + 2;
@@ -340,7 +341,8 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->len += 6;
 		upbody->element[0]->guide[0] = 0xF2;
 		upbody->element[0]->guide[1] = 0xF2;
-		hydrology_read_file_size(HYDROLOGY_D_FILE_RGZS, &(upbody->element[0]->num));
+		fatfs_read_file_size(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS,
+			&(upbody->element[0]->num));
 		upbody->len += upbody->element[0]->num + 2;
 		break;
 
@@ -352,11 +354,11 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_REMOTE,
-			upbody->rtu_addr, 5);
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
 		upbody->len += 5;
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_RTUTYPE,
-			&(upbody->rtu_type), 1);
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_PDA_RTUTYPE, &(upbody->rtu_type), 1);
 		upbody->len += 1;
 		upbody->observationtimeid[0] = 0xF0;
 		upbody->observationtimeid[1] = 0xF0;
@@ -366,7 +368,7 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 
 		upbody->element[0]->guide[0] = 0xF3;
 		upbody->element[0]->guide[1] = 0xF3;
-		hydrology_read_file_size(HYDROLOGY_D_FILE_PICTURE,
+		fatfs_read_file_size(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE,
 			&(upbody->element[0]->num));
 		upbody->len += upbody->element[0]->num + 2;
 
@@ -384,8 +386,8 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_REMOTE,
-			upbody->rtu_addr, 5);
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
 		upbody->len += 5;
 
 		for (i = 0; i < upbody->count; i++) {
@@ -394,7 +396,8 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 					upbody->element[i]) == false)
 				return false;
 
-			hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, element_table[i].addr,
+			fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+				element_table[i].addr,
 				upbody->element[i]->value, upbody->element[i]->num);
 
 			upbody->len += upbody->element[i]->num + 2;
@@ -410,11 +413,11 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_REMOTE,
-			upbody->rtu_addr, 5);
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
 		upbody->len += 5;
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_SW_VERSION_LEN,
-			upbody->element[0]->guide, 1);
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_PDA_SW_VERSION_LEN, upbody->element[0]->guide, 1);
 		upbody->element[0]->num = upbody->element[0]->guide[0];
 		upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
@@ -423,7 +426,8 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 			return false;
 		}
 
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_SW_VERSION,
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_PDA_SW_VERSION,
 			upbody->element[0]->value, upbody->element[0]->num);
 		upbody->len += upbody->element[0]->num + 1;
 		break;
@@ -438,8 +442,8 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_REMOTE,
-			upbody->rtu_addr, 5);
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
 		upbody->len += 5;
 		break;
 
@@ -452,8 +456,8 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_REMOTE,
-			upbody->rtu_addr, 5);
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
 		upbody->len += 5;
 
 		if (hydrology_malloc_element(element_table[0].ID,
@@ -461,7 +465,8 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 				upbody->element[0]) == false)
 			return false;
 
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, element_table[0].addr,
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			element_table[0].addr,
 			upbody->element[0]->value, upbody->element[0]->num);
 
 		upbody->len += upbody->element[0]->num + 2;
@@ -475,11 +480,11 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_REMOTE,
-			upbody->rtu_addr, 5);
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
 		upbody->len += 5;
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_PUMP_LEN,
-			upbody->element[0]->guide, 1);
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_PDA_PUMP_LEN, upbody->element[0]->guide, 1);
 		upbody->element[0]->num = upbody->element[0]->guide[0];
 		upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
@@ -488,7 +493,8 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 			return false;
 		}
 
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_PUMP,
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_PDA_PUMP,
 			upbody->element[0]->value, upbody->element[0]->num);
 		upbody->len += upbody->element[0]->num + 1;
 		break;
@@ -501,11 +507,11 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_REMOTE,
-			upbody->rtu_addr, 5);
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
 		upbody->len += 5;
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_VALVE_LEN,
-			upbody->element[0]->guide, 1);
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_PDA_VALVE_LEN, upbody->element[0]->guide, 1);
 		upbody->element[0]->num = upbody->element[0]->guide[0];
 		upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
@@ -514,7 +520,8 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 			return false;
 		}
 
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_VALVE,
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_PDA_VALVE,
 			upbody->element[0]->value, upbody->element[0]->num);
 		upbody->len += upbody->element[0]->num + 1;
 		break;
@@ -527,11 +534,11 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_REMOTE,
-			upbody->rtu_addr, 5);
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
 		upbody->len += 5;
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_GATE_LEN,
-			upbody->element[0]->guide, 1);
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_PDA_GATE_LEN, upbody->element[0]->guide, 1);
 
 		if (upbody->element[0]->guide[0] % 8 == 0)
 			upbody->element[0]->num = upbody->element[0]->guide[0] / 8;
@@ -545,7 +552,8 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 			return false;
 		}
 
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_GATE,
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_PDA_GATE,
 			upbody->element[0]->value, upbody->element[0]->num);
 		upbody->len += upbody->element[0]->num + 1;
 		break;
@@ -558,8 +566,8 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_REMOTE,
-			upbody->rtu_addr, 5);
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
 		upbody->len += 5;
 		upbody->element[0]->guide[0] = 1;
 		upbody->element[0]->num = upbody->element[0]->guide[0];
@@ -570,7 +578,8 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 			return false;
 		}
 
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_WATERSETTING,
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_PDA_WATERSETTING,
 			upbody->element[0]->value, upbody->element[0]->num);
 		upbody->len += upbody->element[0]->num;
 		break;
@@ -583,8 +592,8 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_REMOTE,
-			upbody->rtu_addr, 5);
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
 		upbody->len += 5;
 		upbody->element[0]->guide[0] = 64;
 		upbody->element[0]->num = upbody->element[0]->guide[0];
@@ -595,7 +604,8 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 			return false;
 		}
 
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_RECORD,
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_PDA_RECORD,
 			upbody->element[0]->value, upbody->element[0]->num);
 		upbody->len += upbody->element[0]->num;
 		break;
@@ -608,8 +618,8 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_REMOTE,
-			upbody->rtu_addr, 5);
+		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
 		upbody->len += 5;
 		break;
 	}
@@ -756,7 +766,7 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 			pointer += 8;
 			memcpy(&buffer[pointer], upbody->element[0]->guide, 2);
 			pointer += 2;
-			hydrology_read_store_info(HYDROLOGY_D_FILE_RGZS,
+			fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS,
 				0, &buffer[pointer],  upbody->element[i]->num);
 			pointer += upbody->element[i]->num;
 			break;
@@ -766,7 +776,7 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 			pointer += 8;
 			memcpy(&buffer[pointer], upbody->element[0]->guide, 2);
 			pointer += 2;
-			hydrology_read_store_info(HYDROLOGY_D_FILE_PICTURE,
+			fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE,
 				0, &buffer[pointer],  upbody->element[i]->num);
 			pointer += upbody->element[i]->num;
 			break;
@@ -1053,7 +1063,7 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 				pointer = sizeof(struct hydrology_up_header) - 1;
 
 				if (i == total) {
-					hydrology_read_store_info(HYDROLOGY_D_FILE_RGZS,
+					fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS,
 						HYDROLOGY_BODY_MAX_LEN - 10 + (i - 2) * HYDROLOGY_BODY_MAX_LEN,
 						&buffer[pointer],
 						(upbody->element[0]->num - (HYDROLOGY_BODY_MAX_LEN - 10)) % HYDROLOGY_BODY_MAX_LEN);
@@ -1064,12 +1074,12 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 					pointer += 8;
 					memcpy(&buffer[pointer], upbody->element[0]->guide, 2);
 					pointer += 2;
-					hydrology_read_store_info(HYDROLOGY_D_FILE_RGZS,
+					fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS,
 						0, &buffer[pointer],  HYDROLOGY_BODY_MAX_LEN - 10);
 					pointer += HYDROLOGY_BODY_MAX_LEN - 10;
 					g_hydrology.up_packet->end = ETB;
 				} else {
-					hydrology_read_store_info(HYDROLOGY_D_FILE_RGZS,
+					fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS,
 						HYDROLOGY_BODY_MAX_LEN - 10 + (i - 2) * HYDROLOGY_BODY_MAX_LEN,
 						&buffer[pointer], HYDROLOGY_BODY_MAX_LEN);
 					pointer += HYDROLOGY_BODY_MAX_LEN;
@@ -1112,7 +1122,7 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 				pointer = sizeof(struct hydrology_up_header) - 1;
 
 				if (i == total) {
-					hydrology_read_store_info(HYDROLOGY_D_FILE_PICTURE,
+					fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE,
 						HYDROLOGY_BODY_MAX_LEN - 25 + (i - 2) * HYDROLOGY_BODY_MAX_LEN,
 						&buffer[pointer],
 						(upbody->element[0]->num - (HYDROLOGY_BODY_MAX_LEN - 25)) % HYDROLOGY_BODY_MAX_LEN);
@@ -1123,12 +1133,12 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 					pointer += 23;
 					memcpy(&buffer[pointer], upbody->element[0]->guide, 2);
 					pointer += 2;
-					hydrology_read_store_info(HYDROLOGY_D_FILE_PICTURE,
+					fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE,
 						0, &buffer[pointer],  HYDROLOGY_BODY_MAX_LEN - 25);
 					pointer += HYDROLOGY_BODY_MAX_LEN - 25;
 					g_hydrology.up_packet->end = ETB;
 				} else {
-					hydrology_read_store_info(HYDROLOGY_D_FILE_PICTURE,
+					fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE,
 						HYDROLOGY_BODY_MAX_LEN - 25 + (i - 2) * HYDROLOGY_BODY_MAX_LEN,
 						&buffer[pointer], HYDROLOGY_BODY_MAX_LEN);
 					pointer += HYDROLOGY_BODY_MAX_LEN;
@@ -1348,7 +1358,7 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 		pointer = sizeof(struct hydrology_up_header) - 1;
 
 		if (seq == total) {
-			hydrology_read_store_info(HYDROLOGY_D_FILE_RGZS,
+			fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS,
 				HYDROLOGY_BODY_MAX_LEN - 10 + (seq - 2) * HYDROLOGY_BODY_MAX_LEN,
 				&buffer[pointer],
 				(upbody->element[0]->num - (HYDROLOGY_BODY_MAX_LEN - 10)) % HYDROLOGY_BODY_MAX_LEN);
@@ -1359,12 +1369,12 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 			pointer += 8;
 			memcpy(&buffer[pointer], upbody->element[0]->guide, 2);
 			pointer += 2;
-			hydrology_read_store_info(HYDROLOGY_D_FILE_RGZS,
+			fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS,
 				0, &buffer[pointer],  HYDROLOGY_BODY_MAX_LEN - 10);
 			pointer += HYDROLOGY_BODY_MAX_LEN - 10;
 			g_hydrology.up_packet->end = ETX;
 		} else {
-			hydrology_read_store_info(HYDROLOGY_D_FILE_RGZS,
+			fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS,
 				HYDROLOGY_BODY_MAX_LEN - 10 + (seq - 2) * HYDROLOGY_BODY_MAX_LEN,
 				&buffer[pointer], HYDROLOGY_BODY_MAX_LEN);
 			pointer += HYDROLOGY_BODY_MAX_LEN;
@@ -1405,7 +1415,7 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 		pointer = sizeof(struct hydrology_up_header) - 1;
 
 		if (seq == total) {
-			hydrology_read_store_info(HYDROLOGY_D_FILE_PICTURE,
+			fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE,
 				HYDROLOGY_BODY_MAX_LEN - 25 + (seq - 2) * HYDROLOGY_BODY_MAX_LEN,
 				&buffer[pointer],
 				(upbody->element[0]->num - (HYDROLOGY_BODY_MAX_LEN - 25)) % HYDROLOGY_BODY_MAX_LEN);
@@ -1416,12 +1426,12 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 			pointer += 23;
 			memcpy(&buffer[pointer], upbody->element[0]->guide, 2);
 			pointer += 2;
-			hydrology_read_store_info(HYDROLOGY_D_FILE_PICTURE,
+			fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE,
 				0, &buffer[pointer],  HYDROLOGY_BODY_MAX_LEN - 25);
 			pointer += HYDROLOGY_BODY_MAX_LEN - 25;
 			g_hydrology.up_packet->end = ETX;
 		} else {
-			hydrology_read_store_info(HYDROLOGY_D_FILE_PICTURE,
+			fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE,
 				HYDROLOGY_BODY_MAX_LEN - 25 + (seq - 2) * HYDROLOGY_BODY_MAX_LEN,
 				&buffer[pointer], HYDROLOGY_BODY_MAX_LEN);
 			pointer += HYDROLOGY_BODY_MAX_LEN;
@@ -1583,11 +1593,13 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
 		return true;
 
 	case PERIOD_REPORT:
-		hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_PERIOD_BT,
+		fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_PDA_PERIOD_BT,
 			&input[position], 4);
 		position += 4;
 		len -= 4;
-		hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_PERIOD_ET,
+		fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_PDA_PERIOD_ET,
 			&input[position], 4);
 		position += 4;
 		len -= 4;

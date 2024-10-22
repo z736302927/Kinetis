@@ -2,7 +2,8 @@
 #include <generated/deconfig.h>
 #include <linux/slab.h>
 
-#undef current
+#include <kinetis/ano_protocol.h>
+#include <kinetis/fmu_config.h>
 
 struct ano_protocol {
 	u8 head;
@@ -327,7 +328,7 @@ int ano_send_flexible_frame(void *buffer, u32 len)
 {
 	struct ano_protocol ano;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	ano.head = ANO_HEAD;
 	ano.addr = ANO_NO_TARGET;
@@ -350,12 +351,188 @@ int ano_send_flexible_frame(void *buffer, u32 len)
 	return 0;
 }
 
+static int process_fun_code(u8 func_code, void *buffer, u32 len)
+{
+	int ret;
+
+	switch (func_code) {
+	case CHECK_DATA_FRAME:
+		break;
+	case INERTIAL_SENSOR_DATA:
+		break;
+	case COMPASS_PRESSURE_TEMP:
+		break;
+	case EULER_ANGLE_FORMAT:
+		break;
+	case QUATERNION_FORMAT:
+		break;
+	case HEIGHT_DATA:
+		break;
+	case FMU_OP_MODE:
+		break;
+	case FMU_SPEED:
+		break;
+	case POS_OFFSET:
+		break;
+	case WIND_SPEED:
+		break;
+	case TARGET_POSE:
+		break;
+	case TARGET_SPEED:
+		break;
+	case RETURN_INFO:
+		break;
+	case VOLTAGE_CURRENT:
+		break;
+	case EXT_MOD_STATUS:
+		break;
+	case RGB_BRIGHTNESS:
+		break;
+	case LOG_STRING:
+		break;
+	case LOG_STRING_NUM:
+		break;
+	case PWM_OUTPUT:
+		break;
+	case ATTITUDE_OUTPUT:
+		break;
+	case GPS_INFO:
+		break;
+	case RESERVED:
+		break;
+	case UNIVERSAL_POSITION:
+		break;
+	case UNIVERSAL_SPEED:
+		break;
+	case UNIVERSAL_DISTANCE:
+		break;
+	case REMOTE_CONTROL:
+		break;
+	case REALTIME_CONTROL:
+		break;
+	case OPTICAL_FLOW:
+		break;
+	case WAYPOINT_READING:
+		break;
+	case WAYPOINT_WRITING:
+		break;
+	case CMD_FRAME:
+		break;
+	case PARAMETER_READ:
+		break;
+	case PARAMETER_WRITE:
+		break;
+	case FLEXIBLE_FRAME_1:
+		break;
+	case FLEXIBLE_FRAME_2:
+		break;
+	case FLEXIBLE_FRAME_3:
+		break;
+	case FLEXIBLE_FRAME_4:
+		break;
+	case FLEXIBLE_FRAME_5:
+		break;
+	case FLEXIBLE_FRAME_6:
+		break;
+	case FLEXIBLE_FRAME_7:
+		break;
+	case FLEXIBLE_FRAME_8:
+		break;
+	case FLEXIBLE_FRAME_9:
+		break;
+	case FLEXIBLE_FRAME_A:
+		break;
+	case FLEXIBLE_FRAME_B:
+		break;
+	case FLEXIBLE_FRAME_C:
+		break;
+	case FLEXIBLE_FRAME_D:
+		break;
+	case FLEXIBLE_FRAME_E:
+		break;
+	case FLEXIBLE_FRAME_F:
+		break;
+	default:
+		ret = -EINVAL;
+	}
+	return ret;
+}
+
+int ano_decode_link_partner(void *buffer, u32 len)
+{
+	u8 *check_buff = buffer;
+	u8 check_sum = 0;
+	u8 check_add = 0;
+	u8 i;
+	int ret;
+
+	for (i = 0; i < len - 2; i++) {
+		check_sum += check_buff[i];
+		check_add += check_sum;
+	}
+
+	if (check_sum != check_buff[len - 2] || check_add != check_buff[len - 1])
+		return -EPIPE;
+
+	if (0xAA != check_buff[0])
+		return -EPIPE;
+
+	switch (check_buff[1]) {
+	case ANO_NO_TARGET:
+		ret = process_fun_code(check_buff[2], &check_buff[4], check_buff[3]);
+		break;
+	case ANO_GND_STATION:
+		break;
+	case ANO_TUOKONG_FMU:
+		break;
+	case ANO_DATA_MOD:
+		break;
+	case ANO_OPTICAL_FLOW:
+		break;
+	case ANO_UWB:
+		break;
+	case ANO_LINXIAO_IMU:
+		break;
+	case ANO_LINXIAO_FMU:
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+void ano_receive_frame(u8 data, void *buffer, u8 *done)
+{
+	u8 *buf = buffer;
+	static u8 cnt;
+	static ktime_t time;
+	u16 i, len;
+	int ret;
+	
+	if (ktime_us_delta(ktime_get(), time) > 2500 && time)
+		cnt = 0;
+	time = ktime_get();
+
+	buf[cnt++] = data;
+
+	if (buf[0] != ANO_HEAD)
+		cnt = 0;
+	
+	if (cnt == 4)
+		len = buf[3];
+	else if (cnt == len + 4 + 2)
+		*done = true;
+	else
+		*done = false;
+}
+
 int ano_send_ack(u8 func_code, u8 check_sum, u8 check_add)
 {
 	struct ano_protocol ano;
 	struct ano_ptc_ack ack;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	ack.func_code = func_code;
 	ack.check_sum = check_sum;
@@ -389,7 +566,7 @@ int ano_send_inertial_sensor(s16 acc_x, s16 acc_y, s16 acc_z,
 	struct ano_protocol ano;
 	struct ano_ptc_inertial_sensor is;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	is.acc_x = acc_x;
 	is.acc_y = acc_y;
@@ -426,7 +603,7 @@ int ano_send_compass_pressure_temp(s16 mag_x, s16 mag_y, s16 mag_z,
 	struct ano_protocol ano;
 	struct ano_ptc_cpt cpt;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	cpt.mag_x = mag_x;
 	cpt.mag_y = mag_y;
@@ -462,7 +639,7 @@ int ano_send_euler_angle_format(float rol, float pit, float yaw, u8 fusion_sta)
 	struct ano_protocol ano;
 	struct ano_ptc_eaf eaf;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	eaf.rol = rol * 100;
 	eaf.pit = pit * 100;
@@ -496,7 +673,7 @@ int ano_send_quaternion_format(float v0, float v1, float v2, float v3,
 	struct ano_protocol ano;
 	struct ano_ptc_qf qf;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	qf.v0 = v0 * 10000;
 	qf.v1 = v1 * 10000;
@@ -530,7 +707,7 @@ int ano_send_height(s32 alt_fu, s32 alt_add, u8 alt_sta)
 	struct ano_protocol ano;
 	struct ano_ptc_height height;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	height.alt_fu = alt_fu;
 	height.alt_add = alt_add;
@@ -562,7 +739,7 @@ int ano_send_fmu_op_mode(u8 mode, u8 locked, u8 cid, u8 cmd0, u8 cmd1)
 	struct ano_protocol ano;
 	struct ano_ptc_fmu_op_mode fmu_op_mode;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	fmu_op_mode.mode = mode;
 	fmu_op_mode.locked = locked;
@@ -596,7 +773,7 @@ int ano_send_fmu_speed(s16 speed_x, s16 speed_y, s16 speed_z)
 	struct ano_protocol ano;
 	struct ano_ptc_fmu_speed fmu_speed;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	fmu_speed.speed_x = speed_x;
 	fmu_speed.speed_y = speed_y;
@@ -628,7 +805,7 @@ int ano_send_pos_offset(s32 pos_x, s32 pos_y)
 	struct ano_protocol ano;
 	struct ano_ptc_pos_offset pos_offset;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	pos_offset.pos_x = pos_x;
 	pos_offset.pos_y = pos_y;
@@ -659,7 +836,7 @@ int ano_send_wind_speed(s16 wind_x, s16 wind_y)
 	struct ano_protocol ano;
 	struct ano_ptc_wind_speed wind_speed;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	wind_speed.wind_x = wind_x;
 	wind_speed.wind_y = wind_y;
@@ -690,7 +867,7 @@ int ano_send_target_pose(s16 tar_rol, s16 tar_pit, s16 tar_yaw)
 	struct ano_protocol ano;
 	struct ano_ptc_target_pose target_pose;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	target_pose.tar_rol = tar_rol;
 	target_pose.tar_pit = tar_pit;
@@ -722,7 +899,7 @@ int ano_send_target_speed(s16 tar_speed_x, s16 tar_speed_y, s16 tar_speed_z)
 	struct ano_protocol ano;
 	struct ano_ptc_target_speed target_speed;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	target_speed.tar_speed_x = tar_speed_x;
 	target_speed.tar_speed_y = tar_speed_y;
@@ -754,7 +931,7 @@ int ano_send_return_info(float r_a, u16 r_d)
 	struct ano_protocol ano;
 	struct ano_ptc_return_info return_info;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	return_info.r_a = r_a * 10;
 	return_info.r_d = r_d;
@@ -785,7 +962,7 @@ int ano_send_voltage_current(float votage, float current)
 	struct ano_protocol ano;
 	struct ano_ptc_voltage_current voltage_current;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	voltage_current.votage = votage * 100;
 	voltage_current.current = current * 100;
@@ -817,7 +994,7 @@ int ano_send_ext_modt(u8 sta_g_vel, u8 sta_g_pos,
 	struct ano_protocol ano;
 	struct ano_ptc_ext_mod ext_mod;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	ext_mod.sta_g_vel = sta_g_vel;
 	ext_mod.sta_g_pos = sta_g_pos;
@@ -850,7 +1027,7 @@ int ano_send_rgb(u8 bri_r, u8 bri_g, u8 bri_b, u8 bri_a)
 	struct ano_protocol ano;
 	struct ano_ptc_rgb rgb;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	rgb.bri_r = bri_r;
 	rgb.bri_g = bri_g;
@@ -878,11 +1055,13 @@ int ano_send_rgb(u8 bri_r, u8 bri_g, u8 bri_b, u8 bri_a)
 	return 0;
 }
 
-int ano_send_log_string(u8 color, void *buffer, u32 len)
+int ano_send_log_string(u8 color, char *buffer)
 {
 	struct ano_protocol ano;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
+	u32 len = strlen(buffer);
+	int ret;
 
 	ano.head = ANO_HEAD;
 	ano.addr = ANO_NO_TARGET;
@@ -906,15 +1085,22 @@ int ano_send_log_string(u8 color, void *buffer, u32 len)
 		ano.check_add += ano.check_sum;
 	}
 
+	ret = ano_transfer_module(ano.buffer,
+			ano.len + sizeof(ano) - sizeof(ano.buffer));
+	if (ret)
+		return ret;
+
 	kfree(ano.buffer);
+
 	return 0;
 }
 
-int ano_send_log_string_num(s32 val, void *buffer, u32 len)
+int ano_send_log_string_num(s32 val, char *buffer)
 {
 	struct ano_protocol ano;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
+	u32 len = strlen(buffer);
 
 	ano.head = ANO_HEAD;
 	ano.addr = ANO_NO_TARGET;
@@ -948,7 +1134,7 @@ int ano_send_pwm(u16 pwm1, u16 pwm2, u16 pwm3, u16 pwm4,
 	struct ano_protocol ano;
 	struct ano_ptc_pwm pwm;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	pwm.pwm1 = pwm1;
 	pwm.pwm2 = pwm2;
@@ -985,7 +1171,7 @@ int ano_send_attitude(s16 ctrl_rol, s16 ctrl_pit, s16 ctrl_thr, s16 ctrl_yaw)
 	struct ano_protocol ano;
 	struct ano_ptc_attitude attitude;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	attitude.ctrl_rol = ctrl_rol;
 	attitude.ctrl_pit = ctrl_pit;
@@ -1019,7 +1205,7 @@ int ano_ptc_gps_info(u8 fix_sta, u8 s_num, float lng, float lat, s32 alt_gps,
 	struct ano_protocol ano;
 	struct ano_ptc_gps_info gps_info;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	gps_info.fix_sta = fix_sta;
 	gps_info.s_num = s_num;
@@ -1059,7 +1245,7 @@ int ano_send_up(s32 pos_x, s32 pos_y, s32 pos_z)
 	struct ano_protocol ano;
 	struct ano_ptc_up up;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	up.pos_x = pos_x;
 	up.pos_y = pos_y;
@@ -1091,7 +1277,7 @@ int ano_send_us(s16 speed_x, s16 speed_y, s16 speed_z)
 	struct ano_protocol ano;
 	struct ano_ptc_us us;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	us.speed_x = speed_x;
 	us.speed_y = speed_y;
@@ -1123,7 +1309,7 @@ int ano_send_ud(u8 direction, u16 angle, u32 dist)
 	struct ano_protocol ano;
 	struct ano_ptc_ud ud;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	ud.direction = direction;
 	ud.angle = angle;
@@ -1156,7 +1342,7 @@ int ano_send_remote_ctrl(s16 rol, s16 pit, s16 thr, s16 yaw,
 	struct ano_protocol ano;
 	struct ano_ptc_remote_ctrl remote_ctrl;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	remote_ctrl.rol = rol;
 	remote_ctrl.pit = pit;
@@ -1196,7 +1382,7 @@ int ano_send_realtime_ctrl(s16 ctrl_rol, s16 ctrl_pit, s16 ctrl_thr,
 	struct ano_protocol ano;
 	struct ano_ptc_realtime_ctrl realtime_ctrl;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	realtime_ctrl.ctrl_rol = ctrl_rol;
 	realtime_ctrl.ctrl_pit = ctrl_pit;
@@ -1232,7 +1418,7 @@ int ano_send_optical_flow(u8 mode, u8 state, s8 dx_0, s8 dy_0, u8 quality)
 	struct ano_protocol ano;
 	struct ano_ptc_optical_flow optical_flow;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	optical_flow.mode = mode;
 	optical_flow.state = state;
@@ -1266,7 +1452,7 @@ int ano_send_optical_flow_f(u8 mode, u8 state, s16 dx_1, s16 dy_1, u8 quality)
 	struct ano_protocol ano;
 	struct ano_ptc_optical_flow_f optical_flow_f;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	optical_flow_f.mode = mode;
 	optical_flow_f.state = state;
@@ -1302,7 +1488,7 @@ int ano_send_optical_flow_isf(u8 mode, u8 state,
 	struct ano_protocol ano;
 	struct ano_ptc_optical_flow_isf optical_flow_isf;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	optical_flow_isf.mode = mode;
 	optical_flow_isf.state = state;
@@ -1339,7 +1525,7 @@ int ano_read_waypoint(u8 num)
 {
 	struct ano_protocol ano;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	ano.head = ANO_HEAD;
 	ano.addr = ANO_NO_TARGET;
@@ -1369,7 +1555,7 @@ int ano_send_waypoint(u8 num, float lat, float lng,
 	struct ano_protocol ano;
 	struct ano_ptc_waypoint waypoint;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	waypoint.num = num;
 	waypoint.lat = lat * 10000000;
@@ -1411,7 +1597,7 @@ int ano_send_cmd_frame(u8 cid,
 	struct ano_protocol ano;
 	struct ano_ptc_cmd_frame cmd_frame;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	cmd_frame.cid = cid;
 	cmd_frame.cmd1 = cmd1;
@@ -1447,163 +1633,163 @@ int ano_send_cmd_frame(u8 cid,
 
 enum ANO_PARA {
 	ANO_NULL = 0,
-    ANO_HW_TYPE,
-    ANO_HW_VER,
-    ANO_SW_VER,
-    ANO_BL_VER = 4,
-    ANO_INFO5,
-    ANO_INFO6,
-    ANO_INFO7,
-    ANO_INFO8,
-    ANO_INFO9,
-    ANO_INFO10,
-    ANO_PID_1_P =	11,
-    ANO_PID_1_I,
-    ANO_PID_1_D,
-    ANO_PID_2_P,
-    ANO_PID_2_I,
-    ANO_PID_2_D,
-    ANO_PID_3_P,
-    ANO_PID_3_I,
-    ANO_PID_3_D,
-    ANO_PID_4_P,
-    ANO_PID_4_I,
-    ANO_PID_4_D,
-    ANO_PID_5_P,
-    ANO_PID_5_I,
-    ANO_PID_5_D,
-    ANO_PID_6_P,
-    ANO_PID_6_I,
-    ANO_PID_6_D,
-    ANO_PID_7_P,
-    ANO_PID_7_I,
-    ANO_PID_7_D,
-    ANO_PID_8_P,
-    ANO_PID_8_I,
-    ANO_PID_8_D,
-    ANO_PID_9_P,
-    ANO_PID_9_I,
-    ANO_PID_9_D,
-    ANO_PID_10_P,
-    ANO_PID_10_I,
-    ANO_PID_10_D,
-    ANO_PID_11_P = 41,
-    ANO_PID_11_I,
-    ANO_PID_11_D,
-    ANO_PID_12_P,
-    ANO_PID_12_I,
-    ANO_PID_12_D,
-    ANO_PID_13_P,
-    ANO_PID_13_I,
-    ANO_PID_13_D,
-    ANO_PID_14_P,
-    ANO_PID_14_I,
-    ANO_PID_14_D,
-    ANO_PID_15_P,
-    ANO_PID_15_I,
-    ANO_PID_15_D,
-    ANO_PID_16_P,
-    ANO_PID_16_I,
-    ANO_PID_16_D,
-    ANO_PID_17_P,
-    ANO_PID_17_I,
-    ANO_PID_17_D,
-    ANO_PID_18_P,
-    ANO_PID_18_I,
-    ANO_PID_18_D,
-    ANO_PID_ONE_1,
-    ANO_PID_ONE_2,
-    ANO_PID_ONE_3,
-    ANO_PID_MODE,
-    ANO_RCINMODE = 71,
-    ANO_UNLOCKPWM,
-    ANO_UNLOCK_OO,
-    ANO_AUTO_GYR_CAL,
-    ANO_BAT_CELLS,
-    ANO_LV_WARN_100,
-    ANO_LV_RETN_100,
-    ANO_LV_LAND_100,
-    ANO_CENPOS_X,
-    ANO_CENPOS_Y,
-    ANO_CENPOS_Z,
-    ANO_TAKEOFFHIGH,
-    ANO_TAKEOFFSPEED,
-    ANO_LANDSPEED,
-    ANO_LANDSPEED_MAX,
-    ANO_AUTO_LANDING,
-    ANO_HEATSWITCH,
-    ANO_HEAT_TMPER,
-    ANO_MAX_SPEED_HOR,
-    ANO_MAX_SPEED_PRC,
-    ANO_MAX_SPEED_UP,
-    ANO_MAX_SPEED_DW,
+	ANO_HW_TYPE,
+	ANO_HW_VER,
+	ANO_SW_VER,
+	ANO_BL_VER = 4,
+	ANO_INFO5,
+	ANO_INFO6,
+	ANO_INFO7,
+	ANO_INFO8,
+	ANO_INFO9,
+	ANO_INFO10,
+	ANO_PID_1_P =	11,
+	ANO_PID_1_I,
+	ANO_PID_1_D,
+	ANO_PID_2_P,
+	ANO_PID_2_I,
+	ANO_PID_2_D,
+	ANO_PID_3_P,
+	ANO_PID_3_I,
+	ANO_PID_3_D,
+	ANO_PID_4_P,
+	ANO_PID_4_I,
+	ANO_PID_4_D,
+	ANO_PID_5_P,
+	ANO_PID_5_I,
+	ANO_PID_5_D,
+	ANO_PID_6_P,
+	ANO_PID_6_I,
+	ANO_PID_6_D,
+	ANO_PID_7_P,
+	ANO_PID_7_I,
+	ANO_PID_7_D,
+	ANO_PID_8_P,
+	ANO_PID_8_I,
+	ANO_PID_8_D,
+	ANO_PID_9_P,
+	ANO_PID_9_I,
+	ANO_PID_9_D,
+	ANO_PID_10_P,
+	ANO_PID_10_I,
+	ANO_PID_10_D,
+	ANO_PID_11_P = 41,
+	ANO_PID_11_I,
+	ANO_PID_11_D,
+	ANO_PID_12_P,
+	ANO_PID_12_I,
+	ANO_PID_12_D,
+	ANO_PID_13_P,
+	ANO_PID_13_I,
+	ANO_PID_13_D,
+	ANO_PID_14_P,
+	ANO_PID_14_I,
+	ANO_PID_14_D,
+	ANO_PID_15_P,
+	ANO_PID_15_I,
+	ANO_PID_15_D,
+	ANO_PID_16_P,
+	ANO_PID_16_I,
+	ANO_PID_16_D,
+	ANO_PID_17_P,
+	ANO_PID_17_I,
+	ANO_PID_17_D,
+	ANO_PID_18_P,
+	ANO_PID_18_I,
+	ANO_PID_18_D,
+	ANO_PID_ONE_1,
+	ANO_PID_ONE_2,
+	ANO_PID_ONE_3,
+	ANO_PID_MODE,
+	ANO_RCINMODE = 71,
+	ANO_UNLOCKPWM,
+	ANO_UNLOCK_OO,
+	ANO_AUTO_GYR_CAL,
+	ANO_BAT_CELLS,
+	ANO_LV_WARN_100,
+	ANO_LV_RETN_100,
+	ANO_LV_LAND_100,
+	ANO_CENPOS_X,
+	ANO_CENPOS_Y,
+	ANO_CENPOS_Z,
+	ANO_TAKEOFFHIGH,
+	ANO_TAKEOFFSPEED,
+	ANO_LANDSPEED,
+	ANO_LANDSPEED_MAX,
+	ANO_AUTO_LANDING,
+	ANO_HEATSWITCH,
+	ANO_HEAT_TMPER,
+	ANO_MAX_SPEED_HOR,
+	ANO_MAX_SPEED_PRC,
+	ANO_MAX_SPEED_UP,
+	ANO_MAX_SPEED_DW,
 	ANO_MAX_SPEED_YAW,
-    ANO_SAFE_ATT = 94,
-    ANO_MAGMODE,
-    ANO_ACANGVELMAX,
-    ANO_YCANGVELMAX,
-    ANO_YCANGACCMAX,
-    ANO_RH_ALT,
-    ANO_RH_VEL,
-    ANO_GYR_FILTER = 151,
-    ANO_ACC_FILTER,
-    ANO_ATT_FUSION,
-    ANO_MAG_FUSION,
-    ANO_HOR_FUSION,
-    ANO_VER_FUSION,
-    ANO_FENCE_MODE,
-    ANO_FENCE_RADIUS,
-    ANO_FENCE_WIDTH_X,
-    ANO_FENCE_WIDTH_Y,
-    ANO_FENCE_HEIGHT,
-    ANO_COM1_BAUD,
-    ANO_COM2_BAUD,
-    ANO_COM2_MODE,
-    ANO_RGBOUT_ENA,
-    ANO_DATAOUTTIME_01 = 300,
-    ANO_DATAOUTTIME_02,
-    ANO_DATAOUTTIME_03,
-    ANO_DATAOUTTIME_04,
-    ANO_DATAOUTTIME_05,
-    ANO_DATAOUTTIME_06,
-    ANO_DATAOUTTIME_07,
-    ANO_DATAOUTTIME_08,
-    ANO_DATAOUTTIME_09,
-    ANO_DATAOUTTIME_0A,
-    ANO_DATAOUTTIME_0B,
-    ANO_DATAOUTTIME_0C,
-    ANO_DATAOUTTIME_0D,
-    ANO_DATAOUTTIME_0E,
-    ANO_DATAOUTTIME_20,
-    ANO_DATAOUTTIME_21,
-    ANO_DATAOUTTIME_30,
-    ANO_DATAOUTTIME_32,
-    ANO_DATAOUTTIME_33,
-    ANO_DATAOUTTIME_34,
-    ANO_DATAOUTTIME_40,
-    ANO_DATAOUTTIME_41,
-    ANO_DATA_NUM,
-    CAL_ACC_OFFSET_X = 1000,
-    CAL_ACC_OFFSET_Y,
-    CAL_ACC_OFFSET_Z,
-    CAL_ACC_SENSIV_X,
-    CAL_ACC_SENSIV_Y,
-    CAL_ACC_SENSIV_Z,
-    CAL_ACC_IEM_00,
-    CAL_ACC_IEM_01,
-    CAL_ACC_IEM_02,
-    CAL_ACC_IEM_10,
-    CAL_ACC_IEM_11,
-    CAL_ACC_IEM_12,
-    CAL_ACC_IEM_20,
-    CAL_ACC_IEM_21,
-    CAL_ACC_IEM_22,
-    CAL_MAG_OFFSET_X,
-    CAL_MAG_OFFSET_Y,
-    CAL_MAG_OFFSET_Z,
-    CAL_MAG_SENSIV_X,
-    CAL_MAG_SENSIV_Y,
-    CAL_MAG_SENSIV_Z,
+	ANO_SAFE_ATT = 94,
+	ANO_MAGMODE,
+	ANO_ACANGVELMAX,
+	ANO_YCANGVELMAX,
+	ANO_YCANGACCMAX,
+	ANO_RH_ALT,
+	ANO_RH_VEL,
+	ANO_GYR_FILTER = 151,
+	ANO_ACC_FILTER,
+	ANO_ATT_FUSION,
+	ANO_MAG_FUSION,
+	ANO_HOR_FUSION,
+	ANO_VER_FUSION,
+	ANO_FENCE_MODE,
+	ANO_FENCE_RADIUS,
+	ANO_FENCE_WIDTH_X,
+	ANO_FENCE_WIDTH_Y,
+	ANO_FENCE_HEIGHT,
+	ANO_COM1_BAUD,
+	ANO_COM2_BAUD,
+	ANO_COM2_MODE,
+	ANO_RGBOUT_ENA,
+	ANO_DATAOUTTIME_01 = 300,
+	ANO_DATAOUTTIME_02,
+	ANO_DATAOUTTIME_03,
+	ANO_DATAOUTTIME_04,
+	ANO_DATAOUTTIME_05,
+	ANO_DATAOUTTIME_06,
+	ANO_DATAOUTTIME_07,
+	ANO_DATAOUTTIME_08,
+	ANO_DATAOUTTIME_09,
+	ANO_DATAOUTTIME_0A,
+	ANO_DATAOUTTIME_0B,
+	ANO_DATAOUTTIME_0C,
+	ANO_DATAOUTTIME_0D,
+	ANO_DATAOUTTIME_0E,
+	ANO_DATAOUTTIME_20,
+	ANO_DATAOUTTIME_21,
+	ANO_DATAOUTTIME_30,
+	ANO_DATAOUTTIME_32,
+	ANO_DATAOUTTIME_33,
+	ANO_DATAOUTTIME_34,
+	ANO_DATAOUTTIME_40,
+	ANO_DATAOUTTIME_41,
+	ANO_DATA_NUM,
+	CAL_ACC_OFFSET_X = 1000,
+	CAL_ACC_OFFSET_Y,
+	CAL_ACC_OFFSET_Z,
+	CAL_ACC_SENSIV_X,
+	CAL_ACC_SENSIV_Y,
+	CAL_ACC_SENSIV_Z,
+	CAL_ACC_IEM_00,
+	CAL_ACC_IEM_01,
+	CAL_ACC_IEM_02,
+	CAL_ACC_IEM_10,
+	CAL_ACC_IEM_11,
+	CAL_ACC_IEM_12,
+	CAL_ACC_IEM_20,
+	CAL_ACC_IEM_21,
+	CAL_ACC_IEM_22,
+	CAL_MAG_OFFSET_X,
+	CAL_MAG_OFFSET_Y,
+	CAL_MAG_OFFSET_Z,
+	CAL_MAG_SENSIV_X,
+	CAL_MAG_SENSIV_Y,
+	CAL_MAG_SENSIV_Z,
 };
 
 int ano_send_parameter_read(u16 par_id)
@@ -1611,7 +1797,7 @@ int ano_send_parameter_read(u16 par_id)
 	struct ano_protocol ano;
 	struct ano_ptc_parameter_read parameter_read;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	parameter_read.par_id = par_id;
 
@@ -1641,7 +1827,7 @@ int ano_send_parameter_write(u16 par_id, s32 par_val)
 	struct ano_protocol ano;
 	struct ano_ptc_parameter_write parameter_write;
 	u8 check_len, *check_buff;
-	u8 addcheck = 0, i;
+	u8 i;
 
 	parameter_write.par_id = par_id;
 	parameter_write.par_val = par_val;

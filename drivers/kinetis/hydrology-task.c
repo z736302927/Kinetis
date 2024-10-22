@@ -1,11 +1,14 @@
-#include "hydrology-task.h"
+
 #include "hydrology.h"
 #include "hydrology-config.h"
 #include "hydrology-cmd.h"
 #include "hydrology-identifier.h"
-#include "tim-task.h"
-#include "rtc-task.h"
-#include "real-time-clock.h"
+
+#include <kinetis/hydrology-task.h>
+
+#include <kinetis/tim-task.h>
+#include <kinetis/rtc-task.h>
+#include <kinetis/real-time-clock.h>
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -17,21 +20,23 @@
   * @step 5:  Finally, HydrologyTask_Init is called in the main function.
   */
 
-static void measure_temperature_humidit(void)
+static void measure_temperature_humidit(struct tim_task *task)
 {
 //    u8 tmpvalue[4] = {0, 0, 0, 0};
 
 //    SHT20_Read_TempAndRH(&SHT20_Temperature, &SHT20_Humidit);
 
 //    memcpy(tmpvalue, (char *)(&SHT20_Temperature), 4);
-//    hydrology_write_store_info("HYDROLOGY_D_FILE_E_DATA", HYDROLOGY_ANALOG1, tmpvalue, HYDROLOGY_ANALOG_LEN);
+//    fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+//		HYDROLOGY_ANALOG1, tmpvalue, HYDROLOGY_ANALOG_LEN);
 //    memcpy(tmpvalue, (char *)(&SHT20_Humidit), 4);
-//    hydrology_write_store_info("HYDROLOGY_D_FILE_E_DATA", HYDROLOGY_ANALOG2, tmpvalue, HYDROLOGY_ANALOG_LEN);
+//    fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+//		HYDROLOGY_ANALOG2, tmpvalue, HYDROLOGY_ANALOG_LEN);
 
 //    hydrology_set_observation_time(element_table[0].ID, 0);
 }
 
-void link_packet(void)
+void link_packet(struct tim_task *task)
 {
 	pr_err("Send %s packet\n",
 		hydrology_type_string(LINK_REPORT));
@@ -90,8 +95,8 @@ static void hour_packet(void)
 
 void hydrology_task_exit(void)
 {
-	tim_task_drop(measure_temperature_humidit);
-	tim_task_drop(link_packet);
+	tim_task_drop(&g_hydrology.collecte_data);
+	tim_task_drop(&g_hydrology.link_pkt);
 	rtc_task_drop(test_packet);
 	rtc_task_drop(timer_report_packet);
 	rtc_task_drop(add_report_packet);
@@ -102,15 +107,19 @@ int hydrology_task_init(void)
 {
 	u8 interval;
 
-	tim_task_add(60 * 1000, true, measure_temperature_humidit);
-	tim_task_add(40 * 1000, true, link_packet);
+	tim_task_add(&g_hydrology.collecte_data, "measure temperature humidit",
+		60 * 1000, true, false, measure_temperature_humidit);
+	tim_task_add(&g_hydrology.link_pkt, "link packet",
+		40 * 1000, true, false, link_packet);
 
 	rtc_task_add(0, 0, 0, 0, 1, 0, true, test_packet);
 
-	hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_TI, &interval, 1);
+	fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PA_TI, &interval, 1);
 	rtc_task_add(0, 0, 0, 0, interval, 0, true, timer_report_packet);
 
-	hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_AI, &interval, 1);
+	fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PA_AI, &interval, 1);
 
 	if (interval != 0)
 		rtc_task_add(0, 0, 0, 0, interval, 0, true, add_report_packet);

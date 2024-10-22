@@ -13,6 +13,7 @@
  * messages, proper stop/repstart signaling during receive, added detect code
  */
 
+#include <generated/deconfig.h> 
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/delay.h>

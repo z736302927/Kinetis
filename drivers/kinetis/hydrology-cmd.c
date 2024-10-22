@@ -112,7 +112,8 @@ static int hydrology_basic_info_config(void)
 		hydrology_read_specified_element_info(&element_table[i], (enum hydrology_body_type)header->funcode,
 			down_body->element[i]->guide[0]);
 
-		hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, element_table[i].addr,
+		fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			element_table[i].addr,
 			down_body->element[i]->value, down_body->element[i]->guide[1] >> 3);
 	}
 
@@ -171,7 +172,8 @@ static int hydrology_set_parameter(void)
 		hydrology_read_specified_element_info(&element_table[i], (enum hydrology_body_type)header->funcode,
 			down_body->element[i]->guide[0]);
 
-		hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, element_table[i].addr,
+		fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			element_table[i].addr,
 			down_body->element[i]->value, down_body->element[i]->guide[1] >> 3);
 	}
 
@@ -266,34 +268,41 @@ int hydrology_device_reset(void)
 		for (j = 0; j < 200; j++)
 			Data[j] = j + i * 200;
 
-		hydrology_write_store_info(HYDROLOGY_D_FILE_PICTURE, i * 200, (u8 *)Data, 200);
+		fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE,
+			i * 200, (u8 *)Data, 200);
 	}
 
 	for (i = 0; i < 2; i++) {
 		for (j = 0; j < 200; j++)
 			Data[j] = j + i * 200;
 
-		hydrology_write_store_info(HYDROLOGY_D_FILE_RGZS, i * 200, (u8 *)Data, 200);
+		fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS,
+			i * 200, (u8 *)Data, 200);
 	}
 
 	temp[0] = 0x50;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_RTUTYPE, temp, 1);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PDA_RTUTYPE, temp, 1);
 	temp[0] = 0x01;
 	temp[1] = 0x02;
 	temp[2] = 0x03;
 	temp[3] = 0x04;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_CENTER, temp, 4);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BA_CENTER, temp, 4);
 	temp[0] = 0x00;
 	temp[1] = 0x12;
 	temp[2] = 0x34;
 	temp[3] = 0x56;
 	temp[4] = 0x78;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_REMOTE, temp, 5);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BA_REMOTE, temp, 5);
 	temp[0] = 0x12;
 	temp[1] = 0x34;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_PASSWORD, temp, 2);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BA_PASSWORD, temp, 2);
 	temp[0] = 10;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_CENTER1_IP, temp, 1);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BAL_CENTER1_IP, temp, 1);
 	temp[0] = 0x02;
 	temp[1] = 0x05;
 	temp[2] = 0x80;
@@ -304,9 +313,11 @@ int hydrology_device_reset(void)
 	temp[7] = 0x00;
 	temp[8] = 0x89;
 	temp[9] = 0x86;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_CENTER1_IP, temp, 10);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BA_CENTER1_IP, temp, 10);
 	temp[0] = 10;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_BACKUP1_IP, temp, 1);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BAL_BACKUP1_IP, temp, 1);
 	temp[0] = 0x02;
 	temp[1] = 0x18;
 	temp[2] = 0x30;
@@ -317,9 +328,11 @@ int hydrology_device_reset(void)
 	temp[7] = 0x00;
 	temp[8] = 0x66;
 	temp[9] = 0x66;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_BACKUP1_IP, temp, 10);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BA_BACKUP1_IP, temp, 10);
 	temp[0] = 10;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_CENTER2_IP, temp, 1);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BAL_CENTER2_IP, temp, 1);
 	temp[0] = 0x02;
 	temp[1] = 0x22;
 	temp[2] = 0x21;
@@ -330,9 +343,11 @@ int hydrology_device_reset(void)
 	temp[7] = 0x00;
 	temp[8] = 0x66;
 	temp[9] = 0x66;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_CENTER2_IP, temp, 10);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BA_CENTER2_IP, temp, 10);
 	temp[0] = 10;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_BACKUP2_IP, temp, 1);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BAL_BACKUP2_IP, temp, 1);
 	temp[0] = 0x02;
 	temp[1] = 0x12;
 	temp[2] = 0x00;
@@ -343,9 +358,11 @@ int hydrology_device_reset(void)
 	temp[7] = 0x00;
 	temp[8] = 0x99;
 	temp[9] = 0x99;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_BACKUP2_IP, temp, 10);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BA_BACKUP2_IP, temp, 10);
 	temp[0] = 10;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_CENTER3_IP, temp, 1);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BAL_CENTER3_IP, temp, 1);
 	temp[0] = 0x02;
 	temp[1] = 0x12;
 	temp[2] = 0x00;
@@ -356,9 +373,11 @@ int hydrology_device_reset(void)
 	temp[7] = 0x00;
 	temp[8] = 0x99;
 	temp[9] = 0x99;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_CENTER3_IP, temp, 10);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BA_CENTER3_IP, temp, 10);
 	temp[0] = 10;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_BACKUP3_IP, temp, 1);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BAL_BACKUP3_IP, temp, 1);
 	temp[0] = 0x02;
 	temp[1] = 0x12;
 	temp[2] = 0x00;
@@ -369,9 +388,11 @@ int hydrology_device_reset(void)
 	temp[7] = 0x00;
 	temp[8] = 0x99;
 	temp[9] = 0x99;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_BACKUP3_IP, temp, 10);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BA_BACKUP3_IP, temp, 10);
 	temp[0] = 10;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_CENTER4_IP, temp, 1);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BAL_CENTER4_IP, temp, 1);
 	temp[0] = 0x02;
 	temp[1] = 0x12;
 	temp[2] = 0x00;
@@ -382,9 +403,11 @@ int hydrology_device_reset(void)
 	temp[7] = 0x00;
 	temp[8] = 0x99;
 	temp[9] = 0x99;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_CENTER4_IP, temp, 10);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BA_CENTER4_IP, temp, 10);
 	temp[0] = 10;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_BACKUP4_IP, temp, 1);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BAL_BACKUP4_IP, temp, 1);
 	temp[0] = 0x02;
 	temp[1] = 0x12;
 	temp[2] = 0x00;
@@ -395,9 +418,11 @@ int hydrology_device_reset(void)
 	temp[7] = 0x00;
 	temp[8] = 0x99;
 	temp[9] = 0x99;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_BACKUP4_IP, temp, 10);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BA_BACKUP4_IP, temp, 10);
 	temp[0] = 0x02;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_WORK_MODE, temp, 2);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BA_WORK_MODE, temp, 2);
 	temp[0] = 0x80;
 	temp[1] = 0x01;
 	temp[2] = 0x06;
@@ -406,7 +431,8 @@ int hydrology_device_reset(void)
 	temp[5] = 0x00;
 	temp[6] = 0x00;
 	temp[7] = 0x00;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_ELEMENT_SELECT, temp, 8);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BA_ELEMENT_SELECT, temp, 8);
 	temp[0] = 0x00;
 	temp[1] = 0x00;
 	temp[2] = 0x00;
@@ -419,9 +445,11 @@ int hydrology_device_reset(void)
 	temp[9] = 0x00;
 	temp[10] = 0x00;
 	temp[11] = 0x00;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_REPEATER_STATION, temp, 12);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BA_REPEATER_STATION, temp, 12);
 	temp[0] = 12;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BAL_DEVICE_ID, temp, 1);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BAL_DEVICE_ID, temp, 1);
 	temp[0] = '1';
 	temp[1] = '1';
 	temp[2] = '2';
@@ -434,46 +462,62 @@ int hydrology_device_reset(void)
 	temp[9] = '9';
 	temp[10] = '0';
 	temp[11] = '1';
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_DEVICE_ID, temp, 12);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BA_DEVICE_ID, temp, 12);
 	temp[0] = 0x01;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_TI, temp, 1);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PA_TI, temp, 1);
 	temp[0] = 0x05;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_AI, temp, 1);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PA_AI, temp, 1);
 	temp[0] = 0x08;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_RBT, temp, 1);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PA_RBT, temp, 1);
 	temp[0] = 0x03;
 	temp[1] = 0x00;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_SI, temp, 2);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PA_SI, temp, 2);
 	temp[0] = 0x05;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_WSI, temp, 1);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PA_WSI, temp, 1);
 	temp[0] = 0x05;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_RR, temp, 1);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PA_RR, temp, 1);
 	temp[0] = 0x01;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_WR, temp, 1);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PA_WR, temp, 1);
 	temp[0] = 0x01;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_RAT, temp, 1);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PA_RAT, temp, 1);
 	temp[0] = 0x01;
 	temp[1] = 0x00;
 	temp[2] = 0x00;
 	temp[3] = 0x00;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_WB1, temp, 4);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PA_WB1, temp, 4);
 	temp[0] = 0x01;
 	temp[1] = 0x00;
 	temp[2] = 0x00;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_WC1, temp, 3);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PA_WC1, temp, 3);
 	temp[0] = 0x25;
 	temp[1] = 0x01;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_WC1, temp, 2);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PA_WC1, temp, 2);
 	temp[0] = 0x01;
 	temp[1] = 0x00;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_AAT, temp, 2);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PA_AAT, temp, 2);
 	temp[0] = 0x03;
 	temp[1] = 0x00;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PA_ABT, temp, 2);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PA_ABT, temp, 2);
 	temp[0] = strlen("*WHU-2020-V3.0");
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_SW_VERSION_LEN, temp, 1);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PDA_SW_VERSION_LEN, temp, 1);
 	memcpy(temp, "*WHU-2020-V3.0", strlen("*WHU-2020-V3.0"));
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_SW_VERSION, temp,
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PDA_SW_VERSION, temp,
 		strlen("*WHU-2020-V3.0"));
 
 	static struct hydrology_element_info element_table[] = {
@@ -780,8 +824,8 @@ int hydrology_device_reset(void)
 		HYDROLOGY_PD_NEWPASSWORD,
 	};
 
-	ret = hydrology_write_store_info(HYDROLOGY_D_FILE_E_INFO, 0, (u8 *)element_table,
-			sizeof(element_table));
+	ret = fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_INFO,
+			0, (u8 *)element_table, sizeof(element_table));
 
 	return ret;
 }
@@ -790,7 +834,8 @@ static int hydrology_set_password(void)
 {
 	struct hydrology_down_body *down_body = (struct hydrology_down_body *)g_hydrology.down_packet->body;
 
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_BA_PASSWORD,
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_BA_PASSWORD,
 		down_body->element[1]->value, down_body->element[1]->num);
 
 	return true;
@@ -809,7 +854,8 @@ static int hydrology_set_iccard(void)
 {
 	struct hydrology_down_body *down_body = (struct hydrology_down_body *)g_hydrology.down_packet->body;
 
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_EA_ZT,
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_EA_ZT,
 		down_body->element[0]->value, down_body->element[0]->num);
 
 	return true;
@@ -819,7 +865,8 @@ static int hydrology_set_pump(void)
 {
 	struct hydrology_down_body *down_body = (struct hydrology_down_body *)g_hydrology.down_packet->body;
 
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_PUMP,
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PDA_PUMP,
 		down_body->element[0]->value, down_body->element[0]->num);
 
 	return true;
@@ -829,7 +876,8 @@ static int hydrology_set_valve(void)
 {
 	struct hydrology_down_body *down_body = (struct hydrology_down_body *)g_hydrology.down_packet->body;
 
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_VALVE,
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PDA_VALVE,
 		down_body->element[0]->value, down_body->element[0]->num);
 
 	return true;
@@ -842,7 +890,8 @@ static int hydrology_set_gate(void)
 
 	gatesize = down_body->element[0]->guide[0];
 	gatesize = ((gatesize - 1) / 8 + 1) + 2 * gatesize + 1;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_GATE,
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PDA_GATE,
 		down_body->element[0]->value, down_body->element[0]->num);
 
 	return true;
@@ -852,7 +901,8 @@ static int hydrology_set_watersetting(void)
 {
 	struct hydrology_down_body *down_body = (struct hydrology_down_body *)g_hydrology.down_packet->body;
 
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_WATERSETTING,
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PDA_WATERSETTING,
 		down_body->element[0]->value, down_body->element[0]->num);
 
 	return true;
@@ -864,14 +914,14 @@ static int hydrology_record_erc(int index)
 	int addr = (index - 1) * 2;
 	u8 _temp_erc_cnt[2];
 
-	hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_RECORD + addr,
+	fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_RECORD + addr,
 		_temp_erc_cnt, 2);
 	erc_cnt = (_temp_erc_cnt[0] << 8) + _temp_erc_cnt[1];
 	erc_cnt++;
 	_temp_erc_cnt[0] = erc_cnt >> 8;
 	_temp_erc_cnt[1] = erc_cnt & 0x00FF;
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_RECORD + addr,
-		_temp_erc_cnt, 2);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PDA_RECORD + addr, _temp_erc_cnt, 2);
 
 	return true;
 }

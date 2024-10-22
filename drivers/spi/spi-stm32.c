@@ -1659,7 +1659,7 @@ static int stm32_spi_transfer_one(struct spi_master *master,
 
 	if (transfer->rx_buf)
         ret = HAL_SPI_Receive(&hspi1,
-            (u8 *)transfer->tx_buf, transfer->len, 1000);
+            (u8 *)transfer->rx_buf, transfer->len, 1000);
 //	spi->cur_usedma = (master->can_dma &&
 //			   master->can_dma(master, spi_dev, transfer));
 //
@@ -1866,7 +1866,7 @@ static int stm32_spi_probe(struct platform_device *pdev)
 //		return ret;
 //	}
 //	spi->clk_rate = clk_get_rate(spi->clk);
-	spi->clk_rate = 240000000;
+	spi->clk_rate = 84000000;
 	if (!spi->clk_rate) {
 		dev_err(&pdev->dev, "clk rate = 0\n");
 		ret = -EINVAL;

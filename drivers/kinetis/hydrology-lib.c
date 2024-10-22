@@ -9,9 +9,10 @@
 #include "hydrology-config.h"
 #include "hydrology-cmd.h"
 #include "hydrology-identifier.h"
-#include "hydrology-task.h"
-#include "tim-task.h"
-#include "real-time-clock.h"
+
+#include <kinetis/hydrology-task.h>
+#include <kinetis/tim-task.h>
+#include <kinetis/real-time-clock.h>
 
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
@@ -23,127 +24,6 @@
   * @step 4:  .
   * @step 5:
   */
-
-#include "../fs/fatfs/ff.h"
-
-int hydrology_read_file_size(char *file_name, u32 *Size)
-{
-	FIL file;
-	FRESULT res;
-	char buffer[64];
-
-	snprintf(buffer, sizeof(buffer), "%s%s", HYDROLOGY_FILE_PATH, file_name);
-
-	res = f_open(&file, buffer, FA_OPEN_EXISTING | FA_READ);
-
-	if (res == FR_OK)
-		*Size = file.obj.objsize;
-	else {
-		pr_err("Read the size of %s failed. fs ret code(%d)\n", file_name, res);
-		return -EINVAL;
-	}
-
-	f_close(&file);
-
-	return 0;
-}
-
-int hydrology_read_store_info(char *file_name, long addr, u8 *pdata, int len)
-{
-	FIL file;
-	FRESULT res;
-	u32 bytes_read;
-	char buffer[64];
-
-	snprintf(buffer, sizeof(buffer), "%s%s", HYDROLOGY_FILE_PATH, file_name);
-
-	res = f_open(&file, buffer, FA_OPEN_EXISTING | FA_READ);
-
-	if (res == FR_OK) {
-		f_lseek(&file, addr);
-		res = f_read(&file, pdata, len, (void *)&bytes_read);
-
-		if (res != FR_OK)
-			return -EFAULT;
-	} else {
-		pr_err("Read %s failed.\n. fs ret code(%d)", file_name, res);
-		return -EINVAL;
-	}
-
-	f_close(&file);
-
-	return 0;
-}
-
-int hydrology_write_store_info(char *file_name, long addr, u8 *pdata, int len)
-{
-	FIL file;
-	DIR dir;
-	FRESULT res;
-	u32 bytes_written;
-	char buffer[64];
-
-	snprintf(buffer, sizeof(buffer), "%s%s", HYDROLOGY_FILE_PATH, file_name);
-
-	res = f_open(&file, buffer, FA_OPEN_EXISTING | FA_WRITE);
-
-	if (res == FR_OK) {
-		f_lseek(&file, addr);
-		res = f_write(&file, pdata, len, (void *)&bytes_written);
-
-		if (res != FR_OK)
-			return -EFAULT;
-
-		res = f_close(&file);
-
-		if (res != FR_OK)
-			return -EFAULT;
-	} else if (res == FR_NO_FILE || res == FR_NO_PATH) {
-		memset(buffer, 0, sizeof(buffer));
-		snprintf(buffer, strlen(HYDROLOGY_FILE_PATH), "%s", HYDROLOGY_FILE_PATH);
-		/* Try opening a directory. */
-		res = f_opendir(&dir, buffer);
-
-		/* Failure to open directory, create directory. */
-		if (res != FR_OK)
-			res = f_mkdir(buffer);
-
-		if (res != FR_OK)
-			return -EFAULT;
-
-		memset(buffer, 0, sizeof(buffer));
-		snprintf(buffer, sizeof(buffer), "%s%s", HYDROLOGY_FILE_PATH, file_name);
-		res = f_open(&file, buffer, FA_CREATE_NEW | FA_WRITE);
-
-		if (res != FR_OK)
-			return -EFAULT;
-
-		res = f_lseek(&file, addr);
-
-		if (res != FR_OK)
-			return -EFAULT;
-
-		res = f_write(&file, pdata, len, (void *)&bytes_written);
-
-		if (res != FR_OK)
-			return -EFAULT;
-
-		res = f_close(&file);
-
-		if (res != FR_OK)
-			return -EFAULT;
-
-		res = f_closedir(&dir);
-
-		if (res != FR_OK)
-			return -EFAULT;
-	} else {
-		pr_err("Write %s failed. fs ret code(%d)\n", file_name, res);
-		return -EINVAL;
-	}
-
-	return 0;
-}
 
 void hydrology_get_time(u8 *time)
 {
@@ -172,16 +52,17 @@ void hydrology_set_time(u8 *time)
 	rtc_calendar_set(&rtc, KRTC_FORMAT_BCD);
 }
 
-extern void link_packet(void);
+extern void link_packet(struct tim_task *task);
 
 void hydrology_disable_link_packet(void)
 {
-	tim_task_drop(link_packet);
+	tim_task_drop(&g_hydrology.link_pkt);
 }
 
 void hydrology_enable_link_packet(void)
 {
-	tim_task_add(40 * 1000, true, link_packet);
+	tim_task_add(&g_hydrology.link_pkt, "link packet",
+		40 * 1000, true, false, link_packet);
 }
 
 void hydrology_disconnect_link(void)
@@ -296,28 +177,6 @@ int hydrology_port_receive(u8 **ppdata, u16 *plength, u32 Timeout)
 	return ret;
 }
 
-u32 hydrology_get_flash_size(void)
-{
-	FATFS *pfs;
-	DWORD fre_clust, fre_sect, tot_sect;
-	FRESULT res;
-
-	/* Gets device information and empty cluster size. */
-	res = f_getfree("0:", &fre_clust, &pfs);
-
-	if (res != FR_OK)
-		return res;
-
-	/* The total number of sectors and the number of empty sectors are calculated. */
-	tot_sect = (pfs->n_fatent - 2) * pfs->csize;
-	fre_sect = fre_clust * pfs->csize;
-	/* Print information (4096 bytes/sector) */
-	pr_err("Total equipment space: %u MB.\n", tot_sect * 4 / 1024);
-	pr_err("Available space: %u MB.\n", fre_sect * 4 / 1024);
-
-	return fre_sect * 4 * 1024;
-}
-
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 struct hydrology g_hydrology;
@@ -328,7 +187,7 @@ int hydrology_resource_init(void)
 	u8 tmp;
 	u32 flash_size, min_size;
 
-	flash_size = hydrology_get_flash_size();
+	flash_size = fatfs_get_flash_size();
 
 	min_size = HYDROLOGY_END;
 	min_size += sizeof(struct hydrology_element_info) * ELEMENT_COUNT;
@@ -341,8 +200,8 @@ int hydrology_resource_init(void)
 		return -ENOMEM;
 	}
 
-	ret = hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, HYDROLOGY_PDA_INIT_MARK,
-			&tmp, 1);
+	ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_PDA_INIT_MARK, &tmp, 1);
 
 	if (ret) {
 		pr_err("It is first time to use hydrology device\n");
@@ -410,7 +269,8 @@ void hydrology_get_observation_time(struct hydrology_element_info *element, u8 *
 	else
 		addr = (element->D + 1) / 2 + element->addr;
 
-	hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA, addr, observation_time, 5);
+	fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		addr, observation_time, 5);
 }
 
 void hydrology_set_observation_time(struct hydrology_element_info *element)
@@ -424,7 +284,8 @@ void hydrology_set_observation_time(struct hydrology_element_info *element)
 		addr = (element->D + 1) / 2 + element->addr;
 
 	hydrology_get_time(observation_time);
-	hydrology_write_store_info(HYDROLOGY_D_FILE_E_DATA, addr, observation_time, 5);
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		addr, observation_time, 5);
 }
 
 void hydrology_get_bcd_nums(double num, int *intergerpart, int *decimerpart,
@@ -623,7 +484,7 @@ void hydrology_free_element(struct hydrology_element *element)
 //    u8 temp_value[4];
 //    int ret;
 //
-//    ret = hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA,
+//    ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
 //            addr, temp_value, HYDROLOGY_ANALOG_LEN);
 //
 //    if(ret == true)
@@ -640,7 +501,7 @@ void hydrology_free_element(struct hydrology_element *element)
 //    u8 temp_value[4];
 //    int ret;
 //
-//    ret = hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA,
+//    ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
 //            addr, temp_value, HYDROLOGY_PULSE_LEN);
 //
 //    if(ret == true)
@@ -656,7 +517,7 @@ void hydrology_free_element(struct hydrology_element *element)
 //    u8 temp_value[4];
 //    int ret;
 //
-//    ret = hydrology_read_store_info(HYDROLOGY_D_FILE_E_DATA,
+//    ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
 //            HYDROLOGY_SWITCH1, temp_value, HYDROLOGY_SWITCH_LEN);
 //
 //    if(ret == true)
@@ -701,7 +562,8 @@ void hydrology_free_element(struct hydrology_element *element)
 //                return false;
 //            }
 
-//            hydrology_read_store_info(HYDROLOGY_FILE_EPI, 0, g_hydrology.epi, 12 * 2 * upbody->count);
+//            fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_FILE_EPI,
+//					0, g_hydrology.epi, 12 * 2 * upbody->count);
 //            break;
 
 //        case TEST_REPORT:
@@ -777,7 +639,7 @@ void hydrology_free_element(struct hydrology_element *element)
 ////            else
 ////            {
 ////                upbody->element[i]->num = maxpacket;
-////                hydrology_read_store_info("HydrologyPicture.jpg",
+////                fatfs_read_store_info(HYDROLOGY_FILE_PATH, "HydrologyPicture.jpg",
 ////                    endpoint->CurrentTimes * endpoint->MaxPacket,
 ////                    upbody->element[i]->value, maxpacket);
 ////            }
@@ -932,8 +794,8 @@ int hydrology_read_specified_element_info(struct hydrology_element_info *element
 		break;
 	}
 
-	ret = hydrology_read_store_info(HYDROLOGY_D_FILE_E_INFO, addr, (u8 *)element,
-			sizeof(struct hydrology_element_info));
+	ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_INFO,
+			addr, (u8 *)element, sizeof(struct hydrology_element_info));
 
 	return ret;
 }

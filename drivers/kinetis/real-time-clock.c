@@ -1,4 +1,4 @@
-#include "real-time-clock.h"
+#include <kinetis/real-time-clock.h>
 
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
