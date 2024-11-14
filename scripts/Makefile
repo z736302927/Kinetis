@@ -7,16 +7,16 @@ DEBUG = 0
 # optimization
 OPT = -O1
 
-C_SOURCES += $(wildcard ./drivers/kinetis/*.c)
-C_SOURCES += $(wildcard ./*.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/*.c)
+C_SOURCES += $(wildcard ../arch/arm/mach-stm32/main.c)
 
-C_INCLUDES += -I./include/
-C_INCLUDES += -I./include/uapi/
-C_INCLUDES += -I./arch/arm/include/
-C_INCLUDES += -I./arch/arm/include/uapi/
-C_INCLUDES += -I./arch/arm/include/generated/
-C_INCLUDES += -I./arch/arm/include/generated/uapi/
-C_INCLUDES += -I./arch/arm/mach-stm32
+C_INCLUDES += -I../include/
+C_INCLUDES += -I../include/uapi/
+C_INCLUDES += -I../arch/arm/include/
+C_INCLUDES += -I../arch/arm/include/uapi/
+C_INCLUDES += -I../arch/arm/include/generated/
+C_INCLUDES += -I../arch/arm/include/generated/uapi/
+C_INCLUDES += -I../arch/arm/mach-stm32
 
 AS_INCLUDES += 
 
@@ -55,8 +55,8 @@ C_DEFS =  \
 
 # compile gcc flags
 ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
-
-CFLAGS = $(C_DEFS) $(C_INCLUDES) $(OPT) -nostdinc -Wall -fdata-sections -ffunction-sections
+# -nostdinc
+CFLAGS = $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
 
 ifeq ($(DEBUG), 1)
 CFLAGS += -g -gdwarf-2
