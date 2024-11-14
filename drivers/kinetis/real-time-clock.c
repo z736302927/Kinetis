@@ -1,3 +1,4 @@
+#include <generated/deconfig.h>
 #include <kinetis/real-time-clock.h>
 
 
@@ -11,11 +12,9 @@
   * @step 5:
   */
 
-#include "rtc.h"
-
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-#define USING_CHIP_RTC
+//#define USING_CHIP_RTC
 //#define USING_DS3231
 
 #define HOURS24                         0x00

@@ -1,7 +1,5 @@
-#include "kinetis/my9221.h"
-#include "kinetis/random-gene.h"
-#include "kinetis/delay.h"
-#include "kinetis/idebug.h"
+#include <generated/deconfig.h> 
+//#include "my9221.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -12,8 +10,6 @@
   * @step 4:  .
   * @step 5:
   */
-
-#include "spi.h"
 
 #define MY9221_NUM                     40
 
@@ -64,12 +60,12 @@ static inline void my9221_port_multi_receive(u16 *pdata, u32 Length)
 
 static inline void my9221_di_low(void)
 {
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET);
+    //HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET);
 }
 
 static inline void my9221_di_high(void)
 {
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_SET);
+    //HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_SET);
 }
 
 static inline void my9221_delay_70ns(void)
@@ -126,7 +122,7 @@ static void my9221_internal_latch_pulse_generation(void)
     /* When all gray-scale data is transferred to the shift register, keep DCKI at
      * a fixed reference (either high or low) and maintain it above 220us.(Tstart > 220us)
      */
-    udelay(220);
+    //udelay(220);
     /* Transmit 4 DI signals.(twH (DI) > 70 ns, these (DI) > 230 ns, Tstop *)
      */
     my9221_di_high();
@@ -167,7 +163,6 @@ int t_my9221_send_packet(int argc, char **argv)
 
     return PASS;
 }
-
 #endif
 
 

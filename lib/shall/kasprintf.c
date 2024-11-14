@@ -6,7 +6,7 @@
  */
 
 #include <generated/deconfig.h>
-#include <stdarg.h>
+#include <linux/stdarg.h>
 #include <linux/export.h>
 #include <linux/slab.h>
 #include <linux/types.h>

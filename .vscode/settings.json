@@ -55,5 +55,20 @@
   "C_Cpp_Runner.useLeakSanitizer": false,
   "C_Cpp_Runner.showCompilationTime": false,
   "C_Cpp_Runner.useLinkTimeOptimization": false,
-  "C_Cpp_Runner.msvcSecureNoWarnings": false
+  "C_Cpp_Runner.msvcSecureNoWarnings": false,
+  "makefile.makefilePath": "E:\\Code\\Kinetis\\scripts\\Makefile",
+  "files.associations": {
+    "fsm.h": "c",
+    "ktime.h": "c",
+    "deconfig.h": "c",
+    "my9221.h": "c",
+    "autoconf.h": "c"
+  },
+  "makefile.launchConfigurations": [
+    {
+      "cwd": "e:\\Code\\Kinetis\\output",
+      "binaryPath": "e:\\Code\\Kinetis\\output\\Four-Axis-Flight",
+      "binaryArgs": []
+    }
+  ]
 }

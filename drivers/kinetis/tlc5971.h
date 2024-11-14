@@ -8,7 +8,6 @@ extern "C" {
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /* Includes ------------------------------------------------------------------*/
-#include "stm32f4xx_hal.h"
 
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */

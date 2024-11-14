@@ -1,6 +1,7 @@
-#include "kinetis/tlc5971.h"
-#include "kinetis/idebug.h"
-#include "kinetis/delay.h"
+
+#include <generated/deconfig.h>
+#include "tlc5971.h"
+
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -12,7 +13,7 @@
   * @step 5:
   */
 
-#include "spi.h"
+//#include "spi.h"
 
 #define TLC5971_NUM                     40
 
@@ -61,25 +62,25 @@ static inline u16 tlc5971_port_receive(void)
 static inline void tlc5971_port_multi_transmmit(u16 *pdata, u32 Length)
 {
 //  HAL_SPI_Transmit(&hspi5, pdata, Length, 1000);
-    while (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
-    }
+    //while (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
+    //}
 }
 
 static inline void tlc5971_port_multi_receive(u16 *pdata, u32 Length)
 {
 //  HAL_SPI_Receive(&hspi5, pdata, Length, 1000);
-    while (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
-    }
+    //while (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
+    //}
 }
 
 static inline void tlc5971_cs_low(void)
 {
-    HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_RESET);
+    //HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_RESET);
 }
 
 static inline void tlc5971_cs_high(void)
 {
-    HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_SET);
+    //HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_SET);
 }
 
 static inline void tlc5971_set_port_speed(void)

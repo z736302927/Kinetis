@@ -1,8 +1,4 @@
-#include "kinetis/w25qxxx.h"
-#include "kinetis/random-gene.h"
-#include "kinetis/idebug.h"
-#include "kinetis/delay.h"
-#include "kinetis/basic-timer.h"
+#include "w25qxxx.h"
 
 #include <linux/bitops.h>
 #include <linux/iopoll.h>

@@ -8,7 +8,7 @@ extern "C" {
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /* Includes ------------------------------------------------------------------*/
-#include "kinetis/core_common.h"
+#include <linux/types.h>
 
 #define FSM_SUCCESS             0
 #define FSM_FAILED              1
