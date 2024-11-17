@@ -1,4 +1,3 @@
-
 #include <generated/deconfig.h>
 #include <linux/printk.h>
 #include <linux/console.h>

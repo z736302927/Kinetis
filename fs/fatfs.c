@@ -7,10 +7,6 @@
 #include "fatfs/ff_gen_drv.h"
 #include "fatfs/drivers/flash_diskio.h"
 
-#include <generated/deconfig.h>
-#include <linux/printk.h>
-#include <linux/errno.h>
-
 #include <stdio.h>
 #include <string.h>
 

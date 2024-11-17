@@ -461,7 +461,7 @@ void ubx_receive_frame(u8 data, void *buffer, u8 *done)
 	u8 *buf = buffer;
 	static u8 cnt;
 	static ktime_t time;
-	u16 i, len;
+	u16 i, len = 0;
 	int ret;
 	
 	if (ktime_us_delta(ktime_get(), time) > 2500 && time)

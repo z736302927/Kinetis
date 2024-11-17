@@ -1,5 +1,7 @@
 
 #include <generated/deconfig.h>
+//#include <linux/delay.h>
+
 #include "tlc5971.h"
 
 
@@ -47,40 +49,52 @@ static float g_port_speed = 0.05;
 
 static inline void tlc5971_port_transmmit(u16 tmp)
 {
-//  HAL_SPI_Transmit(&hspi5, &tmp, 1, 1000);
+#ifdef STM32_HAL_LIBRARY
+  HAL_SPI_Transmit(&hspi5, &tmp, 1, 1000);
+#endif
 }
 
 static inline u16 tlc5971_port_receive(void)
 {
     u16 tmp = 0;
 
-//  HAL_SPI_Receive(&hspi5, &tmp, 1, 1000);
+#ifdef STM32_HAL_LIBRARY
+  HAL_SPI_Receive(&hspi5, &tmp, 1, 1000);
+#endif
 
     return tmp;
 }
 
 static inline void tlc5971_port_multi_transmmit(u16 *pdata, u32 Length)
 {
-//  HAL_SPI_Transmit(&hspi5, pdata, Length, 1000);
-    //while (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
-    //}
+#ifdef STM32_HAL_LIBRARY
+    HAL_SPI_Transmit(&hspi5, pdata, Length, 1000);
+    while (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
+    }
+#endif
 }
 
 static inline void tlc5971_port_multi_receive(u16 *pdata, u32 Length)
 {
-//  HAL_SPI_Receive(&hspi5, pdata, Length, 1000);
-    //while (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
-    //}
+#ifdef STM32_HAL_LIBRARY
+    HAL_SPI_Receive(&hspi5, pdata, Length, 1000);
+    while (HAL_SPI_GetState(&hspi1) != HAL_SPI_STATE_READY) {
+    }
+#endif
 }
 
 static inline void tlc5971_cs_low(void)
 {
-    //HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_RESET);
+#ifdef STM32_HAL_LIBRARY
+    HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_RESET);
+#endif
 }
 
 static inline void tlc5971_cs_high(void)
 {
-    //HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_SET);
+#ifdef STM32_HAL_LIBRARY
+    HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_SET);
+#endif
 }
 
 static inline void tlc5971_set_port_speed(void)
