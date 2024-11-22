@@ -1,6 +1,6 @@
 
 #include <generated/deconfig.h>
-//#include <linux/delay.h>
+#include <linux/delay.h>
 
 #include "tlc5971.h"
 

@@ -4,11 +4,37 @@ BUILD_DIR = output
 
 # debug build?
 DEBUG = 0
-# optimization
-OPT = -O1
+# optimization -O1
+OPT = -H -w --std=gnu11
 
+C_SOURCES += $(wildcard ../arch/arm/fake-mcu/*.c)
+#C_SOURCES += $(wildcard ../arch/arm/lib/delay.c)
+#C_SOURCES += $(wildcard ../arch/arm/mm/*.c)
+#C_SOURCES += $(wildcard ../kernel/irq/*.c)
+#C_SOURCES += $(wildcard ../kernel/locking/*.c)
+#C_SOURCES += $(wildcard ../kernel/printk/*.c)
+#C_SOURCES += $(wildcard ../kernel/sched/*.c)
+#C_SOURCES += $(wildcard ../kernel/time/*.c)
+#C_SOURCES += $(wildcard ../kernel/*.c)
+#C_SOURCES += $(wildcard ../lib/math/div64.c)
+#C_SOURCES += $(wildcard ../lib/lzo/*.c)
+C_SOURCES += $(wildcard ../lib/shall/*.c)
+C_SOURCES += $(wildcard ../mm/slab.c)
+C_SOURCES += $(wildcard ../mm/util.c)
+C_SOURCES += $(wildcard ../mm/vmalloc.c)
+C_SOURCES += $(wildcard ../fs/fatfs.c)
+C_SOURCES += $(wildcard ../fs/fatfs/*.c)
+C_SOURCES += $(wildcard ../fs/fatfs/drivers/fake_ram_diskio.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/*.c)
-C_SOURCES += $(wildcard ../arch/arm/mach-stm32/main.c)
+#C_SOURCES += $(wildcard ../drivers/kinetis/flight/*.c)
+
+C_SOURCES := $(filter-out $(wildcard ../lib/shall/crc64.c),$(C_SOURCES))
+C_SOURCES := $(filter-out $(wildcard ../lib/shall/iov_iter.c),$(C_SOURCES))
+C_SOURCES := $(filter-out $(wildcard ../lib/shall/klist.c),$(C_SOURCES))
+C_SOURCES := $(filter-out $(wildcard ../lib/shall/refcount.c),$(C_SOURCES))
+C_SOURCES := $(filter-out $(wildcard ../lib/shall/strncpy_from_user.c),$(C_SOURCES))
+C_SOURCES := $(filter-out $(wildcard ../lib/shall/strnlen_user.c),$(C_SOURCES))
+C_SOURCES := $(filter-out $(wildcard ../lib/shall/vsprintf.c),$(C_SOURCES))
 
 C_INCLUDES += -I../include/
 C_INCLUDES += -I../include/uapi/
@@ -16,7 +42,7 @@ C_INCLUDES += -I../arch/arm/include/
 C_INCLUDES += -I../arch/arm/include/uapi/
 C_INCLUDES += -I../arch/arm/include/generated/
 C_INCLUDES += -I../arch/arm/include/generated/uapi/
-C_INCLUDES += -I../arch/arm/mach-stm32
+#C_INCLUDES += -I../arch/arm/mach-stm32
 
 AS_INCLUDES += 
 
@@ -51,12 +77,13 @@ AS_DEFS =
 C_DEFS =  \
 -DUSE_HAL_DRIVER \
 -DSTM32F407xx \
--D__KERNEL__
+-D__KERNEL__ \
+-DCONFIG_FAKE_LIB
 
 # compile gcc flags
 ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
-# -nostdinc
-CFLAGS = $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
+# -Wall -nostdinc
+CFLAGS = $(C_DEFS) $(C_INCLUDES) $(OPT) -fdata-sections -ffunction-sections
 
 ifeq ($(DEBUG), 1)
 CFLAGS += -g -gdwarf-2

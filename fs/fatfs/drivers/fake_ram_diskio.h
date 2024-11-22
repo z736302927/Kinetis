@@ -45,17 +45,17 @@
   */
 
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __FLASH_DISKIO_H
-#define __FLASH_DISKIO_H
+#ifndef __FAKE_RAM_DISKIO_H
+#define __FAKE_RAM_DISKIO_H
 
 /* Includes ------------------------------------------------------------------*/
 #include "../ff_gen_drv.h"
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */
-extern Diskio_drvTypeDef flash_disk_driver;
+extern Diskio_drvTypeDef  fake_ram_disk_driver;
 
-#endif /* __FLASH_DISKIO_H */
+#endif /* __FAKE_RAM_DISKIO_H */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
 

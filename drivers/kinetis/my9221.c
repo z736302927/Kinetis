@@ -1,5 +1,7 @@
-#include <generated/deconfig.h> 
-//#include "my9221.h"
+
+#include <generated/deconfig.h>
+
+#include "kinetis/my9221.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

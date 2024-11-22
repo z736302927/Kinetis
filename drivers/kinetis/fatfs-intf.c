@@ -5,8 +5,7 @@
 #include <linux/string.h>
 #include <linux/kernel.h>
 
-
-#include "../fs/fatfs/ff.h"
+#include "../../fs/fatfs/ff.h"
 
 u32 fatfs_get_flash_size(void)
 {
@@ -92,7 +91,6 @@ int fatfs_create_file(char *file_path, char *file_name)
 
 int fatfs_delete_file(char *file_path, char *file_name)
 {
-	FIL file;
 	FRESULT res;
 	char buffer[64];
 
@@ -157,7 +155,6 @@ int fatfs_write_store_info(char *file_path, char *file_name,
 	long offset, u8 *pdata, int len)
 {
 	FIL file;
-	DIR dir;
 	FRESULT res;
 	u32 bytes_written;
 	char buffer[64];
