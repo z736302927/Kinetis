@@ -100,7 +100,7 @@ EXPORT_SYMBOL(jiffies);
 
 //core_initcall(init_jiffies_clocksource);
 
-struct clocksource * __init __weak clocksource_default_clock(void)
+struct clocksource * __init clocksource_default_clock(void)
 {
 	return &clocksource_jiffies;
 }

@@ -4,37 +4,56 @@ BUILD_DIR = output
 
 # debug build?
 DEBUG = 0
-# optimization -O1
-OPT = -H -w --std=gnu11
+# optimization -H
+OPT = -O1 -w -xc --std=gnu11 -fno-rtti -funsigned-char -fshort-enums -fshort-wchar
 
 C_SOURCES += $(wildcard ../arch/arm/fake-mcu/*.c)
-#C_SOURCES += $(wildcard ../arch/arm/lib/delay.c)
-#C_SOURCES += $(wildcard ../arch/arm/mm/*.c)
-#C_SOURCES += $(wildcard ../kernel/irq/*.c)
-#C_SOURCES += $(wildcard ../kernel/locking/*.c)
-#C_SOURCES += $(wildcard ../kernel/printk/*.c)
-#C_SOURCES += $(wildcard ../kernel/sched/*.c)
-#C_SOURCES += $(wildcard ../kernel/time/*.c)
-#C_SOURCES += $(wildcard ../kernel/*.c)
-#C_SOURCES += $(wildcard ../lib/math/div64.c)
+C_SOURCES += $(wildcard ../arch/arm/lib/*.c)
+C_SOURCES += $(wildcard ../arch/arm/mm/*.c)
+C_SOURCES += $(wildcard ../kernel/irq/*.c)
+C_SOURCES += $(wildcard ../kernel/locking/*.c)
+C_SOURCES += $(wildcard ../kernel/printk/*.c)
+C_SOURCES += $(wildcard ../kernel/sched/*.c)
+C_SOURCES += $(wildcard ../kernel/time/*.c)
+C_SOURCES += $(wildcard ../kernel/*.c)
+C_SOURCES += $(wildcard ../drivers/base/*.c)
+C_SOURCES += $(wildcard ../drivers/char/random.c)
+C_SOURCES += $(wildcard ../drivers/pinctrl/*.c)
+C_SOURCES += $(wildcard ../drivers/gpio/gpiolib-devres.c)
+C_SOURCES += $(wildcard ../drivers/gpio/gpiolib-legacy.c)
+C_SOURCES += $(wildcard ../drivers/gpio/gpiolib.c)
+C_SOURCES += $(wildcard ../drivers/tty/serdev/*.c)
+C_SOURCES += $(wildcard ../drivers/tty/serial/*.c)
+C_SOURCES += $(wildcard ../drivers/tty/*.c)
+C_SOURCES += $(wildcard ../lib/math/div64.c)
 #C_SOURCES += $(wildcard ../lib/lzo/*.c)
 C_SOURCES += $(wildcard ../lib/shall/*.c)
-C_SOURCES += $(wildcard ../mm/slab.c)
-C_SOURCES += $(wildcard ../mm/util.c)
-C_SOURCES += $(wildcard ../mm/vmalloc.c)
-C_SOURCES += $(wildcard ../fs/fatfs.c)
+C_SOURCES += $(wildcard ../mm/*.c)
+C_SOURCES += $(wildcard ../fs/*.c)
 C_SOURCES += $(wildcard ../fs/fatfs/*.c)
 C_SOURCES += $(wildcard ../fs/fatfs/drivers/fake_ram_diskio.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/*.c)
 #C_SOURCES += $(wildcard ../drivers/kinetis/flight/*.c)
 
+C_SOURCES := $(filter-out $(wildcard ../drivers/pinctrl/devicetree.c),$(C_SOURCES))
+C_SOURCES := $(filter-out $(wildcard ../drivers/tty/tty_audit.c),$(C_SOURCES))
+C_SOURCES := $(filter-out $(wildcard ../lib/shall/crc-t10dif.c),$(C_SOURCES))
+C_SOURCES := $(filter-out $(wildcard ../lib/shall/crc32test.c),$(C_SOURCES))
 C_SOURCES := $(filter-out $(wildcard ../lib/shall/crc64.c),$(C_SOURCES))
-C_SOURCES := $(filter-out $(wildcard ../lib/shall/iov_iter.c),$(C_SOURCES))
-C_SOURCES := $(filter-out $(wildcard ../lib/shall/klist.c),$(C_SOURCES))
-C_SOURCES := $(filter-out $(wildcard ../lib/shall/refcount.c),$(C_SOURCES))
-C_SOURCES := $(filter-out $(wildcard ../lib/shall/strncpy_from_user.c),$(C_SOURCES))
-C_SOURCES := $(filter-out $(wildcard ../lib/shall/strnlen_user.c),$(C_SOURCES))
-C_SOURCES := $(filter-out $(wildcard ../lib/shall/vsprintf.c),$(C_SOURCES))
+C_SOURCES := $(filter-out $(wildcard ../lib/shall/dump_stack.c),$(C_SOURCES))
+C_SOURCES := $(filter-out $(wildcard ../lib/shall/libcrc32c.c),$(C_SOURCES))
+C_SOURCES := $(filter-out $(wildcard ../lib/shall/list-test.c),$(C_SOURCES))
+C_SOURCES := $(filter-out $(wildcard ../lib/shall/rbtree_test.c),$(C_SOURCES))
+C_SOURCES := $(filter-out $(wildcard ../lib/shall/list-test.c),$(C_SOURCES))
+C_SOURCES := $(filter-out $(wildcard ../mm/dmapool.c),$(C_SOURCES))
+#C_SOURCES := $(filter-out $(wildcard ../lib/shall/iov_iter.c),$(C_SOURCES))
+#C_SOURCES := $(filter-out $(wildcard ../lib/shall/klist.c),$(C_SOURCES))
+#C_SOURCES := $(filter-out $(wildcard ../lib/shall/refcount.c),$(C_SOURCES))
+#C_SOURCES := $(filter-out $(wildcard ../lib/shall/strncpy_from_user.c),$(C_SOURCES))
+#C_SOURCES := $(filter-out $(wildcard ../lib/shall/strnlen_user.c),$(C_SOURCES))
+#C_SOURCES := $(filter-out $(wildcard ../lib/shall/vsprintf.c),$(C_SOURCES))
+C_SOURCES := $(filter-out $(wildcard ../drivers/kinetis/flight/filter.c),$(C_SOURCES))
+C_SOURCES := $(filter-out $(wildcard ../drivers/kinetis/flight/fmu_task.c),$(C_SOURCES))
 
 C_INCLUDES += -I../include/
 C_INCLUDES += -I../include/uapi/
@@ -42,7 +61,7 @@ C_INCLUDES += -I../arch/arm/include/
 C_INCLUDES += -I../arch/arm/include/uapi/
 C_INCLUDES += -I../arch/arm/include/generated/
 C_INCLUDES += -I../arch/arm/include/generated/uapi/
-#C_INCLUDES += -I../arch/arm/mach-stm32
+C_INCLUDES += -I../arch/arm/mach-stm32
 
 AS_INCLUDES += 
 
@@ -143,6 +162,9 @@ $(BUILD_DIR)/$(PROJECT): $(OBJECTS)
 
 $(BUILD_DIR):
 	mkdir $@		
+
+print:
+	echo $(C_SOURCES)
 
 clean:
 	-del /q $(BUILD_DIR)

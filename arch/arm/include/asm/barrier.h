@@ -16,9 +16,9 @@
 #endif
 
 #if __LINUX_ARM_ARCH__ >= 7
-#define isb(option) __asm__ __volatile__ ("isb " #option : : : "memory")
-#define dsb(option) __asm__ __volatile__ ("dsb " #option : : : "memory")
-#define dmb(option) __asm__ __volatile__ ("dmb " #option : : : "memory")
+#define isb(option) //__asm__ __volatile__ ("isb " #option : : : "memory")
+#define dsb(option) //__asm__ __volatile__ ("dsb " #option : : : "memory")
+#define dmb(option) //__asm__ __volatile__ ("dmb " #option : : : "memory")
 #ifdef CONFIG_THUMB2_KERNEL
 #define CSDB	".inst.w 0xf3af8014"
 #else

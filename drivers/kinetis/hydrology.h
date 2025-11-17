@@ -93,36 +93,36 @@ static inline char *hydrology_type_rtu_string(enum hydrology_rtu_type type)
 }
 
 enum hydrology_body_type {
-	LINK_REPORT = 0x2F,               //ң��վ��·ά�ֱ�
-	TEST_REPORT,                                 //ң��վ���Ա�
-	EVEN_PERIOD_INFO_REPORT,                //����ʱ��ˮ����Ϣ��
-	TIMER_REPORT,                          //ң��վ��ʱ��
-	ADD_REPORT,                            //ң��վ�ӱ���
-	HOUR_REPORT,                                 //ң��վСʱ��
-	ARTIFICIAL_NUM_REPORT,                     //ң��վ�˹�������
-	PICTURE_REPORT,                              //ң��վͼƬ��
-	REAL_TIME_REPORT,                             //����վ��ѯң��վʵʱ����
-	PERIOD_REPORT,                               //����վ��ѯң��վʱ������
-	INQUIRE_ARTIFICIAL_NUM_REPORT,              //����վ��ѯң��վ�˹�����
-	SPECIFIED_ELEMENT_REPORT,                     //����վ��ѯң��վָ��Ҫ��ʵʱ����
-	CONFIG_WRITE_REPORT = 0x40,     //ң��վ�����޸�
-	CONFIG_READ_REPORT,                    //ң��վ���ö�ȡ
-	PARA_WRITE_REPORT,                //����վ�޸�ң��վ���в���
-	PARA_READ_REPORT,                        //����վ��ȡң��վ���в���
-	WATER_PUMP_MOTOR_REPORT,                       //����վ��ѯˮ�õ��ʵʱ��������
-	SW_VERSION_REPORT,                      //����վ��ѯң��վ��ѯң��վ�����汾
-	STATUS_REPORT,                               //����վ��ѯң��վ״̬��Ϣ
-	INIT_SOLID_STORAGE_REPORT,               //��ʼ����̬�洢����
-	RESET_REPORT,                                //�ָ�ң��վ��������
-	CHANGE_PASSWORD_REPORT,                       //����վ�޸Ĵ�������
-	SET_CLOCK_REPORT,                             //����վ����ң��վʱ��
-	SET_IC_CARD_REPORT,                            //����վ����ң��վIC��״̬
-	PUMP_REPORT,                                 //����վ����ң��վˮ�ÿ���������Ӧ/ ˮ��״̬�Ա�
-	VALVE_REPORT,                                //����վ����ң��վ���Ʒ��ſ���������Ӧ/ ����״̬�Ա�
-	GATE_REPORT,                                 //����վ����ң��վ����բ�ſ���������Ӧ/ բ��״̬��Ϣ�Ա�
-	WATER_SETTING_REPORT,                         //����վ����ң��վˮ����ֵ����������Ӧ
-	RECORD_REPORT,                               //����վ��ѯң��վ�¼���¼
-	TIME_REPORT,                                 //����վ��ѯң��վʱ��
+	LINK_REPORT = 0x2F,               //遥测站链路维持报
+	TEST_REPORT,                                 //遥测站测试报
+	EVEN_PERIOD_INFO_REPORT,                //均匀时段水文信息报
+	TIMER_REPORT,                          //遥测站定时报
+	ADD_REPORT,                            //遥测站加报报
+	HOUR_REPORT,                                 //遥测站小时报
+	ARTIFICIAL_NUM_REPORT,                     //遥测站人工置数报
+	PICTURE_REPORT,                              //遥测站图片报
+	REAL_TIME_REPORT,                             //中心站查询遥测站实时数据
+	PERIOD_REPORT,                               //中心站查询遥测站时段数据
+	INQUIRE_ARTIFICIAL_NUM_REPORT,              //中心站查询遥测站人工置数
+	SPECIFIED_ELEMENT_REPORT,                     //中心站查询遥测站指定要素实时数据
+	CONFIG_WRITE_REPORT = 0x40,     //遥测站配置修改
+	CONFIG_READ_REPORT,                    //遥测站配置读取
+	PARA_WRITE_REPORT,                //中心站修改遥测站运行参数
+	PARA_READ_REPORT,                        //中心站读取遥测站运行参数
+	WATER_PUMP_MOTOR_REPORT,                       //中心站查询水泵电机实时工作数据
+	SW_VERSION_REPORT,                      //中心站查询遥测站查询遥测站软件版本
+	STATUS_REPORT,                               //中心站查询遥测站状态信息
+	INIT_SOLID_STORAGE_REPORT,               //初始化固态存储数据
+	RESET_REPORT,                                //恢复遥测站出厂设置
+	CHANGE_PASSWORD_REPORT,                       //中心站修改传输密码
+	SET_CLOCK_REPORT,                             //中心站设置遥测站时钟
+	SET_IC_CARD_REPORT,                            //中心站设置遥测站IC卡状态
+	PUMP_REPORT,                                 //中心站设置遥测站水泵开关命令响应/ 水泵状态自报
+	VALVE_REPORT,                                //中心站设置遥测站控制阀门开关命令响应/ 阀门状态自报
+	GATE_REPORT,                                 //中心站设置遥测站控制闸门开关命令响应/ 闸门状态信息自报
+	WATER_SETTING_REPORT,                         //中心站设置遥测站水量定值控制命令响应
+	RECORD_REPORT,                               //中心站查询遥测站事件记录
+	TIME_REPORT,                                 //中心站查询遥测站时钟
 };
 
 static inline char *hydrology_type_string(enum hydrology_body_type type)
@@ -243,7 +243,7 @@ struct hydrology_element {
 	u32 num;
 };
 
-//ң��վ���б��ı�ͷ�ṹ
+//遥测站上行报文报头结构
 struct hydrology_up_header {
 	u8 frame_start[2];
 	u8 center_addr;
@@ -256,7 +256,7 @@ struct hydrology_up_header {
 	u8 len;
 };
 
-//ң��վ���б��ı�ͷ�ṹ
+//遥测站下行报文报头结构
 struct hydrology_down_header {
 	u8 frame_start[2];
 	u8 remote_addr[5];
@@ -269,7 +269,7 @@ struct hydrology_down_header {
 	u8 len;
 };
 
-//ң��վ���б������Ľṹ
+//遥测站上行报文正文结构
 struct hydrology_up_body {
 	u8 stream_id[2];
 	u8 send_time[6];
@@ -283,7 +283,7 @@ struct hydrology_up_body {
 	u16 len;
 };
 
-//ң��վ���б������Ľṹ
+//遥测站下行报文正文结构
 struct hydrology_down_body {
 	u8 stream_id[2];
 	u8 send_time[6];

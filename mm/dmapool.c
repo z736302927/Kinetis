@@ -19,6 +19,7 @@
  * keep a count of how many are currently allocated from each page.
  */
 
+#include <generated/deconfig.h>
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>

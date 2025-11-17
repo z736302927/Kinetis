@@ -5,6 +5,7 @@
  * Copyright (C) 2019, Google LLC.
  * Author: Brendan Higgins <brendanhiggins@google.com>
  */
+#include <generated/deconfig.h>
 #include <kunit/assert.h>
 #include <kunit/test.h>
 

@@ -852,10 +852,10 @@ int bmi160_core_probe(struct device *dev, struct regmap *regmap,
 //		return ret;
 //	}
 
-	ret = iio_read_mount_matrix(dev, "mount-matrix",
-				    &data->orientation);
-	if (ret)
-		return ret;
+//	ret = iio_read_mount_matrix(dev, "mount-matrix",
+//				    &data->orientation);
+//	if (ret)
+//		return ret;
 
 	ret = bmi160_chip_init(data, use_spi);
 	if (ret)

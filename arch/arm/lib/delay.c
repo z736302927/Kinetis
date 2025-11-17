@@ -15,14 +15,19 @@
 #include <linux/module.h>
 #include <linux/timex.h>
 
+#include <unistd.h>
+
 void __loop_delay(unsigned long loops)
 {
+    usleep(loops);
 }
 void __loop_udelay(unsigned long usecs)
 {
+    usleep(usecs);
 }
 void __loop_const_udelay(unsigned long usecs)
 {
+    usleep(usecs);
 }
 
 /*

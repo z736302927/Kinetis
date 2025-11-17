@@ -120,7 +120,7 @@ struct fmu_axis_data magnet_data_process(u8 dt, struct fmu_axis_data magnet,
 	magnet_fix.z = (magnet.z - para->magnet_offset.z) * 200 / para->magnet_gain.z;
 
 	if (para->magnet_calibrated != 0) {
-		/* ×ª»»×ø±êÖáÎªANO×ø±ê */
+		/* è½¬æ¢åæ ‡è½´ä¸ºANOåæ ‡ */
 		vector_x_matrix_t(&magnet_fix.x, para->iem, &magnet_fix_nb.x);
 
 		return magnet_fix_nb;
@@ -137,7 +137,7 @@ struct fmu_axis_data magnet_data_process(u8 dt, struct fmu_axis_data magnet,
 //	struct fmu_axis_data max, min;
 //	if (mag.mag_CALIBRATE == 1 && flag.unlock_sta == 0) {
 //		switch (mag_cal_step) {
-//		case 0://µÚÒ»²½£¬Ë®Æ½Ğı×ª
+//		case 0://ç¬¬ä¸€æ­¥ï¼Œæ°´å¹³æ—‹è½¬
 //			max.x = max(magnet->x, max.x);
 //			max.y = max(magnet->y, max.y);
 //			min.x = min(magnet->x, min.x);
@@ -149,7 +149,7 @@ struct fmu_axis_data magnet_data_process(u8 dt, struct fmu_axis_data magnet,
 //				rotate_angle = 0;
 //			} else {
 ////				LED_STA.calMag = 1;
-//				rotate_angle += dt * 1e-3f * gyro_degree_z; //½Ç¶È»ı·Ö£¬Ğı×ª360¶È
+//				rotate_angle += dt * 1e-3f * gyro_degree_z; //è§’åº¦ç§¯åˆ†ï¼Œæ—‹è½¬360åº¦
 
 //				if (imu_abs(rotate_angle) > 360)
 //					mag_cal_step = 2;
@@ -162,7 +162,7 @@ struct fmu_axis_data magnet_data_process(u8 dt, struct fmu_axis_data magnet,
 //			mag_cal_step = 0;
 //			break;
 
-//		case 2://µÚ¶ş²½£¬ÊúÖ±Ğı×ª£¬»úÍ·³¯ÏÂ
+//		case 2://ç¬¬äºŒæ­¥ï¼Œç«–ç›´æ—‹è½¬ï¼Œæœºå¤´æœä¸‹
 ////			LED_STA.calMag = 2;
 
 //			if (vector_z_z < 0.1f) //5.7deg
@@ -181,7 +181,7 @@ struct fmu_axis_data magnet_data_process(u8 dt, struct fmu_axis_data magnet,
 //				mag_cal_angle[1] = 0;
 //			} else {
 ////				LED_STA.calMag = 3;
-//				mag_cal_angle[1] += dt * 1e-3f * (gyro_deg_x);	//½Ç¶È»ı·Ö£¬Ğı×ª360¶È
+//				mag_cal_angle[1] += dt * 1e-3f * (gyro_deg_x);	//è§’åº¦ç§¯åˆ†ï¼Œæ—‹è½¬360åº¦
 
 //				if (ABS(mag_cal_angle[1]) > 360) {
 //					mag_cal_angle[1] = 0;
@@ -190,7 +190,7 @@ struct fmu_axis_data magnet_data_process(u8 dt, struct fmu_axis_data magnet,
 //			}
 //			break;
 
-//		case 4://error_2£¬ÖØĞÂ¿ªÊ¼ÊúÖ±Ğı×ª
+//		case 4://error_2ï¼Œé‡æ–°å¼€å§‹ç«–ç›´æ—‹è½¬
 //			Mag_Cal_Reset(1);
 //			mag_cal_angle[1] = 0;
 //			mag_cal_step = 2;
@@ -198,8 +198,8 @@ struct fmu_axis_data magnet_data_process(u8 dt, struct fmu_axis_data magnet,
 
 //		case 5:
 //			for (u8 i = 0; i < 3; i++) {
-//				Ano_Parame.set.mag_offset[i] = 0.5f * (max_t[i] + min_t[i]);		//ÖĞÖµĞ£×¼
-//				Ano_Parame.set.mag_gain[i] = 0.5f * (max_t[i] - min_t[i]);		//·ùÖµĞ£×¼
+//				Ano_Parame.set.mag_offset[i] = 0.5f * (max_t[i] + min_t[i]);		//ä¸­å€¼æ ¡å‡†
+//				Ano_Parame.set.mag_gain[i] = 0.5f * (max_t[i] - min_t[i]);		//å¹…å€¼æ ¡å‡†
 //			}
 
 //			Mag_Cal_Reset(3);
@@ -208,7 +208,7 @@ struct fmu_axis_data magnet_data_process(u8 dt, struct fmu_axis_data magnet,
 //			mag.mag_CALIBRATE = 0;
 //			LED_STA.calMag = 0;
 
-//			data_save();//±£´æÊı¾İ
+//			data_save();//ä¿å­˜æ•°æ®
 //			break;
 
 //		default:
@@ -216,10 +216,10 @@ struct fmu_axis_data magnet_data_process(u8 dt, struct fmu_axis_data magnet,
 //		}
 
 //		if (mag_cal_step == 0 || mag_cal_step == 3) {
-//			//³¤Ê±¼ä³ö´í£¬ÍË³öĞ£×¼Âß¼­
+//			//é•¿æ—¶é—´å‡ºé”™ï¼Œé€€å‡ºæ ¡å‡†é€»è¾‘
 //			if (cali_cnt < 15000)
 //				cali_cnt += dt;
-//			else { ////Ğ£×¼´íÎó
+//			else { ////æ ¡å‡†é”™è¯¯
 //				LED_STA.errOneTime = 1;
 //				cali_cnt = 0;
 //				LED_STA.calMag = 0;
@@ -233,10 +233,10 @@ struct fmu_axis_data magnet_data_process(u8 dt, struct fmu_axis_data magnet,
 //		t_length = my_3_norm(mag.val[X], mag.val[Y], mag.val[Z]);
 
 //		if (t_length < 150 || t_length > 350) {
-//			//state[3] |= (1<<3);//ÂŞÅÌÑÏÖØ¸ÉÈÅ
+//			//state[3] |= (1<<3);//ç½—ç›˜ä¸¥é‡å¹²æ‰°
 //			//LED_state = 6;
 //		} else {
-//			//state[3] &= ~(1<<3);//ÂŞÅÌÎŞÑÏÖØ¸ÉÈÅ
+//			//state[3] &= ~(1<<3);//ç½—ç›˜æ— ä¸¥é‡å¹²æ‰°
 
 ////			if(LED_state == 6)
 ////			{

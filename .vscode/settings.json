@@ -62,7 +62,19 @@
     "ktime.h": "c",
     "deconfig.h": "c",
     "my9221.h": "c",
-    "autoconf.h": "c"
+    "autoconf.h": "c",
+    "stdlib.h": "c",
+    "climits": "cpp",
+    "kinetis-core.h": "c",
+    "type_traits": "c",
+    "time.h": "c",
+    "hydrology.h": "c",
+    "cstdlib": "c",
+    "memory_resource": "c",
+    "memory": "c",
+    "hydrology-identifier.h": "c",
+    "text_encoding": "cpp",
+    "limits.h": "c"
   },
   "makefile.launchConfigurations": [
     {
@@ -70,5 +82,6 @@
       "binaryPath": "e:\\Code\\Kinetis\\output\\Four-Axis-Flight",
       "binaryArgs": []
     }
-  ]
+  ],
+  "makefile.configureOnOpen": false
 }

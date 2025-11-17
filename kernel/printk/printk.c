@@ -1928,8 +1928,9 @@ static inline void printk_delay(void)
 
 static inline u32 printk_caller_id(void)
 {
-	return in_task() ? task_pid_nr(current) :
-		0x80000000 + raw_smp_processor_id();
+//	return in_task() ? task_pid_nr(current) :
+//		0x80000000 + raw_smp_processor_id();
+	return 0;
 }
 
 static size_t log_output(int facility, int level, enum log_flags lflags,

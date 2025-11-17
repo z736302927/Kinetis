@@ -56,12 +56,12 @@ int tim_task_add(struct tim_task *tim_task,
 	tim_task->interval = interval;
 	tim_task->auto_load = auto_load;
 
-	if (sched) {
-		ret = fmu_sch_add_task(tim_task);
-		if (ret)
-			return ret;
-		tim_task->sched = true;
-	}
+	//if (sched) {
+	//	ret = fmu_sch_add_task(tim_task);
+	//	if (ret)
+	//		return ret;
+	//	tim_task->sched = true;
+	//}
 
 	list_add_tail(&tim_task->list, &tim_task_head);
 
@@ -77,8 +77,8 @@ void tim_task_drop(struct tim_task *tim_task)
 {
 	list_del(&tim_task->list);
 
-	if (tim_task->sched)
-		fmu_sch_drop_task(tim_task);
+	//if (tim_task->sched)
+	//	fmu_sch_drop_task(tim_task);
 
 	kfree(tim_task->name);
 	kfree(tim_task);

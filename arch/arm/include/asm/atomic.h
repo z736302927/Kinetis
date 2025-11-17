@@ -40,15 +40,6 @@ static inline void atomic_##op(int i, atomic_t *v)			\
 	int result;							\
 									\
 	prefetchw(&v->counter);						\
-	__asm__ __volatile__("@ atomic_" #op "\n"			\
-"1:	ldrex	%0, [%3]\n"						\
-"	" #asm_op "	%0, %0, %4\n"					\
-"	strex	%1, %0, [%3]\n"						\
-"	teq	%1, #0\n"						\
-"	bne	1b"							\
-	: "=&r" (result), "=&r" (tmp), "+Qo" (v->counter)		\
-	: "r" (&v->counter), "Ir" (i)					\
-	: "cc");							\
 }									\
 
 #define ATOMIC_OP_RETURN(op, c_op, asm_op)				\
@@ -58,17 +49,6 @@ static inline int atomic_##op##_return_relaxed(int i, atomic_t *v)	\
 	int result;							\
 									\
 	prefetchw(&v->counter);						\
-									\
-	__asm__ __volatile__("@ atomic_" #op "_return\n"		\
-"1:	ldrex	%0, [%3]\n"						\
-"	" #asm_op "	%0, %0, %4\n"					\
-"	strex	%1, %0, [%3]\n"						\
-"	teq	%1, #0\n"						\
-"	bne	1b"							\
-	: "=&r" (result), "=&r" (tmp), "+Qo" (v->counter)		\
-	: "r" (&v->counter), "Ir" (i)					\
-	: "cc");							\
-									\
 	return result;							\
 }
 
@@ -79,17 +59,6 @@ static inline int atomic_fetch_##op##_relaxed(int i, atomic_t *v)	\
 	int result, val;						\
 									\
 	prefetchw(&v->counter);						\
-									\
-	__asm__ __volatile__("@ atomic_fetch_" #op "\n"			\
-"1:	ldrex	%0, [%4]\n"						\
-"	" #asm_op "	%1, %0, %5\n"					\
-"	strex	%2, %1, [%4]\n"						\
-"	teq	%2, #0\n"						\
-"	bne	1b"							\
-	: "=&r" (result), "=&r" (val), "=&r" (tmp), "+Qo" (v->counter)	\
-	: "r" (&v->counter), "Ir" (i)					\
-	: "cc");							\
-									\
 	return result;							\
 }
 
@@ -138,18 +107,18 @@ static inline int atomic_fetch_add_unless(atomic_t *v, int a, int u)
 	smp_mb();
 	prefetchw(&v->counter);
 
-	__asm__ __volatile__ ("@ atomic_add_unless\n"
-"1:	ldrex	%0, [%4]\n"
-"	teq	%0, %5\n"
-"	beq	2f\n"
-"	add	%1, %0, %6\n"
-"	strex	%2, %1, [%4]\n"
-"	teq	%2, #0\n"
-"	bne	1b\n"
-"2:"
-	: "=&r" (oldval), "=&r" (newval), "=&r" (tmp), "+Qo" (v->counter)
-	: "r" (&v->counter), "r" (u), "r" (a)
-	: "cc");
+//	__asm__ __volatile__ ("@ atomic_add_unless\n"
+//"1:	ldrex	%0, [%4]\n"
+//"	teq	%0, %5\n"
+//"	beq	2f\n"
+//"	add	%1, %0, %6\n"
+//"	strex	%2, %1, [%4]\n"
+//"	teq	%2, #0\n"
+//"	bne	1b\n"
+//"2:"
+//	: "=&r" (oldval), "=&r" (newval), "=&r" (tmp), "+Qo" (v->counter)
+//	: "r" (&v->counter), "r" (u), "r" (a)
+//	: "cc");
 
 	if (oldval != u)
 		smp_mb();

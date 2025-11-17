@@ -1,3 +1,4 @@
+
 #include <generated/deconfig.h>
 #include <linux/printk.h>
 #include <linux/errno.h>
@@ -5,10 +6,9 @@
 
 #include "fatfs/diskio.h"     /* Declarations of disk functions */
 #include "fatfs/ff_gen_drv.h"
-#include "fatfs/drivers/flash_diskio.h"
+#include "fatfs/drivers/fake_ram_diskio.h"
 
 #include <stdio.h>
-#include <string.h>
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -33,7 +33,7 @@ int fatfs_init(void)
     int ret;
 
     /*## FatFS: Link the SD driver ###########################*/
-    ret = FATFS_LinkDriver(&flash_disk_driver, disk_path);
+    ret = FATFS_LinkDriver(&fake_ram_disk_driver, disk_path);
 
     /* additional user code for init */
     if (ret == 0) {
@@ -899,7 +899,7 @@ int t_fatfs_loopback(int argc, char **argv)
     uint8_t rtext[100];                                  /* File read buffer */
 
     /*##-1- Link the  disk I/O driver #######################################*/
-    if (FATFS_LinkDriver(&flash_disk_driver, disk_path) == 0) {
+    if (FATFS_LinkDriver(&fake_ram_disk_driver, disk_path) == 0) {
         /*##-2- Register the file system object to the FatFs module ##############*/
         res = f_mount(&disk_fatfs, (TCHAR const *)disk_path, 0);
 

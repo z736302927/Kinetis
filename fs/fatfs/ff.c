@@ -6511,7 +6511,7 @@ TCHAR* f_gets (
 
 
 #if !FF_FS_READONLY
-#include <linux/stdarg.h>
+#include <stdarg.h>
 /*-----------------------------------------------------------------------*/
 /* Put a Character to the File (sub-functions)                           */
 /*-----------------------------------------------------------------------*/

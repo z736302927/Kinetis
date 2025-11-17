@@ -330,23 +330,7 @@ do {									\
 	(x) = (__typeof__(*(ptr)))__gu_val;				\
 } while (0)
 
-#define __get_user_asm(x, addr, err, instr)			\
-	__asm__ __volatile__(					\
-	"1:	" TUSER(instr) " %1, [%2], #0\n"		\
-	"2:\n"							\
-	"	.pushsection .text.fixup,\"ax\"\n"		\
-	"	.align	2\n"					\
-	"3:	mov	%0, %3\n"				\
-	"	mov	%1, #0\n"				\
-	"	b	2b\n"					\
-	"	.popsection\n"					\
-	"	.pushsection __ex_table,\"a\"\n"		\
-	"	.align	3\n"					\
-	"	.long	1b, 3b\n"				\
-	"	.popsection"					\
-	: "+r" (err), "=&r" (x)					\
-	: "r" (addr), "i" (-EFAULT)				\
-	: "cc")
+#define __get_user_asm(x, addr, err, instr)
 
 #define __get_user_asm_byte(x, addr, err)			\
 	__get_user_asm(x, addr, err, ldrb)
@@ -433,22 +417,7 @@ do {									\
 #define __put_user_nocheck_4 __put_user_asm_word
 #define __put_user_nocheck_8 __put_user_asm_dword
 
-#define __put_user_asm(x, __pu_addr, err, instr)		\
-	__asm__ __volatile__(					\
-	"1:	" TUSER(instr) " %1, [%2], #0\n"		\
-	"2:\n"							\
-	"	.pushsection .text.fixup,\"ax\"\n"		\
-	"	.align	2\n"					\
-	"3:	mov	%0, %3\n"				\
-	"	b	2b\n"					\
-	"	.popsection\n"					\
-	"	.pushsection __ex_table,\"a\"\n"		\
-	"	.align	3\n"					\
-	"	.long	1b, 3b\n"				\
-	"	.popsection"					\
-	: "+r" (err)						\
-	: "r" (x), "r" (__pu_addr), "i" (-EFAULT)		\
-	: "cc")
+#define __put_user_asm(x, __pu_addr, err, instr)
 
 #define __put_user_asm_byte(x, __pu_addr, err)			\
 	__put_user_asm(x, __pu_addr, err, strb)
@@ -489,26 +458,7 @@ do {									\
 #define	__reg_oper1	"%R2"
 #endif
 
-#define __put_user_asm_dword(x, __pu_addr, err)			\
-	__asm__ __volatile__(					\
- ARM(	"1:	" TUSER(str) "	" __reg_oper1 ", [%1], #4\n"	) \
- ARM(	"2:	" TUSER(str) "	" __reg_oper0 ", [%1]\n"	) \
- THUMB(	"1:	" TUSER(str) "	" __reg_oper1 ", [%1]\n"	) \
- THUMB(	"2:	" TUSER(str) "	" __reg_oper0 ", [%1, #4]\n"	) \
-	"3:\n"							\
-	"	.pushsection .text.fixup,\"ax\"\n"		\
-	"	.align	2\n"					\
-	"4:	mov	%0, %3\n"				\
-	"	b	3b\n"					\
-	"	.popsection\n"					\
-	"	.pushsection __ex_table,\"a\"\n"		\
-	"	.align	3\n"					\
-	"	.long	1b, 4b\n"				\
-	"	.long	2b, 4b\n"				\
-	"	.popsection"					\
-	: "+r" (err), "+r" (__pu_addr)				\
-	: "r" (x), "i" (-EFAULT)				\
-	: "cc")
+#define __put_user_asm_dword(x, __pu_addr, err)
 
 #endif /* !CONFIG_CPU_SPECTRE */
 

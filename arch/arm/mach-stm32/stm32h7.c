@@ -238,7 +238,7 @@ int stm32h7_glue_func(void)
     struct i2c_client *client_at24;
 	int ret = 0;
 
-	cm_backtrace_init("CmBacktrace", "V1.0.0", "V0.1.0");
+//	cm_backtrace_init("CmBacktrace", "V1.0.0", "V0.1.0");
 
 	ret = initialize_ptr_random();
 	if (ret)

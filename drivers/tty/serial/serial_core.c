@@ -3156,7 +3156,7 @@ static void uart_sysrq_on(struct work_struct *w)
 {
 	int sysrq_toggle_seq_len = strlen(sysrq_toggle_seq);
 
-	sysrq_toggle_support(1);
+//	sysrq_toggle_support(1);
 	pr_info("SysRq is enabled by magic sequence '%*pE' on serial\n",
 		sysrq_toggle_seq_len, sysrq_toggle_seq);
 }

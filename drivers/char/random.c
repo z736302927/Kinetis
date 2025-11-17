@@ -348,7 +348,7 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/random.h>
 
-#include "rng.h"
+//#include "rng.h"
 
 /* #define ADD_INTERRUPT_BENCH */
 
@@ -1559,14 +1559,14 @@ static void _get_random_bytes(void *buf, int nbytes)
 
 	while (nbytes >= CHACHA_BLOCK_SIZE) {
 //		extract_crng(buf);
-        HAL_RNG_GenerateRandomNumber(&hrng, buf);
+//        HAL_RNG_GenerateRandomNumber(&hrng, buf);
 		buf += CHACHA_BLOCK_SIZE;
 		nbytes -= CHACHA_BLOCK_SIZE;
 	}
 
 	if (nbytes > 0) {
 //		extract_crng(tmp);
-        HAL_RNG_GenerateRandomNumber(&hrng, (uint32_t *)tmp);
+//        HAL_RNG_GenerateRandomNumber(&hrng, (uint32_t *)tmp);
 		memcpy(buf, tmp, nbytes);
     }
 //		crng_backtrack_protect(tmp, nbytes);
@@ -2213,8 +2213,8 @@ u64 get_random_u64(void)
 //	ret = batch->entropy_u64[batch->position++];
 //	spin_unlock_irqrestore(&batch->batch_lock, flags);
     u64 high, low;
-    HAL_RNG_GenerateRandomNumber(&hrng, (u32 *)&high);
-    HAL_RNG_GenerateRandomNumber(&hrng, (u32 *)&low);
+//    HAL_RNG_GenerateRandomNumber(&hrng, (u32 *)&high);
+//    HAL_RNG_GenerateRandomNumber(&hrng, (u32 *)&low);
     ret = (high << 32) + low;
 	return ret;
 }
@@ -2240,7 +2240,7 @@ u32 get_random_u32(void)
 //	}
 //	ret = batch->entropy_u32[batch->position++];
 //	spin_unlock_irqrestore(&batch->batch_lock, flags);
-    HAL_RNG_GenerateRandomNumber(&hrng, &ret);
+//    HAL_RNG_GenerateRandomNumber(&hrng, &ret);
 	return ret;
 }
 EXPORT_SYMBOL(get_random_u32);

@@ -354,7 +354,7 @@ void panic(const char *fmt, ...)
 //#if defined(CONFIG_S390)
 //	disabled_wait();
 //#endif
-	cm_backtrace_assert(cmb_get_sp());
+//	cm_backtrace_assert(cmb_get_sp());
 
 	pr_emerg("---[ end Kernel panic - not syncing: %s ]---\n", buf);
 

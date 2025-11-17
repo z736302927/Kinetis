@@ -315,9 +315,9 @@ struct ftrace_likely_data {
 #define compiletime_assert(condition, msg) \
 	_compiletime_assert(condition, msg, __compiletime_assert_, __COUNTER__)
 
-#define compiletime_assert_atomic_type(t)				\
+#define compiletime_assert_atomic_type(t)				/*\
 	compiletime_assert(__native_word(t),				\
-		"Need native word sized stores/loads for atomicity.")
+		"Need native word sized stores/loads for atomicity.")*/
 
 /* Helpers for emitting diagnostics in pragmas. */
 #ifndef __diag

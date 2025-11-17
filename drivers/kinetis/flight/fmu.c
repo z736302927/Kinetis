@@ -450,9 +450,9 @@ int fmu_init(void)
 			return ret;
 	}
 
-	ret = ahrs_init_container(1024);
-	if (ret)
-		return 0;
+//	ret = ahrs_init_container(1024);
+//	if (ret)
+//		return 0;
 
 	ret = rc_module_init(&fmu->rc);
 	if (ret)

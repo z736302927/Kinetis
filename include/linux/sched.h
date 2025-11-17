@@ -1688,18 +1688,18 @@ static inline int task_nice(const struct task_struct *p)
 	return PRIO_TO_NICE((p)->static_prio);
 }
 
-extern int can_nice(const struct task_struct *p, const int nice);
-extern int task_curr(const struct task_struct *p);
-extern int idle_cpu(int cpu);
-extern int available_idle_cpu(int cpu);
-extern int sched_setscheduler(struct task_struct *, int, const struct sched_param *);
-extern int sched_setscheduler_nocheck(struct task_struct *, int, const struct sched_param *);
-extern void sched_set_fifo(struct task_struct *p);
-extern void sched_set_fifo_low(struct task_struct *p);
-extern void sched_set_normal(struct task_struct *p, int nice);
-extern int sched_setattr(struct task_struct *, const struct sched_attr *);
-extern int sched_setattr_nocheck(struct task_struct *, const struct sched_attr *);
-extern struct task_struct *idle_task(int cpu);
+//extern int can_nice(const struct task_struct *p, const int nice);
+//extern int task_curr(const struct task_struct *p);
+//extern int idle_cpu(int cpu);
+//extern int available_idle_cpu(int cpu);
+//extern int sched_setscheduler(struct task_struct *, int, const struct sched_param *);
+//extern int sched_setscheduler_nocheck(struct task_struct *, int, const struct sched_param *);
+//extern void sched_set_fifo(struct task_struct *p);
+//extern void sched_set_fifo_low(struct task_struct *p);
+//extern void sched_set_normal(struct task_struct *p, int nice);
+//extern int sched_setattr(struct task_struct *, const struct sched_attr *);
+//extern int sched_setattr_nocheck(struct task_struct *, const struct sched_attr *);
+//extern struct task_struct *idle_task(int cpu);
 
 /**
  * is_idle_task - is the specified task an idle task?
