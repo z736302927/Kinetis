@@ -1,12 +1,28 @@
 PROJECT = Four-Axis-Flight
-
 BUILD_DIR = output
 
-# debug build?
-DEBUG = 0
-# optimization -H
-OPT = -O1 -w -xc --std=gnu11 -fno-rtti -funsigned-char -fshort-enums -fshort-wchar
+# Detect OS
+ifeq ($(OS),Windows_NT)
+    DETECTED_OS := Windows
+else
+    DETECTED_OS := $(shell uname -s)
+endif
 
+# Build configuration
+DEBUG = 0
+# Optimization level based on DEBUG
+ifeq ($(DEBUG), 1)
+OPT = -O0 -g3
+else
+OPT = -Os
+endif
+
+# Compiler flags -Wall
+COMMON_FLAGS = --std=gnu11 -funsigned-char -fshort-enums -fshort-wchar
+WARN_FLAGS = -Wextra -Wno-unused-parameter
+CFLAGS_BASE = $(COMMON_FLAGS) $(WARN_FLAGS) $(OPT)
+
+# Source files
 C_SOURCES += $(wildcard ../arch/arm/fake-mcu/*.c)
 C_SOURCES += $(wildcard ../arch/arm/lib/*.c)
 C_SOURCES += $(wildcard ../arch/arm/mm/*.c)
@@ -34,27 +50,31 @@ C_SOURCES += $(wildcard ../fs/fatfs/*.c)
 C_SOURCES += $(wildcard ../fs/fatfs/drivers/fake_ram_diskio.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/*.c)
 #C_SOURCES += $(wildcard ../drivers/kinetis/flight/*.c)
+# Add other necessary source files...
 
-C_SOURCES := $(filter-out $(wildcard ../drivers/pinctrl/devicetree.c),$(C_SOURCES))
-C_SOURCES := $(filter-out $(wildcard ../drivers/tty/tty_audit.c),$(C_SOURCES))
-C_SOURCES := $(filter-out $(wildcard ../lib/shall/crc-t10dif.c),$(C_SOURCES))
-C_SOURCES := $(filter-out $(wildcard ../lib/shall/crc32test.c),$(C_SOURCES))
-C_SOURCES := $(filter-out $(wildcard ../lib/shall/crc64.c),$(C_SOURCES))
-C_SOURCES := $(filter-out $(wildcard ../lib/shall/dump_stack.c),$(C_SOURCES))
-C_SOURCES := $(filter-out $(wildcard ../lib/shall/libcrc32c.c),$(C_SOURCES))
-C_SOURCES := $(filter-out $(wildcard ../lib/shall/list-test.c),$(C_SOURCES))
-C_SOURCES := $(filter-out $(wildcard ../lib/shall/rbtree_test.c),$(C_SOURCES))
-C_SOURCES := $(filter-out $(wildcard ../lib/shall/list-test.c),$(C_SOURCES))
-C_SOURCES := $(filter-out $(wildcard ../mm/dmapool.c),$(C_SOURCES))
-#C_SOURCES := $(filter-out $(wildcard ../lib/shall/iov_iter.c),$(C_SOURCES))
-#C_SOURCES := $(filter-out $(wildcard ../lib/shall/klist.c),$(C_SOURCES))
-#C_SOURCES := $(filter-out $(wildcard ../lib/shall/refcount.c),$(C_SOURCES))
-#C_SOURCES := $(filter-out $(wildcard ../lib/shall/strncpy_from_user.c),$(C_SOURCES))
-#C_SOURCES := $(filter-out $(wildcard ../lib/shall/strnlen_user.c),$(C_SOURCES))
-#C_SOURCES := $(filter-out $(wildcard ../lib/shall/vsprintf.c),$(C_SOURCES))
-C_SOURCES := $(filter-out $(wildcard ../drivers/kinetis/flight/filter.c),$(C_SOURCES))
-C_SOURCES := $(filter-out $(wildcard ../drivers/kinetis/flight/fmu_task.c),$(C_SOURCES))
+# Exclude unnecessary files
+EXCLUDE_SOURCES += ../drivers/pinctrl/devicetree.c
+EXCLUDE_SOURCES += ../drivers/tty/tty_audit.c
+EXCLUDE_SOURCES += $(wildcard ../lib/shall/crc-t10dif.c)
+EXCLUDE_SOURCES += $(wildcard ../lib/shall/crc32test.c)
+EXCLUDE_SOURCES += $(wildcard ../lib/shall/crc64.c)
+EXCLUDE_SOURCES += $(wildcard ../lib/shall/dump_stack.c)
+EXCLUDE_SOURCES += $(wildcard ../lib/shall/libcrc32c.c)
+EXCLUDE_SOURCES += $(wildcard ../lib/shall/list-test.c)
+EXCLUDE_SOURCES += $(wildcard ../lib/shall/rbtree_test.c)
+EXCLUDE_SOURCES += ../mm/dmapool.c
+# EXCLUDE_SOURCES += $(wildcard ../lib/shall/iov_iter.c)
+# EXCLUDE_SOURCES += $(wildcard ../lib/shall/klist.c)
+# EXCLUDE_SOURCES += $(wildcard ../lib/shall/refcount.c)
+# EXCLUDE_SOURCES += $(wildcard ../lib/shall/strncpy_from_user.c)
+# EXCLUDE_SOURCES += $(wildcard ../lib/shall/strnlen_user.c)
+# EXCLUDE_SOURCES += $(wildcard ../lib/shall/vsprintf.c)
+EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/flight/filter.c)
+EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/flight/fmu_task.c)
 
+C_SOURCES := $(filter-out $(EXCLUDE_SOURCES),$(C_SOURCES))
+
+# Include directories
 C_INCLUDES += -I../include/
 C_INCLUDES += -I../include/uapi/
 C_INCLUDES += -I../arch/arm/include/
@@ -62,116 +82,232 @@ C_INCLUDES += -I../arch/arm/include/uapi/
 C_INCLUDES += -I../arch/arm/include/generated/
 C_INCLUDES += -I../arch/arm/include/generated/uapi/
 C_INCLUDES += -I../arch/arm/mach-stm32
+C_INCLUDES += -include generated/deconfig.h
+# Add other necessary include directories...
 
-AS_INCLUDES += 
-
-ASM_SOURCES += startup_stm32f407xx.s
-
-OBJS := $(patsubst %.c,$(BUILD_DIR)/%.o,$(C_SOURCES))
-
-CC_PREFIX = arm-none-eabi-
-# The gcc compiler bin path can be either defined in make command via GCC_PATH variable (> make GCC_PATH=xxx)
-# either it can be added to the PATH environment variable.
-ifdef GCC_PATH
-CC = $(GCC_PATH)/$(CC_PREFIX)gcc
-AS = $(GCC_PATH)/$(CC_PREFIX)gcc -x assembler-with-cpp
-CP = $(GCC_PATH)/$(CC_PREFIX)objcopy
-SZ = $(GCC_PATH)/$(CC_PREFIX)size
+# Toolchain - use local compiler
+ifeq ($(DETECTED_OS),Windows)
+    # Use gcc or cl on Windows
+    ifdef GCC_PATH
+    CC = $(GCC_PATH)/gcc
+    else
+    CC = gcc
+    endif
 else
-CC = gcc
-AS = $(CC_PREFIX)gcc -x assembler-with-cpp
-CP = $(CC_PREFIX)objcopy
-SZ = $(CC_PREFIX)size
+    # Use gcc on Linux
+    CC = gcc
 endif
-HEX = $(CP) -O ihex
-BIN = $(CP) -O binary -S
 
-CPU = -mcpu=cortex-m4
-FPU = -mfpu=fpv4-sp-d16
-FLOAT-ABI = -mfloat-abi=hard
-MCU = $(CPU) -mthumb $(FPU) $(FLOAT-ABI)
+AS = $(CC)
+CP = echo  # no objcopy needed
+SZ = echo  # no size needed
 
-# macros for gcc
-AS_DEFS = 
+# Final target is .exe file
+TARGET = $(BUILD_DIR)/$(PROJECT).exe
+
+# Macros for gcc
 C_DEFS =  \
--DUSE_HAL_DRIVER \
--DSTM32F407xx \
+-DFOUR_AXIS_FLIGHT \
+-DFOUR_AXIS_FLIGHT_VERSION=\"1.0.0\" \
 -D__KERNEL__ \
--DCONFIG_FAKE_LIB
+-DCONFIG_FAKE_LIB \
+-DCONFIG_SIMULATION \
+-DUSE_HAL_DRIVER \
+-DSTM32F407xx  # Keep these definitions for code compatibility
 
-# compile gcc flags
-ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
-# -Wall -nostdinc
-CFLAGS = $(C_DEFS) $(C_INCLUDES) $(OPT) -fdata-sections -ffunction-sections
+# Compiler flags
+CFLAGS = $(C_DEFS) $(C_INCLUDES) $(CFLAGS_BASE) -fdata-sections -ffunction-sections
 
-ifeq ($(DEBUG), 1)
-CFLAGS += -g -gdwarf-2
-endif
-
-# Generate dependency information
-#CFLAGS += -MMD -MP -MF"$(@:%.o=%.d)"
-
-# link script
-LDSCRIPT = STM32F407VGTx_FLASH.ld
-
-# libraries
-LIBS = -lc -lm -lnosys 
+# Linker configuration - standard linking
+LIBS = -lm
 LIBDIR = 
-LDFLAGS = $(MCU) -specs=nano.specs #-T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(PROJECT).map,--cref -Wl,--gc-sections
+LDFLAGS = -Wl,-Map=$(BUILD_DIR)/$(PROJECT).map,--cref -Wl,--gc-sections
 
-# # default action: build all
-# all: $(BUILD_DIR)/$(PROJECT).elf $(BUILD_DIR)/$(PROJECT).hex $(BUILD_DIR)/$(PROJECT).bin
+# Object files - simplified path structure
+C_OBJS = $(addprefix $(BUILD_DIR)/obj/, $(notdir $(C_SOURCES:.c=.o)))
+OBJS = $(C_OBJS)
 
-# # list of objects
-# OBJECTS = $(addprefix $(BUILD_DIR)/,$(notdir $(C_SOURCES:.c=.o)))
-# vpath %.c $(sort $(dir $(C_SOURCES)))
-# # list of ASM program objects
-# OBJECTS += $(addprefix $(BUILD_DIR)/,$(notdir $(ASM_SOURCES:.s=.o)))
-# vpath %.s $(sort $(dir $(ASM_SOURCES)))
-
-# $(BUILD_DIR)/%.o: %.c Makefile | $(BUILD_DIR) 
-# 	$(CC) -c $(CFLAGS) -Wa,-a,-ad,-alms=$(BUILD_DIR)/$(notdir $(<:.c=.lst)) $< -o $@
-
-# $(BUILD_DIR)/%.o: %.s Makefile | $(BUILD_DIR)
-# 	$(AS) -c $(CFLAGS) $< -o $@
-
-# $(BUILD_DIR)/$(PROJECT).elf: $(OBJECTS) Makefile
-# 	$(CC) $(OBJECTS) $(LDFLAGS) -o $@
-# 	$(SZ) $@
-
-# $(BUILD_DIR)/%.hex: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
-# 	$(HEX) $< $@
-
-# $(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
-# 	$(BIN) $< $@
-
-.PHONY: all clean
-
-# default action: build all
-all: $(BUILD_DIR)/$(PROJECT)
-
-# list of objects
-OBJECTS = $(addprefix $(BUILD_DIR)/,$(notdir $(C_SOURCES:.c=.o)))
+# Create directory mapping for each source file
 vpath %.c $(sort $(dir $(C_SOURCES)))
 
-$(BUILD_DIR)/%.o: %.c | $(BUILD_DIR) 
-	$(CC) $(CFLAGS) -c $< -o $@
+# OS-specific commands
+ifeq ($(DETECTED_OS),Windows)
+    # Windows mkdir command
+    MKDIR = if not exist $(subst /,\,$(1)) mkdir $(subst /,\,$(1))
+    RMDIR = if exist $(subst /,\,$(1)) rmdir /s /q $(subst /,\,$(1))
+    ECHO = echo
+    # Path handling for Windows
+    FIXPATH = $(subst /,\,$(1))
+    # Run command for Windows
+    RUN_CMD = $(call FIXPATH, $(TARGET))
+else
+    MKDIR = mkdir -p $(1)
+    RMDIR = rm -rf $(1)
+    ECHO = echo
+    FIXPATH = $(1)
+    # Run command for Linux
+    RUN_CMD = $(TARGET)
+endif
 
-$(BUILD_DIR)/$(PROJECT): $(OBJECTS)
-	$(CC) -o $@ $^
+# Default target - build .exe
+all: $(TARGET)
+	@$(ECHO) "Build completed: $(TARGET)"
 
+# Create necessary directories
 $(BUILD_DIR):
-	mkdir $@		
+	@$(ECHO) "Creating directory: $(BUILD_DIR)"
+	$(call MKDIR, $(BUILD_DIR))
 
-print:
-	echo $(C_SOURCES)
+$(BUILD_DIR)/obj:
+	@$(ECHO) "Creating directory: $(BUILD_DIR)/obj"
+	$(call MKDIR, $(BUILD_DIR)/obj)
 
+# Create object files from C sources
+$(BUILD_DIR)/obj/%.o: %.c | $(BUILD_DIR)/obj
+	@$(ECHO) "Compiling C: $< -> $@"
+	@$(ECHO) "Command: $(CC) -c $(CFLAGS) -o $@ $<"
+	@$(CC) -c $(CFLAGS) -o $@ $<
+
+# Link object files to create executable
+$(TARGET): $(OBJS) | $(BUILD_DIR)
+	@$(ECHO) "Linking: $(words $(OBJS)) object files -> $@"
+	@$(ECHO) "Command: $(CC) $(OBJS) $(LDFLAGS) -o $@ $(LIBS)"
+	@$(CC) $(OBJS) $(LDFLAGS) -o $@ $(LIBS)
+
+# Clean target
 clean:
-	-del /q $(BUILD_DIR)
+	@$(ECHO) "Cleaning build directory: $(BUILD_DIR)"
+	$(call RMDIR, $(BUILD_DIR))
 
-#######################################--specs=nosys.specs
-# dependencies
-#######################################
--include $(wildcard $(BUILD_DIR)/*.d)
+# Run target
+run: $(TARGET)
+	@$(ECHO) "Running $(TARGET) and saving output to $(BUILD_DIR)/$(PROJECT).log..."
+	-@$(RUN_CMD) > $(BUILD_DIR)/$(PROJECT).log 2>&1 || $(ECHO) "Program finished with exit code: $$?"
+	@$(ECHO) "Output saved to $(BUILD_DIR)/$(PROJECT).log"
 
-# *** EOF ***
+# Debug target - show detailed information
+debug:
+	@$(ECHO) "=== Debug Information ==="
+	@$(ECHO) "OS: $(DETECTED_OS)"
+	@$(ECHO) "CC: $(CC)"
+	@$(ECHO) "C_SOURCES: $(C_SOURCES)"
+	@$(ECHO) "OBJS: $(OBJS)"
+	@$(ECHO) "BUILD_DIR: $(BUILD_DIR)"
+	@$(ECHO) "Current directory: $(shell pwd)"
+
+# Print sources (for debugging)
+print-sources:
+	@$(ECHO) "C Sources:"
+ifeq ($(DETECTED_OS),Windows)
+	@for %%i in ($(C_SOURCES)) do @$(ECHO)   %%i
+else
+	@for src in $(C_SOURCES); do $(ECHO) "  $$src"; done
+endif
+
+# Print object files (for debugging)
+print-objects:
+	@$(ECHO) "Object files:"
+ifeq ($(DETECTED_OS),Windows)
+	@for %%i in ($(OBJS)) do @$(ECHO)   %%i
+else
+	@for obj in $(OBJS); do $(ECHO) "  $$obj"; done
+endif
+
+# Print OS info (for debugging)
+print-os:
+	@$(ECHO) "Detected OS: $(DETECTED_OS)"
+
+# Print variables (for debugging)
+print-vars:
+	@$(ECHO) "CC: $(CC)"
+	@$(ECHO) "CFLAGS: $(CFLAGS)"
+	@$(ECHO) "LDFLAGS: $(LDFLAGS)"
+	@$(ECHO) "C_SOURCES count: $(words $(C_SOURCES))"
+	@$(ECHO) "OBJS count: $(words $(OBJS))"
+
+# Check if source files exist
+check-sources:
+	@$(ECHO) "Checking source files..."
+ifeq ($(DETECTED_OS),Windows)
+	@set /a missing=0
+	@for %%f in ($(C_SOURCES)) do @if not exist %%f ( \
+		@$(ECHO) Missing: %%f & \
+		@set /a missing=1 \
+	)
+	@if %missing% equ 1 ( \
+		@$(ECHO) Error: Some source files are missing! & \
+		@exit 1 \
+	) else ( \
+		@$(ECHO) All source files found. \
+	)
+else
+	@missing=0; \
+	for src in $(C_SOURCES); do \
+		if [ ! -f "$$src" ]; then \
+			$(ECHO) "Missing: $$src"; \
+			missing=1; \
+		fi; \
+	done; \
+	if [ $$missing -eq 1 ]; then \
+		$(ECHO) "Error: Some source files are missing!"; \
+		exit 1; \
+	else \
+		$(ECHO) "All source files found."; \
+	fi
+endif
+
+# Test directory creation
+test-dirs:
+	@$(ECHO) "Testing directory creation..."
+	$(call MKDIR, $(BUILD_DIR))
+	$(call MKDIR, $(BUILD_DIR)/obj)
+ifeq ($(DETECTED_OS),Windows)
+	@if exist $(BUILD_DIR)/obj ( \
+		@$(ECHO) Directory creation test: PASSED \
+	) else ( \
+		@$(ECHO) Directory creation test: FAILED \
+	)
+else
+	@if [ -d "$(BUILD_DIR)/obj" ]; then \
+		$(ECHO) "Directory creation test: PASSED"; \
+	else \
+		$(ECHO) "Directory creation test: FAILED"; \
+	fi
+endif
+
+# Manual directory creation target
+create-dirs:
+	@$(ECHO) "Manually creating directories..."
+	$(call MKDIR, $(BUILD_DIR))
+	$(call MKDIR, $(BUILD_DIR)/obj)
+	@$(ECHO) "Directories created: $(BUILD_DIR) and $(BUILD_DIR)/obj"
+
+# Test command display
+test-cmd:
+	@$(ECHO) "Testing command display..."
+	@$(ECHO) "CC: $(CC)"
+	@$(ECHO) "CFLAGS: $(CFLAGS)"
+	@$(ECHO) "Sample compile command: $(CC) -c $(CFLAGS) -o test.o test.c"
+
+# Print compile and link commands
+print-cmd:
+	@$(ECHO) "=== Compile and Link Commands ==="
+	@$(ECHO) ""
+	@$(ECHO) "Compiler: $(CC)"
+	@$(ECHO) ""
+	@$(ECHO) "Compile command:"
+	@$(ECHO) "  $(CC) -c $(CFLAGS) -o <object_file> <source_file>"
+	@$(ECHO) ""
+	@$(ECHO) "Link command:"
+	@$(ECHO) "  $(CC) <object_files> $(LDFLAGS) -o $(TARGET) $(LIBS)"
+	@$(ECHO) ""
+	@$(ECHO) "Current CFLAGS:"
+	@$(ECHO) "  $(CFLAGS)"
+	@$(ECHO) ""
+	@$(ECHO) "Current LDFLAGS:"
+	@$(ECHO) "  $(LDFLAGS)"
+	@$(ECHO) ""
+	@$(ECHO) "Libraries:"
+	@$(ECHO) "  $(LIBS)"
+
+.PHONY: all clean run debug print-sources print-objects print-os print-vars check-sources test-dirs create-dirs test-cmd print-cmd
