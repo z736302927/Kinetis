@@ -144,7 +144,7 @@ static int fill_stm32_dt(void)
 void *pthread_xtime_update(void *para)
 {
 	while (1) {
-		usleep(10);
+		usleep(USEC_PER_SEC / HZ);
 		xtime_update(1);
 	}
 }
@@ -292,6 +292,8 @@ int main(int argc, char **argv)
 	pr_info("|---------------------------------|\n");
 	pr_info("666, Kineits system has been setup.\n");
 	pr_info("|---------------------------------|\n");
+
+	return 0;
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
@@ -299,6 +301,8 @@ int main(int argc, char **argv)
 	while (1) {
 		/* USER CODE END WHILE */
 
+// 		pr_info("\n");
+// 		usleep(1000000);
 		/* USER CODE BEGIN 3 */
 	}
 

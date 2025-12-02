@@ -22,31 +22,37 @@ from pathlib import Path
 
 DELETE_RULES = [
     {
-        "content": r'#include\s*[<"]generated/deconfig\.h[>"]'
+        "content": r'^\s*#include\s*[<"]generated/deconfig\.h[>"]'
     },
     {
-        "content": r'MODULE_AUTHOR\s*\('
+        "content": r'^\s*MODULE_AUTHOR\s*\('
     },
     {
-        "content": r'MODULE_DESCRIPTION\s*\('
+        "content": r'^\s*MODULE_DESCRIPTION\s*\('
     },
     {
-        "content": r'MODULE_ALIAS\s*\('
+        "content": r'^\s*MODULE_ALIAS\s*\('
     },
     {
-        "content": r'MODULE_LICENSE\s*\('
+        "content": r'^\s*MODULE_LICENSE\s*\('
     },
     {
-        "content": r'module_init\s*\('
+        "content": r'^\s*module_init\s*\('
     },
     {
-        "content": r'module_exit\s*\('
+        "content": r'^\s*module_exit\s*\('
     },
     {
-        "content": r'MODULE_INFO\s*\('
+        "content": r'^\s*MODULE_INFO\s*\('
     },
     {
-        "content": r'EXPORT_SYMBOL\s*\('
+        "content": r'^\s*EXPORT_SYMBOL\s*\('
+    },
+    {
+        "content": r'^\s*raw_spin_lock_irqsave\s*\('
+    },
+    {
+        "content": r'^\s*raw_spin_unlock_irqrestore\s*\('
     },
 ]
 
@@ -59,7 +65,8 @@ FILES_TO_DELETE = ["Kconfig", "Makefile", "TODO"]
 
 # 要跳过的文件夹路径
 EXCLUDED_PATHS = [
-    r"E:\Code\Kinetis-V2\scripts"
+    r"E:\Code\Kinetis\scripts",
+    r"E:\Code\Kinetis\include"
 ]
 
 # ================================
@@ -326,7 +333,18 @@ def get_selected_rules(rule_names):
             full_rules.append(full_rule)
         return full_rules
     
-    # 原有的规则选择逻辑...
+    selected_rules = []
+    for name in rule_names:
+        found = False
+        for rule in DELETE_RULES:
+            if rule['name'] == name:
+                selected_rules.append(rule)
+                found = True
+                break
+        if not found:
+            print(f"警告: 未找到规则 '{name}'")
+    
+    return selected_rules
 
 def process_directory(root_dir, rules, file_extensions=None, 
                      exclude_dirs=None, encoding='utf-8', 
@@ -348,6 +366,7 @@ def process_directory(root_dir, rules, file_extensions=None,
     
     processed_files = 0
     modified_files = 0
+    skipped_files = 0
     total_rules_applied = 0
     errors = []
     
@@ -363,6 +382,13 @@ def process_directory(root_dir, rules, file_extensions=None,
         
         for file in files:
             file_path = os.path.join(root, file)
+            
+            # 检查是否应该跳过此路径
+            if should_skip_path(file_path):
+                if verbose:
+                    print(f"跳过文件 (在排除路径中): {file_path}")
+                skipped_files += 1
+                continue
             
             # 检查文件扩展名
             if file_extensions:
@@ -394,6 +420,7 @@ def process_directory(root_dir, rules, file_extensions=None,
     print("内容处理完成!")
     print(f"总处理文件数: {processed_files}")
     print(f"成功修改文件数: {modified_files}")
+    print(f"跳过文件数: {skipped_files}")
     print(f"总规则应用次数: {total_rules_applied}")
     
     if errors:

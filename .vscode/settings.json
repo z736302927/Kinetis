@@ -74,7 +74,13 @@
     "memory": "c",
     "hydrology-identifier.h": "c",
     "text_encoding": "cpp",
-    "limits.h": "c"
+    "limits.h": "c",
+    "unistd.h": "c",
+    "stdio.h": "c",
+    "kernel.h": "c",
+    "bitsperlong.h": "c",
+    "refcount.h": "c",
+    "uaccess.h": "c"
   },
   "makefile.launchConfigurations": [
     {
@@ -83,5 +89,25 @@
       "binaryArgs": []
     }
   ],
-  "makefile.configureOnOpen": false
+  "makefile.configureOnOpen": false,
+
+  "multiCommand.commands": [
+    {
+      "command": "multiCommand.commentAtFirstColumn",
+      "label": "Comment at First Column",
+      "description": "Add // at the very beginning of each selected line",
+      "sequence": [
+        "editor.action.insertCursorAtEndOfEachLineSelected",
+        "cursorHome", // 先到逻辑行首
+        "cursorHome", // 再次按到绝对行首（第1列）
+        {
+          "command": "type",
+          "args": { "text": "// " }
+        },
+        "cancelSelection"
+      ]
+    }
+  ],
+  "C_Cpp.default.compilerPath": "E:/Plugin/mingw64/bin/gcc.exe"
+
 }
