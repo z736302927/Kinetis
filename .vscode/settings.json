@@ -108,6 +108,7 @@
       ]
     }
   ],
-  "C_Cpp.default.compilerPath": "E:/Plugin/mingw64/bin/gcc.exe"
+  "C_Cpp.default.compilerPath": "E:/Plugin/mingw64/bin/gcc.exe",
+  "codingcopilot.enableCompletionLanguage": {}
 
 }

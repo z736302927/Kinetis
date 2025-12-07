@@ -204,6 +204,12 @@ void *__kmalloc(unsigned int size, unsigned int flags)
     return ret;
 }
 
+void *__kmalloc_track_caller(size_t size, gfp_t flags, unsigned long caller)
+{
+	return __kmalloc(size, flags);
+}
+EXPORT_SYMBOL(__kmalloc_track_caller);
+
 /**
  * krealloc - reallocate memory. The contents will remain unchanged.
  * @p: object to reallocate memory for.
@@ -518,3 +524,52 @@ void kmem_cache_destroy(struct kmem_cache *s)
 	kfree(s);
 }
 EXPORT_SYMBOL(kmem_cache_destroy);
+/**
+ * memblock_alloc_try_nid - allocate boot memory block
+ * @size: size of memory block to be allocated in bytes
+ * @align: alignment of the region and block's size
+ * @min_addr: the lower bound of the memory region from where the allocation
+ *	  is preferred (phys address)
+ * @max_addr: the upper bound of the memory region from where the allocation
+ *	      is preferred (phys address), or %MEMBLOCK_ALLOC_ACCESSIBLE to
+ *	      allocate only from memory limited by memblock.current_limit value
+ * @nid: nid of the free area to find, %NUMA_NO_NODE for any node
+ *
+ * Public function, provides additional debug information (including caller
+ * info), if enabled. This function zeroes the allocated memory.
+ *
+ * Return:
+ * Virtual address of allocated memory block on success, NULL on failure.
+ */
+void * __init memblock_alloc_try_nid(
+			phys_addr_t size, phys_addr_t align,
+			phys_addr_t min_addr, phys_addr_t max_addr,
+			int nid)
+{
+	void *ptr;
+
+	pr_debug("%s: %llu bytes align=0x%llx nid=%d from=%pa max_addr=%pa %pS\n",
+		     __func__, (u64)size, (u64)align, nid, &min_addr,
+		     &max_addr, (void *)_RET_IP_);
+// 	ptr = memblock_alloc_internal(size, align,
+// 					   min_addr, max_addr, nid, false);
+	ptr = __kmalloc(size, GFP_KERNEL);
+	if (ptr)
+		memset(ptr, 0, size);
+
+	return ptr;
+}
+
+/**
+ * memblock_free - free boot memory block
+ * @base: phys starting address of the  boot memory block
+ * @size: size of the boot memory block in bytes
+ *
+ * Free boot memory block previously allocated by memblock_alloc_xx() API.
+ * The freeing memory will not be released to the buddy allocator.
+ */
+int memblock_free(phys_addr_t base, phys_addr_t size)
+{
+	kfree((void *)base);
+	return 0;
+}

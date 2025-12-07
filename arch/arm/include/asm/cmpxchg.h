@@ -25,9 +25,15 @@
 #define swp_is_buggy
 #endif
 
+static inline void __bad_xchg(volatile void *ptr, int size)
+{
+	/* This function is called when xchg() is used with an unsupported size */
+	(void)ptr;  /* Avoid unused parameter warning */
+	(void)size;  /* Avoid unused parameter warning */
+}
+
 static inline unsigned long __xchg(unsigned long x, volatile void *ptr, int size)
 {
-//	extern void __bad_xchg(volatile void *, int);
 	unsigned long ret;
 #ifdef swp_is_buggy
 	unsigned long flags;
@@ -37,79 +43,61 @@ static inline unsigned long __xchg(unsigned long x, volatile void *ptr, int size
 #endif
 
 	prefetchw((const void *)ptr);
-//
-//	switch (size) {
-//#if __LINUX_ARM_ARCH__ >= 6
-//#ifndef CONFIG_CPU_V6 /* MIN ARCH >= V6K */
-//	case 1:
-//		asm volatile("@	__xchg1\n"
-//		"1:	ldrexb	%0, [%3]\n"
-//		"	strexb	%1, %2, [%3]\n"
-//		"	teq	%1, #0\n"
-//		"	bne	1b"
-//			: "=&r" (ret), "=&r" (tmp)
-//			: "r" (x), "r" (ptr)
-//			: "memory", "cc");
-//		break;
-//	case 2:
-//		asm volatile("@	__xchg2\n"
-//		"1:	ldrexh	%0, [%3]\n"
-//		"	strexh	%1, %2, [%3]\n"
-//		"	teq	%1, #0\n"
-//		"	bne	1b"
-//			: "=&r" (ret), "=&r" (tmp)
-//			: "r" (x), "r" (ptr)
-//			: "memory", "cc");
-//		break;
-//#endif
-//	case 4:
-//		asm volatile("@	__xchg4\n"
-//		"1:	ldrex	%0, [%3]\n"
-//		"	strex	%1, %2, [%3]\n"
-//		"	teq	%1, #0\n"
-//		"	bne	1b"
-//			: "=&r" (ret), "=&r" (tmp)
-//			: "r" (x), "r" (ptr)
-//			: "memory", "cc");
-//		break;
-//#elif defined(swp_is_buggy)
-//#ifdef CONFIG_SMP
-//#error SMP is not supported on this platform
-//#endif
-//	case 1:
-//		raw_local_irq_save(flags);
-//		ret = *(volatile unsigned char *)ptr;
-//		*(volatile unsigned char *)ptr = x;
-//		raw_local_irq_restore(flags);
-//		break;
-//
-//	case 4:
-//		raw_local_irq_save(flags);
-//		ret = *(volatile unsigned long *)ptr;
-//		*(volatile unsigned long *)ptr = x;
-//		raw_local_irq_restore(flags);
-//		break;
-//#else
-//	case 1:
-//		asm volatile("@	__xchg1\n"
-//		"	swpb	%0, %1, [%2]"
-//			: "=&r" (ret)
-//			: "r" (x), "r" (ptr)
-//			: "memory", "cc");
-//		break;
-//	case 4:
-//		asm volatile("@	__xchg4\n"
-//		"	swp	%0, %1, [%2]"
-//			: "=&r" (ret)
-//			: "r" (x), "r" (ptr)
-//			: "memory", "cc");
-//		break;
-//#endif
-//	default:
-//		/* Cause a link-time error, the xchg() size is not supported */
-////		__bad_xchg(ptr, size), ret = 0;
-//		break;
-//	}
+
+	switch (size) {
+#if __LINUX_ARM_ARCH__ >= 6
+#ifndef CONFIG_CPU_V6 /* MIN ARCH >= V6K */
+	case 1:
+		do {
+			ret = *(volatile unsigned char *)ptr;
+			*(volatile unsigned char *)ptr = (unsigned char)x;
+		} while (0);
+		break;
+	case 2:
+		do {
+			ret = *(volatile unsigned short *)ptr;
+			*(volatile unsigned short *)ptr = (unsigned short)x;
+		} while (0);
+		break;
+#endif
+	case 4:
+		do {
+			ret = *(volatile unsigned long *)ptr;
+			*(volatile unsigned long *)ptr = x;
+		} while (0);
+		break;
+#elif defined(swp_is_buggy)
+#ifdef CONFIG_SMP
+#error SMP is not supported on this platform
+#endif
+	case 1:
+		raw_local_irq_save(flags);
+		ret = *(volatile unsigned char *)ptr;
+		*(volatile unsigned char *)ptr = x;
+		raw_local_irq_restore(flags);
+		break;
+
+	case 4:
+		raw_local_irq_save(flags);
+		ret = *(volatile unsigned long *)ptr;
+		*(volatile unsigned long *)ptr = x;
+		raw_local_irq_restore(flags);
+		break;
+#else
+	case 1:
+		ret = *(volatile unsigned char *)ptr;
+		*(volatile unsigned char *)ptr = (unsigned char)x;
+		break;
+	case 4:
+		ret = *(volatile unsigned long *)ptr;
+		*(volatile unsigned long *)ptr = x;
+		break;
+#endif
+	default:
+		/* Cause a link-time error, the xchg() size is not supported */
+		__bad_xchg(ptr, size), ret = 0;
+		break;
+	}
 
 	return ret;
 }
@@ -147,69 +135,64 @@ static inline unsigned long __xchg(unsigned long x, volatile void *ptr, int size
 
 #else	/* min ARCH >= ARMv6 */
 
-extern void __bad_cmpxchg(volatile void *ptr, int size);
+static inline void __bad_cmpxchg(volatile void *ptr, int size)
+{
+	/* This function is called when cmpxchg() is used with an unsupported size */
+	(void)ptr;  /* Avoid unused parameter warning */
+	(void)size;  /* Avoid unused parameter warning */
+}
 
 /*
  * cmpxchg only support 32-bits operands on ARMv6.
  */
-extern int memcmp(const void *cs, const void *ct, size_t count);
-extern void *memcpy(void *dest, const void *src, size_t count);
 
 static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 				      unsigned long new, int size)
 {
-//	unsigned long oldval, res;
-	unsigned long oldval, *res;
+	unsigned long oldval, res;
 
 	prefetchw((const void *)ptr);
 
-//	switch (size) {
-//#ifndef CONFIG_CPU_V6	/* min ARCH >= ARMv6K */
-//	case 1:
-//		do {
-//			asm volatile("@ __cmpxchg1\n"
-//			"	ldrexb	%1, [%2]\n"
-//			"	mov	%0, #0\n"
-//			"	teq	%1, %3\n"
-//			"	strexbeq %0, %4, [%2]\n"
-//				: "=&r" (res), "=&r" (oldval)
-//				: "r" (ptr), "Ir" (old), "r" (new)
-//				: "memory", "cc");
-//		} while (res);
-//		break;
-//	case 2:
-//		do {
-//			asm volatile("@ __cmpxchg1\n"
-//			"	ldrexh	%1, [%2]\n"
-//			"	mov	%0, #0\n"
-//			"	teq	%1, %3\n"
-//			"	strexheq %0, %4, [%2]\n"
-//				: "=&r" (res), "=&r" (oldval)
-//				: "r" (ptr), "Ir" (old), "r" (new)
-//				: "memory", "cc");
-//		} while (res);
-//		break;
-//#endif
-//	case 4:
-//		do {
-//			asm volatile("@ __cmpxchg4\n"
-//			"	ldrex	%1, [%2]\n"
-//			"	mov	%0, #0\n"
-//			"	teq	%1, %3\n"
-//			"	strexeq %0, %4, [%2]\n"
-//				: "=&r" (res), "=&r" (oldval)
-//				: "r" (ptr), "Ir" (old), "r" (new)
-//				: "memory", "cc");
-//		} while (res);
-//		break;
-//	default:
-//		__bad_cmpxchg(ptr, size);
-//		oldval = 0;
-//	}
-    res = (unsigned long *)ptr;
-    memcpy(&oldval, res, size);
-    if (!memcmp(res, &old, size))
-        memcpy(res, &new, size);
+	switch (size) {
+#ifndef CONFIG_CPU_V6	/* min ARCH >= ARMv6K */
+	case 1:
+		do {
+			oldval = *(volatile unsigned char *)ptr;
+			if (oldval == (unsigned char)old) {
+				*(volatile unsigned char *)ptr = (unsigned char)new;
+				res = 0;
+			} else {
+				res = 1;
+			}
+		} while (res);
+		break;
+	case 2:
+		do {
+			oldval = *(volatile unsigned short *)ptr;
+			if (oldval == (unsigned short)old) {
+				*(volatile unsigned short *)ptr = (unsigned short)new;
+				res = 0;
+			} else {
+				res = 1;
+			}
+		} while (res);
+		break;
+#endif
+	case 4:
+		do {
+			oldval = *(volatile unsigned long *)ptr;
+			if (oldval == old) {
+				*(volatile unsigned long *)ptr = new;
+				res = 0;
+			} else {
+				res = 1;
+			}
+		} while (res);
+		break;
+	default:
+		__bad_cmpxchg(ptr, size);
+		oldval = 0;
+	}
 
 	return oldval;
 }
@@ -257,18 +240,16 @@ static inline unsigned long long __cmpxchg64(unsigned long long *ptr,
 
 	prefetchw(ptr);
 
-	__asm__ __volatile__(
-"1:	ldrexd		%1, %H1, [%3]\n"
-"	teq		%1, %4\n"
-"	teqeq		%H1, %H4\n"
-"	bne		2f\n"
-"	strexd		%0, %5, %H5, [%3]\n"
-"	teq		%0, #0\n"
-"	bne		1b\n"
-"2:"
-	: "=&r" (res), "=&r" (oldval), "+Qo" (*ptr)
-	: "r" (ptr), "r" (old), "r" (new)
-	: "cc");
+	do {
+		oldval = *ptr;
+		if (oldval == old) {
+			*ptr = new;
+			res = 0;
+		} else {
+			res = 1;
+			break;
+		}
+	} while (res);
 
 	return oldval;
 }

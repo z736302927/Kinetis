@@ -2,6 +2,52 @@
 #ifndef __ASM_BARRIER_H
 #define __ASM_BARRIER_H
 
+#ifdef _WIN32
+/* Windows platform - all barriers become empty macros */
+#define nop() __asm__ __volatile__("mov\tr0,r0\t@ nop\n\t")
+#define sev() do { } while (0)
+#define wfe() do { } while (0)
+#define wfi() do { } while (0)
+#define isb(option) do { } while (0)
+#define dsb(option) do { } while (0)
+#define dmb(option) do { } while (0)
+#define csdb() do { } while (0)
+#define mb() do { } while (0)
+#define rmb() do { } while (0)
+#define wmb() do { } while (0)
+#define dma_rmb() do { } while (0)
+#define dma_wmb() do { } while (0)
+#define __smp_mb() do { } while (0)
+#define __smp_rmb() do { } while (0)
+#define __smp_wmb() do { } while (0)
+
+/* Additional SMP barriers needed for Linux compatibility */
+#define smp_mb() do { } while (0)
+#define smp_rmb() do { } while (0)
+#define smp_wmb() do { } while (0)
+#define smp_mb__before_atomic() do { } while (0)
+#define smp_mb__after_atomic() do { } while (0)
+#define smp_load_acquire(p) (*(p))
+#define smp_store_release(p, v) do { *(p) = (v); } while (0)
+#define smp_acquire__after_ctrl_dep() do { } while (0)
+#define smp_store_mb(var, value)  do { (var) = (value); } while (0)
+#define __smp_store_mb(var, value) do { (var) = (value); } while (0)
+#define __smp_mb__before_atomic() do { } while (0)
+#define __smp_mb__after_atomic() do { } while (0)
+#define __smp_store_release(p, v) do { *(p) = (v); } while (0)
+#define __smp_load_acquire(p) (*(p))
+#define cpu_relax() do { } while (0)
+#define barrier() do { } while (0)
+#define smp_cond_load_relaxed(ptr, cond_expr) ({ \
+	typeof(ptr) __PTR = (ptr); \
+	while (!({ typeof(*__PTR) __VAL; __VAL = *(__PTR); (cond_expr); })) \
+		cpu_relax(); \
+	__VAL; \
+})
+#define smp_cond_load_acquire(ptr, cond_expr) smp_cond_load_relaxed(ptr, cond_expr)
+
+#else /* !_WIN32 */
+
 #ifndef __ASSEMBLY__
 
 #define nop() __asm__ __volatile__("mov\tr0,r0\t@ nop\n\t");
@@ -16,9 +62,9 @@
 #endif
 
 #if __LINUX_ARM_ARCH__ >= 7
-#define isb(option) //__asm__ __volatile__ ("isb " #option : : : "memory")
-#define dsb(option) //__asm__ __volatile__ ("dsb " #option : : : "memory")
-#define dmb(option) //__asm__ __volatile__ ("dmb " #option : : : "memory")
+#define isb(option) __asm__ __volatile__ ("isb " #option : : : "memory")
+#define dsb(option) __asm__ __volatile__ ("dsb " #option : : : "memory")
+#define dmb(option) __asm__ __volatile__ ("dmb " #option : : : "memory")
 #ifdef CONFIG_THUMB2_KERNEL
 #define CSDB	".inst.w 0xf3af8014"
 #else
@@ -100,4 +146,5 @@ static inline unsigned long array_index_mask_nospec(unsigned long idx,
 #include <asm-generic/barrier.h>
 
 #endif /* !__ASSEMBLY__ */
+#endif /* !_WIN32 */
 #endif /* __ASM_BARRIER_H */

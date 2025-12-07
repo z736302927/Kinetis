@@ -57,7 +57,6 @@ static inline void __chk_io_ptr(const volatile void __iomem *ptr) { }
 
 /* Indirect macros required for expanded argument pasting, eg. __LINE__. */
 #define ___PASTE(a,b) a##b
-#undef __PASTE
 #define __PASTE(a,b) ___PASTE(a,b)
 
 #ifdef __KERNEL__
@@ -206,7 +205,7 @@ struct ftrace_likely_data {
 /* Section for code which can't be instrumented at all */
 #define noinstr								\
 	noinline notrace __attribute((__section__(".noinstr.text")))	\
-	__no_kcsan __no_sanitize_address
+	__no_kcsan __no_sanitize_address __no_sanitize_coverage
 
 #endif /* __KERNEL__ */
 
@@ -315,9 +314,9 @@ struct ftrace_likely_data {
 #define compiletime_assert(condition, msg) \
 	_compiletime_assert(condition, msg, __compiletime_assert_, __COUNTER__)
 
-#define compiletime_assert_atomic_type(t)				/*\
+#define compiletime_assert_atomic_type(t)				\
 	compiletime_assert(__native_word(t),				\
-		"Need native word sized stores/loads for atomicity.")*/
+		"Need native word sized stores/loads for atomicity.")
 
 /* Helpers for emitting diagnostics in pragmas. */
 #ifndef __diag

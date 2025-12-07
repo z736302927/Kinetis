@@ -528,8 +528,8 @@ extern pgoff_t hugetlb_basepage_index(struct page *page);
  */
 static inline pgoff_t page_to_pgoff(struct page *page)
 {
-//	if (unlikely(PageHuge(page)))
-//		return hugetlb_basepage_index(page);
+// 	if (unlikely(PageHuge(page)))
+// 		return hugetlb_basepage_index(page);
 	return page_to_index(page);
 }
 
@@ -606,9 +606,9 @@ static inline int trylock_page(struct page *page)
  */
 static inline void lock_page(struct page *page)
 {
-	might_sleep();
-//	if (!trylock_page(page))
-//		__lock_page(page);
+// 	might_sleep();
+// 	if (!trylock_page(page))
+// 		__lock_page(page);
 }
 
 /*

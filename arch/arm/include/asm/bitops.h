@@ -178,7 +178,7 @@ extern int _find_next_bit_be(const unsigned long *p, int size, int offset);
  * The __* form of bitops are non-atomic and may be reordered.
  */
 #define ATOMIC_BITOP(name,nr,p)			\
-	(__builtin_constant_p(nr) ? ____atomic_##name(nr, p) : __##name(nr,p))
+	(__builtin_constant_p(nr) ? ____atomic_##name(nr, p) : _##name(nr,p))
 #else
 #define ATOMIC_BITOP(name,nr,p)		_##name(nr,p)
 #endif
@@ -197,10 +197,10 @@ extern int _find_next_bit_be(const unsigned long *p, int size, int offset);
 /*
  * These are the little endian, atomic definitions.
  */
-//#define find_first_zero_bit(p,sz)	_find_first_zero_bit_le(p,sz)
-//#define find_next_zero_bit(p,sz,off)	_find_next_zero_bit_le(p,sz,off)
-//#define find_first_bit(p,sz)		_find_first_bit_le(p,sz)
-//#define find_next_bit(p,sz,off)		_find_next_bit_le(p,sz,off)
+#define find_first_zero_bit(p,sz)	_find_first_zero_bit_le(p,sz)
+#define find_next_zero_bit(p,sz,off)	_find_next_zero_bit_le(p,sz,off)
+#define find_first_bit(p,sz)		_find_first_bit_le(p,sz)
+#define find_next_bit(p,sz,off)		_find_next_bit_le(p,sz,off)
 
 #else
 /*

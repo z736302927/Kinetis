@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+﻿// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Delay loops based on the OpenRISC implementation.
  *
@@ -7,7 +7,6 @@
  * Author: Will Deacon <will.deacon@arm.com>
  */
 
-#include <generated/deconfig.h>
 #include <linux/clocksource.h>
 #include <linux/delay.h>
 #include <linux/init.h>

@@ -646,8 +646,8 @@ struct spi_controller {
 	int			*cs_gpios;
 	struct gpio_desc	**cs_gpiods;
 	bool			use_gpio_descriptors;
-	u8			unused_native_cs;
-	u8			max_native_cs;
+	s8			unused_native_cs;
+	s8			max_native_cs;
 
 	/* statistics */
 	struct spi_statistics	statistics;
@@ -1476,12 +1476,11 @@ struct spi_board_info {
 	 * needed to behave without being bound to a driver:
 	 *  - quirks like clock rate mattering when not selected
 	 */
-     struct spi_device *spi_dev;
 };
 
 #ifdef	CONFIG_SPI
 extern int
-spi_register_board_info(struct spi_board_info *info, unsigned n);
+spi_register_board_info(struct spi_board_info const *info, unsigned n);
 #else
 /* board init code may ignore whether SPI is configured or not */
 static inline int

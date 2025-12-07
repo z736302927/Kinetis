@@ -86,11 +86,11 @@ static inline void set_fs(mm_segment_t fs)
 #define __range_ok(addr, size) ({ \
 	unsigned long flag, roksum; \
 	__chk_user_ptr(addr);	\
-	__asm__(".syntax unified\n" \
-		"adds %1, %2, %3; sbcscc %1, %1, %0; movcc %0, #0" \
-		: "=&r" (flag), "=&r" (roksum) \
-		: "r" (addr), "Ir" (size), "0" (current_thread_info()->addr_limit) \
-		: "cc"); \
+	/* Check if addr + size is within the user address limit */ \
+	if (addr > current_thread_info()->addr_limit - size) \
+		flag = addr; /* Return error if overflow */ \
+	else \
+		flag = 0; \
 	flag; })
 
 /*
@@ -110,18 +110,12 @@ static inline void __user *__uaccess_mask_range_ptr(const void __user *ptr,
 						    size_t size)
 {
 	void __user *safe_ptr = (void __user *)ptr;
-	unsigned long tmp;
+	unsigned long limit = current_thread_info()->addr_limit;
 
-	asm volatile(
-	"	.syntax unified\n"
-	"	sub	%1, %3, #1\n"
-	"	subs	%1, %1, %0\n"
-	"	addhs	%1, %1, #1\n"
-	"	subshs	%1, %1, %2\n"
-	"	movlo	%0, #0\n"
-	: "+r" (safe_ptr), "=&r" (tmp)
-	: "r" (size), "r" (current_thread_info()->addr_limit)
-	: "cc");
+	/* Check if ptr + size exceeds the address limit */
+	if (limit == 0 || ptr > limit - size) {
+		safe_ptr = NULL;
+	}
 
 	csdb();
 	return safe_ptr;
@@ -330,7 +324,16 @@ do {									\
 	(x) = (__typeof__(*(ptr)))__gu_val;				\
 } while (0)
 
-#define __get_user_asm(x, addr, err, instr)
+#define __get_user_asm(x, addr, err, instr)			\
+	do {							\
+		__typeof__(x) *__addr = (__typeof__(x) *)addr;	\
+		if (access_ok(addr, sizeof(*__addr))) {		\
+			x = *__addr;				\
+		} else {					\
+			err = -EFAULT;				\
+			x = 0;					\
+		}						\
+	} while (0)
 
 #define __get_user_asm_byte(x, addr, err)			\
 	__get_user_asm(x, addr, err, ldrb)
@@ -417,7 +420,15 @@ do {									\
 #define __put_user_nocheck_4 __put_user_asm_word
 #define __put_user_nocheck_8 __put_user_asm_dword
 
-#define __put_user_asm(x, __pu_addr, err, instr)
+#define __put_user_asm(x, __pu_addr, err, instr)		\
+	do {							\
+		__typeof__(x) *__addr = (__typeof__(x) *)__pu_addr;	\
+		if (access_ok(__pu_addr, sizeof(*__addr))) {	\
+			*__addr = x;			\
+		} else {					\
+			err = -EFAULT;				\
+		}						\
+	} while (0)
 
 #define __put_user_asm_byte(x, __pu_addr, err)			\
 	__put_user_asm(x, __pu_addr, err, strb)
@@ -458,7 +469,14 @@ do {									\
 #define	__reg_oper1	"%R2"
 #endif
 
-#define __put_user_asm_dword(x, __pu_addr, err)
+#define __put_user_asm_dword(x, __pu_addr, err)			\
+	do {							\
+		if (access_ok(__pu_addr, sizeof(uint64_t))) {	\
+			*(volatile uint64_t *)__pu_addr = x;	\
+		} else {					\
+			err = -EFAULT;				\
+		}						\
+	} while (0)
 
 #endif /* !CONFIG_CPU_SPECTRE */
 

@@ -6,7 +6,6 @@
 #include <linux/types.h>
 #include <vdso/limits.h>
 
-#undef SIZE_MAX
 #define SIZE_MAX	(~(size_t)0)
 #define PHYS_ADDR_MAX	(~(phys_addr_t)0)
 

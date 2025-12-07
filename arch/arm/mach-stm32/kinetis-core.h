@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+﻿/* SPDX-License-Identifier: GPL-2.0 */
 #ifndef __STM32_CORE_H
 #define __STM32_CORE_H
 

@@ -24,48 +24,29 @@
 #define arch_local_irq_save arch_local_irq_save
 static inline unsigned long arch_local_irq_save(void)
 {
-//	unsigned long flags;
-
-//	asm volatile(
-//		"	mrs	%0, " IRQMASK_REG_NAME_R "	@ arch_local_irq_save\n"
-//		"	cpsid	i"
-//		: "=r" (flags) : : "memory", "cc");
-//	return flags;
-    return 0;
+	return 0x600000DF;
 }
 
 #define arch_local_irq_enable arch_local_irq_enable
 static inline void arch_local_irq_enable(void)
 {
-//	asm volatile(
-//		"	cpsie i			@ arch_local_irq_enable"
-//		:
-//		:
-//		: "memory", "cc");
 }
 
 #define arch_local_irq_disable arch_local_irq_disable
 static inline void arch_local_irq_disable(void)
 {
-//	asm volatile(
-//		"	cpsid i			@ arch_local_irq_disable"
-//		:
-//		:
-//		: "memory", "cc");
 }
 
-//#define local_fiq_enable()  __asm__("cpsie f	@ __stf" : : : "memory", "cc")
-//#define local_fiq_disable() __asm__("cpsid f	@ __clf" : : : "memory", "cc")
-#define local_fiq_enable()	do { } while (0)
-#define local_fiq_disable()	do { } while (0)
+#define local_fiq_enable()
+#define local_fiq_disable()
 
-//#ifndef CONFIG_CPU_V7M
-//#define local_abt_enable()  __asm__("cpsie a	@ __sta" : : : "memory", "cc")
-//#define local_abt_disable() __asm__("cpsid a	@ __cla" : : : "memory", "cc")
-//#else
+#ifndef CONFIG_CPU_V7M
+#define local_abt_enable()
+#define local_abt_disable()
+#else
 #define local_abt_enable()	do { } while (0)
 #define local_abt_disable()	do { } while (0)
-//#endif
+#endif
 #else
 
 /*
@@ -74,16 +55,7 @@ static inline void arch_local_irq_disable(void)
 #define arch_local_irq_save arch_local_irq_save
 static inline unsigned long arch_local_irq_save(void)
 {
-	unsigned long flags, temp;
-
-	asm volatile(
-		"	mrs	%0, cpsr	@ arch_local_irq_save\n"
-		"	orr	%1, %0, #128\n"
-		"	msr	cpsr_c, %1"
-		: "=r" (flags), "=r" (temp)
-		:
-		: "memory", "cc");
-	return flags;
+	return 0x600000DF;
 }
 
 /*
@@ -92,14 +64,6 @@ static inline unsigned long arch_local_irq_save(void)
 #define arch_local_irq_enable arch_local_irq_enable
 static inline void arch_local_irq_enable(void)
 {
-	unsigned long temp;
-	asm volatile(
-		"	mrs	%0, cpsr	@ arch_local_irq_enable\n"
-		"	bic	%0, %0, #128\n"
-		"	msr	cpsr_c, %0"
-		: "=r" (temp)
-		:
-		: "memory", "cc");
 }
 
 /*
@@ -108,45 +72,17 @@ static inline void arch_local_irq_enable(void)
 #define arch_local_irq_disable arch_local_irq_disable
 static inline void arch_local_irq_disable(void)
 {
-	unsigned long temp;
-	asm volatile(
-		"	mrs	%0, cpsr	@ arch_local_irq_disable\n"
-		"	orr	%0, %0, #128\n"
-		"	msr	cpsr_c, %0"
-		: "=r" (temp)
-		:
-		: "memory", "cc");
 }
 
 /*
  * Enable FIQs
  */
-#define local_fiq_enable()					\
-	({							\
-		unsigned long temp;				\
-	__asm__ __volatile__(					\
-	"mrs	%0, cpsr		@ stf\n"		\
-"	bic	%0, %0, #64\n"					\
-"	msr	cpsr_c, %0"					\
-	: "=r" (temp)						\
-	:							\
-	: "memory", "cc");					\
-	})
+#define local_fiq_enable()
 
 /*
  * Disable FIQs
  */
-#define local_fiq_disable()					\
-	({							\
-		unsigned long temp;				\
-	__asm__ __volatile__(					\
-	"mrs	%0, cpsr		@ clf\n"		\
-"	orr	%0, %0, #64\n"					\
-"	msr	cpsr_c, %0"					\
-	: "=r" (temp)						\
-	:							\
-	: "memory", "cc");					\
-	})
+#define local_fiq_disable()
 
 #define local_abt_enable()	do { } while (0)
 #define local_abt_disable()	do { } while (0)
@@ -158,12 +94,7 @@ static inline void arch_local_irq_disable(void)
 #define arch_local_save_flags arch_local_save_flags
 static inline unsigned long arch_local_save_flags(void)
 {
-//	unsigned long flags;
-//	asm volatile(
-//		"	mrs	%0, " IRQMASK_REG_NAME_R "	@ local_save_flags"
-//		: "=r" (flags) : : "memory", "cc");
-//	return flags;
-    return 0;
+	return 0x600000DF;
 }
 
 /*
@@ -172,11 +103,6 @@ static inline unsigned long arch_local_save_flags(void)
 #define arch_local_irq_restore arch_local_irq_restore
 static inline void arch_local_irq_restore(unsigned long flags)
 {
-//	asm volatile(
-//		"	msr	" IRQMASK_REG_NAME_W ", %0	@ local_irq_restore"
-//		:
-//		: "r" (flags)
-//		: "memory", "cc");
 }
 
 #define arch_irqs_disabled_flags arch_irqs_disabled_flags

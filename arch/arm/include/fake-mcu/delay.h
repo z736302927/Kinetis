@@ -1,4 +1,4 @@
-//#ifndef _FAKE__MCU_DELAY_H
+﻿//#ifndef _FAKE__MCU_DELAY_H
 //#define _FAKE__MCU_DELAY_H
 //
 //#include <fake-mcu/types.h>

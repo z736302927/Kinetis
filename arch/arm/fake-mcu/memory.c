@@ -1,5 +1,4 @@
-
-#include <generated/deconfig.h>
+﻿
 #include <linux/slab.h>
 
 #include <fake-mcu/types.h>

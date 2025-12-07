@@ -157,7 +157,9 @@ static int __name ## _open(struct inode *inode, struct file *file)	\
 	return ret;							\
 }									\
 									\
-static const struct file_operations __name ## _fops
+static const struct file_operations __name ## _fops = {			\
+	.owner		= THIS_MODULE,					\
+}
 
 #define DEFINE_SHOW_ATTRIBUTE(__name)					\
 static int __name ## _open(struct inode *inode, struct file *file)	\
@@ -165,7 +167,9 @@ static int __name ## _open(struct inode *inode, struct file *file)	\
 	return 0;	\
 }									\
 									\
-static const struct file_operations __name ## _fops
+static const struct file_operations __name ## _fops = {			\
+	.owner		= THIS_MODULE,					\
+}
 
 #define DEFINE_PROC_SHOW_ATTRIBUTE(__name)				\
 static int __name ## _open(struct inode *inode, struct file *file)	\
@@ -173,7 +177,8 @@ static int __name ## _open(struct inode *inode, struct file *file)	\
 	return 0;	\
 }									\
 									\
-static const struct proc_ops __name ## _proc_ops
+static const struct proc_ops __name ## _proc_ops = {			\
+}
 
 static inline struct user_namespace *seq_user_ns(struct seq_file *seq)
 {

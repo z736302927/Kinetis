@@ -11,6 +11,7 @@
 #define __ASM_ARM_CHECKSUM_H
 
 #include <linux/in6.h>
+#include <linux/uaccess.h>
 
 /*
  * computes the checksum of a memory block at buff, length len,
@@ -34,27 +35,24 @@ __wsum csum_partial(const void *buff, int len, __wsum sum);
  * better 64-bit) boundary
  */
 
-//__wsum
-//csum_partial_copy_nocheck(const void *src, void *dst, int len);
+__wsum
+csum_partial_copy_nocheck(const void *src, void *dst, int len);
 
-//__wsum
-//csum_partial_copy_from_user(const void __user *src, void *dst, int len);
+__wsum
+csum_partial_copy_from_user(const void __user *src, void *dst, int len);
+
+/* Internal generic function for csum partial copy */
+__wsum csum_partial_copy_generic(const void *src, void *dst, int len, __wsum sum);
 
 #define _HAVE_ARCH_COPY_AND_CSUM_FROM_USER
 #define _HAVE_ARCH_CSUM_AND_COPY
 static inline
-__wsum csum_and_copy_from_user (const void __user *src, void *dst,
-				      int len)
+__wsum csum_and_copy_from_user(const void __user *src, void *dst, int len)
 {
-	if (copy_from_user(dst, src, len))
+	if (!access_ok(src, len))
 		return 0;
-	return csum_partial(dst, len, ~0U);
-}
-static inline __wsum
-csum_partial_copy_nocheck(const void *src, void *dst, int len)
-{
-	memcpy(dst, src, len);
-	return csum_partial(dst, len, 0);
+
+	return csum_partial_copy_from_user(src, dst, len);
 }
 
 /*
@@ -62,12 +60,10 @@ csum_partial_copy_nocheck(const void *src, void *dst, int len)
  */
 static inline __sum16 csum_fold(__wsum sum)
 {
-	__asm__(
-	"add	%0, %1, %1, ror #16	@ csum_fold"
-	: "=r" (sum)
-	: "r" (sum)
-	: "cc");
-	return (__force __sum16)(~(__force u32)sum >> 16);
+	u32 tmp = sum;
+	tmp = (tmp & 0xffff) + (tmp >> 16);
+	tmp = (tmp & 0xffff) + (tmp >> 16);
+	return (__force __sum16)(~tmp & 0xffff);
 }
 
 /*
@@ -79,25 +75,26 @@ ip_fast_csum(const void *iph, unsigned int ihl)
 {
 	unsigned int tmp1;
 	__wsum sum;
-
-	__asm__ __volatile__(
-	"ldr	%0, [%1], #4		@ ip_fast_csum		\n\
-	ldr	%3, [%1], #4					\n\
-	sub	%2, %2, #5					\n\
-	adds	%0, %0, %3					\n\
-	ldr	%3, [%1], #4					\n\
-	adcs	%0, %0, %3					\n\
-	ldr	%3, [%1], #4					\n\
-1:	adcs	%0, %0, %3					\n\
-	ldr	%3, [%1], #4					\n\
-	tst	%2, #15			@ do this carefully	\n\
-	subne	%2, %2, #1		@ without destroying	\n\
-	bne	1b			@ the carry flag	\n\
-	adcs	%0, %0, %3					\n\
-	adc	%0, %0, #0"
-	: "=r" (sum), "=r" (iph), "=r" (ihl), "=r" (tmp1)
-	: "1" (iph), "2" (ihl)
-	: "cc", "memory");
+	const unsigned int *ptr = (const unsigned int *)iph;
+	
+	sum = ptr[0];
+	tmp1 = ptr[1];
+	sum += tmp1;
+	ihl -= 5;
+	
+	tmp1 = ptr[2];
+	sum += tmp1;
+	tmp1 = ptr[3];
+	sum += tmp1;
+	
+	while (ihl > 0) {
+		tmp1 = ptr[4];
+		sum += tmp1;
+		ptr++;
+		ihl--;
+	}
+	
+	sum += 0; /* Add in carry */
 	return csum_fold(sum);
 }
 
@@ -106,32 +103,25 @@ csum_tcpudp_nofold(__be32 saddr, __be32 daddr, __u32 len,
 		   __u8 proto, __wsum sum)
 {
 	u32 lenprot = len + proto;
+	
 	if (__builtin_constant_p(sum) && sum == 0) {
-		__asm__(
-		"adds	%0, %1, %2	@ csum_tcpudp_nofold0	\n\t"
+		sum = daddr + saddr;
 #ifdef __ARMEB__
-		"adcs	%0, %0, %3				\n\t"
+		sum += lenprot;
 #else
-		"adcs	%0, %0, %3, ror #8			\n\t"
+		sum += (lenprot << 8) | (lenprot >> 24);
 #endif
-		"adc	%0, %0, #0"
-		: "=&r" (sum)
-		: "r" (daddr), "r" (saddr), "r" (lenprot)
-		: "cc");
 	} else {
-		__asm__(
-		"adds	%0, %1, %2	@ csum_tcpudp_nofold	\n\t"
-		"adcs	%0, %0, %3				\n\t"
+		sum = sum + daddr + saddr;
 #ifdef __ARMEB__
-		"adcs	%0, %0, %4				\n\t"
+		sum += lenprot;
 #else
-		"adcs	%0, %0, %4, ror #8			\n\t"
+		sum += (lenprot << 8) | (lenprot >> 24);
 #endif
-		"adc	%0, %0, #0"
-		: "=&r"(sum)
-		: "r" (sum), "r" (daddr), "r" (saddr), "r" (lenprot)
-		: "cc");
 	}
+	/* Add final carry */
+	if (sum < lenprot)
+		sum++;
 	return sum;
 }	
 /*

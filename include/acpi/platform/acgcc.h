@@ -11,7 +11,7 @@
 #define __ACGCC_H__
 
 /*
- * Use compiler specific <linux/stdarg.h> is a good practice for even when
+ * Use compiler specific <stdarg.h> is a good practice for even when
  * -nostdinc is specified (i.e., ACPI_USE_STANDARD_HEADERS undefined.
  */
 #ifndef va_arg
@@ -22,7 +22,7 @@ typedef __builtin_va_list va_list;
 #define va_arg(v, l)            __builtin_va_arg(v, l)
 #define va_copy(d, s)           __builtin_va_copy(d, s)
 #else
-#include <linux/stdarg.h>
+#include <stdarg.h>
 #endif
 #endif
 

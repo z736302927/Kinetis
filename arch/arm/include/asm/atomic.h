@@ -12,6 +12,7 @@
 #include <linux/prefetch.h>
 #include <linux/types.h>
 #include <linux/irqflags.h>
+#include <linux/string.h>
 #include <asm/barrier.h>
 #include <asm/cmpxchg.h>
 
@@ -36,29 +37,49 @@
 #define ATOMIC_OP(op, c_op, asm_op)					\
 static inline void atomic_##op(int i, atomic_t *v)			\
 {									\
-	unsigned long tmp;						\
-	int result;							\
+	unsigned long flags;						\
+	int old_val;							\
 									\
 	prefetchw(&v->counter);						\
+									\
+	/* Use interrupt disable for atomic operation */		\
+	raw_local_irq_save(flags);					\
+	old_val = v->counter;						\
+	v->counter c_op i;						\
+	raw_local_irq_restore(flags);					\
 }									\
 
 #define ATOMIC_OP_RETURN(op, c_op, asm_op)				\
 static inline int atomic_##op##_return_relaxed(int i, atomic_t *v)	\
 {									\
-	unsigned long tmp;						\
+	unsigned long flags;						\
 	int result;							\
 									\
 	prefetchw(&v->counter);						\
+									\
+	/* Use interrupt disable for atomic operation */		\
+	raw_local_irq_save(flags);					\
+	v->counter c_op i;						\
+	result = v->counter;						\
+	raw_local_irq_restore(flags);					\
+									\
 	return result;							\
 }
 
 #define ATOMIC_FETCH_OP(op, c_op, asm_op)				\
 static inline int atomic_fetch_##op##_relaxed(int i, atomic_t *v)	\
 {									\
-	unsigned long tmp;						\
+	unsigned long flags;						\
 	int result, val;						\
 									\
 	prefetchw(&v->counter);						\
+									\
+	/* Use interrupt disable for atomic operation */		\
+	raw_local_irq_save(flags);					\
+	result = v->counter;						\
+	v->counter c_op i;						\
+	raw_local_irq_restore(flags);					\
+									\
 	return result;							\
 }
 
@@ -74,51 +95,37 @@ static inline int atomic_fetch_##op##_relaxed(int i, atomic_t *v)	\
 
 static inline int atomic_cmpxchg_relaxed(atomic_t *ptr, int old, int new)
 {
+	unsigned long flags;
 	int oldval;
-//	unsigned long res;
 
 	prefetchw(&ptr->counter);
 
-//	do {
-//		__asm__ __volatile__("@ atomic_cmpxchg\n"
-//		"ldrex	%1, [%3]\n"
-//		"mov	%0, #0\n"
-//		"teq	%1, %4\n"
-//		"strexeq %0, %5, [%3]\n"
-//		    : "=&r" (res), "=&r" (oldval), "+Qo" (ptr->counter)
-//		    : "r" (&ptr->counter), "Ir" (old), "r" (new)
-//		    : "cc");
-//	} while (res);
-
-    oldval = ptr->counter;
-    if (ptr->counter == old)
-        ptr->counter = new;
+	/* Use interrupt disable for atomic operation */
+	raw_local_irq_save(flags);
+	oldval = ptr->counter;
+	if (oldval == old)
+		ptr->counter = new;
+	raw_local_irq_restore(flags);
 
 	return oldval;
-
 }
 #define atomic_cmpxchg_relaxed		atomic_cmpxchg_relaxed
 
 static inline int atomic_fetch_add_unless(atomic_t *v, int a, int u)
 {
+	unsigned long flags;
 	int oldval, newval;
-	unsigned long tmp;
 
 	smp_mb();
 	prefetchw(&v->counter);
 
-//	__asm__ __volatile__ ("@ atomic_add_unless\n"
-//"1:	ldrex	%0, [%4]\n"
-//"	teq	%0, %5\n"
-//"	beq	2f\n"
-//"	add	%1, %0, %6\n"
-//"	strex	%2, %1, [%4]\n"
-//"	teq	%2, #0\n"
-//"	bne	1b\n"
-//"2:"
-//	: "=&r" (oldval), "=&r" (newval), "=&r" (tmp), "+Qo" (v->counter)
-//	: "r" (&v->counter), "r" (u), "r" (a)
-//	: "cc");
+	/* Use interrupt disable for atomic operation */
+	raw_local_irq_save(flags);
+	oldval = v->counter;
+	if (oldval != u) {
+		v->counter += a;
+	}
+	raw_local_irq_restore(flags);
 
 	if (oldval != u)
 		smp_mb();
@@ -228,91 +235,80 @@ static inline s64 atomic64_read(const atomic64_t *v)
 {
 	s64 result;
 
-	__asm__ __volatile__("@ atomic64_read\n"
-"	ldrd	%0, %H0, [%1]"
-	: "=&r" (result)
-	: "r" (&v->counter), "Qo" (v->counter)
-	);
+	/* Direct read of 64-bit value */
+	result = v->counter;
 
 	return result;
 }
 
 static inline void atomic64_set(atomic64_t *v, s64 i)
 {
-	__asm__ __volatile__("@ atomic64_set\n"
-"	strd	%2, %H2, [%1]"
-	: "=Qo" (v->counter)
-	: "r" (&v->counter), "r" (i)
-	);
+	/* Direct write of 64-bit value */
+	v->counter = i;
 }
 #else
 static inline s64 atomic64_read(const atomic64_t *v)
 {
 	s64 result;
 
-	__asm__ __volatile__("@ atomic64_read\n"
-"	ldrexd	%0, %H0, [%1]"
-	: "=&r" (result)
-	: "r" (&v->counter), "Qo" (v->counter)
-	);
+	/* Direct read of 64-bit value */
+	result = v->counter;
 
 	return result;
 }
 
 static inline void atomic64_set(atomic64_t *v, s64 i)
 {
-	s64 tmp;
+	unsigned long flags;
 
 	prefetchw(&v->counter);
-	__asm__ __volatile__("@ atomic64_set\n"
-"1:	ldrexd	%0, %H0, [%2]\n"
-"	strexd	%0, %3, %H3, [%2]\n"
-"	teq	%0, #0\n"
-"	bne	1b"
-	: "=&r" (tmp), "=Qo" (v->counter)
-	: "r" (&v->counter), "r" (i)
-	: "cc");
+	
+	/* Use interrupt disable for atomic operation */
+	raw_local_irq_save(flags);
+	v->counter = i;
+	raw_local_irq_restore(flags);
 }
 #endif
 
 #define ATOMIC64_OP(op, op1, op2)					\
 static inline void atomic64_##op(s64 i, atomic64_t *v)			\
 {									\
-	s64 result;							\
-	unsigned long tmp;						\
+	unsigned long flags;							\
 									\
 	prefetchw(&v->counter);						\
-	__asm__ __volatile__("@ atomic64_" #op "\n"			\
-"1:	ldrexd	%0, %H0, [%3]\n"					\
-"	" #op1 " %Q0, %Q0, %Q4\n"					\
-"	" #op2 " %R0, %R0, %R4\n"					\
-"	strexd	%1, %0, %H0, [%3]\n"					\
-"	teq	%1, #0\n"						\
-"	bne	1b"							\
-	: "=&r" (result), "=&r" (tmp), "+Qo" (v->counter)		\
-	: "r" (&v->counter), "r" (i)					\
-	: "cc");							\
+									\
+	/* Use interrupt disable for atomic operation */		\
+	raw_local_irq_save(flags);					\
+	v->counter += i; /* atomic operation: op */		\
+	raw_local_irq_restore(flags);					\
 }									\
 
 #define ATOMIC64_OP_RETURN(op, op1, op2)				\
 static inline s64							\
 atomic64_##op##_return_relaxed(s64 i, atomic64_t *v)			\
 {									\
+	unsigned long flags;						\
 	s64 result;							\
-	unsigned long tmp;						\
 									\
 	prefetchw(&v->counter);						\
 									\
-	__asm__ __volatile__("@ atomic64_" #op "_return\n"		\
-"1:	ldrexd	%0, %H0, [%3]\n"					\
-"	" #op1 " %Q0, %Q0, %Q4\n"					\
-"	" #op2 " %R0, %R0, %R4\n"					\
-"	strexd	%1, %0, %H0, [%3]\n"					\
-"	teq	%1, #0\n"						\
-"	bne	1b"							\
-	: "=&r" (result), "=&r" (tmp), "+Qo" (v->counter)		\
-	: "r" (&v->counter), "r" (i)					\
-	: "cc");							\
+	/* Use interrupt disable for atomic operation */		\
+	raw_local_irq_save(flags);					\
+	if (strcmp(#op, "add") == 0) {				\
+		v->counter += i;						\
+	} else if (strcmp(#op, "sub") == 0) {			\
+		v->counter -= i;						\
+	} else if (strcmp(#op, "and") == 0) {			\
+		v->counter &= i;						\
+	} else if (strcmp(#op, "andnot") == 0) {			\
+		v->counter &= ~i;					\
+	} else if (strcmp(#op, "or") == 0) {				\
+		v->counter |= i;						\
+	} else if (strcmp(#op, "xor") == 0) {			\
+		v->counter ^= i;						\
+	}								\
+	result = v->counter;						\
+	raw_local_irq_restore(flags);					\
 									\
 	return result;							\
 }
@@ -321,21 +317,28 @@ atomic64_##op##_return_relaxed(s64 i, atomic64_t *v)			\
 static inline s64							\
 atomic64_fetch_##op##_relaxed(s64 i, atomic64_t *v)			\
 {									\
+	unsigned long flags;						\
 	s64 result, val;						\
-	unsigned long tmp;						\
 									\
 	prefetchw(&v->counter);						\
 									\
-	__asm__ __volatile__("@ atomic64_fetch_" #op "\n"		\
-"1:	ldrexd	%0, %H0, [%4]\n"					\
-"	" #op1 " %Q1, %Q0, %Q5\n"					\
-"	" #op2 " %R1, %R0, %R5\n"					\
-"	strexd	%2, %1, %H1, [%4]\n"					\
-"	teq	%2, #0\n"						\
-"	bne	1b"							\
-	: "=&r" (result), "=&r" (val), "=&r" (tmp), "+Qo" (v->counter)	\
-	: "r" (&v->counter), "r" (i)					\
-	: "cc");							\
+	/* Use interrupt disable for atomic operation */		\
+	raw_local_irq_save(flags);					\
+	result = v->counter;						\
+	if (strcmp(#op, "add") == 0) {				\
+		v->counter += i;						\
+	} else if (strcmp(#op, "sub") == 0) {			\
+		v->counter -= i;						\
+	} else if (strcmp(#op, "and") == 0) {			\
+		v->counter &= i;						\
+	} else if (strcmp(#op, "andnot") == 0) {			\
+		v->counter &= ~i;					\
+	} else if (strcmp(#op, "or") == 0) {				\
+		v->counter |= i;						\
+	} else if (strcmp(#op, "xor") == 0) {			\
+		v->counter ^= i;						\
+	}								\
+	raw_local_irq_restore(flags);					\
 									\
 	return result;							\
 }
@@ -377,22 +380,17 @@ ATOMIC64_OPS(xor, eor, eor)
 
 static inline s64 atomic64_cmpxchg_relaxed(atomic64_t *ptr, s64 old, s64 new)
 {
+	unsigned long flags;
 	s64 oldval;
-	unsigned long res;
 
 	prefetchw(&ptr->counter);
 
-	do {
-		__asm__ __volatile__("@ atomic64_cmpxchg\n"
-		"ldrexd		%1, %H1, [%3]\n"
-		"mov		%0, #0\n"
-		"teq		%1, %4\n"
-		"teqeq		%H1, %H4\n"
-		"strexdeq	%0, %5, %H5, [%3]"
-		: "=&r" (res), "=&r" (oldval), "+Qo" (ptr->counter)
-		: "r" (&ptr->counter), "r" (old), "r" (new)
-		: "cc");
-	} while (res);
+	/* Use interrupt disable for atomic operation */
+	raw_local_irq_save(flags);
+	oldval = ptr->counter;
+	if (oldval == old)
+		ptr->counter = new;
+	raw_local_irq_restore(flags);
 
 	return oldval;
 }
@@ -400,19 +398,16 @@ static inline s64 atomic64_cmpxchg_relaxed(atomic64_t *ptr, s64 old, s64 new)
 
 static inline s64 atomic64_xchg_relaxed(atomic64_t *ptr, s64 new)
 {
+	unsigned long flags;
 	s64 result;
-	unsigned long tmp;
 
 	prefetchw(&ptr->counter);
 
-	__asm__ __volatile__("@ atomic64_xchg\n"
-"1:	ldrexd	%0, %H0, [%3]\n"
-"	strexd	%1, %4, %H4, [%3]\n"
-"	teq	%1, #0\n"
-"	bne	1b"
-	: "=&r" (result), "=&r" (tmp), "+Qo" (ptr->counter)
-	: "r" (&ptr->counter), "r" (new)
-	: "cc");
+	/* Use interrupt disable for atomic operation */
+	raw_local_irq_save(flags);
+	result = ptr->counter;
+	ptr->counter = new;
+	raw_local_irq_restore(flags);
 
 	return result;
 }
@@ -420,25 +415,20 @@ static inline s64 atomic64_xchg_relaxed(atomic64_t *ptr, s64 new)
 
 static inline s64 atomic64_dec_if_positive(atomic64_t *v)
 {
+	unsigned long flags;
 	s64 result;
-	unsigned long tmp;
 
 	smp_mb();
 	prefetchw(&v->counter);
 
-	__asm__ __volatile__("@ atomic64_dec_if_positive\n"
-"1:	ldrexd	%0, %H0, [%3]\n"
-"	subs	%Q0, %Q0, #1\n"
-"	sbc	%R0, %R0, #0\n"
-"	teq	%R0, #0\n"
-"	bmi	2f\n"
-"	strexd	%1, %0, %H0, [%3]\n"
-"	teq	%1, #0\n"
-"	bne	1b\n"
-"2:"
-	: "=&r" (result), "=&r" (tmp), "+Qo" (v->counter)
-	: "r" (&v->counter)
-	: "cc");
+	/* Use interrupt disable for atomic operation */
+	raw_local_irq_save(flags);
+	result = v->counter;
+	if (result > 0) {
+		result--;
+		v->counter = result;
+	}
+	raw_local_irq_restore(flags);
 
 	smp_mb();
 
@@ -448,26 +438,19 @@ static inline s64 atomic64_dec_if_positive(atomic64_t *v)
 
 static inline s64 atomic64_fetch_add_unless(atomic64_t *v, s64 a, s64 u)
 {
-	s64 oldval, newval;
-	unsigned long tmp;
+	unsigned long flags;
+	s64 oldval;
 
 	smp_mb();
 	prefetchw(&v->counter);
 
-	__asm__ __volatile__("@ atomic64_add_unless\n"
-"1:	ldrexd	%0, %H0, [%4]\n"
-"	teq	%0, %5\n"
-"	teqeq	%H0, %H5\n"
-"	beq	2f\n"
-"	adds	%Q1, %Q0, %Q6\n"
-"	adc	%R1, %R0, %R6\n"
-"	strexd	%2, %1, %H1, [%4]\n"
-"	teq	%2, #0\n"
-"	bne	1b\n"
-"2:"
-	: "=&r" (oldval), "=&r" (newval), "=&r" (tmp), "+Qo" (v->counter)
-	: "r" (&v->counter), "r" (u), "r" (a)
-	: "cc");
+	/* Use interrupt disable for atomic operation */
+	raw_local_irq_save(flags);
+	oldval = v->counter;
+	if (oldval != u) {
+		v->counter += a;
+	}
+	raw_local_irq_restore(flags);
 
 	if (oldval != u)
 		smp_mb();

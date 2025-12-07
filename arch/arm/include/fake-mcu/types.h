@@ -1,4 +1,4 @@
-//#ifndef _FAKE__MCU_TYPES_H
+﻿//#ifndef _FAKE__MCU_TYPES_H
 //#define _FAKE__MCU_TYPES_H
 //
 //typedef char s8;

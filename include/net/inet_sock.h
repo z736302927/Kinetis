@@ -61,8 +61,8 @@ struct ip_options_rcu {
 };
 
 struct ip_options_data {
-	char			data[40];
 	struct ip_options_rcu	opt;
+	char			data[40];
 };
 
 struct inet_request_sock {

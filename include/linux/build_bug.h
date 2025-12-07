@@ -6,6 +6,9 @@
 
 #ifdef __CHECKER__
 #define BUILD_BUG_ON_ZERO(e) (0)
+#elif defined(_WIN32) || defined(_WIN64)
+/* Windows compiler doesn't support negative bit-fields */
+#define BUILD_BUG_ON_ZERO(e) ((int)((e) ? 0 : 0))
 #else /* __CHECKER__ */
 /*
  * Force a compilation error if condition is true, but also produce a

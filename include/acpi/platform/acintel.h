@@ -11,11 +11,11 @@
 #define __ACINTEL_H__
 
 /*
- * Use compiler specific <linux/stdarg.h> is a good practice for even when
+ * Use compiler specific <stdarg.h> is a good practice for even when
  * -nostdinc is specified (i.e., ACPI_USE_STANDARD_HEADERS undefined.
  */
 #ifndef va_arg
-#include <linux/stdarg.h>
+#include <stdarg.h>
 #endif
 
 /* Configuration specific to Intel 64-bit C compiler */

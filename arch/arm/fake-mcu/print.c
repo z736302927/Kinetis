@@ -1,5 +1,4 @@
-#include <generated/deconfig.h>
-#include <linux/printk.h>
+﻿#include <linux/printk.h>
 
 #include <string.h>
 #include <stdarg.h>

@@ -50,7 +50,7 @@
 #define VMA_VM_MM 32 /* offsetof(struct vm_area_struct, vm_mm) */
 #define VMA_VM_FLAGS 40 /* offsetof(struct vm_area_struct, vm_flags) */
 
-//#define VM_EXEC 4 /* VM_EXEC */
+#define VM_EXEC 4 /* VM_EXEC */
 
 #define PAGE_SZ 4096 /* PAGE_SIZE */
 
@@ -72,14 +72,22 @@
 #define ARM_SMCCC_QUIRK_ID_OFFS 0 /* offsetof(struct arm_smccc_quirk, id) */
 #define ARM_SMCCC_QUIRK_STATE_OFFS 4 /* offsetof(struct arm_smccc_quirk, state) */
 
-//#define DMA_BIDIRECTIONAL 0 /* DMA_BIDIRECTIONAL */
-//#define DMA_TO_DEVICE 1 /* DMA_TO_DEVICE */
-//#define DMA_FROM_DEVICE 2 /* DMA_FROM_DEVICE */
+#define DMA_BIDIRECTIONAL 0 /* DMA_BIDIRECTIONAL */
+#define DMA_TO_DEVICE 1 /* DMA_TO_DEVICE */
+#define DMA_FROM_DEVICE 2 /* DMA_FROM_DEVICE */
 
 #define CACHE_WRITEBACK_ORDER 6 /* __CACHE_WRITEBACK_ORDER */
 #define CACHE_WRITEBACK_GRANULE 64 /* __CACHE_WRITEBACK_GRANULE */
 
 
+#define MPU_RNG_INFO_RNGS 4 /* offsetof(struct mpu_rgn_info, rgns) */
+#define MPU_RNG_INFO_USED 0 /* offsetof(struct mpu_rgn_info, used) */
+#define MPU_RNG_SIZE 12 /* sizeof(struct mpu_rgn) */
+#define MPU_RGN_DRBAR 0 /* offsetof(struct mpu_rgn, drbar) */
+#define MPU_RGN_DRSR 4 /* offsetof(struct mpu_rgn, drsr) */
+#define MPU_RGN_DRACR 8 /* offsetof(struct mpu_rgn, dracr) */
+#define MPU_RGN_PRBAR 0 /* offsetof(struct mpu_rgn, prbar) */
+#define MPU_RGN_PRLAR 4 /* offsetof(struct mpu_rgn, prlar) */
 #define KEXEC_START_ADDR 0 /* offsetof(struct kexec_relocate_data, kexec_start_address) */
 #define KEXEC_INDIR_PAGE 4 /* offsetof(struct kexec_relocate_data, kexec_indirection_page) */
 #define KEXEC_MACH_TYPE 8 /* offsetof(struct kexec_relocate_data, kexec_mach_type) */

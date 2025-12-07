@@ -537,41 +537,41 @@ static __always_inline void *kmalloc_large(size_t size, gfp_t flags)
  */
 static __always_inline void *kmalloc(size_t size, gfp_t flags)
 {
-//	if (__builtin_constant_p(size)) {
-//#ifndef CONFIG_SLOB
-//		unsigned int index;
-//#endif
-//		if (size > KMALLOC_MAX_CACHE_SIZE)
-//			return kmalloc_large(size, flags);
-//#ifndef CONFIG_SLOB
-//		index = kmalloc_index(size);
+	if (__builtin_constant_p(size)) {
+#ifndef CONFIG_SLOB
+		unsigned int index;
+#endif
+		if (size > KMALLOC_MAX_CACHE_SIZE)
+			return kmalloc_large(size, flags);
+#ifndef CONFIG_SLOB
+		index = kmalloc_index(size);
 
-//		if (!index)
-//			return ZERO_SIZE_PTR;
+		if (!index)
+			return ZERO_SIZE_PTR;
 
-//		return kmem_cache_alloc_trace(
-//				kmalloc_caches[kmalloc_type(flags)][index],
-//				flags, size);
-//#endif
-//	}
+		return kmem_cache_alloc_trace(
+				kmalloc_caches[kmalloc_type(flags)][index],
+				flags, size);
+#endif
+	}
 	return __kmalloc(size, flags);
 }
 
 static __always_inline void *kmalloc_node(size_t size, gfp_t flags, int node)
 {
-//#ifndef CONFIG_SLOB
-//	if (__builtin_constant_p(size) &&
-//		size <= KMALLOC_MAX_CACHE_SIZE) {
-//		unsigned int i = kmalloc_index(size);
+#ifndef CONFIG_SLOB
+	if (__builtin_constant_p(size) &&
+		size <= KMALLOC_MAX_CACHE_SIZE) {
+		unsigned int i = kmalloc_index(size);
 
-//		if (!i)
-//			return ZERO_SIZE_PTR;
+		if (!i)
+			return ZERO_SIZE_PTR;
 
-//		return kmem_cache_alloc_node_trace(
-//				kmalloc_caches[kmalloc_type(flags)][i],
-//						flags, node, size);
-//	}
-//#endif
+		return kmem_cache_alloc_node_trace(
+				kmalloc_caches[kmalloc_type(flags)][i],
+						flags, node, size);
+	}
+#endif
 	return __kmalloc_node(size, flags, node);
 }
 
@@ -613,7 +613,7 @@ static inline void *kcalloc(size_t n, size_t size, gfp_t flags)
  */
 extern void *__kmalloc_track_caller(size_t, gfp_t, unsigned long);
 #define kmalloc_track_caller(size, flags) \
-	__kmalloc(size, flags)
+	__kmalloc_track_caller(size, flags, _RET_IP_)
 
 static inline void *kmalloc_array_node(size_t n, size_t size, gfp_t flags,
 				       int node)

@@ -6111,19 +6111,19 @@ EXPORT_SYMBOL(default_wake_function);
 //	do_sched_yield();
 //	return 0;
 //}
-//
-//#ifndef CONFIG_PREEMPTION
-//int __sched _cond_resched(void)
-//{
+
+#ifndef CONFIG_PREEMPTION
+int __sched _cond_resched(void)
+{
 //	if (should_resched(0)) {
 //		preempt_schedule_common();
 //		return 1;
 //	}
 //	rcu_all_qs();
-//	return 0;
-//}
-//EXPORT_SYMBOL(_cond_resched);
-//#endif
+	return 0;
+}
+EXPORT_SYMBOL(_cond_resched);
+#endif
 //
 ///*
 // * __cond_resched_lock() - if a reschedule is pending, drop the given lock,

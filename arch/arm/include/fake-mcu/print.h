@@ -1,4 +1,4 @@
-//#ifndef _FAKE__MCU_PRINT_H
+﻿//#ifndef _FAKE__MCU_PRINT_H
 //#define _FAKE__MCU_PRINT_H
 //
 //#include <stdio.h>

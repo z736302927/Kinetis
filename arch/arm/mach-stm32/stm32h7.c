@@ -1,5 +1,4 @@
-
-#include <generated/deconfig.h>
+﻿
 #include <linux/printk.h>
 #include <linux/console.h>
 #include <linux/platform_device.h>

@@ -30,24 +30,21 @@
 #define __xh "r1"
 #endif
 
-//static inline uint32_t __div64_32(uint64_t *n, uint32_t base)
-//{
-//	register unsigned int __base      asm("r4") = base;
-//	register unsigned long long __n   asm("r0") = *n;
-//	register unsigned long long __res asm("r2");
-//	register unsigned int __rem       asm(__xh);
-//	asm(	__asmeq("%0", __xh)
-//		__asmeq("%1", "r2")
-//		__asmeq("%2", "r0")
-//		__asmeq("%3", "r4")
-//		"bl	__do_div64"
-//		: "=r" (__rem), "=r" (__res)
-//		: "r" (__n), "r" (__base)
-//		: "ip", "lr", "cc");
-//	*n = __res;
-//	return __rem;
-//}
-extern uint32_t __attribute__((weak)) __div64_32(uint64_t *n, uint32_t base);
+static inline uint32_t __div64_32(uint64_t *n, uint32_t base)
+{
+	uint64_t dividend = *n;
+	uint32_t remainder;
+	
+	if (base == 0) {
+		/* Division by zero - undefined behavior */
+		return 0;
+	}
+	
+	remainder = dividend % base;
+	*n = dividend / base;
+	
+	return remainder;
+}
 #define __div64_32 __div64_32
 
 #if !defined(CONFIG_AEABI)
@@ -75,51 +72,39 @@ extern uint32_t __attribute__((weak)) __div64_32(uint64_t *n, uint32_t base);
 
 static inline uint64_t __arch_xprod_64(uint64_t m, uint64_t n, bool bias)
 {
-	unsigned long long res;
-//	register unsigned int tmp asm("ip") = 0;
-//
-//	if (!bias) {
-//		asm (	"umull	%Q0, %R0, %Q1, %Q2\n\t"
-//			"mov	%Q0, #0"
-//			: "=&r" (res)
-//			: "r" (m), "r" (n)
-//			: "cc");
-//	} else if (!(m & ((1ULL << 63) | (1ULL << 31)))) {
-//		res = m;
-//		asm (	"umlal	%Q0, %R0, %Q1, %Q2\n\t"
-//			"mov	%Q0, #0"
-//			: "+&r" (res)
-//			: "r" (m), "r" (n)
-//			: "cc");
-//	} else {
-//		asm (	"umull	%Q0, %R0, %Q2, %Q3\n\t"
-//			"cmn	%Q0, %Q2\n\t"
-//			"adcs	%R0, %R0, %R2\n\t"
-//			"adc	%Q0, %1, #0"
-//			: "=&r" (res), "+&r" (tmp)
-//			: "r" (m), "r" (n)
-//			: "cc");
-//	}
-//
-//	if (!(m & ((1ULL << 63) | (1ULL << 31)))) {
-//		asm (	"umlal	%R0, %Q0, %R1, %Q2\n\t"
-//			"umlal	%R0, %Q0, %Q1, %R2\n\t"
-//			"mov	%R0, #0\n\t"
-//			"umlal	%Q0, %R0, %R1, %R2"
-//			: "+&r" (res)
-//			: "r" (m), "r" (n)
-//			: "cc");
-//	} else {
-//		asm (	"umlal	%R0, %Q0, %R2, %Q3\n\t"
-//			"umlal	%R0, %1, %Q2, %R3\n\t"
-//			"mov	%R0, #0\n\t"
-//			"adds	%Q0, %1, %Q0\n\t"
-//			"adc	%R0, %R0, #0\n\t"
-//			"umlal	%Q0, %R0, %R2, %R3"
-//			: "+&r" (res), "+&r" (tmp)
-//			: "r" (m), "r" (n)
-//			: "cc");
-//	}
+	uint64_t res;
+	uint64_t tmp = 0;
+
+	if (!bias) {
+		/* Simple 32x32 multiply, result in lower 64 bits */
+		res = (uint64_t)((uint32_t)m) * ((uint32_t)n);
+	} else if (!(m & ((1ULL << 63) | (1ULL << 31)))) {
+		/* No sign bits in problematic positions */
+		res = m;
+		res += (uint64_t)((uint32_t)m) * ((uint32_t)n);
+	} else {
+		/* More complex case - handle sign bits properly */
+		res = (uint64_t)((uint32_t)m) * ((uint32_t)n);
+		/* Handle carry from lower 32 bits */
+		if (res + (uint64_t)((uint32_t)m) < res) {
+			tmp = 1;
+		}
+		res += (uint64_t)((uint32_t)m) * ((uint32_t)n);
+		res += tmp;
+	}
+
+	/* Upper 32 bits multiplication */
+	if (!(m & ((1ULL << 63) | (1ULL << 31)))) {
+		res += ((uint64_t)((uint32_t)(m >> 32))) * ((uint32_t)n);
+		res += ((uint64_t)((uint32_t)m)) * ((uint32_t)(n >> 32));
+		res += ((uint64_t)((uint32_t)(m >> 32))) * ((uint32_t)(n >> 32)) << 32;
+	} else {
+		res += ((uint64_t)((uint32_t)(m >> 32))) * ((uint32_t)n);
+		res += ((uint64_t)((uint32_t)m)) * ((uint32_t)(n >> 32));
+		tmp = (res + ((uint64_t)((uint32_t)(m >> 32))) * ((uint32_t)(n >> 32))) < res;
+		res += ((uint64_t)((uint32_t)(m >> 32))) * ((uint32_t)(n >> 32));
+		res += tmp;
+	}
 
 	return res;
 }

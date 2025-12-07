@@ -1,10 +1,9 @@
-// SPDX-License-Identifier: GPL-2.0-only
+﻿// SPDX-License-Identifier: GPL-2.0-only
 /*
  *  linux/arch/arm/mm/init.c
  *
  *  Copyright (C) 1995-2005 Russell King
  */
-#include <generated/deconfig.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/swap.h>
@@ -133,7 +132,6 @@ int pfn_valid(unsigned long pfn)
 //	return memblock_is_map_memory(addr);
 	return 1;
 }
-EXPORT_SYMBOL(pfn_valid);
 #endif
 
 //static bool arm_memblock_steal_permitted = true;

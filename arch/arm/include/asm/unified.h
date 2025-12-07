@@ -8,10 +8,14 @@
 #ifndef __ASM_UNIFIED_H
 #define __ASM_UNIFIED_H
 
+#if defined(_WIN32) || defined(_WIN64)
+	// Windows环境跳过.syntax指令
+#else
 #if defined(__ASSEMBLY__)
 	.syntax unified
 #else
-//__asm__(".syntax unified");
+__asm__(".syntax unified");
+#endif
 #endif
 
 #ifdef CONFIG_CPU_V7M

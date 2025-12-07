@@ -104,11 +104,6 @@ extern void __init_rwsem(struct rw_semaphore *sem, const char *name,
 #define init_rwsem(sem)						\
 do {								\
 } while (0)
-//do {								\
-//	static struct lock_class_key __key;			\
-//								\
-//	__init_rwsem((sem), #sem, &__key);			\
-//} while (0)
 
 /*
  * This is the same regardless of which rwsem implementation that is being used.

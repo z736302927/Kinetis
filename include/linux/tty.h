@@ -87,11 +87,11 @@ struct tty_bufhead {
 	struct work_struct work;
 	struct mutex	   lock;
 	atomic_t	   priority;
+	struct tty_buffer sentinel;
 	struct llist_head free;		/* Free queue head */
 	atomic_t	   mem_used;    /* In-use buffers excluding free list */
 	int		   mem_limit;
 	struct tty_buffer *tail;	/* Active buffer */
-	struct tty_buffer sentinel;
 };
 /*
  * When a break, frame error, or parity error happens, these codes are
@@ -228,6 +228,7 @@ struct tty_port_client_operations {
 extern const struct tty_port_client_operations tty_port_default_client_ops;
 
 struct tty_port {
+	struct tty_bufhead	buf;		/* Locked internally */
 	struct tty_struct	*tty;		/* Back pointer */
 	struct tty_struct	*itty;		/* internal back ptr */
 	const struct tty_port_operations *ops;	/* Port operations */
@@ -251,7 +252,6 @@ struct tty_port {
 						   set to size of fifo */
 	struct kref		kref;		/* Ref counter */
 	void 			*client_data;
-	struct tty_bufhead	buf;		/* Locked internally */
 };
 
 /* tty_port::iflags bits -- use atomic bit ops */

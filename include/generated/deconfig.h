@@ -8,7 +8,6 @@
 #define __KINETIS_DECONFIG_H
 
 #include <generated/autoconf.h>
-#include <generated/asm-offsets.h>
 #include <generated/bounds.h>
 #include <generated/compile.h>
 #include <generated/timeconst.h>
@@ -22,7 +21,7 @@
 #define KBUILD_MODFILE "file"
 #define __LINUX_ARM_ARCH__ 7
 
-//#define DEBUG 1
-//#define VERBOSE_DEBUG 1
+#define DEBUG 1
+#define VERBOSE_DEBUG 1
 
 #endif /* __KINETIS_DECONFIG_H */

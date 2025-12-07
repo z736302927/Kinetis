@@ -85,7 +85,7 @@ static inline void complete_release(struct completion *x) {}
 static inline void __init_completion(struct completion *x)
 {
 	x->done = 0;
-//	init_swait_queue_head(&x->wait);
+	init_swait_queue_head(&x->wait);
 }
 
 /**

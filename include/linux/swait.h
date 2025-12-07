@@ -71,8 +71,6 @@ extern void __init_swait_queue_head(struct swait_queue_head *q, const char *name
 
 #define init_swait_queue_head(q)				\
 	do {							\
-		static struct lock_class_key __key;		\
-		__init_swait_queue_head((q), #q, &__key);	\
 	} while (0)
 
 #ifdef CONFIG_LOCKDEP

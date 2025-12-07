@@ -1,4 +1,4 @@
-//#ifndef _FAKE__MCU_MEMORY_H
+﻿//#ifndef _FAKE__MCU_MEMORY_H
 //#define _FAKE__MCU_MEMORY_H
 //
 //#include <fake-mcu/types.h>

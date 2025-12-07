@@ -2,6 +2,13 @@
 """
 文件内容删除脚本 - 内置规则版本
 可以删除当前文件夹及其子文件夹中所有文件的特定内容
+
+使用示例:
+  python linux2kinetis.py                          # 两者都执行
+  python linux2kinetis.py --mode content           # 只删除文件内容
+  python linux2kinetis.py --mode files             # 只删除指定文件
+  python linux2kinetis.py --mode both --backup     # 两者都执行并备份
+  python linux2kinetis.py --list-rules             # 查看可用规则
 """
 
 import os
@@ -20,58 +27,79 @@ from pathlib import Path
 # - "regex": 正则表达式替换
 # - "delete_file": 删除文件
 
-DELETE_RULES = [
-    {
-        "content": r'^\s*#include\s*[<"]generated/deconfig\.h[>"]'
-    },
-    {
-        "content": r'^\s*MODULE_AUTHOR\s*\('
-    },
-    {
-        "content": r'^\s*MODULE_DESCRIPTION\s*\('
-    },
-    {
-        "content": r'^\s*MODULE_ALIAS\s*\('
-    },
-    {
-        "content": r'^\s*MODULE_LICENSE\s*\('
-    },
-    {
-        "content": r'^\s*module_init\s*\('
-    },
-    {
-        "content": r'^\s*module_exit\s*\('
-    },
-    {
-        "content": r'^\s*MODULE_INFO\s*\('
-    },
-    {
-        "content": r'^\s*EXPORT_SYMBOL\s*\('
-    },
-    {
-        "content": r'^\s*raw_spin_lock_irqsave\s*\('
-    },
-    {
-        "content": r'^\s*raw_spin_unlock_irqrestore\s*\('
-    },
+# ========================================
+# 简化删除规则配置 - 只需要提供要删除的内容
+# ========================================
+#
+# 使用方法：
+# 1. 在下面 DELETE_PATTERNS 列表中添加要删除的内容模式
+# 2. 支持正则表达式，例如：
+#    - r'^\s*#include.*'  # 删除所有 #include 开头的行
+#    - r'TODO.*'          # 删除包含 TODO 的行
+#    - 'DEBUG'            # 删除包含 DEBUG 的行（普通文本匹配）
+# 3. 所有模式都是正则表达式格式，建议使用 r'' 原始字符串
+#
+# ========================================
+
+DELETE_PATTERNS = [
+    r'^\s*#include\s*[<"]generated/deconfig\.h[>"]\s*$',  # 删除 generated/deconfig.h 包含
+    r'^\s*MODULE_AUTHOR\s*\(',                                    # 删除 MODULE_AUTHOR 声明
+    r'^\s*MODULE_DESCRIPTION\s*\(',                                 # 删除 MODULE_DESCRIPTION 声明
+    r'^\s*MODULE_ALIAS\s*\(',                                       # 删除 MODULE_ALIAS 声明
+    r'^\s*MODULE_LICENSE\s*\(',                                     # 删除 MODULE_LICENSE 声明
+    r'^\s*module_init\s*\(',                                       # 删除 module_init 函数
+    r'^\s*module_exit\s*\(',                                       # 删除 module_exit 函数
+    r'^\s*MODULE_INFO\s*\(',                                       # 删除 MODULE_INFO 声明
+    r'^\s*EXPORT_SYMBOL\s*\(',                                     # 删除 EXPORT_SYMBOL 声明
+    r'^\s*raw_spin_lock_irqsave\s*\(',                             # 删除 raw_spin_lock_irqsave 调用
+    r'^\s*raw_spin_unlock_irqrestore\s*\(',                         # 删除 raw_spin_unlock_irqrestore 调用
+    
+    # 在这里添加更多删除模式，例如：
+    # r'^\s*#if\s+0\s*\*',        # 删除 #if 0 条件编译块
+    # r'^\s*#endif',               # 删除 #endif
+    # r'TODO:',                    # 删除包含 TODO: 的行
+    # r'debug_printf',              # 删除 debug_printf 调用
 ]
+
+# ========================================
+# 自动转换为完整规则（不需要修改下面的代码）
+# ========================================
 
 # ================================
 # 文件删除配置
 # ================================
 
 # 要删除的文件名列表
-FILES_TO_DELETE = ["Kconfig", "Makefile", "TODO"]
+FILES_TO_DELETE = ["Kconfig", "Makefile", "TODO", "*.o", "*.S", "*.cmd", "*.release"]
 
 # 要跳过的文件夹路径
 EXCLUDED_PATHS = [
     r"E:\Code\Kinetis\scripts",
-    r"E:\Code\Kinetis\include"
+    # r"E:\Code\Kinetis\include"
 ]
 
 # ================================
 # 核心功能函数
 # ================================
+
+def auto_generate_rules():
+    """
+    自动将简单模式转换为完整规则
+    
+    Returns:
+        list: 完整的规则列表
+    """
+    rules = []
+    for i, pattern in enumerate(DELETE_PATTERNS):
+        rule = {
+            "name": f"删除规则{i+1}",
+            "type": "regex",  # 默认都使用正则表达式
+            "description": f"删除匹配模式 '{pattern}' 的行",
+            "content": pattern,
+            "multiline": False
+        }
+        rules.append(rule)
+    return rules
 
 def apply_rule_to_content(content, rule):
     """
@@ -218,6 +246,23 @@ def process_file_with_rules(file_path, rules, encoding='utf-8', backup=False):
     except Exception as e:
         return False, f"处理错误: {e}", 0
 
+def should_delete_file(filename):
+    """
+    检查文件是否应该被删除（支持通配符）
+    
+    Args:
+        filename: 文件名
+    
+    Returns:
+        bool: 是否应该删除
+    """
+    from fnmatch import fnmatch
+    
+    for pattern in FILES_TO_DELETE:
+        if fnmatch(filename, pattern):
+            return True
+    return False
+
 def should_skip_path(file_path):
     """
     检查是否应该跳过指定路径
@@ -264,7 +309,7 @@ def delete_specific_files(root_dir, verbose=False):
         dirs[:] = [d for d in dirs if d not in ['.git', '.svn', '.hg', '__pycache__', 'node_modules']]
 
         for file in files:
-            if file in FILES_TO_DELETE:
+            if should_delete_file(file):
                 file_path = os.path.join(root, file)
                 
                 # 检查是否应该跳过此路径
@@ -289,18 +334,14 @@ def delete_specific_files(root_dir, verbose=False):
 
 def list_rules():
     """列出所有可用的规则"""
+    rules = auto_generate_rules()
     print("可用的删除规则:")
     print("-" * 60)
-    for i, rule in enumerate(DELETE_RULES, 1):
+    for i, rule in enumerate(rules, 1):
         print(f"{i}. {rule['name']}")
         print(f"   类型: {rule['type']}")
         print(f"   描述: {rule['description']}")
-        if rule['type'] == 'text':
-            print(f"   内容: '{rule['content']}'")
-        else:
-            print(f"   模式: {rule['content']}")
-        if 'replacement' in rule:
-            print(f"   替换为: '{rule['replacement']}'")
+        print(f"   模式: {rule['content']}")
         print()
 
 def get_selected_rules(rule_names):
@@ -313,30 +354,16 @@ def get_selected_rules(rule_names):
     Returns:
         list: 选中的规则列表
     """
+    all_rules = auto_generate_rules()
+    
     if not rule_names:
-        # 为简化的规则添加默认值
-        full_rules = []
-        for i, rule in enumerate(DELETE_RULES):
-            full_rule = rule.copy()
-            # 如果没有name，自动生成一个
-            if "name" not in full_rule:
-                full_rule["name"] = f"规则{i+1}"
-            # 如果没有type，默认为regex
-            if "type" not in full_rule:
-                full_rule["type"] = "regex"
-            # 如果没有multiline，默认为True
-            if "multiline" not in full_rule:
-                full_rule["multiline"] = True
-            # 如果没有description，自动生成
-            if "description" not in full_rule:
-                full_rule["description"] = f"删除匹配 '{full_rule['content']}' 的内容"
-            full_rules.append(full_rule)
-        return full_rules
+        # 返回所有规则
+        return all_rules
     
     selected_rules = []
     for name in rule_names:
         found = False
-        for rule in DELETE_RULES:
+        for rule in all_rules:
             if rule['name'] == name:
                 selected_rules.append(rule)
                 found = True
@@ -433,6 +460,26 @@ def process_directory(root_dir, rules, file_extensions=None,
     
     return processed_files, modified_files, total_rules_applied, errors
 
+def validate_rules():
+    """验证规则格式是否正确"""
+    if not DELETE_PATTERNS:
+        print("错误: 没有定义任何删除模式")
+        return False
+    
+    # 检查每个模式是否有效
+    for i, pattern in enumerate(DELETE_PATTERNS):
+        if not pattern.strip():
+            print(f"警告: 规则 {i+1} 为空")
+            continue
+        try:
+            # 测试正则表达式是否有效
+            re.compile(pattern)
+        except re.error as e:
+            print(f"错误: 规则 {i+1} 的正则表达式无效: {e}")
+            return False
+    
+    return True
+
 def main():
     parser = argparse.ArgumentParser(description='删除文件夹中所有文件的特定内容（内置规则）')
     parser.add_argument('-d', '--directory', default='.', 
@@ -452,8 +499,15 @@ def main():
                        help='显示详细信息')
     parser.add_argument('--list-rules', action='store_true', 
                        help='列出所有可用的规则并退出')
+    parser.add_argument('--mode', choices=['content', 'files', 'both'], default='both',
+                       help='执行模式: content=只删除内容, files=只删除文件, both=两者都执行 (默认: both)')
     
     args = parser.parse_args()
+    
+    # 验证规则
+    if not validate_rules():
+        print("脚本初始化失败，请检查规则定义")
+        sys.exit(1)
     
     # 列出规则并退出
     if args.list_rules:
@@ -475,34 +529,41 @@ def main():
                           for ext in args.extensions]
     
     try:
-        # 自动执行文件删除
-        deleted_files, skipped_files, delete_errors = delete_specific_files(
-            args.directory, args.verbose
-        )
-        print("\n" + "="*60)
-        print("文件删除完成!")
-        print(f"删除文件数: {deleted_files}")
-        print(f"跳过文件数: {skipped_files}")
-        
-        if delete_errors:
-            print(f"删除失败文件数: {len(delete_errors)}")
-            print("\n删除失败详情:")
-            for file_path, error in delete_errors:
-                print(f"  {file_path}: {error}")
+        # 根据模式决定执行内容
+        if args.mode in ['files', 'both']:
+            # 执行文件删除
+            deleted_files, skipped_files, delete_errors = delete_specific_files(
+                args.directory, args.verbose
+            )
+            print("\n" + "="*60)
+            print("文件删除完成!")
+            print(f"删除文件数: {deleted_files}")
+            print(f"跳过文件数: {skipped_files}")
+            
+            if delete_errors:
+                print(f"删除失败文件数: {len(delete_errors)}")
+                print("\n删除失败详情:")
+                for file_path, error in delete_errors:
+                    print(f"  {file_path}: {error}")
+        else:
+            print("跳过文件删除 (mode: content)")
         
         # 处理文件内容
-        if selected_rules:
-            process_directory(
-                root_dir=args.directory,
-                rules=selected_rules,
-                file_extensions=file_extensions,
-                exclude_dirs=args.exclude_dirs,
-                encoding=args.encoding,
-                backup=args.backup,
-                verbose=args.verbose
-            )
+        if args.mode in ['content', 'both']:
+            if selected_rules:
+                process_directory(
+                    root_dir=args.directory,
+                    rules=selected_rules,
+                    file_extensions=file_extensions,
+                    exclude_dirs=args.exclude_dirs,
+                    encoding=args.encoding,
+                    backup=args.backup,
+                    verbose=args.verbose
+                )
+            else:
+                print("没有找到可用的内容删除规则")
         else:
-            print("没有找到可用的内容删除规则")
+            print("跳过内容删除 (mode: files)")
             
     except KeyboardInterrupt:
         print("\n用户中断操作")

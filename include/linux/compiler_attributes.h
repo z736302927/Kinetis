@@ -242,9 +242,7 @@
  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Type-Attributes.html#index-packed-type-attribute
  * clang: https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html#index-packed-variable-attribute
  */
-#ifndef __packed
 #define __packed                        __attribute__((__packed__))
-#endif
 
 /*
  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-pure-function-attribute
@@ -278,8 +276,6 @@
  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-weak-function-attribute
  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html#index-weak-variable-attribute
  */
-#ifndef __weak
 #define __weak                          __attribute__((__weak__))
-#endif
 
 #endif /* __LINUX_COMPILER_ATTRIBUTES_H */
