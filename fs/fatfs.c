@@ -4,6 +4,9 @@
 #include <linux/errno.h>
 #include <linux/ktime.h>
 
+#include <kinetis/design_verification.h>
+#include <kinetis/real-time-clock.h>
+
 #include "fatfs/diskio.h"     /* Declarations of disk functions */
 #include "fatfs/ff_gen_drv.h"
 #include "fatfs/drivers/fake_ram_diskio.h"
@@ -1039,7 +1042,6 @@ int t_fatfs_append(int argc, char **argv)
     FRESULT fr;
     FATFS fs;
     FIL fil;
-    struct tm rtc;;
 
     /* Open or create a log file and ready to append */
     f_mount(&fs, "", 0);
@@ -1048,10 +1050,8 @@ int t_fatfs_append(int argc, char **argv)
     if (fr != FR_OK)
         return FAIL;
 
-    rtc_calendar_get(&rtc, KRTC_FORMAT_BIN);
-
     /* Append a line */
-    f_printf(&fil, "%s\n", get_rtc_string(&rtc));
+    f_printf(&fil, "%s\n", get_rtc_string());
 
     /* Close the file */
     f_close(&fil);

@@ -1,5 +1,4 @@
-
-#include <generated/deconfig.h>
+﻿
 #include <linux/printk.h>
 #include <linux/console.h>
 #include <linux/platform_device.h>
@@ -12,8 +11,10 @@
 
 #include <kinetis/ano_protocol.h>
 #include <kinetis/tim-task.h>
+#include <kinetis/memory_allocator.h>
 
 #include "kinetis-core.h"
+#include "kinetis/test-kinetis.h"
 
 #include <stdio.h>
 #include <pthread.h>
@@ -26,6 +27,16 @@
 
 struct task_struct init_task;
 bool static_key_initialized = true;
+
+unsigned long read_chip_timer(void)
+{
+	return 0;
+}
+struct delay_timer fake_delay_timer = {
+	.freq = 1000000,
+	.read_current_timer = read_chip_timer
+};
+unsigned long lpj_fine;
 
 #define STM32_SERIAL_NAME "ttySTM"
 
@@ -156,6 +167,8 @@ int fake_mcu_glue_func(void)
 
 //	cm_backtrace_init("CmBacktrace", "V1.0.0", "V0.1.0");
 
+	register_current_timer_delay(&fake_delay_timer);
+
 	ret = initialize_ptr_random();
 	if (ret)
 		return ret;
@@ -232,13 +245,13 @@ int fake_mcu_glue_func(void)
 //	if (ret)
 //		return ret;
 
-	ret = stm32_usart_init();
-	if (ret)
-		return ret;
-
-	ret = platform_device_register(&stm32_usart_device);
-	if (ret)
-		return ret;
+// 	ret = stm32_usart_init();
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = platform_device_register(&stm32_usart_device);
+// 	if (ret)
+// 		return ret;
 
 //	ret = spi_mem_driver_register(&spi_nor_driver);
 //	if (ret)
@@ -280,10 +293,13 @@ int fake_mcu_glue_func(void)
 int main(int argc, char **argv)
 {
 	int ret;
+	float fval = 0.5f;
 
 	ret = fake_mcu_glue_func();
 	if (ret)
 		goto err;
+
+//     test_memory_allocator();
 
 //	ret = fmu_init();
 //	if (ret)
@@ -292,17 +308,20 @@ int main(int argc, char **argv)
 	pr_info("|---------------------------------|\n");
 	pr_info("666, Kineits system has been setup.\n");
 	pr_info("|---------------------------------|\n");
+	
+	pr_info("0.5f: %f\n", fval);
 
-	return 0;
+	WARN_ON_ONCE(1);
+
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
 	while (1) {
 		/* USER CODE END WHILE */
-
-// 		pr_info("\n");
-// 		usleep(1000000);
+		ret = k_test_case_schedule();
+		if (ret)
+			break;
 		/* USER CODE BEGIN 3 */
 	}
 

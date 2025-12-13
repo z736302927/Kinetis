@@ -9,7 +9,7 @@
       "stopAtEntry": false,
       "externalConsole": true,
       "cwd": "e:/Code/Kinetis/arch/arm/fake-mcu",
-      "program": "e:/Code/Kinetis/arch/arm/fake-mcu/build/Debug/outDebug",
+      "program": "E:\\Code\\Kinetis\\.vscode\\output\\kinetis.exe",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [

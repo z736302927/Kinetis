@@ -504,19 +504,5 @@
 #define CONFIG_LEDS_CLASS_MULTICOLOR 1
 #define CONFIG_DEBUG_LIST 1
 
-#define __KERNEL__ 1
-
-#define _CRT_ABS_DEFINED 1
-#define _CRT_SWAB_DEFINED 1
-#define __INSIDE_CYGWIN__ 1
-#define _SIZE_T_DEFINED 1
-#define _SSIZE_T_DEFINED 1
-#define _UINTPTR_T_DEFINED 1
-#define _PTRDIFF_T_DEFINED 1
-#define _SYS_TYPES_FD_SET 1
-#define _TIMEZONE_DEFINED 1
-#define _TM_DEFINED 1
-#define NO_OLDNAMES 1
-
 
 //#undef _WIN32

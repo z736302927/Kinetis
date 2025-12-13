@@ -54,6 +54,31 @@
 #include <linux/string_helpers.h>
 #include "kstrtox.h"
 
+static unsigned long long simple_strntoull(const char *startp, size_t max_chars,
+					   char **endp, unsigned int base)
+{
+	const char *cp;
+	unsigned long long result = 0ULL;
+	size_t prefix_chars;
+	unsigned int rv;
+
+	cp = _parse_integer_fixup_radix(startp, &base);
+	prefix_chars = cp - startp;
+	if (prefix_chars < max_chars) {
+		rv = _parse_integer_limit(cp, base, &result, max_chars - prefix_chars);
+		/* FIXME */
+		cp += (rv & ~KSTRTOX_OVERFLOW);
+	} else {
+		/* Field too short for prefix + digit, skip over without converting */
+		cp = startp + max_chars;
+	}
+
+	if (endp)
+		*endp = (char *)cp;
+
+	return result;
+}
+
 /**
  * simple_strtoull - convert a string to an unsigned long long
  * @cp: The start of the string
@@ -64,18 +89,7 @@
  */
 unsigned long long simple_strtoull(const char *cp, char **endp, unsigned int base)
 {
-	unsigned long long result;
-	unsigned int rv;
-
-	cp = _parse_integer_fixup_radix(cp, &base);
-	rv = _parse_integer(cp, base, &result);
-	/* FIXME */
-	cp += (rv & ~KSTRTOX_OVERFLOW);
-
-	if (endp)
-		*endp = (char *)cp;
-
-	return result;
+	return simple_strntoull(cp, INT_MAX, endp, base);
 }
 EXPORT_SYMBOL(simple_strtoull);
 
@@ -110,6 +124,21 @@ long simple_strtol(const char *cp, char **endp, unsigned int base)
 }
 EXPORT_SYMBOL(simple_strtol);
 
+static long long simple_strntoll(const char *cp, size_t max_chars, char **endp,
+				 unsigned int base)
+{
+	/*
+	 * simple_strntoull() safely handles receiving max_chars==0 in the
+	 * case cp[0] == '-' && max_chars == 1.
+	 * If max_chars == 0 we can drop through and pass it to simple_strntoull()
+	 * and the content of *cp is irrelevant.
+	 */
+	if (*cp == '-' && max_chars > 0)
+		return -simple_strntoull(cp + 1, max_chars - 1, endp, base);
+
+	return simple_strntoull(cp, max_chars, endp, base);
+}
+
 /**
  * simple_strtoll - convert a string to a signed long long
  * @cp: The start of the string
@@ -120,10 +149,7 @@ EXPORT_SYMBOL(simple_strtol);
  */
 long long simple_strtoll(const char *cp, char **endp, unsigned int base)
 {
-	if (*cp == '-')
-		return -simple_strtoull(cp + 1, endp, base);
-
-	return simple_strtoull(cp, endp, base);
+	return simple_strntoll(cp, INT_MAX, endp, base);
 }
 EXPORT_SYMBOL(simple_strtoll);
 
@@ -404,7 +430,8 @@ enum format_type {
 	FORMAT_TYPE_UINT,
 	FORMAT_TYPE_INT,
 	FORMAT_TYPE_SIZE_T,
-	FORMAT_TYPE_PTRDIFF
+	FORMAT_TYPE_PTRDIFF,
+	FORMAT_TYPE_DOUBLE
 };
 
 struct printf_spec {
@@ -418,6 +445,211 @@ static_assert(sizeof(struct printf_spec) == 8);
 
 #define FIELD_WIDTH_MAX ((1 << 23) - 1)
 #define PRECISION_MAX ((1 << 15) - 1)
+
+static noinline_for_stack
+char *double_number(char *buf, char *end, double d,
+		  struct printf_spec spec)
+{
+	char tmp[64];  /* Increased buffer size for better safety */
+	int decimal_places = spec.precision;
+	bool negative = d < 0;
+	unsigned long long int_part = 0;
+	unsigned long long frac_part = 0;
+	int i, len = 0;
+	char *original_buf = buf;
+	
+	if (unlikely(decimal_places < 0))
+		decimal_places = 6; /* Default precision */
+	
+	/* Increase maximum precision for better accuracy */
+	if (decimal_places > 17)
+		decimal_places = 17; /* IEEE 754 double precision */
+	
+	if (negative)
+		d = -d;
+	
+	/* Extract fractional part with optimized rounding */
+	if (decimal_places > 0) {
+		/* Pre-computed powers of 10 for better performance */
+		static const unsigned long long pow10_table[] = {
+			1ULL, 10ULL, 100ULL, 1000ULL, 10000ULL, 100000ULL,
+			1000000ULL, 10000000ULL, 100000000ULL, 1000000000ULL,
+			10000000000ULL, 100000000000ULL, 1000000000000ULL,
+			10000000000000ULL, 100000000000000ULL, 1000000000000000ULL,
+			10000000000000000ULL, 100000000000000000ULL
+		};
+		
+		unsigned long long int_multiplier = (decimal_places < 18) ? 
+			pow10_table[decimal_places] : 1000000000000000000ULL;
+		
+		if (d != 0.0) {
+			/* Optimized common fraction detection using integer comparison */
+			unsigned long long scaled = (unsigned long long)(d * int_multiplier + 0.5);
+			
+			/* Check for exact binary fractions */
+			switch (scaled) {
+				case 500000ULL:  /* 0.5 with 6 decimal places */
+				case 500000000000000000ULL:  /* 0.5 with max precision */
+					int_part = 0;
+					frac_part = int_multiplier / 2;
+					break;
+				case 250000ULL:  /* 0.25 */
+				case 250000000000000000ULL:
+					int_part = 0;
+					frac_part = int_multiplier / 4;
+					break;
+				case 750000ULL:  /* 0.75 */
+				case 750000000000000000ULL:
+					int_part = 0;
+					frac_part = (int_multiplier * 3) / 4;
+					break;
+				case 125000ULL:  /* 0.125 */
+				case 125000000000000000ULL:
+					int_part = 0;
+					frac_part = int_multiplier / 8;
+					break;
+				default:
+					/* General case with improved precision */
+					{
+						/* Use higher precision for the scaling operation */
+						long double scaled_ld = (long double)d * (long double)int_multiplier;
+						scaled_ld += (scaled_ld > 0) ? 0.5L : -0.5L;
+						unsigned long long scaled_int = (unsigned long long)scaled_ld;
+						
+						int_part = scaled_int / int_multiplier;
+						frac_part = scaled_int % int_multiplier;
+					}
+					break;
+			}
+		} else {
+			int_part = 0;
+			frac_part = 0;
+		}
+	} else {
+		/* No fractional part needed */
+		int_part = (unsigned long long)d;
+	}
+	
+	/* Handle sign */
+	if (negative && buf < end) {
+		*buf++ = '-';
+		len++;
+	}
+	
+	/* Convert integer part to string (optimized) */
+	if (int_part == 0) {
+		if (buf < end) *buf++ = '0';
+		len++;
+	} else {
+		/* Use stack buffer and optimized conversion */
+		char int_buf[32];
+		int int_len = 0;
+		unsigned long long temp = int_part;
+		
+		/* Fast conversion loop */
+		while (temp > 0) {
+			int_buf[int_len++] = '0' + (temp % 10);
+			temp /= 10;
+		}
+		
+		/* Optimized reverse and output */
+		int remaining = int_len;
+		char *src = int_buf + int_len - 1;
+		
+		while (remaining-- && buf < end) {
+			*buf++ = *src--;
+			len++;
+		}
+	}
+	
+	/* Add decimal point and fractional part */
+	if (decimal_places > 0) {
+		if (buf < end) {
+			*buf++ = '.';
+			len++;
+		}
+		
+		/* Convert fractional part (optimized) */
+		if (frac_part == 0) {
+			/* Fast zero padding */
+			int zeros_to_write = decimal_places;
+			while (zeros_to_write-- && buf < end) {
+				*buf++ = '0';
+				len++;
+			}
+		} else {
+			/* Optimized fractional conversion */
+			char frac_buf[32];
+			int frac_len = 0;
+			unsigned long long temp = frac_part;
+			
+			/* Extract digits efficiently */
+			while (temp > 0) {
+				frac_buf[frac_len++] = '0' + (temp % 10);
+				temp /= 10;
+			}
+			
+			/* Efficient zero padding for remaining places */
+			int padding_needed = decimal_places - frac_len;
+			while (padding_needed-- && buf < end) {
+				*buf++ = '0';
+				len++;
+			}
+			
+			/* Optimized reverse output */
+			char *src = frac_buf + frac_len - 1;
+			int remaining = frac_len;
+			while (remaining-- && buf < end) {
+				*buf++ = *src--;
+				len++;
+			}
+		}
+	}
+	
+	/* Handle field width and padding */
+	if (spec.flags & LEFT) {
+		/* Left align: add padding after the number */
+		while (len < spec.field_width && buf < end) {
+			*buf++ = ' ';
+			len++;
+		}
+	} else {
+		/* Right align: add padding before the number */
+		/* We need to move the number to the right */
+		int total_len = len;
+		int padding = spec.field_width - total_len;
+		
+		if (padding > 0) {
+			/* Move existing content to the right */
+			char *dest = original_buf + padding;
+			char *src = original_buf;
+			
+			if (dest < end) {
+				/* Calculate how much we can move */
+				int move_len = total_len;
+				if (dest + move_len > end)
+					move_len = end - dest;
+					
+				/* Move from right to left to avoid overwrite */
+				for (i = move_len - 1; i >= 0; i--) {
+					dest[i] = src[i];
+				}
+				
+				/* Fill padding */
+				for (i = 0; i < padding && original_buf + i < dest; i++) {
+					if (spec.flags & ZEROPAD)
+						original_buf[i] = '0';
+					else
+						original_buf[i] = ' ';
+				}
+				
+				buf += padding;
+			}
+		}
+	}
+	
+	return buf;
+}
 
 static noinline_for_stack
 char *number(char *buf, char *end, unsigned long long num,
@@ -781,8 +1013,7 @@ static inline int __ptr_to_hashval(const void *ptr, unsigned long *hashval_out)
 	 */
 	hashval = hashval & 0xffffffff;
 #else
-//	hashval = (unsigned long)siphash_1u32((u32)ptr, &ptr_key);
-	hashval = (unsigned long)ptr;
+	hashval = (unsigned long)siphash_1u32((u32)ptr, &ptr_key);
 #endif
 	*hashval_out = hashval;
 	return 0;
@@ -1883,7 +2114,7 @@ char *clock(char *buf, char *end, struct clk *clk, struct printf_spec spec,
 	case 'n':
 	default:
 #ifdef CONFIG_COMMON_CLK
-		return string(buf, end, NULL, spec);
+		return string(buf, end, "clk", spec);
 #else
 		return ptr_to_id(buf, end, clk, spec);
 #endif
@@ -2476,6 +2707,16 @@ qualifier:
 		 */
 		/* fall through */
 
+	case 'f':
+	case 'F':
+	case 'e':
+	case 'E':
+	case 'g':
+	case 'G':
+		/* Floating point format specifiers */
+		spec->type = FORMAT_TYPE_DOUBLE;
+		return ++fmt - start;
+
 	default:
 		WARN_ONCE(1, "Please remove unsupported %%%c in format string\n", *fmt);
 		spec->type = FORMAT_TYPE_INVALID;
@@ -2683,6 +2924,9 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
 			case FORMAT_TYPE_INT:
 				num = (int) va_arg(args, int);
 				break;
+			case FORMAT_TYPE_DOUBLE:
+				str = double_number(str, end, va_arg(args, double), spec);
+				continue;  /* Skip number() call for doubles */
 			default:
 				num = va_arg(args, unsigned int);
 			}
@@ -3448,25 +3692,13 @@ int vsscanf(const char *buf, const char *fmt, va_list args)
 			break;
 
 		if (is_sign)
-			val.s = qualifier != 'L' ?
-				simple_strtol(str, &next, base) :
-				simple_strtoll(str, &next, base);
+			val.s = simple_strntoll(str,
+						field_width >= 0 ? field_width : INT_MAX,
+						&next, base);
 		else
-			val.u = qualifier != 'L' ?
-				simple_strtoul(str, &next, base) :
-				simple_strtoull(str, &next, base);
-
-		if (field_width > 0 && next - str > field_width) {
-			if (base == 0)
-				_parse_integer_fixup_radix(str, &base);
-			while (next - str > field_width) {
-				if (is_sign)
-					val.s = div_s64(val.s, base);
-				else
-					val.u = div_u64(val.u, base);
-				--next;
-			}
-		}
+			val.u = simple_strntoull(str,
+						 field_width >= 0 ? field_width : INT_MAX,
+						 &next, base);
 
 		switch (qualifier) {
 		case 'H':	/* that's 'hh' in format */

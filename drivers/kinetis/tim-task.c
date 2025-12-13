@@ -3,6 +3,8 @@
 #include <linux/slab.h>
 #include <linux/errno.h>
 
+#include <kinetis/design_verification.h>
+
 #include <kinetis/tim-task.h>
 
 //tim_task handle list head.
@@ -128,31 +130,35 @@ void tim_task_loop(void)
 
 #ifdef DESIGN_VERIFICATION_TIMTASK
 #include "kinetis/test-kinetis.h"
-#include "kinetis/idebug.h"
 
-#include <linux/iopoll.h>
 #include <linux/printk.h>
 
 static u64 time_stamp;
+static struct tim_task example_task;
 
-void tim_task_callback(void)
+static void tim_task_callback(struct tim_task *task)
 {
-	time_stamp = basic_timer_get_ms() - time_stamp;
-	printk(KERN_DEBUG "timeout! tim_task elapse time = %llu ms.\n", time_stamp);
+	s64 delta;
 
-	if (time_stamp >= 900 && time_stamp <= 1100)
+	delta = ktime_ms_delta(ktime_get(),  time_stamp);
+	printk(KERN_DEBUG "timeout! tim_task elapse time = %llu ms.\n", delta);
+
+	if (delta >= 900 && delta <= 1100)
 		printk(KERN_DEBUG "PASS\n");
 	else
 		printk(KERN_DEBUG "FAIL\n");
+
+	time_stamp = ktime_get();
 }
 
 int t_tim_task_add(int argc, char **argv)
 {
 	int ret;
 
-	time_stamp = basic_timer_get_ms();
+	time_stamp = ktime_get();
 
-	ret = tim_task_add(1000, false, tim_task_callback); //1s loop
+	ret = tim_task_add(&example_task, "example task",
+		1000, true, false, tim_task_callback); //1s loop
 
 	if (ret)
 		goto err;

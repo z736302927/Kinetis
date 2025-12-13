@@ -1,5 +1,6 @@
 
 #include <generated/deconfig.h>
+#include <kinetis/design_verification.h>
 #include <kinetis/real-time-clock.h>
 
 
@@ -201,46 +202,44 @@ u8 rtc_get_time_format(void)
 
 #ifdef DESIGN_VERIFICATION_RTC
 #include "kinetis/test-kinetis.h"
-#include "kinetis/random-gene.h"
 
 #include <linux/printk.h>
-
-#include "stdlib.h"
+#include <linux/random.h>
 
 int t_rtc_set_clock(int argc, char **argv)
 {
 	struct tm rtc;
 
-	rtc.tm_year = random_get8bit() % 100;
-	rtc.tm_mon = random_get8bit() % 12;
-	rtc.tm_mday = random_get8bit() % 28;
-	rtc.tm_hour = random_get8bit() % 24;
-	rtc.tm_min = random_get8bit() % 60;
-	rtc.tm_sec = random_get8bit() % 60;
-	rtc.tm_wday = random_get8bit() % 7;
+	rtc.tm_year = get_random_u32() % 100;
+	rtc.tm_mon = get_random_u32() % 12;
+	rtc.tm_mday = get_random_u32() % 28;
+	rtc.tm_hour = get_random_u32() % 24;
+	rtc.tm_min = get_random_u32() % 60;
+	rtc.tm_sec = get_random_u32() % 60;
+	rtc.tm_wday = get_random_u32() % 7;
 
 	if (argc > 1)
-		rtc.tm_year = strtoul(argv[1], &argv[1], 10);
+		rtc.tm_year = simple_strtoul(argv[1], &argv[1], 10);
 
 	if (argc > 2)
-		rtc.tm_mon = strtoul(argv[2], &argv[2], 10);
+		rtc.tm_mon = simple_strtoul(argv[2], &argv[2], 10);
 
 	if (argc > 3)
-		rtc.tm_mday = strtoul(argv[3], &argv[3], 10);
+		rtc.tm_mday = simple_strtoul(argv[3], &argv[3], 10);
 
 	if (argc > 4)
-		rtc.tm_hour = strtoul(argv[4], &argv[4], 10);
+		rtc.tm_hour = simple_strtoul(argv[4], &argv[4], 10);
 
 	if (argc > 5)
-		rtc.tm_min = strtoul(argv[5], &argv[5], 10);
+		rtc.tm_min = simple_strtoul(argv[5], &argv[5], 10);
 
 	if (argc > 6)
-		rtc.tm_sec = strtoul(argv[6], &argv[6], 10);
+		rtc.tm_sec = simple_strtoul(argv[6], &argv[6], 10);
 
 	if (argc > 7)
-		rtc.tm_wday = strtoul(argv[7], &argv[7], 10);
+		rtc.tm_wday = simple_strtoul(argv[7], &argv[7], 10);
 
-	printk(KERN_DEBUG "Set clock is %s", get_rtc_string(&rtc));
+	printk(KERN_DEBUG "Set clock is %s", get_rtc_string());
 	rtc_calendar_set(&rtc, KRTC_FORMAT_BIN);
 
 	return PASS;
@@ -251,7 +250,7 @@ int t_rtc_get_clock(int argc, char **argv)
 	struct tm rtc;
 
 	rtc_calendar_get(&rtc, KRTC_FORMAT_BIN);
-	printk(KERN_DEBUG "Get clock is %s", get_rtc_string(&rtc));;
+	printk(KERN_DEBUG "Get clock is %s", get_rtc_string());;
 
 	return PASS;
 }

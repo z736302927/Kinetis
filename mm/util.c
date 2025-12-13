@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: GPL-2.0-only
-#include <generated/deconfig.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/string.h>
@@ -78,8 +77,8 @@ EXPORT_SYMBOL(kstrdup);
  */
 const char *kstrdup_const(const char *s, gfp_t gfp)
 {
-//	if (is_kernel_rodata((unsigned long)s))
-//		return s;
+// 	if (is_kernel_rodata((unsigned long)s))
+// 		return s;
 
 	return kstrdup(s, gfp);
 }
@@ -418,115 +417,115 @@ void arch_pick_mmap_layout(struct mm_struct *mm, struct rlimit *rlim_stack)
 }
 #endif
 
-///**
-// * __account_locked_vm - account locked pages to an mm's locked_vm
-// * @mm:          mm to account against
-// * @pages:       number of pages to account
-// * @inc:         %true if @pages should be considered positive, %false if not
-// * @task:        task used to check RLIMIT_MEMLOCK
-// * @bypass_rlim: %true if checking RLIMIT_MEMLOCK should be skipped
-// *
-// * Assumes @task and @mm are valid (i.e. at least one reference on each), and
-// * that mmap_lock is held as writer.
-// *
-// * Return:
-// * * 0       on success
-// * * -ENOMEM if RLIMIT_MEMLOCK would be exceeded.
-// */
-//int __account_locked_vm(struct mm_struct *mm, unsigned long pages, bool inc,
-//			struct task_struct *task, bool bypass_rlim)
-//{
-//	unsigned long locked_vm, limit;
-//	int ret = 0;
-
-//	mmap_assert_write_locked(mm);
-
-//	locked_vm = mm->locked_vm;
-//	if (inc) {
-//		if (!bypass_rlim) {
-//			limit = task_rlimit(task, RLIMIT_MEMLOCK) >> PAGE_SHIFT;
-//			if (locked_vm + pages > limit)
-//				ret = -ENOMEM;
-//		}
-//		if (!ret)
-//			mm->locked_vm = locked_vm + pages;
-//	} else {
-//		WARN_ON_ONCE(pages > locked_vm);
-//		mm->locked_vm = locked_vm - pages;
-//	}
-
-//	pr_debug("%s: [%d] caller %ps %c%lu %lu/%lu%s\n", __func__, task->pid,
-//		 (void *)_RET_IP_, (inc) ? '+' : '-', pages << PAGE_SHIFT,
-//		 locked_vm << PAGE_SHIFT, task_rlimit(task, RLIMIT_MEMLOCK),
-//		 ret ? " - exceeded" : "");
-
-//	return ret;
-//}
-//EXPORT_SYMBOL_GPL(__account_locked_vm);
-
-///**
-// * account_locked_vm - account locked pages to an mm's locked_vm
-// * @mm:          mm to account against, may be NULL
-// * @pages:       number of pages to account
-// * @inc:         %true if @pages should be considered positive, %false if not
-// *
-// * Assumes a non-NULL @mm is valid (i.e. at least one reference on it).
-// *
-// * Return:
-// * * 0       on success, or if mm is NULL
-// * * -ENOMEM if RLIMIT_MEMLOCK would be exceeded.
-// */
-//int account_locked_vm(struct mm_struct *mm, unsigned long pages, bool inc)
-//{
-//	int ret;
-
-//	if (pages == 0 || !mm)
-//		return 0;
-
-//	mmap_write_lock(mm);
-//	ret = __account_locked_vm(mm, pages, inc, current,
-//				  capable(CAP_IPC_LOCK));
-//	mmap_write_unlock(mm);
-
-//	return ret;
-//}
-//EXPORT_SYMBOL_GPL(account_locked_vm);
-
-//unsigned long vm_mmap_pgoff(struct file *file, unsigned long addr,
-//	unsigned long len, unsigned long prot,
-//	unsigned long flag, unsigned long pgoff)
-//{
-//	unsigned long ret;
-//	struct mm_struct *mm = current->mm;
-//	unsigned long populate;
-//	LIST_HEAD(uf);
-
-//	ret = security_mmap_file(file, prot, flag);
-//	if (!ret) {
-//		if (mmap_write_lock_killable(mm))
-//			return -EINTR;
-//		ret = do_mmap(file, addr, len, prot, flag, pgoff, &populate,
-//			      &uf);
-//		mmap_write_unlock(mm);
-//		userfaultfd_unmap_complete(mm, &uf);
-//		if (populate)
-//			mm_populate(ret, populate);
-//	}
-//	return ret;
-//}
-
-//unsigned long vm_mmap(struct file *file, unsigned long addr,
-//	unsigned long len, unsigned long prot,
-//	unsigned long flag, unsigned long offset)
-//{
-//	if (unlikely(offset + PAGE_ALIGN(len) < offset))
-//		return -EINVAL;
-//	if (unlikely(offset_in_page(offset)))
-//		return -EINVAL;
-
-//	return vm_mmap_pgoff(file, addr, len, prot, flag, offset >> PAGE_SHIFT);
-//}
-//EXPORT_SYMBOL(vm_mmap);
+// /**
+//  * __account_locked_vm - account locked pages to an mm's locked_vm
+//  * @mm:          mm to account against
+//  * @pages:       number of pages to account
+//  * @inc:         %true if @pages should be considered positive, %false if not
+//  * @task:        task used to check RLIMIT_MEMLOCK
+//  * @bypass_rlim: %true if checking RLIMIT_MEMLOCK should be skipped
+//  *
+//  * Assumes @task and @mm are valid (i.e. at least one reference on each), and
+//  * that mmap_lock is held as writer.
+//  *
+//  * Return:
+//  * * 0       on success
+//  * * -ENOMEM if RLIMIT_MEMLOCK would be exceeded.
+//  */
+// int __account_locked_vm(struct mm_struct *mm, unsigned long pages, bool inc,
+// 			struct task_struct *task, bool bypass_rlim)
+// {
+// 	unsigned long locked_vm, limit;
+// 	int ret = 0;
+// 
+// 	mmap_assert_write_locked(mm);
+// 
+// 	locked_vm = mm->locked_vm;
+// 	if (inc) {
+// 		if (!bypass_rlim) {
+// 			limit = task_rlimit(task, RLIMIT_MEMLOCK) >> PAGE_SHIFT;
+// 			if (locked_vm + pages > limit)
+// 				ret = -ENOMEM;
+// 		}
+// 		if (!ret)
+// 			mm->locked_vm = locked_vm + pages;
+// 	} else {
+// 		WARN_ON_ONCE(pages > locked_vm);
+// 		mm->locked_vm = locked_vm - pages;
+// 	}
+// 
+// 	pr_debug("%s: [%d] caller %ps %c%lu %lu/%lu%s\n", __func__, task->pid,
+// 		 (void *)_RET_IP_, (inc) ? '+' : '-', pages << PAGE_SHIFT,
+// 		 locked_vm << PAGE_SHIFT, task_rlimit(task, RLIMIT_MEMLOCK),
+// 		 ret ? " - exceeded" : "");
+// 
+// 	return ret;
+// }
+// EXPORT_SYMBOL_GPL(__account_locked_vm);
+// 
+// /**
+//  * account_locked_vm - account locked pages to an mm's locked_vm
+//  * @mm:          mm to account against, may be NULL
+//  * @pages:       number of pages to account
+//  * @inc:         %true if @pages should be considered positive, %false if not
+//  *
+//  * Assumes a non-NULL @mm is valid (i.e. at least one reference on it).
+//  *
+//  * Return:
+//  * * 0       on success, or if mm is NULL
+//  * * -ENOMEM if RLIMIT_MEMLOCK would be exceeded.
+//  */
+// int account_locked_vm(struct mm_struct *mm, unsigned long pages, bool inc)
+// {
+// 	int ret;
+// 
+// 	if (pages == 0 || !mm)
+// 		return 0;
+// 
+// 	mmap_write_lock(mm);
+// 	ret = __account_locked_vm(mm, pages, inc, current,
+// 				  capable(CAP_IPC_LOCK));
+// 	mmap_write_unlock(mm);
+// 
+// 	return ret;
+// }
+// EXPORT_SYMBOL_GPL(account_locked_vm);
+// 
+// unsigned long vm_mmap_pgoff(struct file *file, unsigned long addr,
+// 	unsigned long len, unsigned long prot,
+// 	unsigned long flag, unsigned long pgoff)
+// {
+// 	unsigned long ret;
+// 	struct mm_struct *mm = current->mm;
+// 	unsigned long populate;
+// 	LIST_HEAD(uf);
+// 
+// 	ret = security_mmap_file(file, prot, flag);
+// 	if (!ret) {
+// 		if (mmap_write_lock_killable(mm))
+// 			return -EINTR;
+// 		ret = do_mmap(file, addr, len, prot, flag, pgoff, &populate,
+// 			      &uf);
+// 		mmap_write_unlock(mm);
+// 		userfaultfd_unmap_complete(mm, &uf);
+// 		if (populate)
+// 			mm_populate(ret, populate);
+// 	}
+// 	return ret;
+// }
+// 
+// unsigned long vm_mmap(struct file *file, unsigned long addr,
+// 	unsigned long len, unsigned long prot,
+// 	unsigned long flag, unsigned long offset)
+// {
+// 	if (unlikely(offset + PAGE_ALIGN(len) < offset))
+// 		return -EINVAL;
+// 	if (unlikely(offset_in_page(offset)))
+// 		return -EINVAL;
+// 
+// 	return vm_mmap_pgoff(file, addr, len, prot, flag, offset >> PAGE_SHIFT);
+// }
+// EXPORT_SYMBOL(vm_mmap);
 
 /**
  * kvmalloc_node - attempt to allocate physically contiguous memory, but upon
@@ -599,10 +598,7 @@ EXPORT_SYMBOL(kvmalloc_node);
  */
 void kvfree(const void *addr)
 {
-	if (is_vmalloc_addr(addr))
-		kfree(addr);
-	else
-		kfree(addr);
+	kfree(addr);
 }
 EXPORT_SYMBOL(kvfree);
 
@@ -753,41 +749,41 @@ static void sync_overcommit_as(struct work_struct *dummy)
 	percpu_counter_sync(&vm_committed_as);
 }
 
-//int overcommit_policy_handler(struct ctl_table *table, int write, void *buffer,
-//		size_t *lenp, loff_t *ppos)
-//{
-//	struct ctl_table t;
-//	int new_policy;
-//	int ret;
-
-//	/*
-//	 * The deviation of sync_overcommit_as could be big with loose policy
-//	 * like OVERCOMMIT_ALWAYS/OVERCOMMIT_GUESS. When changing policy to
-//	 * strict OVERCOMMIT_NEVER, we need to reduce the deviation to comply
-//	 * with the strict "NEVER", and to avoid possible race condtion (even
-//	 * though user usually won't too frequently do the switching to policy
-//	 * OVERCOMMIT_NEVER), the switch is done in the following order:
-//	 *	1. changing the batch
-//	 *	2. sync percpu count on each CPU
-//	 *	3. switch the policy
-//	 */
-//	if (write) {
-//		t = *table;
-//		t.data = &new_policy;
-//		ret = proc_dointvec_minmax(&t, write, buffer, lenp, ppos);
-//		if (ret)
-//			return ret;
-
-//		mm_compute_batch(new_policy);
-//		if (new_policy == OVERCOMMIT_NEVER)
-//			schedule_on_each_cpu(sync_overcommit_as);
-//		sysctl_overcommit_memory = new_policy;
-//	} else {
-//		ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
-//	}
-
-//	return ret;
-//}
+// int overcommit_policy_handler(struct ctl_table *table, int write, void *buffer,
+// 		size_t *lenp, loff_t *ppos)
+// {
+// 	struct ctl_table t;
+// 	int new_policy;
+// 	int ret;
+// 
+// 	/*
+// 	 * The deviation of sync_overcommit_as could be big with loose policy
+// 	 * like OVERCOMMIT_ALWAYS/OVERCOMMIT_GUESS. When changing policy to
+// 	 * strict OVERCOMMIT_NEVER, we need to reduce the deviation to comply
+// 	 * with the strict "NEVER", and to avoid possible race condtion (even
+// 	 * though user usually won't too frequently do the switching to policy
+// 	 * OVERCOMMIT_NEVER), the switch is done in the following order:
+// 	 *	1. changing the batch
+// 	 *	2. sync percpu count on each CPU
+// 	 *	3. switch the policy
+// 	 */
+// 	if (write) {
+// 		t = *table;
+// 		t.data = &new_policy;
+// 		ret = proc_dointvec_minmax(&t, write, buffer, lenp, ppos);
+// 		if (ret)
+// 			return ret;
+// 
+// 		mm_compute_batch(new_policy);
+// 		if (new_policy == OVERCOMMIT_NEVER)
+// 			schedule_on_each_cpu(sync_overcommit_as);
+// 		sysctl_overcommit_memory = new_policy;
+// 	} else {
+// 		ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+// 	}
+// 
+// 	return ret;
+// }
 
 int overcommit_kbytes_handler(struct ctl_table *table, int write, void *buffer,
 		size_t *lenp, loff_t *ppos)
@@ -900,64 +896,64 @@ error:
 	return -ENOMEM;
 }
 
-///**
-// * get_cmdline() - copy the cmdline value to a buffer.
-// * @task:     the task whose cmdline value to copy.
-// * @buffer:   the buffer to copy to.
-// * @buflen:   the length of the buffer. Larger cmdline values are truncated
-// *            to this length.
-// *
-// * Return: the size of the cmdline field copied. Note that the copy does
-// * not guarantee an ending NULL byte.
-// */
-//int get_cmdline(struct task_struct *task, char *buffer, int buflen)
-//{
-//	int res = 0;
-//	unsigned int len;
-//	struct mm_struct *mm = get_task_mm(task);
-//	unsigned long arg_start, arg_end, env_start, env_end;
-//	if (!mm)
-//		goto out;
-//	if (!mm->arg_end)
-//		goto out_mm;	/* Shh! No looking before we're done */
-
-//	spin_lock(&mm->arg_lock);
-//	arg_start = mm->arg_start;
-//	arg_end = mm->arg_end;
-//	env_start = mm->env_start;
-//	env_end = mm->env_end;
-//	spin_unlock(&mm->arg_lock);
-
-//	len = arg_end - arg_start;
-
-//	if (len > buflen)
-//		len = buflen;
-
-//	res = access_process_vm(task, arg_start, buffer, len, FOLL_FORCE);
-
-//	/*
-//	 * If the nul at the end of args has been overwritten, then
-//	 * assume application is using setproctitle(3).
-//	 */
-//	if (res > 0 && buffer[res-1] != '\0' && len < buflen) {
-//		len = strnlen(buffer, res);
-//		if (len < res) {
-//			res = len;
-//		} else {
-//			len = env_end - env_start;
-//			if (len > buflen - res)
-//				len = buflen - res;
-//			res += access_process_vm(task, env_start,
-//						 buffer+res, len,
-//						 FOLL_FORCE);
-//			res = strnlen(buffer, res);
-//		}
-//	}
-//out_mm:
-//	mmput(mm);
-//out:
-//	return res;
-//}
+// /**
+//  * get_cmdline() - copy the cmdline value to a buffer.
+//  * @task:     the task whose cmdline value to copy.
+//  * @buffer:   the buffer to copy to.
+//  * @buflen:   the length of the buffer. Larger cmdline values are truncated
+//  *            to this length.
+//  *
+//  * Return: the size of the cmdline field copied. Note that the copy does
+//  * not guarantee an ending NULL byte.
+//  */
+// int get_cmdline(struct task_struct *task, char *buffer, int buflen)
+// {
+// 	int res = 0;
+// 	unsigned int len;
+// 	struct mm_struct *mm = get_task_mm(task);
+// 	unsigned long arg_start, arg_end, env_start, env_end;
+// 	if (!mm)
+// 		goto out;
+// 	if (!mm->arg_end)
+// 		goto out_mm;	/* Shh! No looking before we're done */
+// 
+// 	spin_lock(&mm->arg_lock);
+// 	arg_start = mm->arg_start;
+// 	arg_end = mm->arg_end;
+// 	env_start = mm->env_start;
+// 	env_end = mm->env_end;
+// 	spin_unlock(&mm->arg_lock);
+// 
+// 	len = arg_end - arg_start;
+// 
+// 	if (len > buflen)
+// 		len = buflen;
+// 
+// 	res = access_process_vm(task, arg_start, buffer, len, FOLL_FORCE);
+// 
+// 	/*
+// 	 * If the nul at the end of args has been overwritten, then
+// 	 * assume application is using setproctitle(3).
+// 	 */
+// 	if (res > 0 && buffer[res-1] != '\0' && len < buflen) {
+// 		len = strnlen(buffer, res);
+// 		if (len < res) {
+// 			res = len;
+// 		} else {
+// 			len = env_end - env_start;
+// 			if (len > buflen - res)
+// 				len = buflen - res;
+// 			res += access_process_vm(task, env_start,
+// 						 buffer+res, len,
+// 						 FOLL_FORCE);
+// 			res = strnlen(buffer, res);
+// 		}
+// 	}
+// out_mm:
+// 	mmput(mm);
+// out:
+// 	return res;
+// }
 
 int __weak memcmp_pages(struct page *page1, struct page *page2)
 {

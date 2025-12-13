@@ -4,7 +4,9 @@
 
 #include <linux/thread_info.h>
 
-#define get_current() (current_thread_info()->task)
+extern struct task_struct init_task;
+
+#define get_current() (&init_task)
 #define current get_current()
 
 #endif /* __ASM_GENERIC_CURRENT_H */

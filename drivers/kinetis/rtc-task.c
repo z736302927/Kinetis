@@ -4,6 +4,8 @@
 #include <linux/errno.h>
 #include <linux/iopoll.h>
 
+#include <kinetis/design_verification.h>
+
 #include <kinetis/rtc-task.h>
 
 

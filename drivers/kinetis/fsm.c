@@ -1,5 +1,7 @@
 #include <generated/deconfig.h>
 
+#include <kinetis/design_verification.h>
+
 #include "kinetis/fsm.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */

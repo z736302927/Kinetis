@@ -10,7 +10,6 @@
  *  debugging by David Rientjes, Copyright (C) 2015
  */
 
-#include <generated/deconfig.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/highmem.h>
@@ -210,28 +209,28 @@ int mempool_init_node(mempool_t *pool, int min_nr, mempool_alloc_t *alloc_fn,
 }
 EXPORT_SYMBOL(mempool_init_node);
 
-///**
-// * mempool_init - initialize a memory pool
-// * @pool:      pointer to the memory pool that should be initialized
-// * @min_nr:    the minimum number of elements guaranteed to be
-// *             allocated for this pool.
-// * @alloc_fn:  user-defined element-allocation function.
-// * @free_fn:   user-defined element-freeing function.
-// * @pool_data: optional private data available to the user-defined functions.
-// *
-// * Like mempool_create(), but initializes the pool in (i.e. embedded in another
-// * structure).
-// *
-// * Return: %0 on success, negative error code otherwise.
-// */
-//int mempool_init(mempool_t *pool, int min_nr, mempool_alloc_t *alloc_fn,
-//		 mempool_free_t *free_fn, void *pool_data)
-//{
-//	return mempool_init_node(pool, min_nr, alloc_fn, free_fn,
-//				 pool_data, GFP_KERNEL, NUMA_NO_NODE);
-//
-//}
-//EXPORT_SYMBOL(mempool_init);
+// /**
+//  * mempool_init - initialize a memory pool
+//  * @pool:      pointer to the memory pool that should be initialized
+//  * @min_nr:    the minimum number of elements guaranteed to be
+//  *             allocated for this pool.
+//  * @alloc_fn:  user-defined element-allocation function.
+//  * @free_fn:   user-defined element-freeing function.
+//  * @pool_data: optional private data available to the user-defined functions.
+//  *
+//  * Like mempool_create(), but initializes the pool in (i.e. embedded in another
+//  * structure).
+//  *
+//  * Return: %0 on success, negative error code otherwise.
+//  */
+// int mempool_init(mempool_t *pool, int min_nr, mempool_alloc_t *alloc_fn,
+// 		 mempool_free_t *free_fn, void *pool_data)
+// {
+// 	return mempool_init_node(pool, min_nr, alloc_fn, free_fn,
+// 				 pool_data, GFP_KERNEL, NUMA_NO_NODE);
+// 
+// }
+// EXPORT_SYMBOL(mempool_init);
 
 /**
  * mempool_create - create a memory pool
@@ -277,85 +276,85 @@ mempool_t *mempool_create_node(int min_nr, mempool_alloc_t *alloc_fn,
 }
 EXPORT_SYMBOL(mempool_create_node);
 
-///**
-// * mempool_resize - resize an existing memory pool
-// * @pool:       pointer to the memory pool which was allocated via
-// *              mempool_create().
-// * @new_min_nr: the new minimum number of elements guaranteed to be
-// *              allocated for this pool.
-// *
-// * This function shrinks/grows the pool. In the case of growing,
-// * it cannot be guaranteed that the pool will be grown to the new
-// * size immediately, but new mempool_free() calls will refill it.
-// * This function may sleep.
-// *
-// * Note, the caller must guarantee that no mempool_destroy is called
-// * while this function is running. mempool_alloc() & mempool_free()
-// * might be called (eg. from IRQ contexts) while this function executes.
-// *
-// * Return: %0 on success, negative error code otherwise.
-// */
-//int mempool_resize(mempool_t *pool, int new_min_nr)
-//{
-//	void *element;
-//	void **new_elements;
-//	unsigned long flags;
-//
-//	BUG_ON(new_min_nr <= 0);
-//	might_sleep();
-//
-//	spin_lock_irqsave(&pool->lock, flags);
-//	if (new_min_nr <= pool->min_nr) {
-//		while (new_min_nr < pool->curr_nr) {
-//			element = remove_element(pool);
-//			spin_unlock_irqrestore(&pool->lock, flags);
-//			pool->free(element, pool->pool_data);
-//			spin_lock_irqsave(&pool->lock, flags);
-//		}
-//		pool->min_nr = new_min_nr;
-//		goto out_unlock;
-//	}
-//	spin_unlock_irqrestore(&pool->lock, flags);
-//
-//	/* Grow the pool */
-//	new_elements = kmalloc_array(new_min_nr, sizeof(*new_elements),
-//				     GFP_KERNEL);
-//	if (!new_elements)
-//		return -ENOMEM;
-//
-//	spin_lock_irqsave(&pool->lock, flags);
-//	if (unlikely(new_min_nr <= pool->min_nr)) {
-//		/* Raced, other resize will do our work */
-//		spin_unlock_irqrestore(&pool->lock, flags);
-//		kfree(new_elements);
-//		goto out;
-//	}
-//	memcpy(new_elements, pool->elements,
-//			pool->curr_nr * sizeof(*new_elements));
-//	kfree(pool->elements);
-//	pool->elements = new_elements;
-//	pool->min_nr = new_min_nr;
-//
-//	while (pool->curr_nr < pool->min_nr) {
-//		spin_unlock_irqrestore(&pool->lock, flags);
-//		element = pool->alloc(GFP_KERNEL, pool->pool_data);
-//		if (!element)
-//			goto out;
-//		spin_lock_irqsave(&pool->lock, flags);
-//		if (pool->curr_nr < pool->min_nr) {
-//			add_element(pool, element);
-//		} else {
-//			spin_unlock_irqrestore(&pool->lock, flags);
-//			pool->free(element, pool->pool_data);	/* Raced */
-//			goto out;
-//		}
-//	}
-//out_unlock:
-//	spin_unlock_irqrestore(&pool->lock, flags);
-//out:
-//	return 0;
-//}
-//EXPORT_SYMBOL(mempool_resize);
+// /**
+//  * mempool_resize - resize an existing memory pool
+//  * @pool:       pointer to the memory pool which was allocated via
+//  *              mempool_create().
+//  * @new_min_nr: the new minimum number of elements guaranteed to be
+//  *              allocated for this pool.
+//  *
+//  * This function shrinks/grows the pool. In the case of growing,
+//  * it cannot be guaranteed that the pool will be grown to the new
+//  * size immediately, but new mempool_free() calls will refill it.
+//  * This function may sleep.
+//  *
+//  * Note, the caller must guarantee that no mempool_destroy is called
+//  * while this function is running. mempool_alloc() & mempool_free()
+//  * might be called (eg. from IRQ contexts) while this function executes.
+//  *
+//  * Return: %0 on success, negative error code otherwise.
+//  */
+// int mempool_resize(mempool_t *pool, int new_min_nr)
+// {
+// 	void *element;
+// 	void **new_elements;
+// 	unsigned long flags;
+// 
+// 	BUG_ON(new_min_nr <= 0);
+// 	might_sleep();
+// 
+// 	spin_lock_irqsave(&pool->lock, flags);
+// 	if (new_min_nr <= pool->min_nr) {
+// 		while (new_min_nr < pool->curr_nr) {
+// 			element = remove_element(pool);
+// 			spin_unlock_irqrestore(&pool->lock, flags);
+// 			pool->free(element, pool->pool_data);
+// 			spin_lock_irqsave(&pool->lock, flags);
+// 		}
+// 		pool->min_nr = new_min_nr;
+// 		goto out_unlock;
+// 	}
+// 	spin_unlock_irqrestore(&pool->lock, flags);
+// 
+// 	/* Grow the pool */
+// 	new_elements = kmalloc_array(new_min_nr, sizeof(*new_elements),
+// 				     GFP_KERNEL);
+// 	if (!new_elements)
+// 		return -ENOMEM;
+// 
+// 	spin_lock_irqsave(&pool->lock, flags);
+// 	if (unlikely(new_min_nr <= pool->min_nr)) {
+// 		/* Raced, other resize will do our work */
+// 		spin_unlock_irqrestore(&pool->lock, flags);
+// 		kfree(new_elements);
+// 		goto out;
+// 	}
+// 	memcpy(new_elements, pool->elements,
+// 			pool->curr_nr * sizeof(*new_elements));
+// 	kfree(pool->elements);
+// 	pool->elements = new_elements;
+// 	pool->min_nr = new_min_nr;
+// 
+// 	while (pool->curr_nr < pool->min_nr) {
+// 		spin_unlock_irqrestore(&pool->lock, flags);
+// 		element = pool->alloc(GFP_KERNEL, pool->pool_data);
+// 		if (!element)
+// 			goto out;
+// 		spin_lock_irqsave(&pool->lock, flags);
+// 		if (pool->curr_nr < pool->min_nr) {
+// 			add_element(pool, element);
+// 		} else {
+// 			spin_unlock_irqrestore(&pool->lock, flags);
+// 			pool->free(element, pool->pool_data);	/* Raced */
+// 			goto out;
+// 		}
+// 	}
+// out_unlock:
+// 	spin_unlock_irqrestore(&pool->lock, flags);
+// out:
+// 	return 0;
+// }
+// EXPORT_SYMBOL(mempool_resize);
 
 /**
  * mempool_alloc - allocate an element from a specific memory pool

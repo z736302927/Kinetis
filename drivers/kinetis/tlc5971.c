@@ -2,6 +2,8 @@
 #include <generated/deconfig.h>
 #include <linux/delay.h>
 
+#include <kinetis/design_verification.h>
+
 #include "tlc5971.h"
 
 

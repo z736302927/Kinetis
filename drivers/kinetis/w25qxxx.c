@@ -6,6 +6,8 @@
 #include <linux/printk.h>
 #include <linux/string.h>
 
+#include <kinetis/design_verification.h>
+
 #include "w25qxxx.h"
 
 #ifdef STM32_HAL_LIBRARY
@@ -1466,7 +1468,7 @@ int t_w25qxxx_loopback(int argc, char **argv)
     }
 
     if (argc > 2)
-        round = strtoul(argv[2], &argv[2], 10);
+        round = simple_strtoul(argv[2], &argv[2], 10);
 
     for (j = 0; j < round; j++) {
         tmp_rng = random_get32bit();

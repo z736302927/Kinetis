@@ -6,13 +6,9 @@
  */
 
 
-#include <generated/deconfig.h> 
 #include <linux/stddef.h>
 #include <linux/mm.h>
 #include <linux/mmzone.h>
-
-struct pglist_data __refdata contig_page_data;
-EXPORT_SYMBOL(contig_page_data);
 
 struct pglist_data *first_online_pgdat(void)
 {

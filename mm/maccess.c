@@ -2,7 +2,6 @@
 /*
  * Access kernel or user memory without faulting.
  */
-#include <generated/deconfig.h> 
 #include <linux/export.h>
 #include <linux/mm.h>
 #include <linux/uaccess.h>

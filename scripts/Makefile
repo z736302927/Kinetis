@@ -215,7 +215,7 @@ $(TARGET): $(OBJS) | $(BUILD_DIR)
 	@$(CC) $(OBJS) $(LDFLAGS) -o $@ $(LIBS)
 
 # Force rebuild if headers change
-$(OBJS): $(HEADERS)
+# $(OBJS): $(HEADERS)  # 注释掉这行，让GCC的自动依赖机制来处理真正的依赖关系
 
 # Clean target
 clean:

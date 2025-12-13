@@ -5,6 +5,8 @@
 #include <linux/slab.h>
 #include <linux/crc16.h>
 
+#include <kinetis/design_verification.h>
+
 #include "hydrology.h"
 #include "hydrology-config.h"
 #include "hydrology-cmd.h"

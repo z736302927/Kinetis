@@ -79,11 +79,15 @@ extern void __bad_udelay(void);
 #define __udelay(n)		arm_delay_ops.udelay(n)
 #define __const_udelay(n)	arm_delay_ops.const_udelay(n)
 
+#ifdef CONFIG_JIFFIES_DELAY
+#define udelay(n)		__udelay(n)
+#else
 #define udelay(n)							\
 	(__builtin_constant_p(n) ?					\
 	  ((n) > (MAX_UDELAY_MS * 1000) ? __bad_udelay() :		\
 			__const_udelay((n) * UDELAY_MULT)) :		\
 	  __udelay(n))
+#endif
 
 /* Loop-based definitions for assembly code. */
 extern void __loop_delay(unsigned long loops);

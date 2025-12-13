@@ -18,7 +18,7 @@ extern "C" {
 void rtc_calendar_set(struct tm *rtc, u8 format);
 void rtc_calendar_get(struct tm *rtc, u8 format);
 
-static char *get_rtc_string(void)
+static inline char *get_rtc_string(void)
 {
 	struct tm rtc;
 	static char buf[64];
