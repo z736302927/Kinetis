@@ -11,6 +11,7 @@
 
 #include <kinetis/ano_protocol.h>
 #include <kinetis/tim-task.h>
+#include "kinetis/rtc-task.h"
 #include <kinetis/memory_allocator.h>
 
 #include "kinetis-core.h"
@@ -19,6 +20,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <time.h>
 
 #ifdef CONFIG_FAKE_LIB
 #include <fake-mcu/print.h>
@@ -152,6 +154,36 @@ static int fill_stm32_dt(void)
 	return 0;
 }
 
+void *pthread_rtc_time_update(void *para)
+{
+	time_t raw_time;
+	struct tm *time_info;
+	u16 year;
+	u8 month, date, hours, minutes, seconds;
+	
+	while (1) {
+		/* Get current system time using C library */
+		time(&raw_time);
+		time_info = localtime(&raw_time);
+		
+		/* Convert to rtc format and update */
+		year = time_info->tm_year + 1900;  /* tm_year is years since 1900 */
+		month = time_info->tm_mon + 1;    /* tm_mon is 0-11 */
+		date = time_info->tm_mday;
+		hours = time_info->tm_hour;
+		minutes = time_info->tm_min;
+		seconds = time_info->tm_sec;
+		
+		/* Update RTC task time */
+		rtc_task_get_current_time(year, month, date, hours, minutes, seconds);
+		
+		/* Update every second */
+		usleep(500000);
+	}
+	
+	return NULL;
+}
+
 void *pthread_xtime_update(void *para)
 {
 	while (1) {
@@ -162,7 +194,8 @@ void *pthread_xtime_update(void *para)
 
 int fake_mcu_glue_func(void)
 {
-	pthread_t thread;
+	pthread_t timer_thread;
+	pthread_t rtc_thread;
 	int ret = 0;
 
 //	cm_backtrace_init("CmBacktrace", "V1.0.0", "V0.1.0");
@@ -174,7 +207,11 @@ int fake_mcu_glue_func(void)
 		return ret;
 
 	timekeeping_init();
-	ret = pthread_create(&thread, NULL, pthread_xtime_update, NULL);
+	ret = pthread_create(&timer_thread, NULL, pthread_xtime_update, NULL);
+	if (ret)
+		return ret;
+
+	ret = pthread_create(&rtc_thread, NULL, pthread_rtc_time_update, NULL);
 	if (ret)
 		return ret;
 

@@ -21,19 +21,19 @@ struct rtc_task {
     bool self_alloc;
 };
 
-int rtc_task_add(u8 add_year, u8 add_month, u8 add_date,
+int rtc_task_add(u16 add_year, u8 add_month, u8 add_date,
     u8 add_hours, u8 add_minutes, u8 add_seconds,
     bool auto_load, void(*callback)());
 int rtc_task_drop(void(*callback)());
 int rtc_task_enqueue(struct rtc_task *rtc_task,
-    u8 add_year, u8 add_month, u8 add_date,
+    u16 add_year, u8 add_month, u8 add_date,
     u8 add_hours, u8 add_minutes, u8 add_seconds,
     void(*callback)(struct rtc_task *));
 void rtc_task_dequeue(struct rtc_task *rtc_task);
 int rtc_task_suspend(void(*callback)());
 int rtc_task_resume(void(*callback)());
 void rtc_task_loop(void);
-void rtc_task_get_current_time(u8 year, u8 month, u8 date, u8 hours, u8 minutes, u8 seconds);
+void rtc_task_get_current_time(u16 year, u8 month, u8 date, u8 hours, u8 minutes, u8 seconds);
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 

@@ -39,19 +39,19 @@ static bool rtc_task_expired(struct rtc_task *rtc_task)
 		return time_after32(current_time.tm_year, rtc_task->expired.tm_year);
 
 	if (current_time.tm_mon != rtc_task->expired.tm_mon)
-		return time_after32(current_time.tm_year, rtc_task->expired.tm_year);
+		return time_after32(current_time.tm_mon, rtc_task->expired.tm_mon);
 
 	if (current_time.tm_mday != rtc_task->expired.tm_mday)
-		return time_after32(current_time.tm_year, rtc_task->expired.tm_year);
+		return time_after32(current_time.tm_mday, rtc_task->expired.tm_mday);
 
 	if (current_time.tm_hour != rtc_task->expired.tm_hour)
-		return time_after32(current_time.tm_year, rtc_task->expired.tm_year);
+		return time_after32(current_time.tm_hour, rtc_task->expired.tm_hour);
 
 	if (current_time.tm_min != rtc_task->expired.tm_min)
-		return time_after32(current_time.tm_year, rtc_task->expired.tm_year);
+		return time_after32(current_time.tm_min, rtc_task->expired.tm_min);
 
 	if (current_time.tm_sec != rtc_task->expired.tm_sec)
-		return time_after32(current_time.tm_year, rtc_task->expired.tm_year);
+		return time_after32(current_time.tm_sec, rtc_task->expired.tm_sec);
 
 	return true;
 }
@@ -141,7 +141,7 @@ static void rtc_task_time_add_seconds(struct tm *date_time, u8 seconds)
 
 	//Minute + 1
 	date_time->tm_sec -= 60;
-	++date_time->tm_hour;
+	++date_time->tm_min;
 
 	//Finished
 	if (date_time->tm_min < 60)
@@ -308,7 +308,7 @@ static void rtc_task_update_time(struct rtc_task *rtc_task)
   * @param  Repeat: Repeat interval time.
   * @retval None
   */
-int rtc_task_add(u8 add_year, u8 add_month, u8 add_date,
+int rtc_task_add(u16 add_year, u8 add_month, u8 add_date,
 	u8 add_hours, u8 add_minutes, u8 add_seconds,
 	bool auto_load, void(*callback)())
 {
@@ -378,7 +378,7 @@ int rtc_task_drop(void(*callback)())
   * @retval None
   */
 int rtc_task_enqueue(struct rtc_task *rtc_task,
-	u8 add_year, u8 add_month, u8 add_date,
+	u16 add_year, u8 add_month, u8 add_date,
 	u8 add_hours, u8 add_minutes, u8 add_seconds,
 	void(*callback)(struct rtc_task *))
 {
@@ -472,6 +472,8 @@ void rtc_task_loop(void)
 
 	list_for_each_entry_safe(rtc_task, tmp, &rtc_task_head, list) {
 		if (rtc_task_expired(rtc_task)) {
+			pr_debug("%04d-%02d-%02d %02d:%02d:%02d\n",
+				current_time.tm_year, current_time.tm_mon, current_time.tm_mday, current_time.tm_hour, current_time.tm_min, current_time.tm_sec);
 			rtc_task->callback();
 
 			if (rtc_task->auto_load)
@@ -491,7 +493,7 @@ void rtc_task_loop(void)
   * @param  None.
   * @retval None.
   */
-void rtc_task_get_current_time(u8 year, u8 month, u8 date,
+void rtc_task_get_current_time(u16 year, u8 month, u8 date,
 	u8 hours, u8 minutes, u8 seconds)
 {
 	current_time.tm_year = year;
@@ -504,7 +506,6 @@ void rtc_task_get_current_time(u8 year, u8 month, u8 date,
 
 #ifdef DESIGN_VERIFICATION_RTCTASK
 #include "kinetis/test-kinetis.h"
-#include "kinetis/timeout.h"
 
 #include <linux/printk.h>
 #include <linux/iopoll.h>
@@ -513,22 +514,26 @@ static u64 time_stamp;
 
 void rtc_task_callback(void)
 {
-	time_stamp = basic_timer_get_ms() - time_stamp;
-	printk(KERN_DEBUG "timeout! rtc_task elapse time = %llu ms.\n", time_stamp);
+	s64 delta;
 
-	if (time_stamp >= 59000 && time_stamp <= 61000)
-		printk(KERN_DEBUG "PASS\n");
+	delta = ktime_ms_delta(ktime_get(),  time_stamp);
+	pr_info("timeout! rtc_task elapse time = %llu ms.\n", delta);
+
+	if (delta >= 59000 && delta <= 61000)
+		pr_info("PASS\n");
 	else
-		printk(KERN_DEBUG "FAIL\n");
+		pr_info("FAIL\n");
+
+	time_stamp = ktime_get();
 }
 
 int t_rtc_task_add(int argc, char **argv)
 {
 	int ret;
 
-	time_stamp = basic_timer_get_ms();
+	time_stamp = ktime_get();
 
-	ret = rtc_task_add(0, 0, 0, 0, 1, 0, false, rtc_task_callback); //60s loop
+	ret = rtc_task_add(0, 0, 0, 0, 0, 5, true, rtc_task_callback); //60s loop
 
 	if (ret)
 		return FAIL;
@@ -536,7 +541,7 @@ int t_rtc_task_add(int argc, char **argv)
 	return PASS;
 
 err:
-	printk(KERN_ERR "Failed to execute %s(), error code: %d\n",
+	pr_err("Failed to execute %s(), error code: %d\n",
 		__func__, ret);
 	return FAIL;
 }

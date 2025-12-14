@@ -12,6 +12,9 @@ extern "C" {
 
 #include "../fs/fatfs/ff.h"         /* Declarations of sector size */
 
+/* Disk configuration parameters */
+#define FATFS_SECTOR_SIZE            512      /* Sector size in bytes */
+
 int fatfs_init(void);
 int process_fatfs_err(FRESULT fresult);
 FRESULT fatfs_miscellaneous(void);

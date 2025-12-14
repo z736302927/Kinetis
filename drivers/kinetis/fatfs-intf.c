@@ -3,6 +3,7 @@
 #include <linux/printk.h>
 #include <linux/errno.h>
 #include <linux/string.h>
+#include <kinetis/fatfs.h>
 #include <linux/kernel.h>
 
 #include "../../fs/fatfs/ff.h"
@@ -22,11 +23,12 @@ u32 fatfs_get_flash_size(void)
 	/* The total number of sectors and the number of empty sectors are calculated. */
 	tot_sect = (pfs->n_fatent - 2) * pfs->csize;
 	fre_sect = fre_clust * pfs->csize;
-	/* Print information (4096 bytes/sector) */
-	pr_err("Total equipment space: %u MB.\n", tot_sect * 4 / 1024);
-	pr_err("Available space: %u MB.\n", fre_sect * 4 / 1024);
+	/* Print information using floating point calculation */
+	pr_err("Total equipment space: %.2f MB, Available space: %.2f MB.\n",
+	       (float)tot_sect * FATFS_SECTOR_SIZE / 1024.0f / 1024.0f,
+	       (float)fre_sect * FATFS_SECTOR_SIZE / 1024.0f / 1024.0f);
 
-	return fre_sect * 4 * 1024;
+	return fre_sect * FATFS_SECTOR_SIZE;
 }
 
 int fatfs_find_file(char *file_path, char *file_name)

@@ -350,10 +350,10 @@ static int idle_task_init(void)
 	if (ret)
 		goto err;
 
-// 	ret = hydrology_device_reboot();
-//
-// 	if (ret)
-// 		goto err;
+	ret = hydrology_device_reboot();
+
+	if (ret)
+		goto err;
 
 // 	ret = button_task_init();
 //

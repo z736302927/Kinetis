@@ -47,11 +47,13 @@
 /* Includes ------------------------------------------------------------------*/
 #include "../ff_gen_drv.h"
 
+#include <kinetis/fatfs.h>
+
 static uint8_t fake_ram_array[8 * 1024 * 1024];
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 /* Block Size in Bytes */
-#define BLOCK_SIZE                512
+#define BLOCK_SIZE                FATFS_SECTOR_SIZE
 #define FAKE_RAM_DEVICE_ADDR          fake_ram_array
 #define FAKE_RAM_DEVICE_SIZE          sizeof(fake_ram_array)
 
@@ -119,10 +121,18 @@ DSTATUS FAKE_RAM_DISK_status(BYTE lun)
   */
 DRESULT FAKE_RAM_DISK_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
 {
-    uint32_t i, size = BLOCK_SIZE * count;
+    uint32_t size = BLOCK_SIZE * count;
     uint8_t *addr = &FAKE_RAM_DEVICE_ADDR[sector * BLOCK_SIZE];
 
-    for (i = 0; size != 0; size--)
+    /* Check boundaries */
+    if ((sector * BLOCK_SIZE + size) > FAKE_RAM_DEVICE_SIZE)
+        return RES_PARERR;
+
+    /* Check if device is initialized */
+    if (Stat & STA_NOINIT)
+        return RES_NOTRDY;
+
+    for (; size != 0; size--)
         *buff++ = *addr++;
 
     return RES_OK;
@@ -139,10 +149,18 @@ DRESULT FAKE_RAM_DISK_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
 #if _USE_WRITE == 1
 DRESULT FAKE_RAM_DISK_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
 {
-    uint32_t i, size = BLOCK_SIZE * count + count;
+    uint32_t size = BLOCK_SIZE * count;
     uint8_t *addr = &FAKE_RAM_DEVICE_ADDR[sector * BLOCK_SIZE];
 
-    for (i = 0; size != 0; size--)
+    /* Check boundaries */
+    if ((sector * BLOCK_SIZE + size) > FAKE_RAM_DEVICE_SIZE)
+        return RES_PARERR;
+
+    /* Check if device is initialized */
+    if (Stat & STA_NOINIT)
+        return RES_NOTRDY;
+
+    for (; size != 0; size--)
         *addr++ = *buff++;
 
     return RES_OK;
@@ -184,7 +202,7 @@ DRESULT FAKE_RAM_DISK_ioctl(BYTE lun, BYTE cmd, void *buff)
 
         /* Get erase block size in unit of sector (DWORD) */
         case GET_BLOCK_SIZE :
-            *(DWORD *)buff = BLOCK_SIZE;
+            *(DWORD *)buff = 1;  /* One sector per block */
             res = RES_OK;
             break;
 

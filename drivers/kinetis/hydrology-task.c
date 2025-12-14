@@ -107,6 +107,37 @@ int hydrology_task_init(void)
 {
 	u8 interval;
 
+	/* Check and create all required files if they don't exist */
+	if (fatfs_find_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA) != 0) {
+		pr_info("Creating %s file...\n", HYDROLOGY_D_FILE_E_DATA);
+		fatfs_create_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA);
+	}
+
+	if (fatfs_find_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_INFO) != 0) {
+		pr_info("Creating %s file...\n", HYDROLOGY_D_FILE_E_INFO);
+		fatfs_create_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_INFO);
+	}
+
+	if (fatfs_find_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE) != 0) {
+		pr_info("Creating %s file...\n", HYDROLOGY_D_FILE_PICTURE);
+		fatfs_create_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE);
+	}
+
+	if (fatfs_find_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS) != 0) {
+		pr_info("Creating %s file...\n", HYDROLOGY_D_FILE_RGZS);
+		fatfs_create_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS);
+	}
+
+	if (fatfs_find_file(HYDROLOGY_FILE_PATH, HYDROLOGY_H_FILE_E_DATA) != 0) {
+		pr_info("Creating %s file...\n", HYDROLOGY_H_FILE_E_DATA);
+		fatfs_create_file(HYDROLOGY_FILE_PATH, HYDROLOGY_H_FILE_E_DATA);
+	}
+
+	if (fatfs_find_file(HYDROLOGY_FILE_PATH, HYDROLOGY_H_FILE_E_INFO) != 0) {
+		pr_info("Creating %s file...\n", HYDROLOGY_H_FILE_E_INFO);
+		fatfs_create_file(HYDROLOGY_FILE_PATH, HYDROLOGY_H_FILE_E_INFO);
+	}
+
 	tim_task_add(&g_hydrology.collecte_data, "measure temperature humidit",
 		60 * 1000, true, false, measure_temperature_humidit);
 	tim_task_add(&g_hydrology.link_pkt, "link packet",
@@ -115,6 +146,10 @@ int hydrology_task_init(void)
 	rtc_task_add(0, 0, 0, 0, 1, 0, true, test_packet);
 
 	fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+		HYDROLOGY_PA_TI, &interval, 1);
+	if (interval == 0)
+		interval = 5;
+	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
 		HYDROLOGY_PA_TI, &interval, 1);
 	rtc_task_add(0, 0, 0, 0, interval, 0, true, timer_report_packet);
 

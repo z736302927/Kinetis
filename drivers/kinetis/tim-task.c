@@ -141,12 +141,12 @@ static void tim_task_callback(struct tim_task *task)
 	s64 delta;
 
 	delta = ktime_ms_delta(ktime_get(),  time_stamp);
-	printk(KERN_DEBUG "timeout! tim_task elapse time = %llu ms.\n", delta);
+	pr_info("timeout! tim_task elapse time = %llu ms.\n", delta);
 
 	if (delta >= 900 && delta <= 1100)
-		printk(KERN_DEBUG "PASS\n");
+		pr_info("PASS\n");
 	else
-		printk(KERN_DEBUG "FAIL\n");
+		pr_info("FAIL\n");
 
 	time_stamp = ktime_get();
 }
@@ -166,7 +166,7 @@ int t_tim_task_add(int argc, char **argv)
 	return PASS;
 
 err:
-	printk(KERN_ERR "Failed to execute %s(), error code: %d\n",
+	pr_err("Failed to execute %s(), error code: %d\n",
 		__func__, ret);
 	return FAIL;
 }

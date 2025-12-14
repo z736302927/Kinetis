@@ -31,6 +31,8 @@ static char disk_path[4];
 /* a work buffer for the f_mkfs() */
 static uint8_t work_buffer[FF_MAX_SS];
 
+int process_fatfs_err(FRESULT fresult);
+
 int fatfs_init(void)
 {
     int ret;
@@ -42,9 +44,35 @@ int fatfs_init(void)
     if (ret == 0) {
         FRESULT res;
 
-        res = f_mount(&disk_fatfs, (TCHAR const *)disk_path, 0);
+        /* First try to mount immediately to check if filesystem exists */
+        res = f_mount(&disk_fatfs, (TCHAR const *)disk_path, 1);
 
         if (res == FR_NO_FILESYSTEM) {
+            printk(KERN_DEBUG "No filesystem found, creating FAT filesystem...\n");
+            
+            /* Create filesystem */
+            res = f_mkfs((const TCHAR *)disk_path, 0, work_buffer, sizeof(work_buffer));
+            if (res != FR_OK) {
+                printk(KERN_ERR "Failed to create filesystem: %d\n", res);
+                process_fatfs_err(res);
+                return -EIO;
+            }
+            
+            /* Mount after formatting */
+            res = f_mount(&disk_fatfs, (TCHAR const *)disk_path, 1);
+            if (res != FR_OK) {
+                printk(KERN_ERR "Failed to mount after formatting: %d\n", res);
+                process_fatfs_err(res);
+                return -EIO;
+            }
+            
+            printk(KERN_DEBUG "Filesystem created and mounted successfully.\n");
+        } else if (res != FR_OK) {
+            printk(KERN_ERR "Mount failed: %d\n", res);
+            process_fatfs_err(res);
+            return -EIO;
+        } else {
+            printk(KERN_DEBUG "Filesystem mounted successfully.\n");
         }
     } else {
         printk(KERN_ERR "Failed to link low level driver.\n");
