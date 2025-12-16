@@ -327,8 +327,10 @@ int rtc_task_add(u16 add_year, u8 add_month, u8 add_date,
 	if (!rtc_task)
 		return -ENOMEM;
 
-	if (!callback)
+	if (!callback) {
+		kfree(rtc_task);
 		return -EINVAL;
+	}
 
 	rtc_task->callback = callback;
 

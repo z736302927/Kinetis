@@ -101,6 +101,13 @@ void rtc_calendar_set(struct tm *rtc, u8 format)
 #ifdef USING_DS3231
 	char time[13];
 
+	/* Validate time components before formatting */
+	if (rtc->tm_year > 99 || rtc->tm_mon > 12 || rtc->tm_mday > 31 ||
+	    rtc->tm_hour > 23 || rtc->tm_min > 59 || rtc->tm_sec > 59) {
+		pr_err("Invalid time values\n");
+		return;
+	}
+	
 	snprintf(time, sizeof(time), "%02d%02d%02d%02d%02d%02d",
 		rtc->tm_year, rtc->tm_mon, rtc->tm_mday,
 		rtc->tm_hour, rtc->tm_min, rtc->tm_sec);

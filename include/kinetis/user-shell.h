@@ -10,10 +10,14 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include <linux/types.h>
 
+/* Shell buffer configuration */
+#define SHELL_INPUT_BUFFER_SIZE 128
+
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /* Exported functions --------------------------------------------------------*/
 int get_user_input_string(char *buffer, int max_len);
+void shell_init_async(void);
 
 #ifdef __cplusplus
 }

@@ -53,6 +53,9 @@ int tim_task_add(struct tim_task *tim_task,
 		return -EINVAL;
 
 	tim_task->name = kstrdup_const(name, GFP_KERNEL);
+	if (!tim_task->name)
+		return -ENOMEM;
+		
 	tim_task->callback = callback;
 	tim_task->timeout = ktime_to_ms(ktime_get()) + interval;
 	tim_task->interval = interval;

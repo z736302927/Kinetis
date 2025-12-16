@@ -111,7 +111,7 @@ int t_random_array(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_RS485
-{"test", fuction},
+{"test", NULL},
 #endif
 
 #ifdef DESIGN_VERIFICATION_RTC
@@ -128,11 +128,11 @@ int t_serial_port_shell(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_SHELL
-{"test", fuction},
+{"test", NULL},
 #endif
 
 #ifdef DESIGN_VERIFICATION_SLIST
-{"test", fuction},
+{"test", NULL},
 #endif
 
 #ifdef DESIGN_VERIFICATION_SWITCH
@@ -350,6 +350,8 @@ static int idle_task_init(void)
 	if (ret)
 		goto err;
 
+	shell_init_async();
+
 	ret = hydrology_device_reboot();
 
 	if (ret)
@@ -390,7 +392,13 @@ int parse_test_all_case(char *cmd)
 	char *argv[128];
 
 	do {
+		if (argc >= 128) {
+			pr_err("Too many arguments, maximum 128 allowed\n");
+			break;
+		}
 		argv[argc] = strsep(&cmd, " ");
+		if (!argv[argc])
+			break;
 		pr_info("[%d] %s\n", argc, argv[argc]);
 		argc++;
 	} while (cmd);
@@ -415,15 +423,24 @@ int k_test_case_schedule(void)
 
 	pr_info("/----------Test platform has been activated.----------/");
 
-	buffer = kmalloc(128, __GFP_ZERO);
-	
+	buffer = kmalloc(256, __GFP_ZERO);
+	if (!buffer) {
+		pr_err("Failed to allocate input buffer\n");
+		ret = -ENOMEM;
+		goto err;
+	}
+
 	// Force log flush
 	pr_info("");
 
 	while (1) {
-		printf("/ # ");
-		if (get_user_input_string(buffer, 128) == 0) {
-			if (buffer[0] == 27) {
+		ret = get_user_input_string(buffer, 256);
+
+		if (ret == 0) {
+			if (buffer[0] == '\0') {
+				printf("/ # ");
+				continue;  // Skip to next iteration
+			} else if (buffer[0] == 27) {
 				pr_info("\n");
 				break;
 			} else if (buffer[0] != '\0') {
@@ -435,10 +452,15 @@ int k_test_case_schedule(void)
 					pr_info("TEST FAIL\n");
 				else
 					pr_info("TEST NOT EXSIST\n");
+				printf("/ # ");
+				continue;  // Skip to next iteration
 			}
+		} else if (ret == -ETIMEDOUT)
+			idle_task_schedule();
+		else {
+			pr_err("get_user_input_string() failed, ret=%d\n", ret);
+			break;
 		}
-
-		idle_task_schedule();
 	}
 
 	kfree(buffer);

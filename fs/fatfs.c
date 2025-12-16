@@ -11,8 +11,6 @@
 #include "fatfs/ff_gen_drv.h"
 #include "fatfs/drivers/fake_ram_diskio.h"
 
-#include <stdio.h>
-
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /**
@@ -118,8 +116,10 @@ int process_fatfs_err(FRESULT fresult)
             break;
 
         case FR_DENIED:               //(7)
-        case FR_EXIST:                //(8)
             printk(KERN_DEBUG "Access denied.\n");
+            break;
+        case FR_EXIST:                //(8)
+            printk(KERN_DEBUG "File already exists.\n");
             break;
 
         case FR_INVALID_OBJECT:       //(9)
@@ -143,8 +143,10 @@ int process_fatfs_err(FRESULT fresult)
             ret = f_mkfs((const TCHAR *)disk_path, 0,
                     work_buffer, sizeof(work_buffer));
 
-            if (ret != FR_OK)
-                goto err;
+            if (ret != FR_OK) {
+                printk(KERN_ERR "Failed to create filesystem: %d\n", ret);
+                return ret;
+            }
 
             break;
 
@@ -178,10 +180,6 @@ int process_fatfs_err(FRESULT fresult)
     }
 
     return 0;
-err:
-    printk(KERN_ERR "Can't process fs error, fs result: %d\n", ret);
-
-    return ret;
 }
 
 FRESULT fatfs_miscellaneous(void)
@@ -197,7 +195,7 @@ FRESULT fatfs_miscellaneous(void)
 
     printk(KERN_DEBUG "Device information acquisition.\n");
     /* Gets device information and empty cluster size. */
-    res = f_getfree("1:", &fre_clust, &pfs);
+    res = f_getfree(disk_path, &fre_clust, &pfs);
     /* The total number of sectors and the number of empty sectors are calculated. */
     tot_sect = (pfs->n_fatent - 2) * pfs->csize;
     fre_sect = fre_clust * pfs->csize;
@@ -383,7 +381,7 @@ FRESULT fatfs_delete_node(
         j = 0;
 
         do {    /* Make a path name */
-            if (i + j >= sz_buff) { /* Buffer over flow? */
+            if (i + j + 1 >= sz_buff) { /* Buffer overflow check (+1 for null terminator) */
                 fr = FR_NOT_ENOUGH_CORE;
                 break;    /* Fails with 100 when buffer overflow */
             }
@@ -1097,7 +1095,8 @@ int t_fatfs_delete_node(int argc, char **argv)  /* How to use */
     f_mount(&fs, _T("5:"), 0);
 
     /* Directory to be deleted */
-    strncpy(buff, _T("5:dir"), strlen(_T("5:dir")));
+    strncpy(buff, _T("5:dir"), sizeof(buff) - 1);
+    buff[sizeof(buff) - 1] = '\0';  // Ensure null termination
 
     /* Delete the directory */
     fr = fatfs_delete_node(buff, sizeof buff / sizeof buff[0], &fno);
