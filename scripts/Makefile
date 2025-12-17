@@ -298,6 +298,25 @@ else
 	fi
 endif
 
+# Analyze header dependencies using Python
+analyze-deps:
+	@$(ECHO) "Analyzing header dependencies for TARGET..."
+ifeq ($(DETECTED_OS),Windows)
+	@python analyze_deps.py
+	@if exist "header_dependencies.txt" ( \
+		$(ECHO) "Dependency analysis completed. Check header_dependencies.txt for results." \
+	) else ( \
+		$(ECHO) "Error: Failed to generate dependency analysis" \
+	)
+else
+	@python analyze_deps.py
+	@if [ ! -f "header_dependencies.txt" ]; then \
+		$(ECHO) "Error: Failed to generate dependency analysis"; \
+	else \
+		$(ECHO) "Dependency analysis completed. Check header_dependencies.txt for results."; \
+	fi
+endif
+
 # Check if source files exist
 check-sources:
 	@$(ECHO) "Checking source files..."
@@ -388,4 +407,4 @@ print-cmd:
 # The - before include prevents make from failing if the files don't exist yet
 -include $(C_OBJS:.o=.d)
 
-.PHONY: all clean run debug print-sources print-objects print-os print-vars check-sources test-dirs create-dirs test-cmd print-cmd print-headers check-deps
+.PHONY: all clean run debug print-sources print-objects print-os print-vars check-sources test-dirs create-dirs test-cmd print-cmd print-headers check-deps analyze-deps
