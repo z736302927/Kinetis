@@ -83,6 +83,11 @@ int t_fatfs_raw_speed(int argc, char **argv);
 
 #ifdef DESIGN_VERIFICATION_FSM
 int t_fsm_example(int argc, char **argv);
+int t_fsm_basic(int argc, char **argv);
+int t_fsm_state_transitions(int argc, char **argv);
+int t_fsm_error_handling(int argc, char **argv);
+int t_fsm_performance(int argc, char **argv);
+int t_fsm_validation(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_GENERAL
@@ -121,6 +126,9 @@ int t_rtc_get_clock(int argc, char **argv);
 
 #ifdef DESIGN_VERIFICATION_RTCTASK
 int t_rtc_task_add(int argc, char **argv);
+int t_rtc_task_validation(int argc, char **argv);
+int t_rtc_task_performance(int argc, char **argv);
+int t_rtc_task_cleanup(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_SEIRALPORT
@@ -142,6 +150,10 @@ int t_switch_drop(int argc, char **argv);
 
 #ifdef DESIGN_VERIFICATION_TIMTASK
 int t_tim_task_add(int argc, char **argv);
+int t_tim_task_validation(int argc, char **argv);
+int t_tim_task_priority(int argc, char **argv);
+int t_tim_task_performance(int argc, char **argv);
+int t_tim_task_cleanup(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_MY9221
@@ -248,6 +260,11 @@ struct test_case_typedef kinetis_case_table[] = {
 #endif
 #ifdef DESIGN_VERIFICATION_FSM
 	{"fsm.example",                 t_fsm_example},
+	{"fsm.basic",                   t_fsm_basic},
+	{"fsm.state-transitions",        t_fsm_state_transitions},
+	{"fsm.error-handling",           t_fsm_error_handling},
+	{"fsm.performance",              t_fsm_performance},
+	{"fsm.validation",               t_fsm_validation},
 #endif
 #ifdef DESIGN_VERIFICATION_GENERAL
 	{"general.success",             t_general_success},
@@ -278,6 +295,9 @@ struct test_case_typedef kinetis_case_table[] = {
 #endif
 #ifdef DESIGN_VERIFICATION_RTCTASK
 	{"rtc-task.add",                t_rtc_task_add},
+	{"rtc-task.validation",         t_rtc_task_validation},
+	{"rtc-task.performance",         t_rtc_task_performance},
+	{"rtc-task.cleanup",            t_rtc_task_cleanup},
 #endif
 #ifdef DESIGN_VERIFICATION_SEIRALPORT
 	{"serial-port.shell",           t_serial_port_shell},
@@ -293,7 +313,11 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"switch.drop",                 t_switch_drop},
 #endif
 #ifdef DESIGN_VERIFICATION_TIMTASK
-	{"timt-ask.add",                 t_tim_task_add},
+	{"tim-task.add",                 t_tim_task_add},
+	{"tim-task.validation",          t_tim_task_validation},
+	{"tim-task.priority",            t_tim_task_priority},
+	{"tim-task.performance",         t_tim_task_performance},
+	{"tim-task.cleanup",             t_tim_task_cleanup},
 #endif
 #ifdef DESIGN_VERIFICATION_TOUCHSCREEN
 	{"test", fuction},

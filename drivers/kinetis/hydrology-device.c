@@ -31,25 +31,22 @@ int hydrology_device_init_send(u8 cnt, enum hydrology_body_type funcode)
 	int i = 0;
 	struct hydrology_up_body *upbody;
 
-	g_hydrology.up_packet = kmalloc(sizeof(struct hydrology_packet), __GFP_ZERO);
+	g_hydrology.up_packet = kzalloc(sizeof(struct hydrology_packet), GFP_KERNEL);
 
 	if (g_hydrology.up_packet == NULL) {
-		pr_err("g_hydrology.up_packet malloc failed\n");
-		return false;
+		return -ENOMEM;
 	}
 
-	g_hydrology.up_packet->header = kmalloc(sizeof(struct hydrology_up_header), __GFP_ZERO);
+	g_hydrology.up_packet->header = kzalloc(sizeof(struct hydrology_up_header), GFP_KERNEL);
 
 	if (g_hydrology.up_packet->header == NULL) {
-		pr_err("g_hydrology.up_packet->header malloc failed\n");
-		return false;
+		goto error_free_up_packet;
 	}
 
-	g_hydrology.up_packet->body = kmalloc(sizeof(struct hydrology_up_body), __GFP_ZERO);
+	g_hydrology.up_packet->body = kzalloc(sizeof(struct hydrology_up_body), GFP_KERNEL);
 
 	if (g_hydrology.up_packet->body == NULL) {
-		pr_err("g_hydrology.up_packet->body malloc failed\n");
-		return false;
+		goto error_free_header;
 	}
 
 	upbody = (struct hydrology_up_body *)g_hydrology.up_packet->body;
@@ -96,24 +93,40 @@ int hydrology_device_init_send(u8 cnt, enum hydrology_body_type funcode)
 	}
 
 	if (upbody->count > 0) {
-		upbody->element = kmalloc(sizeof(struct hydrology_element *) * upbody->count, __GFP_ZERO);
+		upbody->element = kzalloc(sizeof(struct hydrology_element *) * upbody->count, GFP_KERNEL);
 
 		if (upbody->element == NULL) {
-			pr_err("upbody->element malloc failed\n");
-			return false;
+			goto error_free_body;
 		}
 	}
 
 	for (i = 0; i < upbody->count; ++i) {
-		upbody->element[i] = kmalloc(sizeof(struct hydrology_element), __GFP_ZERO);
+		upbody->element[i] = kzalloc(sizeof(struct hydrology_element), GFP_KERNEL);
 
 		if (upbody->element[i] == NULL) {
-			pr_err("upbody->element[%d] malloc failed\n", i);
-			return false;
+			goto error_free_elements;
 		}
 	}
 
-	return true;
+	return 0;
+
+error_free_elements:
+	for (--i; i >= 0; --i) {
+		kfree(upbody->element[i]);
+		upbody->element[i] = NULL;
+	}
+	kfree(upbody->element);
+	upbody->element = NULL;
+error_free_body:
+	kfree(g_hydrology.up_packet->body);
+	g_hydrology.up_packet->body = NULL;
+error_free_header:
+	kfree(g_hydrology.up_packet->header);
+	g_hydrology.up_packet->header = NULL;
+error_free_up_packet:
+	kfree(g_hydrology.up_packet);
+	g_hydrology.up_packet = NULL;
+	return -1;
 }
 
 void hydrology_device_exit_send(void)
@@ -161,28 +174,33 @@ void hydrology_device_exit_send(void)
 
 int hydrology_device_init_receieve()
 {
-	g_hydrology.down_packet = kmalloc(sizeof(struct hydrology_packet), __GFP_ZERO);
+	g_hydrology.down_packet = kzalloc(sizeof(struct hydrology_packet), GFP_KERNEL);
 
 	if (g_hydrology.down_packet == NULL) {
-		pr_err("g_hydrology.down_packet malloc failed\n");
-		return false;
+		return -ENOMEM;
 	}
 
-	g_hydrology.down_packet->header = kmalloc(sizeof(struct hydrology_down_header), __GFP_ZERO);
+	g_hydrology.down_packet->header = kzalloc(sizeof(struct hydrology_down_header), GFP_KERNEL);
 
 	if (g_hydrology.down_packet->header == NULL) {
-		pr_err("g_hydrology.down_packet->header malloc failed\n");
-		return false;
+		goto error_free_down_packet;
 	}
 
-	g_hydrology.down_packet->body = kmalloc(sizeof(struct hydrology_down_body), __GFP_ZERO);
+	g_hydrology.down_packet->body = kzalloc(sizeof(struct hydrology_down_body), GFP_KERNEL);
 
 	if (g_hydrology.down_packet->body == NULL) {
-		pr_err("g_hydrology.down_packet->body malloc failed\n");
-		return false;
+		goto error_free_header;
 	}
 
-	return true;
+	return 0;
+
+error_free_header:
+	kfree(g_hydrology.down_packet->header);
+	g_hydrology.down_packet->header = NULL;
+error_free_down_packet:
+	kfree(g_hydrology.down_packet);
+	g_hydrology.down_packet = NULL;
+	return -ENOMEM;
 }
 
 void hydrology_device_exit_receieve()
@@ -237,23 +255,30 @@ static void hydrology_device_set_up_header_sequence(u16 cnt, u16 Total)
 	header->count_seq[2] = cnt & 0x00FF;
 }
 
-static void hydrology_device_make_up_header(enum hydrology_mode mode, enum hydrology_body_type funcode)
+static int hydrology_device_make_up_header(enum hydrology_mode mode, enum hydrology_body_type funcode)
 {
 	struct hydrology_up_header *header = g_hydrology.up_packet->header;
+	int ret;
 
 	header->frame_start[0] = SOH;
 	header->frame_start[1] = SOH;
 	header->len += 2;
 
-	fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-		HYDROLOGY_BA_CENTER, &(header->center_addr), 1);
+	ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_BA_CENTER, &(header->center_addr), 1);
+	if (ret)
+		return ret;
 	header->len += 1;
-	fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-		HYDROLOGY_BA_REMOTE, header->remote_addr, 5);
+	ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_BA_REMOTE, header->remote_addr, 5);
+	if (ret)
+		return ret;
 	header->len += 5;
 
-	fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-		HYDROLOGY_BA_PASSWORD, header->password, 2);
+	ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_BA_PASSWORD, header->password, 2);
+	if (ret)
+		return ret;
 	header->len += 2;
 
 	header->funcode = funcode;
@@ -274,16 +299,32 @@ static void hydrology_device_make_up_header(enum hydrology_mode mode, enum hydro
 		header->len += 1;
 		break;
 	}
+
+	return 0;
 }
 
 static int hydrology_device_make_up_body(struct hydrology_element_info *element_table, enum hydrology_body_type funcode)
 {
 	struct hydrology_up_body *upbody = (struct hydrology_up_body *)g_hydrology.up_packet->body;
 	struct hydrology_element_info element[1] = {HYDROLOGY_E_PIC};
-	int i;
+	int i, j, ret;
+
+	if (!upbody) {
+		pr_err("Invalid upbody parameter\n");
+		return -EINVAL;
+	}
+
+	if (!element_table &&
+		(funcode != LINK_REPORT && funcode != INIT_SOLID_STORAGE_REPORT &&
+			funcode != RESET_REPORT && funcode != SET_CLOCK_REPORT &&
+			funcode != TIME_REPORT && funcode != ARTIFICIAL_NUM_REPORT &&
+			funcode != INQUIRE_ARTIFICIAL_NUM_REPORT && funcode != PICTURE_REPORT &&
+			funcode != SW_VERSION_REPORT)) {
+		pr_err("Invalid element_table parameter for funcode %d\n", funcode);
+		return -EINVAL;
+	}
 
 	upbody->len = 0;
-
 	switch (funcode) {
 	case LINK_REPORT:
 		hydrology_get_stream_id(upbody->stream_id);
@@ -308,11 +349,15 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+				HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		if (ret)
+			return ret;
 		upbody->len += 5;
-		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-			HYDROLOGY_PDA_RTUTYPE, &(upbody->rtu_type), 1);
+		ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+				HYDROLOGY_PDA_RTUTYPE, &(upbody->rtu_type), 1);
+		if (ret)
+			return ret;
 		upbody->len += 1;
 		upbody->observationtimeid[0] = 0xF0;
 		upbody->observationtimeid[1] = 0xF0;
@@ -321,15 +366,21 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->len += 5;
 
 		for (i = 0; i < upbody->count; i++) {
-			if (hydrology_malloc_element(element_table[i].ID,
+			ret = hydrology_malloc_element(element_table[i].ID,
 					element_table[i].D, element_table[i].d,
-					upbody->element[i]) == false)
-				return false;
+					upbody->element[i]);
+			if (ret) {
+				// Clean up previously allocated elements
+				for (j = 0; j < i; j++)
+					hydrology_free_element(upbody->element[j]);
+				return ret;
+			}
 
-			fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-				element_table[i].addr,
-				upbody->element[i]->value, upbody->element[i]->num);
-
+			ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+					element_table[i].addr,
+					upbody->element[i]->value, upbody->element[i]->num);
+			if (ret)
+				return ret;
 			upbody->len += upbody->element[i]->num + 2;
 		}
 
@@ -356,11 +407,15 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+				HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		if (ret)
+			return ret;
 		upbody->len += 5;
-		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-			HYDROLOGY_PDA_RTUTYPE, &(upbody->rtu_type), 1);
+		ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+				HYDROLOGY_PDA_RTUTYPE, &(upbody->rtu_type), 1);
+		if (ret)
+			return ret;
 		upbody->len += 1;
 		upbody->observationtimeid[0] = 0xF0;
 		upbody->observationtimeid[1] = 0xF0;
@@ -388,20 +443,27 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+				HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		if (ret)
+			return ret;
 		upbody->len += 5;
-
 		for (i = 0; i < upbody->count; i++) {
-			if (hydrology_malloc_element(element_table[i].ID,
+			ret = hydrology_malloc_element(element_table[i].ID,
 					element_table[i].D, element_table[i].d,
-					upbody->element[i]) == false)
-				return false;
+					upbody->element[i]);
+			if (ret) {
+				// Clean up previously allocated elements
+				for (j = 0; j < i; j++)
+					hydrology_free_element(upbody->element[j]);
+				return ret;
+			}
 
-			fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-				element_table[i].addr,
-				upbody->element[i]->value, upbody->element[i]->num);
-
+			ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+					element_table[i].addr,
+					upbody->element[i]->value, upbody->element[i]->num);
+			if (ret)
+				return ret;
 			upbody->len += upbody->element[i]->num + 2;
 		}
 
@@ -415,22 +477,25 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+				HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		if (ret)
+			return ret;
 		upbody->len += 5;
-		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-			HYDROLOGY_PDA_SW_VERSION_LEN, upbody->element[0]->guide, 1);
+		ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+				HYDROLOGY_PDA_SW_VERSION_LEN, upbody->element[0]->guide, 1);
+		if (ret)
+			return ret;
 		upbody->element[0]->num = upbody->element[0]->guide[0];
 		upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
-		if (NULL == upbody->element[0]->value) {
-			pr_err("upbody->element[0]->value malloc failed\n");
-			return false;
-		}
-
-		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-			HYDROLOGY_PDA_SW_VERSION,
-			upbody->element[0]->value, upbody->element[0]->num);
+		if (NULL == upbody->element[0]->value)
+			return -ENOMEM;
+		ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+				HYDROLOGY_PDA_SW_VERSION,
+				upbody->element[0]->value, upbody->element[0]->num);
+		if (ret)
+			return ret;
 		upbody->len += upbody->element[0]->num + 1;
 		break;
 
@@ -444,8 +509,10 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+				HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		if (ret)
+			return ret;
 		upbody->len += 5;
 		break;
 
@@ -458,14 +525,17 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+				HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		if (ret)
+			return ret;
 		upbody->len += 5;
 
-		if (hydrology_malloc_element(element_table[0].ID,
+		ret = hydrology_malloc_element(element_table[0].ID,
 				element_table[0].D, element_table[0].d,
-				upbody->element[0]) == false)
-			return false;
+				upbody->element[0]);
+		if (ret)
+			return ret;
 
 		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
 			element_table[0].addr,
@@ -482,17 +552,20 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+				HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		if (ret)
+			return ret;
 		upbody->len += 5;
-		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-			HYDROLOGY_PDA_PUMP_LEN, upbody->element[0]->guide, 1);
+		ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+				HYDROLOGY_PDA_PUMP_LEN, upbody->element[0]->guide, 1);
+		if (ret)
+			return ret;
 		upbody->element[0]->num = upbody->element[0]->guide[0];
 		upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
 		if (NULL == upbody->element[0]->value) {
-			pr_err("upbody->element[0]->value malloc failed\n");
-			return false;
+			return -ENOMEM;
 		}
 
 		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
@@ -509,8 +582,10 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+				HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		if (ret)
+			return ret;
 		upbody->len += 5;
 		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
 			HYDROLOGY_PDA_VALVE_LEN, upbody->element[0]->guide, 1);
@@ -518,8 +593,7 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
 		if (NULL == upbody->element[0]->value) {
-			pr_err("upbody->element[0]->value malloc failed\n");
-			return false;
+			return -ENOMEM;
 		}
 
 		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
@@ -536,8 +610,10 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+				HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		if (ret)
+			return ret;
 		upbody->len += 5;
 		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
 			HYDROLOGY_PDA_GATE_LEN, upbody->element[0]->guide, 1);
@@ -549,10 +625,8 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 
 		upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
-		if (NULL == upbody->element[0]->value) {
-			pr_err("upbody->element[0]->value malloc failed\n");
-			return false;
-		}
+		if (NULL == upbody->element[0]->value)
+			return -ENOMEM;
 
 		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
 			HYDROLOGY_PDA_GATE,
@@ -568,16 +642,18 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+				HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		if (ret) {
+			return ret;
+		}
 		upbody->len += 5;
 		upbody->element[0]->guide[0] = 1;
 		upbody->element[0]->num = upbody->element[0]->guide[0];
 		upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
 		if (NULL == upbody->element[0]->value) {
-			pr_err("upbody->element[0]->value malloc failed\n");
-			return false;
+			return -ENOMEM;
 		}
 
 		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
@@ -594,17 +670,17 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+				HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		if (ret)
+			return ret;
 		upbody->len += 5;
 		upbody->element[0]->guide[0] = 64;
 		upbody->element[0]->num = upbody->element[0]->guide[0];
 		upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
-		if (NULL == upbody->element[0]->value) {
-			pr_err("upbody->element[0]->value malloc failed\n");
-			return false;
-		}
+		if (NULL == upbody->element[0]->value)
+			return -ENOMEM;
 
 		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
 			HYDROLOGY_PDA_RECORD,
@@ -620,13 +696,15 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 		upbody->rtu_addr_id[0] = 0xF1;
 		upbody->rtu_addr_id[1] = 0xF1;
 		upbody->len += 2;
-		fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-			HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+				HYDROLOGY_BA_REMOTE, upbody->rtu_addr, 5);
+		if (ret)
+			return ret;
 		upbody->len += 5;
 		break;
 	}
 
-	return true;
+	return 0;
 }
 
 static int hydrology_device_split_transfer(u8 *body_buffer, u8 *buffer,
@@ -665,18 +743,16 @@ static int hydrology_device_split_transfer(u8 *body_buffer, u8 *buffer,
 	buffer[pointer] = g_hydrology.up_packet->end;
 	pointer += 1;
 
-	g_hydrology.up_packet->crc16 = crc16(0xFFFF, buffer, pointer);
+	g_hydrology.up_packet->crc16 = hydrology_calculate_crc16(buffer, pointer);
 	buffer[pointer] = g_hydrology.up_packet->crc16 >> 8;
 	pointer += 1;
 	buffer[pointer] = g_hydrology.up_packet->crc16 & 0xFF;
 	pointer += 1;
 	g_hydrology.up_packet->len = pointer;
 
-	if (hydrology_port_transmmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len) == false)
-		return false;
-
-	return true;
+	return hydrology_port_transmmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len);
 }
+
 static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funcode)
 {
 	u8 *buffer;
@@ -687,14 +763,14 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 	u16 total;
 	struct hydrology_up_header *header = g_hydrology.up_packet->header;
 	struct hydrology_up_body *upbody = (struct hydrology_up_body *)g_hydrology.up_packet->body;
+	int ret;
 
 	if (upbody->len <= HYDROLOGY_BODY_MAX_LEN) {
 		buffer_size = header->len + upbody->len + 3;
 		g_hydrology.up_packet->buffer = kmalloc(buffer_size, __GFP_ZERO);
 
 		if (g_hydrology.up_packet->buffer == NULL) {
-			pr_err("g_hydrology.up_packet->buffer malloc failed\n");
-			return false;
+			return -ENOMEM;
 		}
 
 		buffer = g_hydrology.up_packet->buffer;
@@ -706,8 +782,9 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 
 		switch (funcode) {
 		case LINK_REPORT:
-			memcpy(&buffer[pointer], upbody, 8);
-			pointer += 8;
+			/* SL651-2014: 链路维持报文仅包含8字节报文头和2字节报文流水号 */
+			memcpy(&buffer[pointer], upbody->stream_id, 2);  /* 仅复制报文流水号 */
+			pointer += 2;
 			break;
 
 		case EVEN_PERIOD_INFO_REPORT:
@@ -851,16 +928,16 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 		buffer[pointer] = g_hydrology.up_packet->end;
 		pointer += 1;
 
-		g_hydrology.up_packet->crc16 = crc16(0xFFFF, buffer, pointer);
+		g_hydrology.up_packet->crc16 = hydrology_calculate_crc16(buffer, pointer);
 		buffer[pointer] = g_hydrology.up_packet->crc16 >> 8;
 		pointer += 1;
 		buffer[pointer] = g_hydrology.up_packet->crc16 & 0xFF;
 		pointer += 1;
 
 		g_hydrology.up_packet->len = pointer;
-
-		if (hydrology_port_transmmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len) == false)
-			return false;
+		ret = hydrology_port_transmmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len);
+		if (ret)
+			return ret;
 	} else {
 		pr_err("[warnning]upbody->len(%d) > HYDROLOGY_BODY_MAX_LEN(%d)\n",
 			upbody->len, HYDROLOGY_BODY_MAX_LEN);
@@ -869,18 +946,14 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 		buffer_size = header->len + HYDROLOGY_BODY_MAX_LEN + 3;
 		g_hydrology.up_packet->buffer = kmalloc(buffer_size, __GFP_ZERO);
 
-		if (g_hydrology.up_packet->buffer == NULL) {
-			pr_err("g_hydrology.up_packet->buffer malloc failed\n");
-			return false;
-		}
-
+		if (g_hydrology.up_packet->buffer == NULL)
+			return -ENOMEM;
 		buffer = g_hydrology.up_packet->buffer;
 
 		body_buffer = kmalloc(upbody->len, __GFP_ZERO);
 
 		if (body_buffer == NULL) {
-			pr_err("body_buffer malloc failed\n");
-			return false;
+			return -ENOMEM;
 		}
 
 		if (upbody->len % HYDROLOGY_BODY_MAX_LEN == 0)
@@ -1091,16 +1164,16 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 				buffer[pointer] = g_hydrology.up_packet->end;
 				pointer += 1;
 
-				g_hydrology.up_packet->crc16 = crc16(0xFFFF, buffer, pointer);
+				g_hydrology.up_packet->crc16 = hydrology_calculate_crc16(buffer, pointer);
 				buffer[pointer] = g_hydrology.up_packet->crc16 >> 8;
 				pointer += 1;
 				buffer[pointer] = g_hydrology.up_packet->crc16 & 0xFF;
 				pointer += 1;
 
 				g_hydrology.up_packet->len = pointer;
-
-				if (hydrology_port_transmmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len) == false)
-					return false;
+				ret = hydrology_port_transmmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len);
+				if (ret)
+					return ret;
 			}
 
 			break;
@@ -1150,7 +1223,7 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 				buffer[pointer] = g_hydrology.up_packet->end;
 				pointer += 1;
 
-				g_hydrology.up_packet->crc16 = crc16(0xFFFF, buffer, pointer);
+				g_hydrology.up_packet->crc16 = hydrology_calculate_crc16(buffer, pointer);
 				buffer[pointer] = g_hydrology.up_packet->crc16 >> 8;
 				pointer += 1;
 				buffer[pointer] = g_hydrology.up_packet->crc16 & 0xFF;
@@ -1158,8 +1231,9 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 
 				g_hydrology.up_packet->len = pointer;
 
-				if (hydrology_port_transmmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len) == false)
-					return false;
+				ret = hydrology_port_transmmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len);
+				if (ret)
+					return ret;
 			}
 
 			break;
@@ -1168,7 +1242,7 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 		kfree(body_buffer);
 	}
 
-	return true;
+	return 0;
 }
 
 static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type funcode)
@@ -1182,6 +1256,7 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 	struct hydrology_up_header *upheader = g_hydrology.up_packet->header;
 	struct hydrology_down_header *downheader = g_hydrology.down_packet->header;
 	struct hydrology_up_body *upbody = (struct hydrology_up_body *)g_hydrology.up_packet->body;
+	int ret;
 
 	seq = (downheader->count_seq[1] & 0xFF) + downheader->count_seq[2];
 	pr_err("[warnning]Packet %u isn't recevied, ready to resend\n", seq);
@@ -1190,8 +1265,7 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 	g_hydrology.up_packet->buffer = kmalloc(buffer_size, __GFP_ZERO);
 
 	if (g_hydrology.up_packet->buffer == NULL) {
-		pr_err("g_hydrology.up_packet->buffer malloc failed\n");
-		return false;
+		return -ENOMEM;
 	}
 
 	buffer = g_hydrology.up_packet->buffer;
@@ -1199,8 +1273,7 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 	body_buffer = kmalloc(upbody->len, __GFP_ZERO);
 
 	if (body_buffer == NULL) {
-		pr_err("body_buffer malloc failed\n");
-		return false;
+		return -ENOMEM;
 	}
 
 	if (upbody->len % HYDROLOGY_BODY_MAX_LEN == 0)
@@ -1213,8 +1286,9 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 
 	switch (funcode) {
 	case LINK_REPORT:
-		memcpy(&body_buffer[body_pointer], upbody, 8);
-		body_pointer += 8;
+		/* SL651-2014: 链路维持报文仅包含8字节报文头和2字节报文流水号 */
+		memcpy(&body_buffer[body_pointer], upbody->stream_id, 2);  /* 仅复制报文流水号 */
+		body_pointer += 2;
 		hydrology_device_split_transfer(body_buffer, buffer, upheader, upbody, seq, total);
 		break;
 
@@ -1386,7 +1460,8 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 		buffer[pointer] = g_hydrology.up_packet->end;
 		pointer += 1;
 
-		g_hydrology.up_packet->crc16 = crc16(0xFFFF, buffer, pointer);
+		/* 使用SL651-2014规约CRC校验 */
+		g_hydrology.up_packet->crc16 = hydrology_calculate_crc16(buffer, pointer);
 		buffer[pointer] = g_hydrology.up_packet->crc16 >> 8;
 		pointer += 1;
 		buffer[pointer] = g_hydrology.up_packet->crc16 & 0xFF;
@@ -1394,8 +1469,9 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 
 		g_hydrology.up_packet->len = pointer;
 
-		if (hydrology_port_transmmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len) == false)
-			return false;
+		ret = hydrology_port_transmmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len);
+		if (ret)
+			return ret;
 
 		break;
 
@@ -1443,7 +1519,8 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 		buffer[pointer] = g_hydrology.up_packet->end;
 		pointer += 1;
 
-		g_hydrology.up_packet->crc16 = crc16(0xFFFF, buffer, pointer);
+		/* 使用SL651-2014规约CRC校验 */
+		g_hydrology.up_packet->crc16 = hydrology_calculate_crc16(buffer, pointer);
 		buffer[pointer] = g_hydrology.up_packet->crc16 >> 8;
 		pointer += 1;
 		buffer[pointer] = g_hydrology.up_packet->crc16 & 0xFF;
@@ -1451,34 +1528,43 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 
 		g_hydrology.up_packet->len = pointer;
 
-		if (hydrology_port_transmmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len) == false)
-			return false;
+		ret = hydrology_port_transmmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len);
+		if (ret)
+			return ret;
 
 		break;
 	}
 
-	kfree(body_buffer);
+	if (body_buffer)
+		kfree(body_buffer);
 
-	return true;
+	return 0;
 }
 
 int hydrology_device_process_send(struct hydrology_element_info *element_table, u8 cnt,
 	enum hydrology_mode mode, enum hydrology_body_type funcode)
 {
-	if (hydrology_device_init_send(cnt, funcode) == false)
-		return false;
+	int ret;
 
-	hydrology_device_make_up_header(mode, funcode);
+	ret = hydrology_device_init_send(cnt, funcode);
+	if (ret)
+		return ret;
 
-	if (hydrology_device_make_up_body(element_table, funcode) == false)
-		return false;
+	ret = hydrology_device_make_up_header(mode, funcode);
+	if (ret)
+		return ret;
 
-	if (hydrology_device_make_up_tail_and_send(funcode) == false)
-		return false;
+	ret = hydrology_device_make_up_body(element_table, funcode);
+	if (ret)
+		return ret;
+
+	ret = hydrology_device_make_up_tail_and_send(funcode);
+	if (ret)
+		return ret;
 
 	hydrology_device_exit_send();
 
-	return true;
+	return 0;
 }
 
 static int hydrology_device_check_down_packet(u8 *input, int inputlen)
@@ -1487,7 +1573,7 @@ static int hydrology_device_check_down_packet(u8 *input, int inputlen)
 	u16 inputCrc = 0;
 	u16 bodylen = 0;
 
-	crcRet = crc16(0xFFFF, input, inputlen - 2);
+	crcRet = hydrology_calculate_crc16(input, inputlen - 2);
 
 	inputCrc = (input[inputlen - 2] << 8) | input[inputlen - 1];
 
@@ -1495,14 +1581,14 @@ static int hydrology_device_check_down_packet(u8 *input, int inputlen)
 		pr_err("Device crc(0x%04x) != Host crc(0x%04x)\n",
 			inputCrc, crcRet);
 		pr_err("CRC check failed !\n");
-		return false;
+		return -EPIPE;
 	}
 
 	if ((input[0] != SOH) || (input[1] != SOH)) {
 		pr_err("Device Frame head(0x%02x, 0x%02x) != Host Frame head(0x%02x, 0x%02x)\n",
 			input[0], input[1], SOH, SOH);
 		pr_err("Frame head check failed !\n");
-		return false;
+		return -EPIPE;
 	}
 
 	bodylen = (input[11] & 0x0F) * 256 + input[12];
@@ -1511,19 +1597,21 @@ static int hydrology_device_check_down_packet(u8 *input, int inputlen)
 		pr_err("Device length(0x%x) != Host length(0x%x)\n",
 			bodylen, inputlen - 17);
 		pr_err("Hydrolog length check failed !\n");
-		return false;
+		return -EPIPE;
 	}
 
-	return true;
+	return 0;
 }
 
 static int hydrology_device_make_down_header(u8 *input, int inputlen, int *position, int *bodylen)
 {
 	struct hydrology_down_header *header = (struct hydrology_down_header *)g_hydrology.down_packet->header;
+	int ret;
 
-	if (hydrology_device_check_down_packet(input, inputlen) != true) {
+	ret = hydrology_device_check_down_packet(input, inputlen);
+	if (ret) {
 		pr_err("Hydrology check fail !\n");
-		return false;
+		return ret;
 	}
 
 	memcpy(header->frame_start, &input[*position], 2);
@@ -1555,7 +1643,7 @@ static int hydrology_device_make_down_header(u8 *input, int inputlen, int *posit
 		*position += 3;
 	}
 
-	return true;
+	return 0;
 }
 
 static int hydrology_device_make_down_body(u8 *input, int len, int position,
@@ -1592,7 +1680,7 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
 	case SET_CLOCK_REPORT:
 	case RECORD_REPORT:
 	case TIME_REPORT:
-		return true;
+		return 0;
 
 	case PERIOD_REPORT:
 		fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
@@ -1620,7 +1708,7 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
 		}
 
 		if (down_body->count == 0)
-			return false;
+			return -EINVAL;
 
 		break;
 
@@ -1638,7 +1726,7 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
 		}
 
 		if (down_body->count == 0)
-			return false;
+			return -EINVAL;
 
 		break;
 
@@ -1655,7 +1743,7 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
 		}
 
 		if (down_body->count == 0)
-			return false;
+			return -EINVAL;
 
 		break;
 
@@ -1681,18 +1769,15 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
 		down_body->element = kmalloc(sizeof(struct hydrology_element *) * down_body->count, __GFP_ZERO);
 
 		if (down_body->element == NULL) {
-			pr_err("down_body->element malloc failed\n");
-			return false;
+			return -ENOMEM;
 		}
 	}
 
 	for (i = 0; i < down_body->count; ++i) {
 		down_body->element[i] = kmalloc(sizeof(struct hydrology_element), __GFP_ZERO);
 
-		if (down_body->element[i] == NULL) {
-			pr_err("down_body->element[%d] malloc failed\n", i);
-			return false;
-		}
+		if (down_body->element[i] == NULL)
+			return -ENOMEM;
 	}
 
 	switch (funcode) {
@@ -1725,8 +1810,7 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
 				down_body->element[i]->value = kmalloc(down_body->element[i]->num, __GFP_ZERO);
 
 				if (NULL == down_body->element[i]->value) {
-					pr_err("down_body->element[0]->value malloc failed\n");
-					return false;
+					return -ENOMEM;
 				}
 
 				memcpy(down_body->element[i]->value, &input[position],
@@ -1763,8 +1847,7 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
 			down_body->element[i]->value = kmalloc(down_body->element[i]->num, __GFP_ZERO);
 
 			if (NULL == down_body->element[i]->value) {
-				pr_err("down_body->element[%d]->value malloc failed\n", i);
-				return false;
+				return -ENOMEM;
 			}
 
 			memcpy(down_body->element[i]->value, &input[position],
@@ -1790,8 +1873,7 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
 		down_body->element[0]->value = kmalloc(down_body->element[0]->num, __GFP_ZERO);
 
 		if (NULL == down_body->element[0]->value) {
-			pr_err("down_body->element[%d]->value malloc failed\n", 0);
-			return false;
+			return -ENOMEM;
 		}
 
 		memcpy(down_body->element[0]->value, &input[position],
@@ -1807,8 +1889,7 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
 		down_body->element[0]->value = kmalloc(down_body->element[0]->num, __GFP_ZERO);
 
 		if (NULL == down_body->element[0]->value) {
-			pr_err("down_body->element[%d]->value malloc failed\n", 0);
-			return false;
+			return -ENOMEM;
 		}
 
 		memcpy(down_body->element[0]->value, &input[position],
@@ -1822,8 +1903,7 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
 		down_body->element[0]->value = kmalloc(down_body->element[0]->num, __GFP_ZERO);
 
 		if (NULL == down_body->element[0]->value) {
-			pr_err("down_body->element[0]->value malloc failed\n");
-			return false;
+			return -ENOMEM;
 		}
 
 		memcpy(down_body->element[0]->value, &input[position],
@@ -1836,27 +1916,31 @@ static int hydrology_device_make_down_body(u8 *input, int len, int position,
 		break;
 	}
 
-	return true;
+	return 0;
 }
 
 int hydrology_device_process_receieve(u8 *input, int inputlen, enum hydrology_mode mode)
 {
 	struct hydrology_down_header *header = NULL;
 	int i = 0, bodylen = 0;
+	int ret;
 
-	if (hydrology_device_init_receieve() == false)
-		return false;
+	ret = hydrology_device_init_receieve();
+	if (ret)
+		return ret;
 
 	header = g_hydrology.down_packet->header;
+	ret = hydrology_device_make_down_header(input, inputlen, &i, &bodylen);
+	if (ret)
+		return ret;
 
-	if (hydrology_device_make_down_header(input, inputlen, &i, &bodylen) == false)
-		return false;
+	ret = hydrology_device_make_down_body(input, bodylen, i, mode, (enum hydrology_body_type)header->funcode);
+	if (ret)
+		return ret;
 
-	if (hydrology_device_make_down_body(input, bodylen, i, mode, (enum hydrology_body_type)header->funcode) == false)
-		return false;
-
-	if (hydrology_execute_command((enum hydrology_body_type)header->funcode) == false)
-		return false;
+	ret = hydrology_execute_command((enum hydrology_body_type)header->funcode);
+	if (ret)
+		return ret;
 
 	switch (mode) {
 	case HYDROLOGY_M1:
@@ -1874,7 +1958,7 @@ int hydrology_device_process_receieve(u8 *input, int inputlen, enum hydrology_mo
 
 	hydrology_device_exit_receieve();
 
-	return true;
+	return 0;
 }
 
 int hydrology_device_process_m3_err_packet(struct hydrology_element_info *element_table,
@@ -1882,84 +1966,92 @@ int hydrology_device_process_m3_err_packet(struct hydrology_element_info *elemen
 {
 	u8 **ppdata;
 	u16 length;
+	int ret;
 
-	if (hydrology_device_init_send(cnt, funcode) == false)
-		return false;
+	ret = hydrology_device_init_send(cnt, funcode);
+	if (ret)
+		return ret;
 
 	hydrology_device_make_up_header(mode, funcode);
+	ret = hydrology_device_make_up_body(element_table, funcode);
+	if (ret)
+		return ret;
 
-	if (hydrology_device_make_up_body(element_table, funcode) == false)
-		return false;
-
-	if (hydrology_device_make_err_up_tail_and_send(funcode) == false)
-		return false;
+	ret = hydrology_device_make_err_up_tail_and_send(funcode);
+	if (ret)
+		return ret;
 
 	hydrology_device_exit_send();
 
 	cerr++;
 
-	if (hydrology_port_receive(ppdata, &length, HYDROLOGY_D_PORT_TIMEOUT) == true) {
-		if (hydrology_device_process_receieve(*ppdata, length, HYDROLOGY_M3) == true) {
-			switch (ppdata[0][length - 3]) {
-			case EOT:
-				pr_err("[EOT]Link is disconnecting\n");
-				hydrology_disconnect_link();
-				break;
-
-			case ESC:
-				pr_err("[ESC]Transfer is over, keep on live within 10 minutes\n");
-				hydrology_enable_link_packet();
-				break;
-
-			default:
-				pr_err("Unknown end packet identifier\n");
-				break;
-			}
-		} else
-			return false;
-	} else {
+	ret = hydrology_port_receive(ppdata, &length, HYDROLOGY_D_PORT_TIMEOUT);
+	if (ret) {
 		pr_err("Receive data timeout, retry times %d.\n",
 			cerr);
 
 		if (cerr >= 3) {
 			hydrology_disconnect_link();
-			return false;
+			return -ENOLINK;
 		}
 
 		hydrology_device_process_m3_err_packet(element_table, cnt, HYDROLOGY_M3, funcode, cerr);
 	}
+	ret = hydrology_device_process_receieve(*ppdata, length, HYDROLOGY_M3);
+	if (ret)
+		return ret;
+	switch (ppdata[0][length - 3]) {
+	case EOT:
+		pr_err("[EOT]Link is disconnecting\n");
+		hydrology_disconnect_link();
+		break;
 
-	return true;
+	case ESC:
+		pr_err("[ESC]Transfer is over, keep on live within 10 minutes\n");
+		hydrology_enable_link_packet();
+		break;
+
+	default:
+		pr_err("Unknown end packet identifier\n");
+		break;
+	}
+
+	return 0;
 }
 
 int hydrology_device_process_end_identifier(struct hydrology_element_info *element_table, u8 cnt,
 	enum hydrology_body_type funcode, u8 End)
 {
 	u8 cerr = 0;
-	int ret;
+	int ret = -1;
 
 	switch (End) {
 	case ETX:
 		pr_err("[ETX]Wait disconnecting...\n");
 		hydrology_disable_link_packet();
+		ret = 0;
 		break;
 
 	case ETB:
 		pr_err("[ETB]Stay connecting...\n");
 		hydrology_enable_link_packet();
+		ret = 0;
 		break;
 
 	case ENQ:
 		pr_err("[ENQ]Query packet\n");
+		ret = 0;
 		break;
 
 	case EOT:
 		pr_err("[EOT]Link is disconnecting\n");
 		hydrology_disconnect_link();
+		ret = 0;
 		break;
 
 	case ACK:
 		pr_err("[ACK]There will be another packets in the next transfer\n");
+		ret = 0;
 		break;
 
 	case NAK:
@@ -1970,6 +2062,7 @@ int hydrology_device_process_end_identifier(struct hydrology_element_info *eleme
 	case ESC:
 		pr_err("[ESC]Transfer is over, keep on live within 10 minutes\n");
 		hydrology_enable_link_packet();
+		ret = 0;
 		break;
 
 	default:
@@ -1991,30 +2084,31 @@ int hydrology_device_process_m2(struct hydrology_element_info *element_table, u8
 {
 	u8 **ppdata;
 	u16 length;
+	int ret;
 
-	if (hydrology_device_process_send(element_table, cnt, HYDROLOGY_M2, funcode) == false)
-		return false;
+	ret = hydrology_device_process_send(element_table, cnt, HYDROLOGY_M2, funcode);
+	if (ret)
+		return ret;
 
 	cerr++;
 
-	if (hydrology_port_receive(ppdata, &length, HYDROLOGY_D_PORT_TIMEOUT) == true) {
-		if (hydrology_device_process_receieve(*ppdata, length, HYDROLOGY_M2) == true)
-			hydrology_device_process_end_identifier(element_table, cnt, funcode, ppdata[0][length - 3]);
-		else
-			return false;
-	} else {
+	ret = hydrology_port_receive(ppdata, &length, HYDROLOGY_D_PORT_TIMEOUT);
+	if (ret) {
 		pr_err("Receive data timeout, retry times %d.\n",
 			cerr);
 
 		if (cerr >= 3) {
 			hydrology_disconnect_link();
-			return false;
+			return -ENOLINK;
 		}
 
 		hydrology_device_process_m2(element_table, cnt, funcode, cerr);
+		return ret;
 	}
-
-	return true;
+	ret = hydrology_device_process_receieve(*ppdata, length, HYDROLOGY_M2);
+	if (ret)
+		return ret;
+	return hydrology_device_process_end_identifier(element_table, cnt, funcode, ppdata[0][length - 3]);
 }
 
 int hydrology_device_process_m3(struct hydrology_element_info *element_table, u8 cnt,
@@ -2022,35 +2116,39 @@ int hydrology_device_process_m3(struct hydrology_element_info *element_table, u8
 {
 	u8 **ppdata;
 	u16 length;
+	int ret;
 
-	if (hydrology_device_process_send(element_table, cnt, HYDROLOGY_M3, funcode) == false)
-		return false;
+	ret = hydrology_device_process_send(element_table, cnt, HYDROLOGY_M3, funcode);
+	if (ret)
+		return ret;
 
-	if (hydrology_port_receive(ppdata, &length, HYDROLOGY_D_PORT_TIMEOUT) == true) {
-		if (hydrology_device_process_receieve(*ppdata, length, HYDROLOGY_M3) == true)
-			hydrology_device_process_end_identifier(element_table, cnt, funcode, ppdata[0][length - 3]);
-		else
-			return false;
-	} else {
+	ret = hydrology_port_receive(ppdata, &length, HYDROLOGY_D_PORT_TIMEOUT);
+	if (ret) {
 		pr_err("Receive data timeout.\n");
-		return false;
+		return ret;
 	}
-
-	return true;
+	ret = hydrology_device_process_receieve(*ppdata, length, HYDROLOGY_M3);
+	if (ret)
+		return ret;
+	return hydrology_device_process_end_identifier(element_table, cnt, funcode, ppdata[0][length - 3]);
 }
 
 int hydrology_device_process_m4(void)
 {
 	u8 **ppdata;
 	u16 length;
+	int ret;
 
 	for (;;) {
-		if (hydrology_port_receive(ppdata, &length, HYDROLOGY_D_PORT_TIMEOUT) == true)
-			hydrology_device_process_receieve(*ppdata, length, HYDROLOGY_M4);
-		else {
+		ret = hydrology_port_receive(ppdata, &length, HYDROLOGY_D_PORT_TIMEOUT);
+		if (ret) {
 			pr_err("[Warning]Device Port is going to be closed.\n");
-			return false;
+			return ret;
 		}
+		ret = hydrology_device_process_receieve(*ppdata, length, HYDROLOGY_M4);
+		if (ret)
+			return ret;
+
 	}
 }
 
@@ -2094,7 +2192,7 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
 
 	switch (funcode) {
 	case LINK_REPORT:
-		ret = true;
+		ret = 0;
 		break;
 
 	case TEST_REPORT:
@@ -2110,8 +2208,7 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
 		element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
 		if (element_table == NULL) {
-			pr_err("element_table malloc failed\n");
-			return false;
+			return -ENOMEM;
 		}
 
 		for (i = 0;;) {
@@ -2142,10 +2239,8 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
 
 		element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
-		if (element_table == NULL) {
-			pr_err("element_table malloc failed\n");
-			return false;
-		}
+		if (element_table == NULL)
+			return -ENOMEM;
 
 		for (i = 0; i < count; i++) {
 			j = random_get8bit() % (sizeof(s_guide) - 1);
@@ -2163,8 +2258,7 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
 		element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
 		if (element_table == NULL) {
-			pr_err("element_table malloc failed\n");
-			return false;
+			return -ENOMEM;
 		}
 
 		hydrology_read_specified_element_info(&element_table[0], funcode, 0x04);
@@ -2186,8 +2280,7 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
 		element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
 		if (element_table == NULL) {
-			pr_err("element_table malloc failed\n");
-			return false;
+			return -ENOMEM;
 		}
 
 		for (i = 0;;) {
@@ -2219,8 +2312,7 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
 		element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
 		if (element_table == NULL) {
-			pr_err("element_table malloc failed\n");
-			return false;
+			return -ENOMEM;
 		}
 
 		for (i = 0;;) {
@@ -2247,8 +2339,7 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
 		element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
 		if (element_table == NULL) {
-			pr_err("element_table malloc failed\n");
-			return false;
+			return -ENOMEM;
 		}
 
 		hydrology_read_specified_element_info(&element_table[0], funcode, 0x70);
@@ -2269,8 +2360,7 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
 		element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
 		if (element_table == NULL) {
-			pr_err("element_table malloc failed\n");
-			return false;
+			return -ENOMEM;
 		}
 
 		hydrology_read_specified_element_info(&element_table[0], funcode, 0x45);
@@ -2285,8 +2375,7 @@ int t_hydrology_device_random_element(enum hydrology_mode mode, enum hydrology_b
 		element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
 		if (element_table == NULL) {
-			pr_err("element_table malloc failed\n");
-			return false;
+			return -ENOMEM;
 		}
 
 		hydrology_read_specified_element_info(&element_table[0], funcode, 0xB7);
@@ -2320,77 +2409,77 @@ int t_hydrology_device_m1m2(enum hydrology_mode mode)
 {
 	g_hydrology.source = MSG_FORM_CLIENT;
 
-	if (t_hydrology_device_random_element(mode, LINK_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(mode, LINK_REPORT))
+		return -1;
 
-	if (t_hydrology_device_random_element(mode, TEST_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(mode, TEST_REPORT))
+		return -1;
 
-	if (t_hydrology_device_random_element(mode, EVEN_PERIOD_INFO_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(mode, EVEN_PERIOD_INFO_REPORT))
+		return -1;
 
-	if (t_hydrology_device_random_element(mode, TIMER_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(mode, TIMER_REPORT))
+		return -1;
 
-	if (t_hydrology_device_random_element(mode, ADD_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(mode, ADD_REPORT))
+		return -1;
 
-	if (t_hydrology_device_random_element(mode, HOUR_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(mode, HOUR_REPORT))
+		return -1;
 
-	if (t_hydrology_device_random_element(mode, ARTIFICIAL_NUM_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(mode, ARTIFICIAL_NUM_REPORT))
+		return -1;
 
-	if (t_hydrology_device_random_element(mode, PICTURE_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(mode, PICTURE_REPORT))
+		return -1;
 
-	if (t_hydrology_device_random_element(mode, PUMP_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(mode, PUMP_REPORT))
+		return -1;
 
-	if (t_hydrology_device_random_element(mode, VALVE_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(mode, VALVE_REPORT))
+		return -1;
 
-	if (t_hydrology_device_random_element(mode, GATE_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(mode, GATE_REPORT))
+		return -1;
 
-	return true;
+	return 0;
 }
 
 int t_hydrology_device_m3(void)
 {
 	g_hydrology.source = MSG_FORM_CLIENT;
 
-	if (t_hydrology_device_random_element(HYDROLOGY_M3, TEST_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(HYDROLOGY_M3, TEST_REPORT))
+		return -1;
 
-	if (t_hydrology_device_random_element(HYDROLOGY_M3, EVEN_PERIOD_INFO_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(HYDROLOGY_M3, EVEN_PERIOD_INFO_REPORT))
+		return -1;
 
-	if (t_hydrology_device_random_element(HYDROLOGY_M3, TIMER_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(HYDROLOGY_M3, TIMER_REPORT))
+		return -1;
 
-	if (t_hydrology_device_random_element(HYDROLOGY_M3, ADD_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(HYDROLOGY_M3, ADD_REPORT))
+		return -1;
 
-	if (t_hydrology_device_random_element(HYDROLOGY_M3, HOUR_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(HYDROLOGY_M3, HOUR_REPORT))
+		return -1;
 
-	if (t_hydrology_device_random_element(HYDROLOGY_M3, ARTIFICIAL_NUM_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(HYDROLOGY_M3, ARTIFICIAL_NUM_REPORT))
+		return -1;
 
-	if (t_hydrology_device_random_element(HYDROLOGY_M3, PICTURE_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(HYDROLOGY_M3, PICTURE_REPORT))
+		return -1;
 
-	if (t_hydrology_device_random_element(HYDROLOGY_M3, PUMP_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(HYDROLOGY_M3, PUMP_REPORT))
+		return -1;
 
-	if (t_hydrology_device_random_element(HYDROLOGY_M3, VALVE_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(HYDROLOGY_M3, VALVE_REPORT))
+		return -1;
 
-	if (t_hydrology_device_random_element(HYDROLOGY_M3, GATE_REPORT) == false)
-		return false;
+	if (t_hydrology_device_random_element(HYDROLOGY_M3, GATE_REPORT))
+		return -1;
 
-	return true;
+	return 0;
 }
 
 int t_hydrology_device_m4(void)

@@ -478,9 +478,9 @@ void ubx_receive_frame(u8 data, void *buffer, u8 *done)
 	if (cnt == 6)
 		len = *(((u16 *)buf) + 2);
 	else if (cnt == len + 6 + 2)
-		*done = true;
+		*done = 1;
 	else
-		*done = false;
+		*done = 0;
 }
 
 

@@ -41,6 +41,11 @@
 #define NAK                             0x15
 #define ESC                             0x1B
 
+/* SL651-2014水文规约帧结构定义 */
+#define HYDROLOGY_FRAME_START_SOH       0x7E7E  /* 帧起始符 */
+#define HYDROLOGY_FRAME_START_STX       0x02    /* 报文起始符 */
+#define HYDROLOGY_FRAME_END_ETX         0x03    /* 报文结束符 */
+
 enum hydrology_mode {
 	HYDROLOGY_M1,
 	HYDROLOGY_M2,
@@ -93,36 +98,36 @@ static inline char *hydrology_type_rtu_string(enum hydrology_rtu_type type)
 }
 
 enum hydrology_body_type {
-	LINK_REPORT = 0x2F,               //遥测站链路维持报
-	TEST_REPORT,                                 //遥测站测试报
-	EVEN_PERIOD_INFO_REPORT,                //均匀时段水文信息报
-	TIMER_REPORT,                          //遥测站定时报
-	ADD_REPORT,                            //遥测站加报报
-	HOUR_REPORT,                                 //遥测站小时报
-	ARTIFICIAL_NUM_REPORT,                     //遥测站人工置数报
-	PICTURE_REPORT,                              //遥测站图片报
-	REAL_TIME_REPORT,                             //中心站查询遥测站实时数据
-	PERIOD_REPORT,                               //中心站查询遥测站时段数据
-	INQUIRE_ARTIFICIAL_NUM_REPORT,              //中心站查询遥测站人工置数
-	SPECIFIED_ELEMENT_REPORT,                     //中心站查询遥测站指定要素实时数据
-	CONFIG_WRITE_REPORT = 0x40,     //遥测站配置修改
-	CONFIG_READ_REPORT,                    //遥测站配置读取
-	PARA_WRITE_REPORT,                //中心站修改遥测站运行参数
-	PARA_READ_REPORT,                        //中心站读取遥测站运行参数
-	WATER_PUMP_MOTOR_REPORT,                       //中心站查询水泵电机实时工作数据
-	SW_VERSION_REPORT,                      //中心站查询遥测站查询遥测站软件版本
-	STATUS_REPORT,                               //中心站查询遥测站状态信息
-	INIT_SOLID_STORAGE_REPORT,               //初始化固态存储数据
-	RESET_REPORT,                                //恢复遥测站出厂设置
-	CHANGE_PASSWORD_REPORT,                       //中心站修改传输密码
-	SET_CLOCK_REPORT,                             //中心站设置遥测站时钟
-	SET_IC_CARD_REPORT,                            //中心站设置遥测站IC卡状态
-	PUMP_REPORT,                                 //中心站设置遥测站水泵开关命令响应/ 水泵状态自报
-	VALVE_REPORT,                                //中心站设置遥测站控制阀门开关命令响应/ 阀门状态自报
-	GATE_REPORT,                                 //中心站设置遥测站控制闸门开关命令响应/ 闸门状态信息自报
-	WATER_SETTING_REPORT,                         //中心站设置遥测站水量定值控制命令响应
-	RECORD_REPORT,                               //中心站查询遥测站事件记录
-	TIME_REPORT,                                 //中心站查询遥测站时钟
+	LINK_REPORT = 0x2F,			   // 遥测站链路维持报
+	TEST_REPORT,				   // 遥测站测试报
+	EVEN_PERIOD_INFO_REPORT,	   // 均匀时段水文信息报
+	TIMER_REPORT,				   // 遥测站定时报
+	ADD_REPORT,					   // 遥测站加报报
+	HOUR_REPORT,				   // 遥测站小时报
+	ARTIFICIAL_NUM_REPORT,		   // 遥测站人工置数报
+	PICTURE_REPORT,				   // 遥测站图片报
+	REAL_TIME_REPORT,			   // 中心站查询遥测站实时数据
+	PERIOD_REPORT,				   // 中心站查询遥测站时段数据
+	INQUIRE_ARTIFICIAL_NUM_REPORT, // 中心站查询遥测站人工置数
+	SPECIFIED_ELEMENT_REPORT,	   // 中心站查询遥测站指定要素实时数据
+	CONFIG_WRITE_REPORT = 0x40,	   // 遥测站配置修改
+	CONFIG_READ_REPORT,			   // 遥测站配置读取
+	PARA_WRITE_REPORT,			   // 中心站修改遥测站运行参数
+	PARA_READ_REPORT,			   // 中心站读取遥测站运行参数
+	WATER_PUMP_MOTOR_REPORT,	   // 中心站查询水泵电机实时工作数据
+	SW_VERSION_REPORT,			   // 中心站查询遥测站查询遥测站软件版本
+	STATUS_REPORT,				   // 中心站查询遥测站状态信息
+	INIT_SOLID_STORAGE_REPORT,	   // 初始化固态存储数据
+	RESET_REPORT,				   // 恢复遥测站出厂设置
+	CHANGE_PASSWORD_REPORT,		   // 中心站修改传输密码
+	SET_CLOCK_REPORT,			   // 中心站设置遥测站时钟
+	SET_IC_CARD_REPORT,			   // 中心站设置遥测站IC卡状态
+	PUMP_REPORT,				   // 中心站设置遥测站水泵开关命令响应/ 水泵状态自报
+	VALVE_REPORT,				   // 中心站设置遥测站控制阀门开关命令响应/ 阀门状态自报
+	GATE_REPORT,				   // 中心站设置遥测站控制闸门开关命令响应/ 闸门状态信息自报
+	WATER_SETTING_REPORT,		   // 中心站设置遥测站水量定值控制命令响应
+	RECORD_REPORT,				   // 中心站查询遥测站事件记录
+	TIME_REPORT,				   // 中心站查询遥测站时钟
 };
 
 static inline char *hydrology_type_string(enum hydrology_body_type type)
@@ -331,6 +336,8 @@ int hydrology_malloc_element(u8 guide, u8 D, u8 d,
 	struct hydrology_element *element);
 void hydrology_free_element(struct hydrology_element *element);
 void hydrology_get_stream_id(u8 *stream_id);
+u16 hydrology_calculate_crc16(const u8 *data, u16 length);
+bool hydrology_verify_crc16(const u8 *data, u16 length);
 int hydrology_device_process_send(struct hydrology_element_info *element_table, u8 cnt,
 	enum hydrology_mode mode, enum hydrology_body_type funcode);
 int hydrology_read_specified_element_info(struct hydrology_element_info *element,

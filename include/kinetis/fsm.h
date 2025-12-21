@@ -24,7 +24,7 @@ struct sm_var {
 };
 
 struct state_machine {
-    fsm_state current;
+    fsm_state current_state;
 };
 
 typedef int (*action_type)(struct state_machine *machine, struct sm_var *sm_var);

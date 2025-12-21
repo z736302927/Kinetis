@@ -1,2 +1,7 @@
 .vscode/output/kinetis.exe
 scripts/output/*
+水文监测数据通信规约SL651-2014.pdf
+W25Q128.pdf
+W25Q256FV.pdf
+scripts/dependency_analysis_report.txt
+scripts/unused_files_report.txt

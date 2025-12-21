@@ -21,13 +21,34 @@ struct tim_task;
 typedef void (*tim_task_cb)(struct tim_task *);
 
 struct tim_task {
-    const char *name;
-    ktime_t timeout;
-    u32 interval;
-    tim_task_cb callback;
-    struct list_head list;
-    bool auto_load;
+	const char *name;
+	ktime_t timeout;
+	u32 interval;
+	tim_task_cb callback;
+	struct list_head list;
+	struct list_head main_list;
+	bool auto_load;
 	bool sched;
+
+	u32 task_id;
+	u32 priority;
+	ktime_t created_time;
+	u32 execution_count;
+	u32 last_execution_time;
+	u64 total_execution_time;
+};
+
+struct tim_task_stats {
+	u32 total_tasks_created;
+	u32 total_tasks_executed;
+	u32 total_tasks_failed;
+	u64 total_execution_time_ms;
+	u32 max_execution_time_ms;
+	u32 min_execution_time_ms;
+	ktime_t system_start_time;
+	u32 high_priority_tasks;
+	u32 normal_priority_tasks;
+	u32 low_priority_tasks;
 };
 
 /* support at most 1024 task, use 1024 size hash table */
@@ -109,9 +130,21 @@ void tim_task_suspend(struct tim_task *tim_task);
 void tim_task_resume(struct tim_task *tim_task);
 void tim_task_loop(void);
 
+// Enhanced functions for optimization
+struct tim_task *tim_task_find_by_name(const char *name);
+struct tim_task *tim_task_find_by_id(u32 task_id);
+int tim_task_set_priority(struct tim_task *tim_task, u32 new_priority);
+void tim_task_get_stats(struct tim_task_stats *stats);
+void tim_task_reset_stats(void);
+void tim_task_set_profiling(bool enable);
+void tim_task_print_performance_report(void);
+void tim_task_print_info(struct tim_task *tim_task);
+void tim_task_cleanup_all(void);
+struct tim_task *tim_task_get_next_task(void);
+
 int fmu_sch_add_task(struct tim_task *task);
 void fmu_sch_drop_task(struct tim_task *task);
-	
+
 struct fmu_sch_bw_info *task_sch_init(u32 max_esit);
 void task_sch_exit(struct fmu_sch_bw_info *sch_bw);
 

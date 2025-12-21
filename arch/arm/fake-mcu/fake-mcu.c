@@ -363,9 +363,6 @@ int main(int argc, char **argv)
 	}
 
 err:
-	while (1) {
-		pr_err("system crash, error code: %s(%d)\n",
-			errname(ret), ret);
-        mdelay(1000);
-	}
+	pr_err("system crash, error code: %s(%d)\n",
+		errname(ret), ret);
 }

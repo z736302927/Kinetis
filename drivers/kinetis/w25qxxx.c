@@ -5,6 +5,7 @@
 #include <linux/errno.h>
 #include <linux/printk.h>
 #include <linux/string.h>
+#include <linux/slab.h>
 
 #include <kinetis/design_verification.h>
 
@@ -28,120 +29,122 @@
 static inline void w25qxxx_port_transmmit(u8 w25qxxx, u8 tmp)
 {
 #ifdef STM32_HAL_LIBRARY
-    switch (w25qxxx) {
-        case W25Q128:
-            HAL_SPI_Transmit(&hspi1, &tmp, 1, 1000);
-            break;
+	switch (w25qxxx) {
+	case W25Q128:
+		HAL_SPI_Transmit(&hspi1, &tmp, 1, 1000);
+		break;
 
-        case W25Q256:
-            HAL_SPI_Transmit(&hspi2, &tmp, 1, 1000);
-            break;
+	case W25Q256:
+		HAL_SPI_Transmit(&hspi2, &tmp, 1, 1000);
+		break;
 
-        default:
-            break;
-    }
+	default:
+		break;
+	}
 #endif
 }
 
 static inline u8 w25qxxx_port_receive(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
 #ifdef STM32_HAL_LIBRARY
-    switch (w25qxxx) {
-        case W25Q128:
-            HAL_SPI_Receive(&hspi1, &tmp, 1, 1000);
-            break;
+	switch (w25qxxx) {
+	case W25Q128:
+		HAL_SPI_Receive(&hspi1, &tmp, 1, 1000);
+		break;
 
-        case W25Q256:
-            HAL_SPI_Receive(&hspi2, &tmp, 1, 1000);
-            break;
+	case W25Q256:
+		HAL_SPI_Receive(&hspi2, &tmp, 1, 1000);
+		break;
 
-        default:
-            break;
-    }
+	default:
+		break;
+	}
 #endif
 
-    return tmp;
+	return tmp;
 }
 
 static inline void w25qxxx_port_multi_transmmit(u8 w25qxxx,
-    u8 *pdata, u32 length)
+	u8 *pdata, u32 length)
 {
 #ifdef STM32_HAL_LIBRARY
-    switch (w25qxxx) {
-        case W25Q128:
-            HAL_SPI_Transmit(&hspi1, pdata, length, 1000);
-            break;
+	switch (w25qxxx) {
+	case W25Q128:
+		HAL_SPI_Transmit(&hspi1, pdata, length, 1000);
+		break;
 
-        case W25Q256:
-            HAL_SPI_Transmit(&hspi2, pdata, length, 1000);
-            break;
+	case W25Q256:
+		HAL_SPI_Transmit(&hspi2, pdata, length, 1000);
+		break;
 
-        default:
-            break;
-    }
+	default:
+		break;
+	}
 #endif
 }
 
 static inline void w25qxxx_port_multi_receive(u8 w25qxxx,
-    u8 *pdata, u32 length)
+	u8 *pdata, u32 length)
 {
 #ifdef STM32_HAL_LIBRARY
-    switch (w25qxxx) {
-        case W25Q128:
-            HAL_SPI_Receive(&hspi1, pdata, length, 1000);
-            break;
+	switch (w25qxxx) {
+	case W25Q128:
+		HAL_SPI_Receive(&hspi1, pdata, length, 1000);
+		break;
 
-        case W25Q256:
-            HAL_SPI_Receive(&hspi2, pdata, length, 1000);
-            break;
+	case W25Q256:
+		HAL_SPI_Receive(&hspi2, pdata, length, 1000);
+		break;
 
-        default:
-            break;
-    }
+	default:
+		break;
+	}
 #endif
 }
 
 static inline void w25qxxx_cs_low(u8 w25qxxx)
 {
 #ifdef STM32_HAL_LIBRARY
-    switch (w25qxxx) {
-        case W25Q128:
-            HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
-            break;
+	switch (w25qxxx) {
+	case W25Q128:
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
+		break;
 
-        case W25Q256:
-            HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_RESET);
-            break;
+	case W25Q256:
+		HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_RESET);
+		break;
 
-        default:
-            break;
-    }
+	default:
+		break;
+	}
 #endif
 }
 
 static inline void w25qxxx_cs_high(u8 w25qxxx)
 {
 #ifdef STM32_HAL_LIBRARY
-    switch (w25qxxx) {
-        case W25Q128:
-            HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
-            break;
+	switch (w25qxxx) {
+	case W25Q128:
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
+		break;
 
-        case W25Q256:
-            HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_SET);
-            break;
+	case W25Q256:
+		HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_SET);
+		break;
 
-        default:
-            break;
-    }
+	default:
+		break;
+	}
 #endif
 }
 
-void w25qxxx_hard_reset(u8 w25qxxx)
+void w25qxxx_transmmit_cmd(u8 w25qxxx, u8 cmd)
 {
-
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, cmd);
+	w25qxxx_cs_high(w25qxxx);
 }
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
@@ -149,6 +152,18 @@ void w25qxxx_hard_reset(u8 w25qxxx)
 #define W25Q_PAGE_SIZE                       256
 #define SECTOR_SIZE                     4096
 #define DUMMY_BYTE                      0xFF
+
+/* W25Q时序参数定义 (单位：微秒) */
+#define W25Q_POWER_DOWN_DELAY           3       /* 掉电模式切换延时 */
+#define W25Q_SUSPEND_RESUME_DELAY       20      /* 挂起/恢复操作延时 */
+#define W25Q_SOFT_RESET_DELAY           30      /* 软复位延时 */
+#define W25Q_HARD_RESET_DELAY           100     /* 硬复位延时 (更保守) */
+
+/* 操作超时时间 (单位：微秒) */
+#define W25Q_PAGE_PROGRAM_TIMEOUT       3000    /* 页编程超时时间 (3ms) */
+#define W25Q_SECTOR_ERASE_TIMEOUT       50000   /* 扇区擦除超时时间 (50ms) */
+#define W25Q_BLOCK_ERASE_TIMEOUT       200000  /* 块擦除超时时间 (200ms) */
+#define W25Q_CHIP_ERASE_TIMEOUT         5000000 /* 芯片擦除超时时间 (5s) */
 #define WRITE_ENABLE                    0x06
 #define WRITE_ENABLE_FORVOLATILE        0x50
 #define WRITE_DISABLE                   0x04
@@ -195,1039 +210,1216 @@ void w25qxxx_hard_reset(u8 w25qxxx)
 #define ENABLE_RESET                    0x66
 #define RESET_DEVICE                    0x99
 
+void w25qxxx_hard_reset(u8 w25qxxx)
+{
+	if (w25qxxx != W25Q128 && w25qxxx != W25Q256) {
+		printk(KERN_ERR "Invalid device type: 0x%02X\n", w25qxxx);
+		return;
+	}
+
+	w25qxxx_transmmit_cmd(w25qxxx, ENABLE_RESET);
+	udelay(1);  /* 短暂延时确保命令被接收 */
+
+	w25qxxx_transmmit_cmd(w25qxxx, RESET_DEVICE);
+
+	udelay(W25Q_HARD_RESET_DELAY);
+}
+
 struct w25qxxx_status {
-    unsigned BUSY: 1;
-    unsigned WEL: 1;
-    unsigned BP0: 1;
-    unsigned BP1: 1;
-    unsigned BP2: 1;
-    unsigned TB: 1;
-    unsigned SEC: 1;
-    unsigned SRP0: 1;
+	unsigned BUSY: 1;
+	unsigned WEL: 1;
+	unsigned BP0: 1;
+	unsigned BP1: 1;
+	unsigned BP2: 1;
+	unsigned TB: 1;
+	unsigned SEC: 1;
+	unsigned SRP0: 1;
 
-    unsigned SRP1: 1;
-    unsigned QE: 1;
-    unsigned LB1: 1;
-    unsigned LB2: 1;
-    unsigned LB3: 1;
-    unsigned CMP: 1;
-    unsigned SUS: 1;
+	unsigned SRP1: 1;
+	unsigned QE: 1;
+	unsigned LB1: 1;
+	unsigned LB2: 1;
+	unsigned LB3: 1;
+	unsigned CMP: 1;
+	unsigned SUS: 1;
 
-    unsigned WPS: 1;
-    unsigned DRV0: 1;
-    unsigned DRV1: 1;
-    unsigned HOLD_RST: 1;
+	unsigned WPS: 1;
+	unsigned DRV0: 1;
+	unsigned DRV1: 1;
+	unsigned HOLD_RST: 1;
 };
 
 static u32 w25q128_max_addr = 0xFFFFFF;
 static u32 w25q256_max_addr = 0x1FFFFFF;
 
-void w25qxxx_transmmit_cmd(u8 w25qxxx, u8 cmd)
-{
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, cmd);
-    w25qxxx_cs_high(w25qxxx);
-}
-
 u8 w25qxxx_read_busy(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    return test_bit(0, (unsigned long *)&tmp);
+	return test_bit(0, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_wel(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    return test_bit(1, (unsigned long *)&tmp);
+	return test_bit(1, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_bp0(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    return test_bit(2, (unsigned long *)&tmp);
+	return test_bit(2, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_bp1(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    return test_bit(4, (unsigned long *)&tmp);
+	return test_bit(4, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_bp2(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    return test_bit(5, (unsigned long *)&tmp);
+	return test_bit(5, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_sec(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    return test_bit(6, (unsigned long *)&tmp);
+	return test_bit(6, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_bp3(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
+	/* BP3位于状态寄存器2的第5位 */
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    return test_bit(6, (unsigned long *)&tmp);
+	return test_bit(5, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_tb(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    return test_bit(7, (unsigned long *)&tmp);
+	return test_bit(7, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_srp0(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    return test_bit(7, (unsigned long *)&tmp);
+	return test_bit(7, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_srp1(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    return test_bit(0, (unsigned long *)&tmp);
+	return test_bit(0, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_qe(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    return test_bit(1, (unsigned long *)&tmp);
+	return test_bit(1, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_lb1(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    return test_bit(3, (unsigned long *)&tmp);
+	return test_bit(3, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_lb2(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    return test_bit(4, (unsigned long *)&tmp);
+	return test_bit(4, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_lb3(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    return test_bit(5, (unsigned long *)&tmp);
+	return test_bit(5, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_cmp(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    return test_bit(6, (unsigned long *)&tmp);
+	return test_bit(6, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_sus(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    return test_bit(7, (unsigned long *)&tmp);
+	return test_bit(7, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_ads(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    return test_bit(0, (unsigned long *)&tmp);
+	return test_bit(0, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_adp(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    return test_bit(1, (unsigned long *)&tmp);
+	return test_bit(1, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_wps(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    return test_bit(2, (unsigned long *)&tmp);
+	return test_bit(2, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_drv0(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    return test_bit(5, (unsigned long *)&tmp);
+	return test_bit(5, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_drv1(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    return test_bit(6, (unsigned long *)&tmp);
+	return test_bit(6, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_hold_rst(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
+	tmp = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    return test_bit(7, (unsigned long *)&tmp);
+	return test_bit(7, (unsigned long *)&tmp);
 }
 
 void w25qxxx_write_srp0(u8 w25qxxx, u8 tmp)
 {
-    u8 reg = 0;
+	u8 reg = 0;
 
-    reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
+	reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    __assign_bit(7, (unsigned long *)&reg, tmp);
+	__assign_bit(7, (unsigned long *)&reg, tmp);
 
-    w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
-    w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER1, reg);
+	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER1, reg);
 }
 
 void w25qxxx_write_sec(u8 w25qxxx, u8 tmp)
 {
-    u8 reg = 0;
+	u8 reg = 0;
 
-    reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
+	reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    __assign_bit(6, (unsigned long *)&reg, tmp);
+	__assign_bit(6, (unsigned long *)&reg, tmp);
 
-    w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
-    w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER1, reg);
+	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER1, reg);
 }
 
 void w25qxxx_write_tb(u8 w25qxxx, u8 tmp)
 {
-    u8 reg = 0;
+	u8 reg = 0;
 
-    reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
+	reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    __assign_bit(5, (unsigned long *)&reg, tmp);
+	__assign_bit(5, (unsigned long *)&reg, tmp);
 
-    w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
-    w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER1, reg);
+	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER1, reg);
 }
 
 void w25qxxx_write_bp(u8 w25qxxx, u8 tmp)
 {
-    u8 reg = 0;
+	u8 reg = 0;
+	u8 bp_val = tmp & 0x07;  /* BP0-2是3位组合 */
 
-    reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
+	reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
 
-    __assign_bit(7, (unsigned long *)&reg, tmp);
+	/* 清除原BP0-2位，设置新值 */
+	reg &= ~(0x07 << 2);  /* 清除bit2-4 */
+	reg |= (bp_val << 2); /* 设置新的BP值 */
 
-    w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
-    w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER1, reg);
+	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER1, reg);
 }
 
 void w25qxxx_write_cmp(u8 w25qxxx, u8 tmp)
 {
-    u8 reg = 0;
+	u8 reg = 0;
 
-    reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
+	reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    __assign_bit(6, (unsigned long *)&reg, tmp);
+	__assign_bit(6, (unsigned long *)&reg, tmp);
 
-    w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
-    w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
+	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
 }
 
 void w25qxxx_write_lb(u8 w25qxxx, u8 tmp)
 {
-    u8 reg = 0;
+	u8 reg = 0;
 
-    reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
+	reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    __assign_bit(7, (unsigned long *)&reg, tmp);
+	__assign_bit(7, (unsigned long *)&reg, tmp);
 
-    w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
-    w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
+	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
+}
+
+void w25qxxx_write_bp3(u8 w25qxxx, u8 tmp)
+{
+	u8 reg = 0;
+
+	reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
+
+	__assign_bit(5, (unsigned long *)&reg, tmp);
+
+	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
 }
 
 void w25qxxx_write_qe(u8 w25qxxx, u8 tmp)
 {
-    u8 reg = 0;
+	u8 reg = 0;
 
-    reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
+	reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    __assign_bit(1, (unsigned long *)&reg, tmp);
+	__assign_bit(1, (unsigned long *)&reg, tmp);
 
-    w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
-    w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
+	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
 }
 
 void w25qxxx_write_srp1(u8 w25qxxx, u8 tmp)
 {
-    u8 reg = 0;
+	u8 reg = 0;
 
-    reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
+	reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
 
-    __assign_bit(0, (unsigned long *)&reg, tmp);
+	__assign_bit(0, (unsigned long *)&reg, tmp);
 
-    w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
-    w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
+	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
 }
 
 void w25qxxx_write_hold_rst(u8 w25qxxx, u8 tmp)
 {
-    u8 reg = 0;
+	u8 reg = 0;
 
-    reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
+	reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    __assign_bit(7, (unsigned long *)&reg, tmp);
+	__assign_bit(7, (unsigned long *)&reg, tmp);
 
-    w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
-    w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
+	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
 }
 
 void w25qxxx_write_drv1(u8 w25qxxx, u8 tmp)
 {
-    u8 reg = 0;
+	u8 reg = 0;
 
-    reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
+	reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    __assign_bit(6, (unsigned long *)&reg, tmp);
+	__assign_bit(6, (unsigned long *)&reg, tmp);
 
-    w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
-    w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
+	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
 }
 
 void w25qxxx_write_drv0(u8 w25qxxx, u8 tmp)
 {
-    u8 reg = 0;
+	u8 reg = 0;
 
-    reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
+	reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    __assign_bit(5, (unsigned long *)&reg, tmp);
+	__assign_bit(5, (unsigned long *)&reg, tmp);
 
-    w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
-    w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
+	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
 }
 
 void w25qxxx_write_wps(u8 w25qxxx, u8 tmp)
 {
-    u8 reg = 0;
+	u8 reg = 0;
 
-    reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
+	reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    __assign_bit(2, (unsigned long *)&reg, tmp);
+	__assign_bit(2, (unsigned long *)&reg, tmp);
 
-    w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
-    w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
+	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
 }
 
 void w25qxxx_write_adp(u8 w25qxxx, u8 tmp)
 {
-    u8 reg = 0;
+	u8 reg = 0;
 
-    reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
+	reg = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
 
-    __assign_bit(1, (unsigned long *)&reg, tmp);
+	__assign_bit(1, (unsigned long *)&reg, tmp);
 
-    w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
-    w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
+	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
 }
 
 void w25qxxx_write_enable(u8 w25qxxx)
 {
-    w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
 }
 
 void w25qxxx_write_enable_forvolatile(u8 w25qxxx)
 {
-    w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE_FORVOLATILE);
+	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE_FORVOLATILE);
 }
 
 void w25qxxx_write_disable(u8 w25qxxx)
 {
-    w25qxxx_transmmit_cmd(w25qxxx, WRITE_DISABLE);
+	w25qxxx_transmmit_cmd(w25qxxx, WRITE_DISABLE);
 }
 
 u8 w25qxxx_read_status_reg(u8 w25qxxx, u8 num)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    w25qxxx_cs_low(w25qxxx);
+	w25qxxx_cs_low(w25qxxx);
 
-    switch (num) {
-        case READ_STATUS_REGISTER1:
-            w25qxxx_port_transmmit(w25qxxx, READ_STATUS_REGISTER1);
-            tmp = w25qxxx_port_receive(w25qxxx);
-            break;
+	switch (num) {
+	case READ_STATUS_REGISTER1:
+		w25qxxx_port_transmmit(w25qxxx, READ_STATUS_REGISTER1);
+		tmp = w25qxxx_port_receive(w25qxxx);
+		break;
 
-        case READ_STATUS_REGISTER2:
-            w25qxxx_port_transmmit(w25qxxx, READ_STATUS_REGISTER2);
-            tmp = w25qxxx_port_receive(w25qxxx);
-            break;
+	case READ_STATUS_REGISTER2:
+		w25qxxx_port_transmmit(w25qxxx, READ_STATUS_REGISTER2);
+		tmp = w25qxxx_port_receive(w25qxxx);
+		break;
 
-        case READ_STATUS_REGISTER3:
-            w25qxxx_port_transmmit(w25qxxx, READ_STATUS_REGISTER3);
-            tmp = w25qxxx_port_receive(w25qxxx);
-            break;
+	case READ_STATUS_REGISTER3:
+		w25qxxx_port_transmmit(w25qxxx, READ_STATUS_REGISTER3);
+		tmp = w25qxxx_port_receive(w25qxxx);
+		break;
 
-        default:
-            break;
-    }
+	default:
+		break;
+	}
 
-    w25qxxx_cs_high(w25qxxx);
+	w25qxxx_cs_high(w25qxxx);
 
-    return tmp;
+	return tmp;
 }
 
 void w25qxxx_write_status_reg(u8 w25qxxx, u8 num, u8 tmp)
 {
-    w25qxxx_write_enable(w25qxxx);
+	w25qxxx_write_enable(w25qxxx);
 
-    w25qxxx_cs_low(w25qxxx);
+	w25qxxx_cs_low(w25qxxx);
 
-    switch (num) {
-        case WRITE_STATUS_REGISTER1:
-            w25qxxx_port_transmmit(w25qxxx, WRITE_STATUS_REGISTER1);
-            w25qxxx_port_transmmit(w25qxxx, tmp);
-            break;
+	switch (num) {
+	case WRITE_STATUS_REGISTER1:
+		w25qxxx_port_transmmit(w25qxxx, WRITE_STATUS_REGISTER1);
+		w25qxxx_port_transmmit(w25qxxx, tmp);
+		break;
 
-        case WRITE_STATUS_REGISTER2:
-            w25qxxx_port_transmmit(w25qxxx, WRITE_STATUS_REGISTER2);
-            w25qxxx_port_transmmit(w25qxxx, tmp);
-            break;
+	case WRITE_STATUS_REGISTER2:
+		w25qxxx_port_transmmit(w25qxxx, WRITE_STATUS_REGISTER2);
+		w25qxxx_port_transmmit(w25qxxx, tmp);
+		break;
 
-        case WRITE_STATUS_REGISTER3:
-            w25qxxx_port_transmmit(w25qxxx, WRITE_STATUS_REGISTER3);
-            w25qxxx_port_transmmit(w25qxxx, tmp);
-            break;
+	case WRITE_STATUS_REGISTER3:
+		w25qxxx_port_transmmit(w25qxxx, WRITE_STATUS_REGISTER3);
+		w25qxxx_port_transmmit(w25qxxx, tmp);
+		break;
 
-        default:
-            break;
-    }
+	default:
+		break;
+	}
 
-    w25qxxx_cs_high(w25qxxx);
+	w25qxxx_cs_high(w25qxxx);
 }
 
 u8 w25q256_read_ext_addr_reg(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, READ_EXTENDED_ADDRESS_REGISTER);
-    tmp = w25qxxx_port_receive(w25qxxx);
-    w25qxxx_cs_high(w25qxxx);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, READ_EXTENDED_ADDRESS_REGISTER);
+	tmp = w25qxxx_port_receive(w25qxxx);
+	w25qxxx_cs_high(w25qxxx);
 
-    return tmp;
+	return tmp;
 }
 
 void w25q256_write_ext_addr_reg(u8 w25qxxx, u8 tmp)
 {
-    w25qxxx_write_enable(w25qxxx);
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, WRITE_EXTENDED_ADDRESS_REGISTER);
-    w25qxxx_port_transmmit(w25qxxx, tmp);
-    w25qxxx_cs_high(w25qxxx);
+	w25qxxx_write_enable(w25qxxx);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, WRITE_EXTENDED_ADDRESS_REGISTER);
+	w25qxxx_port_transmmit(w25qxxx, tmp);
+	w25qxxx_cs_high(w25qxxx);
 }
 
 void w25q256_enter_4byte_addr_mode(u8 w25qxxx)
 {
-    w25qxxx_transmmit_cmd(w25qxxx, ENTER_4BYTE_ADDRESS_MODE);
+	w25qxxx_transmmit_cmd(w25qxxx, ENTER_4BYTE_ADDRESS_MODE);
 }
 
 void w25q256_exit_4byte_addr_mode(u8 w25qxxx)
 {
-    w25qxxx_transmmit_cmd(w25qxxx, EXIT_4BYTE_ADDRESS_MODE);
+	w25qxxx_transmmit_cmd(w25qxxx, EXIT_4BYTE_ADDRESS_MODE);
 }
 
 void w25qxxx_read_data(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 {
-    u8 sub_addr[4];
-    u32 remain = 0;
+	u8 sub_addr[4];
+	u32 remain = 0;
 
-    if (w25qxxx == W25Q128)
-        remain = w25q128_max_addr - addr + 1;
-    else if (w25qxxx == W25Q256)
-        remain = w25q256_max_addr - addr + 1;
+	if (w25qxxx == W25Q128)
+		remain = w25q128_max_addr - addr + 1;
+	else if (w25qxxx == W25Q256)
+		remain = w25q256_max_addr - addr + 1;
 
-    if (remain < length) {
-        printk(KERN_ERR
-            "There is not enough space left to read the specified length.\n");
-        return ;
-    }
+	if (remain < length) {
+		printk(KERN_ERR
+			"There is not enough space left to read the specified length.\n");
+		return ;
+	}
 
-    if (w25qxxx == W25Q256)
-        sub_addr[0] = (addr & 0xFF000000) >> 24;
+	if (w25qxxx == W25Q256)
+		sub_addr[0] = (addr & 0xFF000000) >> 24;
 
-    sub_addr[1] = (addr & 0x00FF0000) >> 16;
-    sub_addr[2] = (addr & 0x0000FF00) >> 8;
-    sub_addr[3] = (addr & 0x000000FF);
+	sub_addr[1] = (addr & 0x00FF0000) >> 16;
+	sub_addr[2] = (addr & 0x0000FF00) >> 8;
+	sub_addr[3] = (addr & 0x000000FF);
 
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, READ_DATA);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, READ_DATA);
 
-    if (w25qxxx == W25Q256)
-        w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+	if (w25qxxx == W25Q256)
+		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
 
-    w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
+	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
 
-    w25qxxx_port_multi_receive(w25qxxx, pdata, length);
-    w25qxxx_cs_high(w25qxxx);
+	w25qxxx_port_multi_receive(w25qxxx, pdata, length);
+	w25qxxx_cs_high(w25qxxx);
 }
 
 void w25q256_read_data_with_4byte_addr(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 {
-    u8 sub_addr[4];
+	u8 sub_addr[4];
 
-    sub_addr[0] = (addr & 0xFF000000) >> 24;
-    sub_addr[1] = (addr & 0x00FF0000) >> 16;
-    sub_addr[2] = (addr & 0x0000FF00) >> 8;
-    sub_addr[3] = (addr & 0x000000FF);
+	sub_addr[0] = (addr & 0xFF000000) >> 24;
+	sub_addr[1] = (addr & 0x00FF0000) >> 16;
+	sub_addr[2] = (addr & 0x0000FF00) >> 8;
+	sub_addr[3] = (addr & 0x000000FF);
 
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, READ_DATA_WITH_4Byte_ADDRESS);
-    w25qxxx_port_multi_transmmit(w25qxxx, sub_addr, 4);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, READ_DATA_WITH_4Byte_ADDRESS);
+	w25qxxx_port_multi_transmmit(w25qxxx, sub_addr, 4);
 
-    w25qxxx_port_multi_receive(w25qxxx, pdata, length);
-    w25qxxx_cs_high(w25qxxx);
+	w25qxxx_port_multi_receive(w25qxxx, pdata, length);
+	w25qxxx_cs_high(w25qxxx);
 }
 
 void w25qxxx_fast_read(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 {
-    u8 sub_addr[4];
+	u8 sub_addr[4];
 
-    if (w25qxxx == W25Q256)
-        sub_addr[0] = (addr & 0xFF000000) >> 24;
+	if (w25qxxx == W25Q256)
+		sub_addr[0] = (addr & 0xFF000000) >> 24;
 
-    sub_addr[1] = (addr & 0x00FF0000) >> 16;
-    sub_addr[2] = (addr & 0x0000FF00) >> 8;
-    sub_addr[3] = (addr & 0x000000FF);
+	sub_addr[1] = (addr & 0x00FF0000) >> 16;
+	sub_addr[2] = (addr & 0x0000FF00) >> 8;
+	sub_addr[3] = (addr & 0x000000FF);
 
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, FAST_READ);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, FAST_READ);
 
-    if (w25qxxx == W25Q256)
-        w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+	if (w25qxxx == W25Q256)
+		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
 
-    w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
-    w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
+	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
+	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
 
-    w25qxxx_port_multi_receive(w25qxxx, pdata, length);
-    w25qxxx_cs_high(w25qxxx);
+	w25qxxx_port_multi_receive(w25qxxx, pdata, length);
+	w25qxxx_cs_high(w25qxxx);
 }
 
 void w25q256_fast_read_with_4byte_addr(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 {
-    u8 sub_addr[4];
+	u8 sub_addr[4];
 
-    sub_addr[0] = (addr & 0xFF000000) >> 24;
-    sub_addr[1] = (addr & 0x00FF0000) >> 16;
-    sub_addr[2] = (addr & 0x0000FF00) >> 8;
-    sub_addr[3] = (addr & 0x000000FF);
+	sub_addr[0] = (addr & 0xFF000000) >> 24;
+	sub_addr[1] = (addr & 0x00FF0000) >> 16;
+	sub_addr[2] = (addr & 0x0000FF00) >> 8;
+	sub_addr[3] = (addr & 0x000000FF);
 
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, FAST_READ_WITH_4Byte_ADDRESS);
-    w25qxxx_port_multi_transmmit(w25qxxx, sub_addr, 4);
-    w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, FAST_READ_WITH_4Byte_ADDRESS);
+	w25qxxx_port_multi_transmmit(w25qxxx, sub_addr, 4);
+	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
 
-    w25qxxx_port_multi_receive(w25qxxx, pdata, length);
-    w25qxxx_cs_high(w25qxxx);
+	w25qxxx_port_multi_receive(w25qxxx, pdata, length);
+	w25qxxx_cs_high(w25qxxx);
 }
 
 static int w25qxxx_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
 {
-    u8 sub_addr[4];
-    u8 busy;
-    int ret;
+	u8 sub_addr[4];
+	u8 busy;
+	int ret;
 
-    if (length == 0) {
-        printk(KERN_ERR "Programing page length is 0.\n");
-        return -EINVAL;
-    }
+	if (length == 0) {
+		printk(KERN_ERR "Programing page length is 0.\n");
+		return -EINVAL;
+	}
 
-    if (w25qxxx == W25Q256)
-        sub_addr[0] = (addr & 0xFF000000) >> 24;
+	if (w25qxxx == W25Q256)
+		sub_addr[0] = (addr & 0xFF000000) >> 24;
 
-    sub_addr[1] = (addr & 0x00FF0000) >> 16;
-    sub_addr[2] = (addr & 0x0000FF00) >> 8;
-    sub_addr[3] = (addr & 0x000000FF);
+	sub_addr[1] = (addr & 0x00FF0000) >> 16;
+	sub_addr[2] = (addr & 0x0000FF00) >> 8;
+	sub_addr[3] = (addr & 0x000000FF);
 
-    w25qxxx_write_enable(w25qxxx);
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, PAGE_PROGRAM);
+	w25qxxx_write_enable(w25qxxx);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, PAGE_PROGRAM);
 
-    if (w25qxxx == W25Q256)
-        w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+	if (w25qxxx == W25Q256)
+		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
 
-    w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
-    w25qxxx_port_multi_transmmit(w25qxxx, pdata, length);
-    w25qxxx_cs_high(w25qxxx);
+	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
+	w25qxxx_port_multi_transmmit(w25qxxx, pdata, length);
+	w25qxxx_cs_high(w25qxxx);
 
-    ret = readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-            busy == 0, 1, 30000000);
+	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
+			busy == 0, 1, 30000000);
 
-    if (ret)
-        printk(KERN_ERR "Programing page is timeout.\n");
+	if (ret)
+		printk(KERN_ERR "Programing page is timeout.\n");
 
-    return 0;
+	return 0;
 }
 
 static int w25qxxx_multi_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
 {
-    u8 num_of_page = 0, num_of_single = 0, sub_addr = 0, cnt = 0, remain_of_single = 0;
+	u8 num_of_page = 0, num_of_single = 0, sub_addr = 0, cnt = 0, remain_of_single = 0;
+	int ret;
 
-    /* Mod operation, if addr is an integer multiple of W25Q_PAGE_SIZE, sub_addr value is 0 */
-    sub_addr = addr % W25Q_PAGE_SIZE;
+	/* Mod operation, if addr is an integer multiple of W25Q_PAGE_SIZE, sub_addr value is 0 */
+	sub_addr = addr % W25Q_PAGE_SIZE;
 
-    /* The difference count is just enough to line up to the page addr */
-    cnt = W25Q_PAGE_SIZE - sub_addr;
-    /* Figure out how many integer pages to write */
-    num_of_page =  length / W25Q_PAGE_SIZE;
-    /* mod operation is used to calculate the num of bytes less than one page */
-    num_of_single = length % W25Q_PAGE_SIZE;
+	/* The difference count is just enough to line up to the page addr */
+	cnt = W25Q_PAGE_SIZE - sub_addr;
+	/* Figure out how many integer pages to write */
+	num_of_page =  length / W25Q_PAGE_SIZE;
+	/* mod operation is used to calculate the num of bytes less than one page */
+	num_of_single = length % W25Q_PAGE_SIZE;
 
-    /* sub_addr=0, then addr is just aligned by page */
-    if (sub_addr == 0) {
-        /* length < W25Q_PAGE_SIZE */
-        if (num_of_page == 0)
-            w25qxxx_page_program(w25qxxx, addr, pdata, length);
-        else { /* length > W25Q_PAGE_SIZE */
-            /* Let me write down all the integer pages */
-            while (num_of_page--) {
-                w25qxxx_page_program(w25qxxx, addr, pdata, W25Q_PAGE_SIZE);
+	/* sub_addr=0, then addr is just aligned by page */
+	if (sub_addr == 0) {
+		/* length < W25Q_PAGE_SIZE */
+		if (num_of_page == 0)
+			w25qxxx_page_program(w25qxxx, addr, pdata, length);
+		else { /* length > W25Q_PAGE_SIZE */
+			/* Let me write down all the integer pages */
+			while (num_of_page--) {
+				ret = w25qxxx_page_program(w25qxxx, addr, pdata, W25Q_PAGE_SIZE);
+				if (ret) {
+					printk(KERN_ERR "Page programming failed at address 0x%08X\n", addr);
+					return ret;
+				}
 
-                addr +=  W25Q_PAGE_SIZE;
-                pdata += W25Q_PAGE_SIZE;
-            }
+				addr +=  W25Q_PAGE_SIZE;
+				pdata += W25Q_PAGE_SIZE;
+			}
 
-            /* If you have more than one page of data, write it down*/
-            if (num_of_single != 0)
-                w25qxxx_page_program(w25qxxx, addr, pdata, num_of_single);
-        }
-    } else { /* If the addr is not aligned with W25Q_PAGE_SIZE */
-        /* length < W25Q_PAGE_SIZE */
-        if (num_of_page == 0) {
-            /* The remaining count positions on the current page are smaller than num_of_single */
-            if (num_of_single > cnt) {
-                remain_of_single = num_of_single - cnt;
+			/* If you have more than one page of data, write it down*/
+			if (num_of_single != 0) {
+				ret = w25qxxx_page_program(w25qxxx, addr, pdata, num_of_single);
+				if (ret) {
+					printk(KERN_ERR "Page programming failed at address 0x%08X\n", addr);
+					return ret;
+				}
+			}
+		}
+	} else { /* If the addr is not aligned with W25Q_PAGE_SIZE */
+		/* length < W25Q_PAGE_SIZE */
+		if (num_of_page == 0) {
+			/* The remaining count positions on the current page are smaller than num_of_single */
+			if (num_of_single > cnt) {
+				remain_of_single = num_of_single - cnt;
 
-                /* Fill in the front page first */
-                w25qxxx_page_program(w25qxxx, addr, pdata, cnt);
+				/* Fill in the front page first */
+				ret = w25qxxx_page_program(w25qxxx, addr, pdata, cnt);
+				if (ret) {
+					printk(KERN_ERR "Page programming failed at address 0x%08X\n", addr);
+					return ret;
+				}
 
-                addr +=  cnt;
-                pdata += cnt;
+				addr +=  cnt;
+				pdata += cnt;
 
-                /* Let me write the rest of the data */
-                w25qxxx_page_program(w25qxxx, addr, pdata, remain_of_single);
-            } else  /* The remaining count position of the current page can write num_of_single data */
-                w25qxxx_page_program(w25qxxx, addr, pdata, length);
-        } else { /* length > W25Q_PAGE_SIZE */
-            /* The addr is not aligned and the extra count is treated separately, not added to the operation */
-            length -= cnt;
-            num_of_page =  length / W25Q_PAGE_SIZE;
-            num_of_single = length % W25Q_PAGE_SIZE;
+				/* Let me write the rest of the data */
+				ret = w25qxxx_page_program(w25qxxx, addr, pdata, remain_of_single);
+				if (ret) {
+					printk(KERN_ERR "Page programming failed at address 0x%08X\n", addr);
+					return ret;
+				}
+			} else { /* The remaining count position of the current page can write num_of_single data */
+				ret = w25qxxx_page_program(w25qxxx, addr, pdata, length);
+				if (ret) {
+					printk(KERN_ERR "Page programming failed at address 0x%08X\n", addr);
+					return ret;
+				}
+			}
+		} else { /* length > W25Q_PAGE_SIZE */
+			/* The addr is not aligned and the extra count is treated separately, not added to the operation */
+			length -= cnt;
+			num_of_page =  length / W25Q_PAGE_SIZE;
+			num_of_single = length % W25Q_PAGE_SIZE;
 
-            w25qxxx_page_program(w25qxxx, addr, pdata, cnt);
+			w25qxxx_page_program(w25qxxx, addr, pdata, cnt);
 
-            addr +=  cnt;
-            pdata += cnt;
+			addr +=  cnt;
+			pdata += cnt;
 
-            /* Write all the integer pages */
-            while (num_of_page--) {
-                w25qxxx_page_program(w25qxxx, addr, pdata, W25Q_PAGE_SIZE);
+			/* Write all the integer pages */
+			while (num_of_page--) {
+				ret = w25qxxx_page_program(w25qxxx, addr, pdata, W25Q_PAGE_SIZE);
+				if (ret) {
+					printk(KERN_ERR "Page programming failed at address 0x%08X\n", addr);
+					return ret;
+				}
 
-                addr +=  W25Q_PAGE_SIZE;
-                pdata += W25Q_PAGE_SIZE;
-            }
+				addr +=  W25Q_PAGE_SIZE;
+				pdata += W25Q_PAGE_SIZE;
+			}
 
-            /* If you have more than one page of data, write it down */
-            if (num_of_single != 0)
-                w25qxxx_page_program(w25qxxx, addr, pdata, num_of_single);
-        }
-    }
+			/* If you have more than one page of data, write it down */
+			if (num_of_single != 0) {
+				ret = w25qxxx_page_program(w25qxxx, addr, pdata, num_of_single);
+				if (ret) {
+					printk(KERN_ERR "Page programming failed at address 0x%08X\n", addr);
+					return ret;
+				}
+			}
+		}
+	}
 
-    return 0;
+	return 0;
 }
-
-static u8 w25qxxx_single_sector[SECTOR_SIZE];
 
 static int w25qxxx_process_partial_sector(u8 w25qxxx, u32 start_addr, u8 *pdata, u16 length)
 {
-    u32 offset = 0;
-    u32 addr = 0;
-    u32 i = 0;
+	u32 offset = 0;
+	u32 addr = 0;
+	u32 i = 0;
+	int ret;
+	u8 *w25qxxx_single_sector = NULL;
 
-    offset = start_addr % SECTOR_SIZE;
-    addr = start_addr - offset;
+	/* 分配临时缓冲区，确保线程安全 */
+	w25qxxx_single_sector = kmalloc(SECTOR_SIZE, GFP_KERNEL);
+	if (!w25qxxx_single_sector) {
+		printk(KERN_ERR "Failed to allocate memory for sector buffer\n");
+		return -ENOMEM;
+	}
 
-    w25qxxx_read_data(w25qxxx, start_addr, &w25qxxx_single_sector[offset], length);
+	offset = start_addr % SECTOR_SIZE;
+	addr = start_addr - offset;
 
-    for (i = offset; i < offset + length; i++) {
-        if (w25qxxx_single_sector[i] != 0xFF) {
-            w25qxxx_read_data(w25qxxx, addr, &w25qxxx_single_sector[0], offset);
-            w25qxxx_read_data(w25qxxx, start_addr + length, &w25qxxx_single_sector[offset + length], SECTOR_SIZE - offset - length);
-            memcpy(&w25qxxx_single_sector[offset], pdata, length);
-            w25qxxx_sector_erase(w25qxxx, addr);
-            w25qxxx_multi_page_program(w25qxxx, addr, w25qxxx_single_sector, SECTOR_SIZE);
-            return -EPIPE;
-        }
-    }
+	w25qxxx_read_data(w25qxxx, start_addr, &w25qxxx_single_sector[offset], length);
 
-    w25qxxx_multi_page_program(w25qxxx, start_addr, pdata, length);
+	for (i = offset; i < offset + length; i++) {
+		if (w25qxxx_single_sector[i] != 0xFF) {
+			w25qxxx_read_data(w25qxxx, addr, &w25qxxx_single_sector[0], offset);
+			w25qxxx_read_data(w25qxxx, start_addr + length, &w25qxxx_single_sector[offset + length], SECTOR_SIZE - offset - length);
+			memcpy(&w25qxxx_single_sector[offset], pdata, length);
+			ret = w25qxxx_sector_erase(w25qxxx, addr);
+			if (ret) {
+				printk(KERN_ERR "Sector erase failed at address 0x%08X\n", addr);
+				kfree(w25qxxx_single_sector);
+				return ret;
+			}
+			ret = w25qxxx_multi_page_program(w25qxxx, addr, w25qxxx_single_sector, SECTOR_SIZE);
+			if (ret) {
+				printk(KERN_ERR "Multi page programming failed at address 0x%08X\n", addr);
+				kfree(w25qxxx_single_sector);
+				return ret;
+			}
+			kfree(w25qxxx_single_sector);  /* 释放缓冲区 */
+			return 0;  /* 返回0表示成功，而不是-EPIPE */
+		}
+	}
 
-    return 0;
+	ret = w25qxxx_multi_page_program(w25qxxx, start_addr, pdata, length);
+	if (ret) {
+		printk(KERN_ERR "Multi page programming failed at address 0x%08X\n", start_addr);
+		kfree(w25qxxx_single_sector);
+		return ret;
+	}
+
+	kfree(w25qxxx_single_sector);
+
+	return 0;
 }
 
-void w25qxxx_multi_sector_program(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
+int w25qxxx_multi_sector_program(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 {
-    u32 num_of_sector = 0, num_of_single = 0, offset = 0;
-    u32 cnt = 0, remain_of_single = 0;
+	u32 num_of_sector = 0, num_of_single = 0, offset = 0;
+	u32 cnt = 0, remain_of_single = 0;
+	int ret;
 
-    /* Mod operation, if addr is an integer multiple of SECTOR_SIZE, offset value is 0 */
-    offset = addr % SECTOR_SIZE;
+	/* Mod operation, if addr is an integer multiple of SECTOR_SIZE, offset value is 0 */
+	offset = addr % SECTOR_SIZE;
 
-    /* The difference count is just enough to line up to the page addr */
-    cnt = SECTOR_SIZE - offset;
-    /* Figure out how many integer pages to write */
-    num_of_sector =  length / SECTOR_SIZE;
-    /* mod operation is used to calculate the num of bytes less than one page */
-    num_of_single = length % SECTOR_SIZE;
+	/* The difference count is just enough to line up to the page addr */
+	cnt = SECTOR_SIZE - offset;
+	/* Figure out how many integer pages to write */
+	num_of_sector =  length / SECTOR_SIZE;
+	/* mod operation is used to calculate the num of bytes less than one page */
+	num_of_single = length % SECTOR_SIZE;
 
-    /* offset=0, then addr is just aligned by page */
-    if (offset == 0) {
-        /* length < SECTOR_SIZE */
-        if (num_of_sector == 0)
-            w25qxxx_process_partial_sector(w25qxxx, addr, pdata, length);
-        else { /* length > SECTOR_SIZE */
-            /* Let me write down all the integer pages */
-            while (num_of_sector--) {
-                w25qxxx_sector_erase(w25qxxx, addr);
-                w25qxxx_multi_page_program(w25qxxx, addr, pdata, SECTOR_SIZE);
-                addr +=  SECTOR_SIZE;
-                pdata += SECTOR_SIZE;
-            }
+	/* offset=0, then addr is just aligned by page */
+	if (offset == 0) {
+		/* length < SECTOR_SIZE */
+		if (num_of_sector == 0) {
+			ret = w25qxxx_process_partial_sector(w25qxxx, addr, pdata, length);
+			if (ret)
+				return ret;
+		} else { /* length > SECTOR_SIZE */
+			/* Let me write down all the integer pages */
+			while (num_of_sector--) {
+				w25qxxx_sector_erase(w25qxxx, addr);
+				ret = w25qxxx_multi_page_program(w25qxxx, addr, pdata, SECTOR_SIZE);
+				if (ret)
+					return ret;
 
-            /* If you have more than one page of data, write it down*/
-            w25qxxx_process_partial_sector(w25qxxx, addr, pdata, num_of_single);
-        }
-    }
-    /* If the addr is not aligned with SECTOR_SIZE */
-    else {
-        /* length < SECTOR_SIZE */
-        if (num_of_sector == 0) {
-            /* The remaining count positions on the current page are smaller than num_of_single */
-            if (num_of_single > cnt) {
-                remain_of_single = num_of_single - cnt;
+				addr +=  SECTOR_SIZE;
+				pdata += SECTOR_SIZE;
+			}
 
-                /* Fill in the front page first */
-                w25qxxx_process_partial_sector(w25qxxx, addr, pdata, cnt);
-                addr +=  cnt;
-                pdata += cnt;
+			/* If you have more than one page of data, write it down*/
+			ret = w25qxxx_process_partial_sector(w25qxxx, addr, pdata, num_of_single);
+			if (ret)
+				return ret;
+		}
+	}
+	/* If the addr is not aligned with SECTOR_SIZE */
+	else {
+		/* length < SECTOR_SIZE */
+		if (num_of_sector == 0) {
+			/* The remaining count positions on the current page are smaller than num_of_single */
+			if (num_of_single > cnt) {
+				remain_of_single = num_of_single - cnt;
 
-                /* Let me write the rest of the data */
-                w25qxxx_process_partial_sector(w25qxxx, addr, pdata, remain_of_single);
-            } else /* The remaining count position of the current page can write num_of_single data */
-                w25qxxx_process_partial_sector(w25qxxx, addr, pdata, length);
-        } else { /* length > SECTOR_SIZE */
-            /* The addr is not aligned and the extra count is treated separately, not added to the operation */
-            length -= cnt;
-            num_of_sector =  length / SECTOR_SIZE;
-            num_of_single = length % SECTOR_SIZE;
+				/* Fill in the front page first */
+				ret = w25qxxx_process_partial_sector(w25qxxx, addr, pdata, cnt);
+				if (ret)
+					return ret;
 
-            w25qxxx_process_partial_sector(w25qxxx, addr, pdata, cnt);
-            addr +=  cnt;
-            pdata += cnt;
+				addr +=  cnt;
+				pdata += cnt;
 
-            /* Write all the integer pages */
-            while (num_of_sector--) {
-                w25qxxx_sector_erase(w25qxxx, addr);
-                w25qxxx_multi_page_program(w25qxxx, addr, pdata, SECTOR_SIZE);
-                addr +=  SECTOR_SIZE;
-                pdata += SECTOR_SIZE;
-            }
+				/* Let me write the rest of the data */
+				ret = w25qxxx_process_partial_sector(w25qxxx, addr, pdata, remain_of_single);
+				if (ret)
+					return ret;
+			} else { /* The remaining count position of the current page can write num_of_single data */
+				ret = w25qxxx_process_partial_sector(w25qxxx, addr, pdata, length);
+				if (ret)
+					return ret;
+			}
+		} else { /* length > SECTOR_SIZE */
+			/* The addr is not aligned and the extra count is treated separately, not added to the operation */
+			length -= cnt;
+			num_of_sector =  length / SECTOR_SIZE;
+			num_of_single = length % SECTOR_SIZE;
 
-            /* If you have more than one page of data, write it down */
-            if (num_of_single != 0)
-                w25qxxx_process_partial_sector(w25qxxx, addr, pdata, num_of_single);
-        }
-    }
+			ret = w25qxxx_process_partial_sector(w25qxxx, addr, pdata, cnt);
+			if (ret)
+				return ret;
+
+			addr +=  cnt;
+			pdata += cnt;
+
+			/* Write all the integer pages */
+			while (num_of_sector--) {
+				w25qxxx_sector_erase(w25qxxx, addr);
+				ret = w25qxxx_multi_page_program(w25qxxx, addr, pdata, SECTOR_SIZE);
+				if (ret)
+					return ret;
+
+				addr +=  SECTOR_SIZE;
+				pdata += SECTOR_SIZE;
+			}
+
+			/* If you have more than one page of data, write it down */
+			if (num_of_single != 0) {
+				ret = w25qxxx_process_partial_sector(w25qxxx, addr, pdata, num_of_single);
+				if (ret)
+					return ret;
+			}
+		}
+	}
+
+	return 0;
 }
 
-void w25qxxx_write_data(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
+int w25qxxx_write_data(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
 {
-    u32 remain = 0;
+	u32 remain = 0;
+	int ret;
 
-    if (w25qxxx == W25Q128)
-        remain = w25q128_max_addr - addr + 1;
-    else if (w25qxxx == W25Q256)
-        remain = w25q256_max_addr - addr + 1;
+	if (!pdata) {
+		printk(KERN_ERR "Data buffer is NULL\n");
+		return -EINVAL;
+	}
 
-    if (remain < length) {
-        printk(KERN_ERR
-            "There is not enough space left to write the specified length.\n");
-        return ;
-    }
+	if (length == 0) {
+		printk(KERN_ERR "Write length is 0\n");
+		return -EINVAL;
+	}
 
-    w25qxxx_multi_sector_program(w25qxxx, addr, pdata, length);
+	if (w25qxxx == W25Q128)
+		remain = w25q128_max_addr - addr + 1;
+	else if (w25qxxx == W25Q256)
+		remain = w25q256_max_addr - addr + 1;
+	else {
+		printk(KERN_ERR "Invalid device type: 0x%02X\n", w25qxxx);
+		return -EINVAL;
+	}
+
+	if (remain < length) {
+		printk(KERN_ERR
+			"There is not enough space left to write the specified length.\n");
+		return -ENOSPC;
+	}
+
+	ret = w25qxxx_multi_sector_program(w25qxxx, addr, pdata, length);
+
+	return ret;
 }
 
-void w25qxxx_sector_erase(u8 w25qxxx, u32 addr)
+int w25qxxx_sector_erase(u8 w25qxxx, u32 addr)
 {
-    u8 sub_addr[4];
-    u8 busy;
+	u8 sub_addr[4];
+	u8 busy;
+	int ret;
 
-    if (w25qxxx == W25Q256)
-        sub_addr[0] = (addr & 0xFF000000) >> 24;
+	if (w25qxxx != W25Q128 && w25qxxx != W25Q256) {
+		printk(KERN_ERR "Invalid device type: 0x%02X\n", w25qxxx);
+		return -EINVAL;
+	}
 
-    sub_addr[1] = (addr & 0x00FF0000) >> 16;
-    sub_addr[2] = (addr & 0x0000FF00) >> 8;
-    sub_addr[3] = (addr & 0x000000FF);
+	if (w25qxxx == W25Q256)
+		sub_addr[0] = (addr & 0xFF000000) >> 24;
 
-    w25qxxx_write_enable(w25qxxx);
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, SECTOR_ERASE);
+	sub_addr[1] = (addr & 0x00FF0000) >> 16;
+	sub_addr[2] = (addr & 0x0000FF00) >> 8;
+	sub_addr[3] = (addr & 0x000000FF);
 
-    if (w25qxxx == W25Q256)
-        w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+	w25qxxx_write_enable(w25qxxx);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, SECTOR_ERASE);
 
-    w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
-    w25qxxx_cs_high(w25qxxx);
+	if (w25qxxx == W25Q256)
+		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
 
-    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-        busy == 0, 1, 30000000);
+	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
+	w25qxxx_cs_high(w25qxxx);
+
+	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
+			busy == 0, 1, W25Q_SECTOR_ERASE_TIMEOUT);
+
+	if (ret) {
+		printk(KERN_ERR "Sector erase timeout at address 0x%08X\n", addr);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
 }
 
-void w25qxxx_block_erase_with_32kb(u8 w25qxxx, u32 addr)
+int w25qxxx_block_erase_with_32kb(u8 w25qxxx, u32 addr)
 {
-    u8 sub_addr[4];
-    u8 busy;
+	u8 sub_addr[4];
+	u8 busy;
+	int ret;
 
-    if (w25qxxx == W25Q256)
-        sub_addr[0] = (addr & 0xFF000000) >> 24;
+	if (w25qxxx != W25Q128 && w25qxxx != W25Q256) {
+		printk(KERN_ERR "Invalid device type: 0x%02X\n", w25qxxx);
+		return -EINVAL;
+	}
 
-    sub_addr[1] = (addr & 0x00FF0000) >> 16;
-    sub_addr[2] = (addr & 0x0000FF00) >> 8;
-    sub_addr[3] = (addr & 0x000000FF);
+	if (w25qxxx == W25Q256)
+		sub_addr[0] = (addr & 0xFF000000) >> 24;
 
-    w25qxxx_write_enable(w25qxxx);
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, BLOCK_ERASE_32KB);
+	sub_addr[1] = (addr & 0x00FF0000) >> 16;
+	sub_addr[2] = (addr & 0x0000FF00) >> 8;
+	sub_addr[3] = (addr & 0x000000FF);
 
-    if (w25qxxx == W25Q256)
-        w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+	w25qxxx_write_enable(w25qxxx);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, BLOCK_ERASE_32KB);
 
-    w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
-    w25qxxx_cs_high(w25qxxx);
+	if (w25qxxx == W25Q256)
+		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
 
-    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-        busy == 0, 1, 30000000);
+	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
+	w25qxxx_cs_high(w25qxxx);
+
+	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
+			busy == 0, 1, W25Q_BLOCK_ERASE_TIMEOUT);
+
+	if (ret) {
+		printk(KERN_ERR "32KB block erase timeout at address 0x%08X\n", addr);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
 }
 
-void w25qxxx_block_erase_with_64kb(u8 w25qxxx, u32 addr)
+int w25qxxx_block_erase_with_64kb(u8 w25qxxx, u32 addr)
 {
-    u8 sub_addr[4];
-    u8 busy;
+	u8 sub_addr[4];
+	u8 busy;
+	int ret;
 
-    if (w25qxxx == W25Q256)
-        sub_addr[0] = (addr & 0xFF000000) >> 24;
+	if (w25qxxx != W25Q128 && w25qxxx != W25Q256) {
+		printk(KERN_ERR "Invalid device type: 0x%02X\n", w25qxxx);
+		return -EINVAL;
+	}
 
-    sub_addr[1] = (addr & 0x00FF0000) >> 16;
-    sub_addr[2] = (addr & 0x0000FF00) >> 8;
-    sub_addr[3] = (addr & 0x000000FF);
+	if (w25qxxx == W25Q256)
+		sub_addr[0] = (addr & 0xFF000000) >> 24;
 
-    w25qxxx_write_enable(w25qxxx);
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, BLOCK_ERASE_64KB);
+	sub_addr[1] = (addr & 0x00FF0000) >> 16;
+	sub_addr[2] = (addr & 0x0000FF00) >> 8;
+	sub_addr[3] = (addr & 0x000000FF);
 
-    if (w25qxxx == W25Q256)
-        w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+	w25qxxx_write_enable(w25qxxx);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, BLOCK_ERASE_64KB);
 
-    w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
-    w25qxxx_cs_high(w25qxxx);
+	if (w25qxxx == W25Q256)
+		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
 
-    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-        busy == 0, 1, 30000000);
+	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
+	w25qxxx_cs_high(w25qxxx);
+
+	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
+			busy == 0, 1, W25Q_BLOCK_ERASE_TIMEOUT);
+
+	if (ret) {
+		printk(KERN_ERR "64KB block erase timeout at address 0x%08X\n", addr);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
 }
 
-void sw25qxxx_chip_erase(u8 w25qxxx)
+int sw25qxxx_chip_erase(u8 w25qxxx)
 {
-    u8 busy;
+	u8 busy;
+	int ret;
 
-    w25qxxx_write_enable(w25qxxx);
-    w25qxxx_transmmit_cmd(w25qxxx, CHIP_ERASE);
+	if (w25qxxx != W25Q128 && w25qxxx != W25Q256) {
+		printk(KERN_ERR "Invalid device type: 0x%02X\n", w25qxxx);
+		return -EINVAL;
+	}
 
-    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-        busy == 0, 1, 30000000);
+	w25qxxx_write_enable(w25qxxx);
+	w25qxxx_transmmit_cmd(w25qxxx, CHIP_ERASE);
+
+	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
+			busy == 0, 1, W25Q_CHIP_ERASE_TIMEOUT);
+
+	if (ret) {
+		printk(KERN_ERR "Chip erase timeout\n");
+		return -ETIMEDOUT;
+	}
+
+	return 0;
 }
 
 void w25qxxx_erase_program_suspend(u8 w25qxxx)
 {
-    if (w25qxxx_read_busy(w25qxxx) == 0 && w25qxxx_read_sus(w25qxxx) == 1)
-        return ;
+	if (w25qxxx_read_busy(w25qxxx) == 0 && w25qxxx_read_sus(w25qxxx) == 1)
+		return ;
 
-    w25qxxx_transmmit_cmd(w25qxxx, ERASE_PROGRAM_SUSPEND);
-    udelay(20);
+	w25qxxx_transmmit_cmd(w25qxxx, ERASE_PROGRAM_SUSPEND);
+	udelay(20);
 }
 
 void w25qxxx_erase_program_resume(u8 w25qxxx)
 {
-    if (w25qxxx_read_busy(w25qxxx) == 1 && w25qxxx_read_sus(w25qxxx) == 0)
-        return ;
+	if (w25qxxx_read_busy(w25qxxx) == 1 && w25qxxx_read_sus(w25qxxx) == 0)
+		return ;
 
-    w25qxxx_transmmit_cmd(w25qxxx, ERASE_PROGRAM_RESUME);
+	w25qxxx_transmmit_cmd(w25qxxx, ERASE_PROGRAM_RESUME);
 }
 
 void w25qxxx_power_down(u8 w25qxxx)
 {
-    w25qxxx_transmmit_cmd(w25qxxx, POWER_DOWN);
-    udelay(3);
+	w25qxxx_transmmit_cmd(w25qxxx, POWER_DOWN);
+	udelay(3);
 }
 
 void w25qxxx_release_power_down(u8 w25qxxx)
 {
-    w25qxxx_transmmit_cmd(w25qxxx, RELEASE_POWERDOWN_DEVICE_ID);
-    udelay(3);
+	w25qxxx_transmmit_cmd(w25qxxx, RELEASE_POWERDOWN_DEVICE_ID);
+	udelay(3);
 }
 
 u8 w25qxxx_release_device_id(u8 w25qxxx)
 {
-    u8 tmp = 0;
+	u8 tmp = 0;
 
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, RELEASE_POWERDOWN_DEVICE_ID);
-    w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
-    w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
-    w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
-    tmp = w25qxxx_port_receive(w25qxxx);
-    w25qxxx_cs_high(w25qxxx);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, RELEASE_POWERDOWN_DEVICE_ID);
+	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
+	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
+	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
+	tmp = w25qxxx_port_receive(w25qxxx);
+	w25qxxx_cs_high(w25qxxx);
 
-    return tmp;
+	return tmp;
 }
 
 void w25qxxx_read_manufacturer_device_id(u8 w25qxxx, u8 *ManufacturerID, u8 *DeviceID)
 {
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, READ_MANUFACTURER_DEVICE_ID);
-    w25qxxx_port_transmmit(w25qxxx, 0x00);
-    w25qxxx_port_transmmit(w25qxxx, 0x00);
-    w25qxxx_port_transmmit(w25qxxx, 0x00);
-    *ManufacturerID = w25qxxx_port_receive(w25qxxx);
-    *DeviceID = w25qxxx_port_receive(w25qxxx);
-    w25qxxx_cs_high(w25qxxx);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, READ_MANUFACTURER_DEVICE_ID);
+	w25qxxx_port_transmmit(w25qxxx, 0x00);
+	w25qxxx_port_transmmit(w25qxxx, 0x00);
+	w25qxxx_port_transmmit(w25qxxx, 0x00);
+	*ManufacturerID = w25qxxx_port_receive(w25qxxx);
+	*DeviceID = w25qxxx_port_receive(w25qxxx);
+	w25qxxx_cs_high(w25qxxx);
 }
 
 void w25qxxx_read_unique_id(u8 w25qxxx, u8 *unique_id)
 {
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, READ_UNIQUE_ID_NUMBER);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, READ_UNIQUE_ID_NUMBER);
 
-    if (w25qxxx == W25Q256) {
-        if (w25qxxx_read_ads(w25qxxx) == 1)
-            w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
-    }
+	if (w25qxxx == W25Q256) {
+		if (w25qxxx_read_ads(w25qxxx) == 1)
+			w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
+	}
 
-    w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
-    w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
-    w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
-    w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
+	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
+	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
+	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
+	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
 
-    w25qxxx_port_multi_receive(w25qxxx, unique_id, 8);
-    w25qxxx_cs_high(w25qxxx);
+	w25qxxx_port_multi_receive(w25qxxx, unique_id, 8);
+	w25qxxx_cs_high(w25qxxx);
 }
 
 void w25qxxx_read_jedec_id(u8 w25qxxx, u8 *JEDECID)
 {
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, READ_JEDEC_ID);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, READ_JEDEC_ID);
 
-    w25qxxx_port_multi_receive(w25qxxx, JEDECID, 3);
-    w25qxxx_cs_high(w25qxxx);
+	w25qxxx_port_multi_receive(w25qxxx, JEDECID, 3);
+	w25qxxx_cs_high(w25qxxx);
 }
 
 void w25qxxx_read_sfdp_reg(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
 {
-    u8 sub_addr = 0;
+	u8 sub_addr = 0;
 
-    sub_addr = (addr & 0x000000FF);
+	sub_addr = (addr & 0x000000FF);
 
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, READ_SFDP_REGISTER);
-    w25qxxx_port_transmmit(w25qxxx, 0x00);
-    w25qxxx_port_transmmit(w25qxxx, 0x00);
-    w25qxxx_port_transmmit(w25qxxx, sub_addr);
-    w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, READ_SFDP_REGISTER);
+	w25qxxx_port_transmmit(w25qxxx, 0x00);
+	w25qxxx_port_transmmit(w25qxxx, 0x00);
+	w25qxxx_port_transmmit(w25qxxx, sub_addr);
+	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
 
-    w25qxxx_port_multi_receive(w25qxxx, pdata, length);
-    w25qxxx_cs_high(w25qxxx);
+	w25qxxx_port_multi_receive(w25qxxx, pdata, length);
+	w25qxxx_cs_high(w25qxxx);
 }
 
 void w25qxxx_erase_security_regs(u8 w25qxxx, u8 addr)
 {
-    u8 busy;
+	u8 busy;
 
-    w25qxxx_write_enable(w25qxxx);
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, ERASE_SECURITY_REGISTERS);
+	w25qxxx_write_enable(w25qxxx);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, ERASE_SECURITY_REGISTERS);
 
-    if (w25qxxx == W25Q256)
-        w25qxxx_port_transmmit(w25qxxx, 0x00);
+	if (w25qxxx == W25Q256)
+		w25qxxx_port_transmmit(w25qxxx, 0x00);
 
-    w25qxxx_port_transmmit(w25qxxx, 0x00);
-    w25qxxx_port_transmmit(w25qxxx, addr);
-    w25qxxx_port_transmmit(w25qxxx, 0x00);
-    w25qxxx_cs_high(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, 0x00);
+	w25qxxx_port_transmmit(w25qxxx, addr);
+	w25qxxx_port_transmmit(w25qxxx, 0x00);
+	w25qxxx_cs_high(w25qxxx);
 
-    readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
-        busy == 0, 1, 30000000);
+	readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
+		busy == 0, 1, 30000000);
 }
 
 //void w25qxxx_program_security_regs(u8 w25qxxx, u32 regNum, u32 Byteaddr, u8 *pdata, u16 length)
@@ -1264,152 +1456,173 @@ void w25qxxx_erase_security_regs(u8 w25qxxx, u8 addr)
 
 void w25qxxx_enter_qpi_mode(u8 w25qxxx)
 {
-    w25qxxx_write_qe(w25qxxx, 1);
-    w25qxxx_transmmit_cmd(w25qxxx, ENTER_QPI_MODE);
+	w25qxxx_write_qe(w25qxxx, 1);
+	w25qxxx_transmmit_cmd(w25qxxx, ENTER_QPI_MODE);
 }
 
 void w25qxxx_exit_qpi_mode(u8 w25qxxx)
 {
-    w25qxxx_transmmit_cmd(w25qxxx, EXIT_QPI_MODE);
+	w25qxxx_transmmit_cmd(w25qxxx, EXIT_QPI_MODE);
 }
 
 void w25qxxx_individual_block_sector_lock(u8 w25qxxx, u32 addr)
 {
-    u8 sub_addr[4];
+	u8 sub_addr[4];
 
-    if (w25qxxx == W25Q256)
-        sub_addr[0] = (addr & 0xFF000000) >> 24;
+	if (w25qxxx == W25Q256)
+		sub_addr[0] = (addr & 0xFF000000) >> 24;
 
-    sub_addr[1] = (addr & 0x00FF0000) >> 16;
-    sub_addr[2] = (addr & 0x0000FF00) >> 8;
-    sub_addr[3] = (addr & 0x000000FF);
+	sub_addr[1] = (addr & 0x00FF0000) >> 16;
+	sub_addr[2] = (addr & 0x0000FF00) >> 8;
+	sub_addr[3] = (addr & 0x000000FF);
 
-    w25qxxx_write_wps(w25qxxx, 1);
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, INDIVIDUAL_BLOCK_SECTOR_LOCK);
+	w25qxxx_write_wps(w25qxxx, 1);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, INDIVIDUAL_BLOCK_SECTOR_LOCK);
 
-    if (w25qxxx == W25Q256)
-        w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+	if (w25qxxx == W25Q256)
+		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
 
-    w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
-    w25qxxx_cs_high(w25qxxx);
+	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
+	w25qxxx_cs_high(w25qxxx);
 }
 
 void w25qxxx_individual_block_sector_unlock(u8 w25qxxx, u32 addr)
 {
-    u8 sub_addr[4];
+	u8 sub_addr[4];
 
-    if (w25qxxx == W25Q256)
-        sub_addr[0] = (addr & 0xFF000000) >> 24;
+	if (w25qxxx == W25Q256)
+		sub_addr[0] = (addr & 0xFF000000) >> 24;
 
-    sub_addr[1] = (addr & 0x00FF0000) >> 16;
-    sub_addr[2] = (addr & 0x0000FF00) >> 8;
-    sub_addr[3] = (addr & 0x000000FF);
+	sub_addr[1] = (addr & 0x00FF0000) >> 16;
+	sub_addr[2] = (addr & 0x0000FF00) >> 8;
+	sub_addr[3] = (addr & 0x000000FF);
 
-    w25qxxx_write_wps(w25qxxx, 1);
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, INDIVIDUAL_BLOCK_SECTOR_UNLOCK);
+	w25qxxx_write_wps(w25qxxx, 1);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, INDIVIDUAL_BLOCK_SECTOR_UNLOCK);
 
-    if (w25qxxx == W25Q256)
-        w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+	if (w25qxxx == W25Q256)
+		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
 
-    w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
-    w25qxxx_cs_high(w25qxxx);
+	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
+	w25qxxx_cs_high(w25qxxx);
 }
 
 u8 w25qxxx_read_block_sector_lock(u8 w25qxxx, u32 addr)
 {
-    u8 tmp = 0;
-    u8 sub_addr[4];
+	u8 tmp = 0;
+	u8 sub_addr[4];
 
-    if (w25qxxx == W25Q256)
-        sub_addr[0] = (addr & 0xFF000000) >> 24;
+	if (w25qxxx == W25Q256)
+		sub_addr[0] = (addr & 0xFF000000) >> 24;
 
-    sub_addr[1] = (addr & 0x00FF0000) >> 16;
-    sub_addr[2] = (addr & 0x0000FF00) >> 8;
-    sub_addr[3] = (addr & 0x000000FF);
+	sub_addr[1] = (addr & 0x00FF0000) >> 16;
+	sub_addr[2] = (addr & 0x0000FF00) >> 8;
+	sub_addr[3] = (addr & 0x000000FF);
 
-    w25qxxx_write_wps(w25qxxx, 1);
-    w25qxxx_cs_low(w25qxxx);
-    w25qxxx_port_transmmit(w25qxxx, READ_BLOCK_SECTOR_LOCK);
+	w25qxxx_write_wps(w25qxxx, 1);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmmit(w25qxxx, READ_BLOCK_SECTOR_LOCK);
 
-    if (w25qxxx == W25Q256)
-        w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+	if (w25qxxx == W25Q256)
+		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
 
-    w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
-    tmp = w25qxxx_port_receive(w25qxxx);
-    w25qxxx_cs_high(w25qxxx);
+	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
+	tmp = w25qxxx_port_receive(w25qxxx);
+	w25qxxx_cs_high(w25qxxx);
 
-    return (tmp & 0x01);
+	return (tmp & 0x01);
 }
 
 void w25qxxx_global_block_sector_lock(u8 w25qxxx)
 {
-    w25qxxx_write_enable(w25qxxx);
-    w25qxxx_transmmit_cmd(w25qxxx, GLOBAL_BLOCK_SECTOR_LOCK);
+	w25qxxx_write_enable(w25qxxx);
+	w25qxxx_transmmit_cmd(w25qxxx, GLOBAL_BLOCK_SECTOR_LOCK);
 }
 
 void w25qxxx_global_block_sector_unlock(u8 w25qxxx)
 {
-    w25qxxx_write_enable(w25qxxx);
-    w25qxxx_transmmit_cmd(w25qxxx, GLOBAL_BLOCK_SECTOR_UNLOCK);
+	w25qxxx_write_enable(w25qxxx);
+	w25qxxx_transmmit_cmd(w25qxxx, GLOBAL_BLOCK_SECTOR_UNLOCK);
 }
 
 void w25qxxx_enable_reset(u8 w25qxxx)
 {
-    w25qxxx_transmmit_cmd(w25qxxx, ENABLE_RESET);
+	w25qxxx_transmmit_cmd(w25qxxx, ENABLE_RESET);
 }
 
-u8 w25qxxx_soft_reset(u8 w25qxxx)
+int w25qxxx_soft_reset(u8 w25qxxx)
 {
-    if (w25qxxx_read_busy(w25qxxx) == 1 || w25qxxx_read_sus(w25qxxx) == 1)
-        return false;
+	if (w25qxxx != W25Q128 && w25qxxx != W25Q256) {
+		printk(KERN_ERR "Invalid device type: 0x%02X\n", w25qxxx);
+		return -EINVAL;
+	}
 
-    w25qxxx_enable_reset(w25qxxx);
-    w25qxxx_transmmit_cmd(w25qxxx, RESET_DEVICE);
-    udelay(30);
+	if (w25qxxx_read_busy(w25qxxx) == 1 || w25qxxx_read_sus(w25qxxx) == 1) {
+		printk(KERN_ERR "Device cannot be reset while busy or suspended\n");
+		return -EBUSY;
+	}
 
-    return true;
+	w25qxxx_enable_reset(w25qxxx);
+	w25qxxx_transmmit_cmd(w25qxxx, RESET_DEVICE);
+	udelay(W25Q_SOFT_RESET_DELAY);
+
+	return 0;
 }
 
-void w25qxxx_init(u8 w25qxxx)
+int w25qxxx_init(u8 w25qxxx)
 {
-    w25qxxx_release_power_down(w25qxxx);
-    w25qxxx_soft_reset(w25qxxx);
-    w25qxxx_release_device_id(w25qxxx);
+	int ret;
 
-    switch (w25qxxx) {
-        case W25Q128:
-            break;
+	if (w25qxxx != W25Q128 && w25qxxx != W25Q256) {
+		printk(KERN_ERR "Invalid device type: 0x%02X\n", w25qxxx);
+		return -EINVAL;
+	}
 
-        case W25Q256:
-            if (w25qxxx_read_ads(w25qxxx) == 0)
-                w25q256_enter_4byte_addr_mode(w25qxxx);
+	w25qxxx_release_power_down(w25qxxx);
+	ret = w25qxxx_soft_reset(w25qxxx);
+	if (ret) {
+		printk(KERN_ERR "Failed to reset device\n");
+		return ret;
+	}
+	w25qxxx_release_device_id(w25qxxx);
 
-            break;
+	switch (w25qxxx) {
+	case W25Q128:
+		break;
 
-        default:
-            break;
-    }
+	case W25Q256:
+		if (w25qxxx_read_ads(w25qxxx) == 0)
+			w25q256_enter_4byte_addr_mode(w25qxxx);
+
+		break;
+
+	default:
+		printk(KERN_ERR "Unsupported device type: 0x%02X\n", w25qxxx);
+		return -ENODEV;
+	}
+
+	return 0;
 }
 
 void w25qxxx_read_info(u8 w25qxxx)
 {
-    u8 manufacturer_id = 0, device_id = 0;
-    u8 jedec_id[3];
-    u8 unique_id[8];
+	u8 manufacturer_id = 0, device_id = 0;
+	u8 jedec_id[3];
+	u8 unique_id[8];
 
-    printk(KERN_DEBUG "w25qxxx is %#02X.\n", w25qxxx);
-    w25qxxx_read_jedec_id(w25qxxx, jedec_id);
-    printk(KERN_DEBUG "JEDEC ID is %#02X%02X%02X\n",
-        jedec_id[0], jedec_id[1], jedec_id[2]);
-    w25qxxx_read_manufacturer_device_id(w25qxxx, &manufacturer_id, &device_id);
-    printk(KERN_DEBUG "Manufacturer ID is %#02X, Device ID is %#02X.\n",
-        manufacturer_id, device_id);
-    w25qxxx_read_unique_id(w25qxxx, unique_id);
-    printk(KERN_DEBUG "Unique ID is %02X%02X%02X%02X%02X%02X%02X%02X\n",
-        unique_id[0], unique_id[1], unique_id[2], unique_id[3],
-        unique_id[4], unique_id[5], unique_id[6], unique_id[7]);
+	printk(KERN_DEBUG "w25qxxx is %#02X.\n", w25qxxx);
+	w25qxxx_read_jedec_id(w25qxxx, jedec_id);
+	printk(KERN_DEBUG "JEDEC ID is %#02X%02X%02X\n",
+		jedec_id[0], jedec_id[1], jedec_id[2]);
+	w25qxxx_read_manufacturer_device_id(w25qxxx, &manufacturer_id, &device_id);
+	printk(KERN_DEBUG "Manufacturer ID is %#02X, Device ID is %#02X.\n",
+		manufacturer_id, device_id);
+	w25qxxx_read_unique_id(w25qxxx, unique_id);
+	printk(KERN_DEBUG "Unique ID is %02X%02X%02X%02X%02X%02X%02X%02X\n",
+		unique_id[0], unique_id[1], unique_id[2], unique_id[3],
+		unique_id[4], unique_id[5], unique_id[6], unique_id[7]);
 }
 
 #ifdef DESIGN_VERIFICATION_W25QXXX
@@ -1417,36 +1630,41 @@ void w25qxxx_read_info(u8 w25qxxx)
 
 int t_w25qxxx_chip_erase(int argc, char **argv)
 {
-    u8 w25qxxx = W25Q128;
+	u8 w25qxxx = W25Q128;
+	int ret;
 
-    if (argc > 1) {
-        if (!strcmp(argv[1], "w25q128"))
-            w25qxxx = W25Q128;
-        else if (!strcmp(argv[1], "w25q256"))
-            w25qxxx = W25Q256;
-    }
-    
-    printk(KERN_DEBUG "Erasing is doing, 30 seconds will cost.\n");
-    
-    sw25qxxx_chip_erase(w25qxxx);
-    
-    return PASS;
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128"))
+			w25qxxx = W25Q128;
+		else if (!strcmp(argv[1], "w25q256"))
+			w25qxxx = W25Q256;
+	}
+
+	printk(KERN_DEBUG "Erasing is doing, 30 seconds will cost.\n");
+
+	ret = sw25qxxx_chip_erase(w25qxxx);
+	if (ret) {
+		printk(KERN_ERR "Chip erase failed with error: %d\n", ret);
+		return FAIL;
+	}
+
+	return PASS;
 }
 
 int t_w25qxxx_read_info(int argc, char **argv)
 {
-    u8 w25qxxx = W25Q128;
+	u8 w25qxxx = W25Q128;
 
-    if (argc > 1) {
-        if (!strcmp(argv[1], "w25q128"))
-            w25qxxx = W25Q128;
-        else if (!strcmp(argv[1], "w25q256"))
-            w25qxxx = W25Q256;
-    }
-    
-    w25qxxx_read_info(w25qxxx);
-    
-    return PASS;
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128"))
+			w25qxxx = W25Q128;
+		else if (!strcmp(argv[1], "w25q256"))
+			w25qxxx = W25Q256;
+	}
+
+	w25qxxx_read_info(w25qxxx);
+
+	return PASS;
 }
 
 static u8 tx_buffer[32767];
@@ -1454,74 +1672,74 @@ static u8 rx_buffer[32767];
 
 int t_w25qxxx_loopback(int argc, char **argv)
 {
-    u8 w25qxxx = W25Q128;
-    u32 tmp_rng = 0;
-    u16 i, j, length = 0;
-    u16 round = 8;
-    u32 test_addr = 0;
+	u8 w25qxxx = W25Q128;
+	u32 tmp_rng = 0;
+	u16 i, j, length = 0;
+	u16 round = 8;
+	u32 test_addr = 0;
 
-    if (argc > 1) {
-        if (!strcmp(argv[1], "w25q128"))
-            w25qxxx = W25Q128;
-        else if (!strcmp(argv[1], "w25q256"))
-            w25qxxx = W25Q256;
-    }
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128"))
+			w25qxxx = W25Q128;
+		else if (!strcmp(argv[1], "w25q256"))
+			w25qxxx = W25Q256;
+	}
 
-    if (argc > 2)
-        round = simple_strtoul(argv[2], &argv[2], 10);
+	if (argc > 2)
+		round = simple_strtoul(argv[2], &argv[2], 10);
 
-    for (j = 0; j < round; j++) {
-        tmp_rng = random_get32bit();
-        length = tmp_rng & 0x7FFF;
-        
-        memset(tx_buffer, 0, length);
-        memset(rx_buffer, 0, length);
+	for (j = 0; j < round; j++) {
+		tmp_rng = random_get32bit();
+		length = tmp_rng & 0x7FFF;
 
-        tmp_rng = random_get32bit();
+		memset(tx_buffer, 0, length);
+		memset(rx_buffer, 0, length);
 
-        switch (w25qxxx) {
-            case W25Q128:
-                test_addr = tmp_rng & 0xFFFFFF;
-                break;
+		tmp_rng = random_get32bit();
 
-            case W25Q256:
-                test_addr = tmp_rng & 0x1FFFFFF;
-                break;
+		switch (w25qxxx) {
+		case W25Q128:
+			test_addr = tmp_rng & 0xFFFFFF;
+			break;
 
-            default:
-                test_addr = 0;
-                break;
-        }
-        printk(KERN_DEBUG "round[%4u], test addr@0x%08x, length = %d.\n",
-            j, test_addr, length);
+		case W25Q256:
+			test_addr = tmp_rng & 0x1FFFFFF;
+			break;
 
-        random_get_array(tx_buffer, length, RNG_8BITS);
+		default:
+			test_addr = 0;
+			break;
+		}
+		printk(KERN_DEBUG "round[%4u], test addr@0x%08x, length = %d.\n",
+			j, test_addr, length);
 
-        w25qxxx_write_data(w25qxxx, test_addr, tx_buffer, length);
-        w25qxxx_read_data(w25qxxx, test_addr, rx_buffer, length);
-        
-        print_hex_dump(KERN_DEBUG, "w25qxxx tx buffer: ", DUMP_PREFIX_OFFSET,
-            16, 4,
-            tx_buffer, length, false);
-        print_hex_dump(KERN_DEBUG, "w25qxxx rx buffer: ", DUMP_PREFIX_OFFSET,
-            16, 4,
-            tx_buffer, length, false);
-        
-        for (i = 0; i < length; i++) {
-            if (tx_buffer[i] != rx_buffer[i]) {
-                printk(KERN_ERR "tx[%d]: %#02x, rx[%d]: %#02x\n",
-                    i, tx_buffer[i],
-                    i, rx_buffer[i]);
-                printk(KERN_ERR
-                    "Data writes and reads do not match, TEST FAILED !\n");
-                return -EPIPE;
-            }
-        }
-    }   
+		random_get_array(tx_buffer, length, RNG_8BITS);
 
-    printk(KERN_DEBUG "w25qxxx read and write TEST PASSED !\n");
+		w25qxxx_write_data(w25qxxx, test_addr, tx_buffer, length);
+		w25qxxx_read_data(w25qxxx, test_addr, rx_buffer, length);
 
-    return PASS;
+		print_hex_dump(KERN_DEBUG, "w25qxxx tx buffer: ", DUMP_PREFIX_OFFSET,
+			16, 4,
+			tx_buffer, length, false);
+		print_hex_dump(KERN_DEBUG, "w25qxxx rx buffer: ", DUMP_PREFIX_OFFSET,
+			16, 4,
+			tx_buffer, length, false);
+
+		for (i = 0; i < length; i++) {
+			if (tx_buffer[i] != rx_buffer[i]) {
+				printk(KERN_ERR "tx[%d]: %#02x, rx[%d]: %#02x\n",
+					i, tx_buffer[i],
+					i, rx_buffer[i]);
+				printk(KERN_ERR
+					"Data writes and reads do not match, TEST FAILED !\n");
+				return -EPIPE;
+			}
+		}
+	}
+
+	printk(KERN_DEBUG "w25qxxx read and write TEST PASSED !\n");
+
+	return PASS;
 }
 
 #endif

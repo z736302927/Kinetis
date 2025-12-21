@@ -106,36 +106,67 @@ void hydrology_task_exit(void)
 int hydrology_task_init(void)
 {
 	u8 interval;
+	int ret;
 
 	/* Check and create all required files if they don't exist */
-	if (fatfs_find_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA) != 0) {
+	ret = fatfs_find_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA);
+	if (ret) {
 		pr_info("Creating %s file...\n", HYDROLOGY_D_FILE_E_DATA);
-		fatfs_create_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA);
+		ret = fatfs_create_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA);
+		if (ret) {
+			pr_err("Failed to create %s file, error code: %d\n", HYDROLOGY_D_FILE_E_DATA, ret);
+			return ret;
+		}
 	}
 
-	if (fatfs_find_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_INFO) != 0) {
+	ret = fatfs_find_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_INFO);
+	if (ret) {
 		pr_info("Creating %s file...\n", HYDROLOGY_D_FILE_E_INFO);
-		fatfs_create_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_INFO);
+		ret = fatfs_create_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_INFO);
+		if (ret) {
+			pr_err("Failed to create %s file, error code: %d\n", HYDROLOGY_D_FILE_E_INFO, ret);
+			return ret;
+		}
 	}
 
-	if (fatfs_find_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE) != 0) {
+	ret = fatfs_find_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE);
+	if (ret) {
 		pr_info("Creating %s file...\n", HYDROLOGY_D_FILE_PICTURE);
-		fatfs_create_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE);
+		ret = fatfs_create_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE);
+		if (ret) {
+			pr_err("Failed to create %s file, error code: %d\n", HYDROLOGY_D_FILE_PICTURE, ret);
+			return ret;
+		}
 	}
 
-	if (fatfs_find_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS) != 0) {
+	ret = fatfs_find_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS);
+	if (ret) {
 		pr_info("Creating %s file...\n", HYDROLOGY_D_FILE_RGZS);
-		fatfs_create_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS);
+		ret = fatfs_create_file(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS);
+		if (ret) {
+			pr_err("Failed to create %s file, error code: %d\n", HYDROLOGY_D_FILE_RGZS, ret);
+			return ret;
+		}
 	}
 
-	if (fatfs_find_file(HYDROLOGY_FILE_PATH, HYDROLOGY_H_FILE_E_DATA) != 0) {
+	ret = fatfs_find_file(HYDROLOGY_FILE_PATH, HYDROLOGY_H_FILE_E_DATA);
+	if (ret) {
 		pr_info("Creating %s file...\n", HYDROLOGY_H_FILE_E_DATA);
-		fatfs_create_file(HYDROLOGY_FILE_PATH, HYDROLOGY_H_FILE_E_DATA);
+		ret = fatfs_create_file(HYDROLOGY_FILE_PATH, HYDROLOGY_H_FILE_E_DATA);
+		if (ret) {
+			pr_err("Failed to create %s file, error code: %d\n", HYDROLOGY_H_FILE_E_DATA, ret);
+			return ret;
+		}
 	}
 
-	if (fatfs_find_file(HYDROLOGY_FILE_PATH, HYDROLOGY_H_FILE_E_INFO) != 0) {
+	ret = fatfs_find_file(HYDROLOGY_FILE_PATH, HYDROLOGY_H_FILE_E_INFO);
+	if (ret) {
 		pr_info("Creating %s file...\n", HYDROLOGY_H_FILE_E_INFO);
-		fatfs_create_file(HYDROLOGY_FILE_PATH, HYDROLOGY_H_FILE_E_INFO);
+		ret = fatfs_create_file(HYDROLOGY_FILE_PATH, HYDROLOGY_H_FILE_E_INFO);
+		if (ret) {
+			pr_err("Failed to create %s file, error code: %d\n", HYDROLOGY_H_FILE_E_INFO, ret);
+			return ret;
+		}
 	}
 
 	tim_task_add(&g_hydrology.collecte_data, "measure temperature humidit",
@@ -145,16 +176,30 @@ int hydrology_task_init(void)
 
 	rtc_task_add(0, 0, 0, 0, 1, 0, true, test_packet);
 
-	fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-		HYDROLOGY_PA_TI, &interval, 1);
+	ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_PA_TI, &interval, 1);
+	if (ret) {
+		pr_err("Failed to read interval timer, error code: %d\n", ret);
+		// Use default value if read fails
+		interval = 0;
+	}
 	if (interval == 0)
 		interval = 5;
-	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-		HYDROLOGY_PA_TI, &interval, 1);
+	ret = fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_PA_TI, &interval, 1);
+	if (ret) {
+		pr_err("Failed to write interval timer, error code: %d\n", ret);
+		// Continue with the value anyway
+	}
 	rtc_task_add(0, 0, 0, 0, interval, 0, true, timer_report_packet);
 
-	fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-		HYDROLOGY_PA_AI, &interval, 1);
+	ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			HYDROLOGY_PA_AI, &interval, 1);
+	if (ret) {
+		pr_err("Failed to read add interval timer, error code: %d\n", ret);
+		// Use default value if read fails
+		interval = 0;
+	}
 
 	if (interval != 0)
 		rtc_task_add(0, 0, 0, 0, interval, 0, true, add_report_packet);

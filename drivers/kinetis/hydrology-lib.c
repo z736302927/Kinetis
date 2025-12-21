@@ -82,7 +82,7 @@ int hydrology_open_port(void)
 		break;
 	}
 
-	return true;
+	return 0;
 }
 
 int hydrology_close_port(void)
@@ -95,7 +95,7 @@ int hydrology_close_port(void)
 		break;
 	}
 
-	return true;
+	return 0;
 }
 
 int hydrology_port_transmmit(u8 *pdata, u16 length)
@@ -123,7 +123,7 @@ int hydrology_port_transmmit(u8 *pdata, u16 length)
 		break;
 	}
 
-	return true;
+	return 0;
 }
 
 int hydrology_port_receive(u8 **ppdata, u16 *plength, u32 Timeout)
@@ -190,6 +190,10 @@ int hydrology_resource_init(void)
 	u32 flash_size, min_size;
 
 	flash_size = fatfs_get_flash_size();
+	if (flash_size == 0) {
+		pr_err("Failed to get flash size\n");
+		return -ENODEV;
+	}
 
 	min_size = HYDROLOGY_END;
 	min_size += sizeof(struct hydrology_element_info) * ELEMENT_COUNT;
@@ -250,14 +254,14 @@ int hydrology_device_setup(void)
 
 int hydrology_device_reboot(void)
 {
-	static bool status = false;
+	static u8 status = 0;
 	int ret;
 
-	if (status == true)
+	if (status == 1)
 		hydrology_device_shundown();
 
 	ret = hydrology_device_setup();
-	status = true;
+	status = 1;
 
 	return ret;
 }
@@ -265,20 +269,31 @@ int hydrology_device_reboot(void)
 void hydrology_get_observation_time(struct hydrology_element_info *element, u8 *observation_time)
 {
 	u32 addr = 0;
+	int ret;
 
 	if (element->D % 2 == 0)
 		addr = element->D / 2 + element->addr;
 	else
 		addr = (element->D + 1) / 2 + element->addr;
 
-	fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-		addr, observation_time, 5);
+	ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			addr, observation_time, 5);
+	if (ret) {
+		pr_err("Failed to read observation time, error code: %d\n", ret);
+		// Set default time if read fails
+		observation_time[0] = 0;
+		observation_time[1] = 0;
+		observation_time[2] = 0;
+		observation_time[3] = 0;
+		observation_time[4] = 0;
+	}
 }
 
 void hydrology_set_observation_time(struct hydrology_element_info *element)
 {
 	long addr = 0;
 	u8 observation_time[6] = {0, 0, 0, 0, 0, 0};
+	int ret;
 
 	if (element->D % 2 == 0)
 		addr = element->D / 2 + element->addr;
@@ -286,8 +301,12 @@ void hydrology_set_observation_time(struct hydrology_element_info *element)
 		addr = (element->D + 1) / 2 + element->addr;
 
 	hydrology_get_time(observation_time);
-	fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-		addr, observation_time, 5);
+	ret = fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+			addr, observation_time, 5);
+	if (ret) {
+		pr_err("Failed to write observation time, error code: %d\n", ret);
+		// Continue anyway
+	}
 }
 
 void hydrology_get_bcd_nums(double num, int *intergerpart, int *decimerpart,
@@ -441,9 +460,9 @@ int hydrology_convert_to_hex_element(double input, int D, int d, u8 *out)
 	}
 	/* That will not happen now */
 	else
-		return false;
+		return -1;
 
-	return true;
+	return 0;
 }
 
 int hydrology_malloc_element(u8 guide, u8 D, u8 d,
@@ -456,8 +475,7 @@ int hydrology_malloc_element(u8 guide, u8 D, u8 d,
 		element->value = (u8 *)kmalloc(D / 2, __GFP_ZERO);
 
 		if (element->value == NULL) {
-			pr_err("element->value malloc failed\n");
-			return false;
+			return -ENOMEM;
 		}
 
 		element->num = D / 2;
@@ -465,21 +483,22 @@ int hydrology_malloc_element(u8 guide, u8 D, u8 d,
 		element->value = (u8 *)kmalloc((D + 1) / 2, __GFP_ZERO);
 
 		if (element->value == NULL) {
-			pr_err("element->value malloc failed\n");
-			return false;
+			return -ENOMEM;
 		}
 
 		element->num = (D + 1) / 2;
 	}
 
-	return true;
+	return 0;
 }
 
 void hydrology_free_element(struct hydrology_element *element)
 {
-	kfree(element->value);
+	if (element && element->value) {
+		kfree(element->value);
+		element->value = NULL;
+	}
 }
-
 //int hydrology_ReadAnalog(float *value, int index)
 //{
 //    long addr = HYDROLOGY_ANALOG1 + index * 4;
@@ -560,7 +579,6 @@ void hydrology_free_element(struct hydrology_element *element)
 
 //            if(g_hydrology.epi == NULL)
 //            {
-//    pr_err("g_hydrology.epi malloc failed\n", i);
 //                return false;
 //            }
 
@@ -635,7 +653,6 @@ void hydrology_free_element(struct hydrology_element *element)
 ////
 ////            if(upbody->element[i]->value == NULL)
 ////            {
-////    pr_err("upbody->element[%d]->value malloc failed\n", i);
 ////                return false;
 ////            }
 ////            else
@@ -651,7 +668,6 @@ void hydrology_free_element(struct hydrology_element *element)
 
 //            if(upbody->element[i]->value == NULL)
 //            {
-//    pr_err("upbody->element[%d]->value malloc failed\n", i);
 //                return false;
 //            }
 //            else
@@ -721,6 +737,46 @@ void hydrology_get_stream_id(u8 *stream_id)
 	stream_id[1] = id & 0xff;
 }
 
+u16 hydrology_calculate_crc16(const u8 *data, u16 length)
+{
+// 	u16 crc = 0xFFFF;
+// 	u16 i, j;
+//
+// 	if (data == NULL || length == 0)
+// 		return 0;
+//
+// 	for (i = 0; i < length; i++) {
+// 		crc ^= data[i];
+// 		for (j = 0; j < 8; j++) {
+// 			if (crc & 0x0001)
+// 				crc = (crc >> 1) ^ 0xA001;
+// 			else
+// 				crc = crc >> 1;
+// 		}
+// 	}
+//
+// 	return crc;
+
+	return crc16(0xFFFF, data, length);
+}
+
+bool hydrology_verify_crc16(const u8 *data, u16 length)
+{
+	u16 calculated_crc;
+	u16 received_crc;
+
+	if (data == NULL || length < 3)
+		return -1;
+
+	/* 计算除CRC外的数据的CRC */
+	calculated_crc = hydrology_calculate_crc16(data, length - 2);
+
+	/* 获取接收到的CRC */
+	received_crc = (data[length - 2] << 8) | data[length - 1];
+
+	return calculated_crc == received_crc;
+}
+
 int hydrology_read_specified_element_info(struct hydrology_element_info *element,
 	enum hydrology_body_type funcode, u16 index)
 {
@@ -729,7 +785,7 @@ int hydrology_read_specified_element_info(struct hydrology_element_info *element
 
 	switch (funcode) {
 	case LINK_REPORT:
-		break;
+		return -EINVAL; /* Not applicable for this function code */
 
 	case TEST_REPORT:
 	case EVEN_PERIOD_INFO_REPORT:
@@ -793,13 +849,11 @@ int hydrology_read_specified_element_info(struct hydrology_element_info *element
 	case RESET_REPORT:
 	case SET_CLOCK_REPORT:
 	case TIME_REPORT:
-		break;
+		return -EINVAL; /* Not applicable for this function code */
 	}
 
-	ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_INFO,
+	return fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_INFO,
 			addr, (u8 *)element, sizeof(struct hydrology_element_info));
-
-	return ret;
 }
 
 #ifdef DESIGN_VERIFICATION_HYDROLOGY
@@ -825,7 +879,7 @@ int t_hydrology_init(int argc, char **argv)
 
 int t_hydrology(int argc, char **argv)
 {
-	int ret = false;
+	int ret = -1;
 	u8 host = false;
 	enum hydrology_mode mode = HYDROLOGY_M1;
 
@@ -885,7 +939,7 @@ int t_hydrology(int argc, char **argv)
 		}
 	}
 
-	if (ret == true)
+	if (ret == 0)
 		return PASS;
 	else
 		return FAIL;

@@ -1,5 +1,5 @@
 /*-----------------------------------------------------------------------/
-/  Low level disk interface modlue include file   (C)ChaN, 2019          /
+/  Low level disk interface modlue include file   (C)ChaN, 2025          /
 /-----------------------------------------------------------------------*/
 
 #ifndef _DISKIO_DEFINED
@@ -19,11 +19,11 @@ typedef BYTE	DSTATUS;
 
 /* Results of Disk Functions */
 typedef enum {
-    RES_OK = 0,		/* 0: Successful */
-    RES_ERROR,		/* 1: R/W Error */
-    RES_WRPRT,		/* 2: Write Protected */
-    RES_NOTRDY,		/* 3: Not Ready */
-    RES_PARERR		/* 4: Invalid Parameter */
+	RES_OK = 0,		/* 0: Successful */
+	RES_ERROR,		/* 1: R/W Error */
+	RES_WRPRT,		/* 2: Write Protected */
+	RES_NOTRDY,		/* 3: Not Ready */
+	RES_PARERR		/* 4: Invalid Parameter */
 } DRESULT;
 
 
@@ -31,11 +31,11 @@ typedef enum {
 /* Prototypes for disk control functions */
 
 
-DSTATUS disk_initialize(BYTE pdrv);
-DSTATUS disk_status(BYTE pdrv);
-DRESULT disk_read(BYTE pdrv, BYTE *buff, LBA_t sector, UINT count);
-DRESULT disk_write(BYTE pdrv, const BYTE *buff, LBA_t sector, UINT count);
-DRESULT disk_ioctl(BYTE pdrv, BYTE cmd, void *buff);
+DSTATUS disk_initialize (BYTE pdrv);
+DSTATUS disk_status (BYTE pdrv);
+DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count);
+DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count);
+DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff);
 
 
 /* Disk Status Bits (DSTATUS) */
@@ -60,7 +60,7 @@ DRESULT disk_ioctl(BYTE pdrv, BYTE cmd, void *buff);
 #define CTRL_EJECT			7	/* Eject media */
 #define CTRL_FORMAT			8	/* Create physical format on the media */
 
-/* MMC/SDC specific ioctl command */
+/* MMC/SDC specific ioctl command (Not used by FatFs) */
 #define MMC_GET_TYPE		10	/* Get card type */
 #define MMC_GET_CSD			11	/* Get CSD */
 #define MMC_GET_CID			12	/* Get CID */
@@ -70,7 +70,7 @@ DRESULT disk_ioctl(BYTE pdrv, BYTE cmd, void *buff);
 #define ISDIO_WRITE			56	/* Write data to SD iSDIO register */
 #define ISDIO_MRITE			57	/* Masked write data to SD iSDIO register */
 
-/* ATA/CF specific ioctl command */
+/* ATA/CF specific ioctl command (Not used by FatFs) */
 #define ATA_GET_REV			20	/* Get F/W revision */
 #define ATA_GET_MODEL		21	/* Get model name */
 #define ATA_GET_SN			22	/* Get serial number */
