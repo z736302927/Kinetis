@@ -22,18 +22,18 @@
 
 static void measure_temperature_humidit(struct tim_task *task)
 {
-//    u8 tmpvalue[4] = {0, 0, 0, 0};
+	//    u8 tmpvalue[4] = {0, 0, 0, 0};
 
-//    SHT20_Read_TempAndRH(&SHT20_Temperature, &SHT20_Humidit);
+	//    SHT20_Read_TempAndRH(&SHT20_Temperature, &SHT20_Humidit);
 
-//    memcpy(tmpvalue, (char *)(&SHT20_Temperature), 4);
-//    fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-//		HYDROLOGY_ANALOG1, tmpvalue, HYDROLOGY_ANALOG_LEN);
-//    memcpy(tmpvalue, (char *)(&SHT20_Humidit), 4);
-//    fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
-//		HYDROLOGY_ANALOG2, tmpvalue, HYDROLOGY_ANALOG_LEN);
+	//    memcpy(tmpvalue, (char *)(&SHT20_Temperature), 4);
+	//    fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+	//		HYDROLOGY_ANALOG1, tmpvalue, HYDROLOGY_ANALOG_LEN);
+	//    memcpy(tmpvalue, (char *)(&SHT20_Humidit), 4);
+	//    fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
+	//		HYDROLOGY_ANALOG2, tmpvalue, HYDROLOGY_ANALOG_LEN);
 
-//    hydrology_set_observation_time(element_table[0].ID, 0);
+	//    hydrology_set_observation_time(element_table[0].ID, 0);
 }
 
 void link_packet(struct tim_task *task)
@@ -52,7 +52,6 @@ static void test_packet(void)
 	double floatvalue = 12;
 	u8 i;
 
-
 	for (i = 0; i < ARRAY_SIZE(element_table); i++) {
 		hydrology_malloc_element(element_table[i].ID,
 			element_table[i].D, element_table[i].d,
@@ -68,8 +67,9 @@ static void test_packet(void)
 		hydrology_type_string(TEST_REPORT));
 	hydrology_device_process(element_table, 1, HYDROLOGY_M1, TEST_REPORT);
 
-	for (i = 0; i < ARRAY_SIZE(element_table); i++)
+	for (i = 0; i < ARRAY_SIZE(element_table); i++) {
 		hydrology_free_element(&element);
+	}
 }
 
 static void timer_report_packet(void)
@@ -180,16 +180,17 @@ int hydrology_task_init(void)
 			HYDROLOGY_PA_TI, &interval, 1);
 	if (ret) {
 		pr_err("Failed to read interval timer, error code: %d\n", ret);
-		// Use default value if read fails
+		/* Use default value if read fails */
 		interval = 0;
 	}
-	if (interval == 0)
+	if (interval == 0) {
 		interval = 5;
+	}
 	ret = fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
 			HYDROLOGY_PA_TI, &interval, 1);
 	if (ret) {
 		pr_err("Failed to write interval timer, error code: %d\n", ret);
-		// Continue with the value anyway
+		/* Continue with the value anyway */
 	}
 	rtc_task_add(0, 0, 0, 0, interval, 0, true, timer_report_packet);
 
@@ -197,17 +198,16 @@ int hydrology_task_init(void)
 			HYDROLOGY_PA_AI, &interval, 1);
 	if (ret) {
 		pr_err("Failed to read add interval timer, error code: %d\n", ret);
-		// Use default value if read fails
+		/* Use default value if read fails */
 		interval = 0;
 	}
 
-	if (interval != 0)
+	if (interval != 0) {
 		rtc_task_add(0, 0, 0, 0, interval, 0, true, add_report_packet);
+	}
 
 	rtc_task_add(0, 0, 0, 1, 0, 0, true, hour_packet);
 
 	return 0;
 }
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
-
-

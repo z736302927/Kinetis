@@ -25,7 +25,6 @@
   * @step 5:
   */
 
-
 static inline void w25qxxx_port_transmmit(u8 w25qxxx, u8 tmp)
 {
 #ifdef STM32_HAL_LIBRARY
@@ -733,10 +732,11 @@ void w25qxxx_read_data(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 	u8 sub_addr[4];
 	u32 remain = 0;
 
-	if (w25qxxx == W25Q128)
+	if (w25qxxx == W25Q128) {
 		remain = w25q128_max_addr - addr + 1;
-	else if (w25qxxx == W25Q256)
+	} else if (w25qxxx == W25Q256) {
 		remain = w25q256_max_addr - addr + 1;
+	}
 
 	if (remain < length) {
 		printk(KERN_ERR
@@ -744,8 +744,9 @@ void w25qxxx_read_data(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 		return ;
 	}
 
-	if (w25qxxx == W25Q256)
+	if (w25qxxx == W25Q256) {
 		sub_addr[0] = (addr & 0xFF000000) >> 24;
+	}
 
 	sub_addr[1] = (addr & 0x00FF0000) >> 16;
 	sub_addr[2] = (addr & 0x0000FF00) >> 8;
@@ -754,8 +755,9 @@ void w25qxxx_read_data(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 	w25qxxx_cs_low(w25qxxx);
 	w25qxxx_port_transmmit(w25qxxx, READ_DATA);
 
-	if (w25qxxx == W25Q256)
+	if (w25qxxx == W25Q256) {
 		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+	}
 
 	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
 
@@ -784,8 +786,9 @@ void w25qxxx_fast_read(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 {
 	u8 sub_addr[4];
 
-	if (w25qxxx == W25Q256)
+	if (w25qxxx == W25Q256) {
 		sub_addr[0] = (addr & 0xFF000000) >> 24;
+	}
 
 	sub_addr[1] = (addr & 0x00FF0000) >> 16;
 	sub_addr[2] = (addr & 0x0000FF00) >> 8;
@@ -794,8 +797,9 @@ void w25qxxx_fast_read(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 	w25qxxx_cs_low(w25qxxx);
 	w25qxxx_port_transmmit(w25qxxx, FAST_READ);
 
-	if (w25qxxx == W25Q256)
+	if (w25qxxx == W25Q256) {
 		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+	}
 
 	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
 	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
@@ -833,8 +837,9 @@ static int w25qxxx_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
 		return -EINVAL;
 	}
 
-	if (w25qxxx == W25Q256)
+	if (w25qxxx == W25Q256) {
 		sub_addr[0] = (addr & 0xFF000000) >> 24;
+	}
 
 	sub_addr[1] = (addr & 0x00FF0000) >> 16;
 	sub_addr[2] = (addr & 0x0000FF00) >> 8;
@@ -844,8 +849,9 @@ static int w25qxxx_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
 	w25qxxx_cs_low(w25qxxx);
 	w25qxxx_port_transmmit(w25qxxx, PAGE_PROGRAM);
 
-	if (w25qxxx == W25Q256)
+	if (w25qxxx == W25Q256) {
 		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+	}
 
 	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
 	w25qxxx_port_multi_transmmit(w25qxxx, pdata, length);
@@ -854,8 +860,9 @@ static int w25qxxx_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
 	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
 			busy == 0, 1, 30000000);
 
-	if (ret)
+	if (ret) {
 		printk(KERN_ERR "Programing page is timeout.\n");
+	}
 
 	return 0;
 }
@@ -878,9 +885,9 @@ static int w25qxxx_multi_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 lengt
 	/* sub_addr=0, then addr is just aligned by page */
 	if (sub_addr == 0) {
 		/* length < W25Q_PAGE_SIZE */
-		if (num_of_page == 0)
+		if (num_of_page == 0) {
 			w25qxxx_page_program(w25qxxx, addr, pdata, length);
-		else { /* length > W25Q_PAGE_SIZE */
+		} else { /* length > W25Q_PAGE_SIZE */
 			/* Let me write down all the integer pages */
 			while (num_of_page--) {
 				ret = w25qxxx_page_program(w25qxxx, addr, pdata, W25Q_PAGE_SIZE);
@@ -1044,15 +1051,17 @@ int w25qxxx_multi_sector_program(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 		/* length < SECTOR_SIZE */
 		if (num_of_sector == 0) {
 			ret = w25qxxx_process_partial_sector(w25qxxx, addr, pdata, length);
-			if (ret)
+			if (ret) {
 				return ret;
+			}
 		} else { /* length > SECTOR_SIZE */
 			/* Let me write down all the integer pages */
 			while (num_of_sector--) {
 				w25qxxx_sector_erase(w25qxxx, addr);
 				ret = w25qxxx_multi_page_program(w25qxxx, addr, pdata, SECTOR_SIZE);
-				if (ret)
+				if (ret) {
 					return ret;
+				}
 
 				addr +=  SECTOR_SIZE;
 				pdata += SECTOR_SIZE;
@@ -1060,8 +1069,9 @@ int w25qxxx_multi_sector_program(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 
 			/* If you have more than one page of data, write it down*/
 			ret = w25qxxx_process_partial_sector(w25qxxx, addr, pdata, num_of_single);
-			if (ret)
+			if (ret) {
 				return ret;
+			}
 		}
 	}
 	/* If the addr is not aligned with SECTOR_SIZE */
@@ -1074,20 +1084,23 @@ int w25qxxx_multi_sector_program(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 
 				/* Fill in the front page first */
 				ret = w25qxxx_process_partial_sector(w25qxxx, addr, pdata, cnt);
-				if (ret)
+				if (ret) {
 					return ret;
+				}
 
 				addr +=  cnt;
 				pdata += cnt;
 
 				/* Let me write the rest of the data */
 				ret = w25qxxx_process_partial_sector(w25qxxx, addr, pdata, remain_of_single);
-				if (ret)
+				if (ret) {
 					return ret;
+				}
 			} else { /* The remaining count position of the current page can write num_of_single data */
 				ret = w25qxxx_process_partial_sector(w25qxxx, addr, pdata, length);
-				if (ret)
+				if (ret) {
 					return ret;
+				}
 			}
 		} else { /* length > SECTOR_SIZE */
 			/* The addr is not aligned and the extra count is treated separately, not added to the operation */
@@ -1096,8 +1109,9 @@ int w25qxxx_multi_sector_program(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 			num_of_single = length % SECTOR_SIZE;
 
 			ret = w25qxxx_process_partial_sector(w25qxxx, addr, pdata, cnt);
-			if (ret)
+			if (ret) {
 				return ret;
+			}
 
 			addr +=  cnt;
 			pdata += cnt;
@@ -1106,8 +1120,9 @@ int w25qxxx_multi_sector_program(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 			while (num_of_sector--) {
 				w25qxxx_sector_erase(w25qxxx, addr);
 				ret = w25qxxx_multi_page_program(w25qxxx, addr, pdata, SECTOR_SIZE);
-				if (ret)
+				if (ret) {
 					return ret;
+				}
 
 				addr +=  SECTOR_SIZE;
 				pdata += SECTOR_SIZE;
@@ -1116,8 +1131,9 @@ int w25qxxx_multi_sector_program(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 			/* If you have more than one page of data, write it down */
 			if (num_of_single != 0) {
 				ret = w25qxxx_process_partial_sector(w25qxxx, addr, pdata, num_of_single);
-				if (ret)
+				if (ret) {
 					return ret;
+				}
 			}
 		}
 	}
@@ -1140,11 +1156,11 @@ int w25qxxx_write_data(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
 		return -EINVAL;
 	}
 
-	if (w25qxxx == W25Q128)
+	if (w25qxxx == W25Q128) {
 		remain = w25q128_max_addr - addr + 1;
-	else if (w25qxxx == W25Q256)
+	} else if (w25qxxx == W25Q256) {
 		remain = w25q256_max_addr - addr + 1;
-	else {
+	} else {
 		printk(KERN_ERR "Invalid device type: 0x%02X\n", w25qxxx);
 		return -EINVAL;
 	}
@@ -1171,8 +1187,9 @@ int w25qxxx_sector_erase(u8 w25qxxx, u32 addr)
 		return -EINVAL;
 	}
 
-	if (w25qxxx == W25Q256)
+	if (w25qxxx == W25Q256) {
 		sub_addr[0] = (addr & 0xFF000000) >> 24;
+	}
 
 	sub_addr[1] = (addr & 0x00FF0000) >> 16;
 	sub_addr[2] = (addr & 0x0000FF00) >> 8;
@@ -1182,8 +1199,9 @@ int w25qxxx_sector_erase(u8 w25qxxx, u32 addr)
 	w25qxxx_cs_low(w25qxxx);
 	w25qxxx_port_transmmit(w25qxxx, SECTOR_ERASE);
 
-	if (w25qxxx == W25Q256)
+	if (w25qxxx == W25Q256) {
 		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+	}
 
 	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
 	w25qxxx_cs_high(w25qxxx);
@@ -1210,8 +1228,9 @@ int w25qxxx_block_erase_with_32kb(u8 w25qxxx, u32 addr)
 		return -EINVAL;
 	}
 
-	if (w25qxxx == W25Q256)
+	if (w25qxxx == W25Q256) {
 		sub_addr[0] = (addr & 0xFF000000) >> 24;
+	}
 
 	sub_addr[1] = (addr & 0x00FF0000) >> 16;
 	sub_addr[2] = (addr & 0x0000FF00) >> 8;
@@ -1221,8 +1240,9 @@ int w25qxxx_block_erase_with_32kb(u8 w25qxxx, u32 addr)
 	w25qxxx_cs_low(w25qxxx);
 	w25qxxx_port_transmmit(w25qxxx, BLOCK_ERASE_32KB);
 
-	if (w25qxxx == W25Q256)
+	if (w25qxxx == W25Q256) {
 		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+	}
 
 	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
 	w25qxxx_cs_high(w25qxxx);
@@ -1249,8 +1269,9 @@ int w25qxxx_block_erase_with_64kb(u8 w25qxxx, u32 addr)
 		return -EINVAL;
 	}
 
-	if (w25qxxx == W25Q256)
+	if (w25qxxx == W25Q256) {
 		sub_addr[0] = (addr & 0xFF000000) >> 24;
+	}
 
 	sub_addr[1] = (addr & 0x00FF0000) >> 16;
 	sub_addr[2] = (addr & 0x0000FF00) >> 8;
@@ -1260,8 +1281,9 @@ int w25qxxx_block_erase_with_64kb(u8 w25qxxx, u32 addr)
 	w25qxxx_cs_low(w25qxxx);
 	w25qxxx_port_transmmit(w25qxxx, BLOCK_ERASE_64KB);
 
-	if (w25qxxx == W25Q256)
+	if (w25qxxx == W25Q256) {
 		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+	}
 
 	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
 	w25qxxx_cs_high(w25qxxx);
@@ -1303,8 +1325,9 @@ int sw25qxxx_chip_erase(u8 w25qxxx)
 
 void w25qxxx_erase_program_suspend(u8 w25qxxx)
 {
-	if (w25qxxx_read_busy(w25qxxx) == 0 && w25qxxx_read_sus(w25qxxx) == 1)
+	if (w25qxxx_read_busy(w25qxxx) == 0 && w25qxxx_read_sus(w25qxxx) == 1) {
 		return ;
+	}
 
 	w25qxxx_transmmit_cmd(w25qxxx, ERASE_PROGRAM_SUSPEND);
 	udelay(20);
@@ -1312,8 +1335,9 @@ void w25qxxx_erase_program_suspend(u8 w25qxxx)
 
 void w25qxxx_erase_program_resume(u8 w25qxxx)
 {
-	if (w25qxxx_read_busy(w25qxxx) == 1 && w25qxxx_read_sus(w25qxxx) == 0)
+	if (w25qxxx_read_busy(w25qxxx) == 1 && w25qxxx_read_sus(w25qxxx) == 0) {
 		return ;
+	}
 
 	w25qxxx_transmmit_cmd(w25qxxx, ERASE_PROGRAM_RESUME);
 }
@@ -1363,8 +1387,9 @@ void w25qxxx_read_unique_id(u8 w25qxxx, u8 *unique_id)
 	w25qxxx_port_transmmit(w25qxxx, READ_UNIQUE_ID_NUMBER);
 
 	if (w25qxxx == W25Q256) {
-		if (w25qxxx_read_ads(w25qxxx) == 1)
+		if (w25qxxx_read_ads(w25qxxx) == 1) {
 			w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
+		}
 	}
 
 	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
@@ -1410,8 +1435,9 @@ void w25qxxx_erase_security_regs(u8 w25qxxx, u8 addr)
 	w25qxxx_cs_low(w25qxxx);
 	w25qxxx_port_transmmit(w25qxxx, ERASE_SECURITY_REGISTERS);
 
-	if (w25qxxx == W25Q256)
+	if (w25qxxx == W25Q256) {
 		w25qxxx_port_transmmit(w25qxxx, 0x00);
+	}
 
 	w25qxxx_port_transmmit(w25qxxx, 0x00);
 	w25qxxx_port_transmmit(w25qxxx, addr);
@@ -1469,8 +1495,9 @@ void w25qxxx_individual_block_sector_lock(u8 w25qxxx, u32 addr)
 {
 	u8 sub_addr[4];
 
-	if (w25qxxx == W25Q256)
+	if (w25qxxx == W25Q256) {
 		sub_addr[0] = (addr & 0xFF000000) >> 24;
+	}
 
 	sub_addr[1] = (addr & 0x00FF0000) >> 16;
 	sub_addr[2] = (addr & 0x0000FF00) >> 8;
@@ -1480,8 +1507,9 @@ void w25qxxx_individual_block_sector_lock(u8 w25qxxx, u32 addr)
 	w25qxxx_cs_low(w25qxxx);
 	w25qxxx_port_transmmit(w25qxxx, INDIVIDUAL_BLOCK_SECTOR_LOCK);
 
-	if (w25qxxx == W25Q256)
+	if (w25qxxx == W25Q256) {
 		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+	}
 
 	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
 	w25qxxx_cs_high(w25qxxx);
@@ -1491,8 +1519,9 @@ void w25qxxx_individual_block_sector_unlock(u8 w25qxxx, u32 addr)
 {
 	u8 sub_addr[4];
 
-	if (w25qxxx == W25Q256)
+	if (w25qxxx == W25Q256) {
 		sub_addr[0] = (addr & 0xFF000000) >> 24;
+	}
 
 	sub_addr[1] = (addr & 0x00FF0000) >> 16;
 	sub_addr[2] = (addr & 0x0000FF00) >> 8;
@@ -1502,8 +1531,9 @@ void w25qxxx_individual_block_sector_unlock(u8 w25qxxx, u32 addr)
 	w25qxxx_cs_low(w25qxxx);
 	w25qxxx_port_transmmit(w25qxxx, INDIVIDUAL_BLOCK_SECTOR_UNLOCK);
 
-	if (w25qxxx == W25Q256)
+	if (w25qxxx == W25Q256) {
 		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+	}
 
 	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
 	w25qxxx_cs_high(w25qxxx);
@@ -1514,8 +1544,9 @@ u8 w25qxxx_read_block_sector_lock(u8 w25qxxx, u32 addr)
 	u8 tmp = 0;
 	u8 sub_addr[4];
 
-	if (w25qxxx == W25Q256)
+	if (w25qxxx == W25Q256) {
 		sub_addr[0] = (addr & 0xFF000000) >> 24;
+	}
 
 	sub_addr[1] = (addr & 0x00FF0000) >> 16;
 	sub_addr[2] = (addr & 0x0000FF00) >> 8;
@@ -1525,8 +1556,9 @@ u8 w25qxxx_read_block_sector_lock(u8 w25qxxx, u32 addr)
 	w25qxxx_cs_low(w25qxxx);
 	w25qxxx_port_transmmit(w25qxxx, READ_BLOCK_SECTOR_LOCK);
 
-	if (w25qxxx == W25Q256)
+	if (w25qxxx == W25Q256) {
 		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+	}
 
 	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
 	tmp = w25qxxx_port_receive(w25qxxx);
@@ -1593,8 +1625,9 @@ int w25qxxx_init(u8 w25qxxx)
 		break;
 
 	case W25Q256:
-		if (w25qxxx_read_ads(w25qxxx) == 0)
+		if (w25qxxx_read_ads(w25qxxx) == 0) {
 			w25q256_enter_4byte_addr_mode(w25qxxx);
+		}
 
 		break;
 
@@ -1634,10 +1667,11 @@ int t_w25qxxx_chip_erase(int argc, char **argv)
 	int ret;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128"))
+		if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
-		else if (!strcmp(argv[1], "w25q256"))
+		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		}
 	}
 
 	printk(KERN_DEBUG "Erasing is doing, 30 seconds will cost.\n");
@@ -1656,10 +1690,11 @@ int t_w25qxxx_read_info(int argc, char **argv)
 	u8 w25qxxx = W25Q128;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128"))
+		if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
-		else if (!strcmp(argv[1], "w25q256"))
+		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		}
 	}
 
 	w25qxxx_read_info(w25qxxx);
@@ -1679,14 +1714,16 @@ int t_w25qxxx_loopback(int argc, char **argv)
 	u32 test_addr = 0;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128"))
+		if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
-		else if (!strcmp(argv[1], "w25q256"))
+		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		}
 	}
 
-	if (argc > 2)
+	if (argc > 2) {
 		round = simple_strtoul(argv[2], &argv[2], 10);
+	}
 
 	for (j = 0; j < round; j++) {
 		tmp_rng = random_get32bit();

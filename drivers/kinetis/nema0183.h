@@ -8,5 +8,4 @@
 #ifndef _NEMA0183_H
 #define _NEMA0183_H
 
-
 #endif /* _NEMA0183_H */

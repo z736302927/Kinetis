@@ -22,18 +22,17 @@ static inline char *get_rtc_string(void)
 {
 	struct tm rtc;
 	static char buf[64];
-	
+
 	rtc_calendar_get(&rtc, KRTC_FORMAT_BIN);
-	
+
 	sprintf(buf, "%ld-%d-%d %d:%d:%d",
 		rtc.tm_year, rtc.tm_mon, rtc.tm_mday,
 		rtc.tm_hour, rtc.tm_min, rtc.tm_sec);
-	
+
 	return buf;
 }
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
-
 
 #ifdef __cplusplus
 }

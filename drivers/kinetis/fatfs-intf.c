@@ -103,11 +103,11 @@ int fatfs_find_file(char *file_path, char *file_name)
 	snprintf(buffer, sizeof(buffer), "%s", file_path);
 
 	/* Start to search for photo files */
-// 	fr = f_findfirst(&dir, &fno, file_path, file_name);
-// 	if (fr != FR_OK) {
-// 		pr_err("Failed to find file %s in %s: %d\n", file_name, file_path, fr);
-// 		ret = fatfs_error_to_linux_error(fr);
-// 	}
+	// 	fr = f_findfirst(&dir, &fno, file_path, file_name);
+	// 	if (fr != FR_OK) {
+	// 		pr_err("Failed to find file %s in %s: %d\n", file_name, file_path, fr);
+	// 		ret = fatfs_error_to_linux_error(fr);
+	// 	}
 
 	res = f_opendir(&dir, buffer);
 	if (res != FR_OK) {
@@ -125,8 +125,9 @@ int fatfs_find_file(char *file_path, char *file_name)
 	}
 
 	res = f_closedir(&dir);
-	if (res != FR_OK)
+	if (res != FR_OK) {
 		pr_err("Failed to close directory %s: %d\n", buffer, res);
+	}
 
 	return ret;
 }
@@ -150,9 +151,9 @@ int fatfs_create_file(char *file_path, char *file_name)
 
 	/* Try opening a directory. */
 	res = f_opendir(&dir, buffer);
-	if (res == FR_OK)
+	if (res == FR_OK) {
 		dir_opened = true;
-	else if (res == FR_NO_PATH) {
+	} else if (res == FR_NO_PATH) {
 		/* Failure to open directory, create directory. */
 		res = f_mkdir(buffer);
 		if (res != FR_OK) {

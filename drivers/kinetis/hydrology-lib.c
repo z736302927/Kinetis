@@ -16,7 +16,6 @@
 #include <kinetis/tim-task.h>
 #include <kinetis/real-time-clock.h>
 
-
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /**
@@ -100,26 +99,26 @@ int hydrology_close_port(void)
 
 int hydrology_port_transmmit(u8 *pdata, u16 length)
 {
-//	struct serial_port hydrology_port;
+	//	struct serial_port hydrology_port;
 
 	print_hex_dump(KERN_DEBUG, "hydrology tx: ", DUMP_PREFIX_OFFSET,
 		16, 1,
 		pdata, length, false);
 	pr_err(" \n");
 
-//	hydrology_open_port();
+	//	hydrology_open_port();
 
 	switch (g_hydrology.source) {
 	case MSG_FORM_SERVER:
-//            NB_IOT_SendData(Data, length);
+		//            NB_IOT_SendData(Data, length);
 		g_hydrology.source = MSG_FORM_SERVER;
 		break;
 
 	case MSG_FORM_CLIENT:
-//		hydrology_port.port_nbr = 2;
-//		hydrology_port.tx_buffer = pdata;
-//		hydrology_port.tx_buffer_size = length;
-//		serial_port_send(&hydrology_port);
+		//		hydrology_port.port_nbr = 2;
+		//		hydrology_port.tx_buffer = pdata;
+		//		hydrology_port.tx_buffer_size = length;
+		//		serial_port_send(&hydrology_port);
 		break;
 	}
 
@@ -128,7 +127,7 @@ int hydrology_port_transmmit(u8 *pdata, u16 length)
 
 int hydrology_port_receive(u8 **ppdata, u16 *plength, u32 Timeout)
 {
-//	struct serial_port hydrology_port;
+	//	struct serial_port hydrology_port;
 	u32 Refer = 0;
 	u32 Delta = 0;
 	int ret;
@@ -139,39 +138,39 @@ int hydrology_port_receive(u8 **ppdata, u16 *plength, u32 Timeout)
 		break;
 
 	case MSG_FORM_CLIENT:
-//		memset(&hydrology_port, 0, sizeof(struct serial_port));
-//		hydrology_port.port_nbr = 2;
-//		hydrology_port.tmp_buffer_size = 300;
-//		hydrology_port.rx_scan_interval = 10;
-//		hydrology_port.end_char = NULL;
-//		hydrology_port.end_char_size = 0;
-//		serial_port_open(&hydrology_port);
+		//		memset(&hydrology_port, 0, sizeof(struct serial_port));
+		//		hydrology_port.port_nbr = 2;
+		//		hydrology_port.tmp_buffer_size = 300;
+		//		hydrology_port.rx_scan_interval = 10;
+		//		hydrology_port.end_char = NULL;
+		//		hydrology_port.end_char_size = 0;
+		//		serial_port_open(&hydrology_port);
 
-//		Refer = basic_timer_get_ss();
+		//		Refer = basic_timer_get_ss();
 
-//		for (;;) {
-//			if (serial_port_receive(&hydrology_port) == true) {
-//				print_hex_dump(KERN_DEBUG, "hydrology rx: ", DUMP_PREFIX_OFFSET,
-//					16, 1,
-//					hydrology_port.rx_buffer, hydrology_port.rx_buffer_size, false);
-//				*ppdata = (u8 *)hydrology_port.rx_buffer;
-//				*plength = hydrology_port.rx_buffer_size;
-//				serial_port_close(&hydrology_port);
-//				ret = true;
-//				break;
-//			} else {
-//				Delta = basic_timer_get_ss() >= Refer ?
-//					basic_timer_get_ss() - Refer :
-//					basic_timer_get_ss() + (DELAY_TIMER_UNIT - Refer);
+		//		for (;;) {
+		//			if (serial_port_receive(&hydrology_port) == true) {
+		//				print_hex_dump(KERN_DEBUG, "hydrology rx: ", DUMP_PREFIX_OFFSET,
+		//					16, 1,
+		//					hydrology_port.rx_buffer, hydrology_port.rx_buffer_size, false);
+		//				*ppdata = (u8 *)hydrology_port.rx_buffer;
+		//				*plength = hydrology_port.rx_buffer_size;
+		//				serial_port_close(&hydrology_port);
+		//				ret = true;
+		//				break;
+		//			} else {
+		//				Delta = basic_timer_get_ss() >= Refer ?
+		//					basic_timer_get_ss() - Refer :
+		//					basic_timer_get_ss() + (DELAY_TIMER_UNIT - Refer);
 
-//				if (Delta > Timeout) {
-//					pr_err("[warning]Receive data timeout.\n");
-//					serial_port_close(&hydrology_port);
-//					ret = false;
-//					break;
-//				}
-//			}
-//		}
+		//				if (Delta > Timeout) {
+		//					pr_err("[warning]Receive data timeout.\n");
+		//					serial_port_close(&hydrology_port);
+		//					ret = false;
+		//					break;
+		//				}
+		//			}
+		//		}
 
 		break;
 	}
@@ -214,13 +213,15 @@ int hydrology_resource_init(void)
 		pr_err("// Writing to flash\n");
 		ret = hydrology_device_reset();
 
-		if (ret)
+		if (ret) {
 			goto err;
+		}
 
 		ret = hydrology_host_reset();
 
-		if (ret)
+		if (ret) {
 			goto err;
+		}
 
 		pr_err("// Wrote to flash.\n");
 	}
@@ -228,7 +229,7 @@ int hydrology_resource_init(void)
 	return 0;
 err:
 	pr_err("Failed to init hydrology resource, "
-		"error code: %d\n", ret);
+		   "error code: %d\n", ret);
 
 	return ret;
 }
@@ -244,8 +245,9 @@ int hydrology_device_setup(void)
 
 	ret = hydrology_task_init();
 
-	if (ret)
+	if (ret) {
 		return ret;
+	}
 
 	ret = hydrology_resource_init();
 
@@ -257,8 +259,9 @@ int hydrology_device_reboot(void)
 	static u8 status = 0;
 	int ret;
 
-	if (status == 1)
+	if (status == 1) {
 		hydrology_device_shundown();
+	}
 
 	ret = hydrology_device_setup();
 	status = 1;
@@ -271,16 +274,17 @@ void hydrology_get_observation_time(struct hydrology_element_info *element, u8 *
 	u32 addr = 0;
 	int ret;
 
-	if (element->D % 2 == 0)
+	if (element->D % 2 == 0) {
 		addr = element->D / 2 + element->addr;
-	else
+	} else {
 		addr = (element->D + 1) / 2 + element->addr;
+	}
 
 	ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
 			addr, observation_time, 5);
 	if (ret) {
 		pr_err("Failed to read observation time, error code: %d\n", ret);
-		// Set default time if read fails
+		/* Set default time if read fails */
 		observation_time[0] = 0;
 		observation_time[1] = 0;
 		observation_time[2] = 0;
@@ -295,17 +299,17 @@ void hydrology_set_observation_time(struct hydrology_element_info *element)
 	u8 observation_time[6] = {0, 0, 0, 0, 0, 0};
 	int ret;
 
-	if (element->D % 2 == 0)
+	if (element->D % 2 == 0) {
 		addr = element->D / 2 + element->addr;
-	else
+	} else {
 		addr = (element->D + 1) / 2 + element->addr;
+	}
 
 	hydrology_get_time(observation_time);
 	ret = fatfs_write_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
 			addr, observation_time, 5);
 	if (ret) {
 		pr_err("Failed to write observation time, error code: %d\n", ret);
-		// Continue anyway
 	}
 }
 
@@ -318,19 +322,22 @@ void hydrology_get_bcd_nums(double num, int *intergerpart, int *decimerpart,
 	int j = 0;
 	int k = 0;
 
-	for (i = 0; i < 20; i++)
+	for (i = 0; i < 20; i++) {
 		strfloat[i] = 'X';
+	}
 
 	sprintf(strfloat, "%f", num);
 
 	for (i = 0; i < 20; i++) {
-		if ('X' != strfloat[i])
+		if ('X' != strfloat[i]) {
 			len++;
+		}
 	}
 
 	for (i = 0; i < len; i++) {
-		if ('0' != strfloat[i])
+		if ('0' != strfloat[i]) {
 			break;
+		}
 	}
 
 	len = len - i - 1;
@@ -345,18 +352,21 @@ void hydrology_get_bcd_nums(double num, int *intergerpart, int *decimerpart,
 	if (i < len) {
 		*decimerpart = len - j - 1;
 
-		if (*decimerpart > d)
+		if (*decimerpart > d) {
 			*decimerpart = d;
+		}
 
 		*intergerpart = j;
 
-		for (i = 0; i < j; i++)
+		for (i = 0; i < j; i++) {
 			pout_intergerValue[i] = strfloat[i];
+		}
 
 		pout_intergerValue[j] = 0;
 
-		for (i = j + 1; (i < len) && (k < (*decimerpart)); i++)
+		for (i = j + 1; (i < len) && (k < (*decimerpart)); i++) {
 			pout_decimerValue[k++] = strfloat[i];
+		}
 
 		pout_decimerValue[k] = 0;
 	} else {
@@ -368,10 +378,11 @@ void hydrology_get_bcd_nums(double num, int *intergerpart, int *decimerpart,
 
 int hydrology_get_even_num(int num)
 {
-	if (num % 2 == 0)
+	if (num % 2 == 0) {
 		return num;
-	else
+	} else {
 		return num + 1;
+	}
 }
 
 /* The byte is 5 bits high, D represents the number of data bytes, and 3 bits low,
@@ -424,8 +435,9 @@ int hydrology_convert_to_hex_element(double input, int D, int d, u8 *out)
 
 	u8 tmp[30];
 
-	for (m = 0; m < 30; m++)
+	for (m = 0; m < 30; m++) {
 		tmp[m] = '0';
+	}
 
 	hydrology_get_bcd_nums(input, &integer, &decimer, d, strInterValue, strDeciValue);
 	evenD = hydrology_get_even_num(D);
@@ -455,12 +467,15 @@ int hydrology_convert_to_hex_element(double input, int D, int d, u8 *out)
 
 		tmp[evenD] = 0;
 
-		for (i = 0; i < evenD; i = i + 2)
+		for (i = 0; i < evenD; i = i + 2) {
 			out[j++] = (tmp[i] - '0') * 16 + (tmp[i + 1] - '0');
+		}
 	}
 	/* That will not happen now */
-	else
+	else {
+		pr_err("Error: evenD (%d) < total (%d), invalid input parameters", evenD, total);
 		return -1;
+	}
 
 	return 0;
 }
@@ -678,7 +693,6 @@ void hydrology_free_element(struct hydrology_element *element)
 //                    strlen("HydrologyPicture.jpg"));
 //            }
 
-
 //            break;
 
 //        case REAL_TIME_REPORT:
@@ -730,8 +744,9 @@ void hydrology_get_stream_id(u8 *stream_id)
 	id++;
 	id = id % 65536;
 
-	if (id == 0)
+	if (id == 0) {
 		id = 1;
+	}
 
 	stream_id[0] = (id >> 8) & 0xff;
 	stream_id[1] = id & 0xff;
@@ -739,23 +754,23 @@ void hydrology_get_stream_id(u8 *stream_id)
 
 u16 hydrology_calculate_crc16(const u8 *data, u16 length)
 {
-// 	u16 crc = 0xFFFF;
-// 	u16 i, j;
-//
-// 	if (data == NULL || length == 0)
-// 		return 0;
-//
-// 	for (i = 0; i < length; i++) {
-// 		crc ^= data[i];
-// 		for (j = 0; j < 8; j++) {
-// 			if (crc & 0x0001)
-// 				crc = (crc >> 1) ^ 0xA001;
-// 			else
-// 				crc = crc >> 1;
-// 		}
-// 	}
-//
-// 	return crc;
+	// 	u16 crc = 0xFFFF;
+	// 	u16 i, j;
+	//
+	// 	if (data == NULL || length == 0)
+	// 		return 0;
+	//
+	// 	for (i = 0; i < length; i++) {
+	// 		crc ^= data[i];
+	// 		for (j = 0; j < 8; j++) {
+	// 			if (crc & 0x0001)
+	// 				crc = (crc >> 1) ^ 0xA001;
+	// 			else
+	// 				crc = crc >> 1;
+	// 		}
+	// 	}
+	//
+	// 	return crc;
 
 	return crc16(0xFFFF, data, length);
 }
@@ -765,8 +780,9 @@ bool hydrology_verify_crc16(const u8 *data, u16 length)
 	u16 calculated_crc;
 	u16 received_crc;
 
-	if (data == NULL || length < 3)
+	if (data == NULL || length < 3) {
 		return -1;
+	}
 
 	/* 计算除CRC外的数据的CRC */
 	calculated_crc = hydrology_calculate_crc16(data, length - 2);
@@ -801,10 +817,11 @@ int hydrology_read_specified_element_info(struct hydrology_element_info *element
 	case WATER_PUMP_MOTOR_REPORT:
 	case STATUS_REPORT:
 	case SET_IC_CARD_REPORT:
-		if (index > 0x75)
+		if (index > 0x75) {
 			index -= 0xF0;
-		else
+		} else {
 			index += 0x0D;
+		}
 
 		addr = index * sizeof(struct hydrology_element_info);
 		break;
@@ -871,8 +888,9 @@ int t_hydrology_init(int argc, char **argv)
 
 	ret = hydrology_device_reboot();
 
-	if (ret)
+	if (ret) {
 		return FAIL;
+	}
 
 	return PASS;
 }
@@ -884,21 +902,23 @@ int t_hydrology(int argc, char **argv)
 	enum hydrology_mode mode = HYDROLOGY_M1;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "host"))
+		if (!strcmp(argv[1], "host")) {
 			host = true;
-		else if (!strcmp(argv[1], "device"))
+		} else if (!strcmp(argv[1], "device")) {
 			host = false;
+		}
 	}
 
 	if (argc > 2) {
-		if (!strcmp(argv[2], "m1"))
+		if (!strcmp(argv[2], "m1")) {
 			mode = HYDROLOGY_M1;
-		else if (!strcmp(argv[2], "m2"))
+		} else if (!strcmp(argv[2], "m2")) {
 			mode = HYDROLOGY_M2;
-		else if (!strcmp(argv[2], "m3"))
+		} else if (!strcmp(argv[2], "m3")) {
 			mode = HYDROLOGY_M3;
-		else if (!strcmp(argv[2], "m4"))
+		} else if (!strcmp(argv[2], "m4")) {
 			mode = HYDROLOGY_M4;
+		}
 	}
 
 	if (host == false) {
@@ -939,11 +959,11 @@ int t_hydrology(int argc, char **argv)
 		}
 	}
 
-	if (ret == 0)
+	if (ret == 0) {
 		return PASS;
-	else
+	} else {
 		return FAIL;
+	}
 }
 
 #endif
-

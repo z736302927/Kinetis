@@ -10,7 +10,6 @@
 #include <kinetis/design_verification.h>
 #include <kinetis/real-time-clock.h>
 
-
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /**
@@ -50,8 +49,9 @@ void rtc_backup_reg_write(void)
 {
 	ktime_t start_time;
 
-	if (rtc_performance_monitoring)
+	if (rtc_performance_monitoring) {
 		start_time = ktime_get();
+	}
 
 #ifdef USING_CHIP_RTC
 	/*##-3- Writes a data in a RTC Backup data Register1 #####################*/
@@ -61,8 +61,9 @@ void rtc_backup_reg_write(void)
 		u64 write_time = ktime_to_ms(ktime_sub(ktime_get(), start_time));
 		rtc_statistics.total_backup_writes++;
 		rtc_statistics.total_write_time_ms += write_time;
-		if (write_time > rtc_statistics.max_write_time_ms)
+		if (write_time > rtc_statistics.max_write_time_ms) {
 			rtc_statistics.max_write_time_ms = write_time;
+		}
 
 		pr_debug("RTC backup write in %llu ms", write_time);
 	}
@@ -73,8 +74,9 @@ void rtc_backup_reg_read(u32 *tmp)
 {
 	ktime_t start_time;
 
-	if (rtc_performance_monitoring)
+	if (rtc_performance_monitoring) {
 		start_time = ktime_get();
+	}
 
 #ifdef USING_CHIP_RTC
 	/*##-3- Read a data in a RTC Backup data Register1 #######################*/
@@ -84,8 +86,9 @@ void rtc_backup_reg_read(u32 *tmp)
 		u64 read_time = ktime_to_ms(ktime_sub(ktime_get(), start_time));
 		rtc_statistics.total_backup_reads++;
 		rtc_statistics.total_read_time_ms += read_time;
-		if (read_time > rtc_statistics.max_read_time_ms)
+		if (read_time > rtc_statistics.max_read_time_ms) {
 			rtc_statistics.max_read_time_ms = read_time;
+		}
 
 		pr_debug("RTC backup read in %llu ms", read_time);
 	}
@@ -95,29 +98,33 @@ void rtc_backup_reg_read(u32 *tmp)
 // Enhanced RTC utility functions
 bool rtc_validate_time_components(struct tm *rtc)
 {
-	if (!rtc)
+	if (!rtc) {
 		return false;
+	}
 
 	// Basic range checks
 	if (rtc->tm_year < 1970 || rtc->tm_year > 99 ||
 		rtc->tm_mon < 1 || rtc->tm_mon > 12 ||
 		rtc->tm_mday < 1 || rtc->tm_mday > 31 ||
 		rtc->tm_hour > 23 || rtc->tm_min > 59 || rtc->tm_sec > 59 ||
-		rtc->tm_wday > 7)
+		rtc->tm_wday > 7) {
 		return false;
+	}
 
 	// February validation (leap year)
 	if (rtc->tm_mon == 2) {
 		bool is_leap = (rtc->tm_year % 4 == 0);
-		if (rtc->tm_mday > (is_leap ? 29 : 28))
+		if (rtc->tm_mday > (is_leap ? 29 : 28)) {
 			return false;
+		}
 	}
 
 	// 30-day months validation
 	if ((rtc->tm_mon == 4 || rtc->tm_mon == 6 ||
-			rtc->tm_mon == 9 || rtc->tm_mon == 11) &&
-		rtc->tm_mday > 30)
+		rtc->tm_mon == 9 || rtc->tm_mon == 11) &&
+		rtc->tm_mday > 30) {
 		return false;
+	}
 
 	return true;
 }
@@ -127,8 +134,9 @@ void rtc_calendar_set(struct tm *rtc, u8 format)
 	ktime_t start_time;
 	bool valid_time;
 
-	if (rtc_performance_monitoring)
+	if (rtc_performance_monitoring) {
 		start_time = ktime_get();
+	}
 
 	/* Enhanced time validation */
 	valid_time = rtc_validate_time_components(rtc);
@@ -145,29 +153,33 @@ void rtc_calendar_set(struct tm *rtc, u8 format)
 
 	/*##-1- Configure the Date ###############################################*/
 	/* Set Date: Wednesday May 1th 2019 */
-	if (format == KRTC_FORMAT_BIN)
+	if (format == KRTC_FORMAT_BIN) {
 		HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BIN);
-	else
+	} else {
 		HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BCD);
+	}
 
 	sdate.Year = rtc->tm_year;
 	sdate.Month = rtc->tm_mon;
 	sdate.Date = rtc->tm_mday;
 
-	if (rtc->tm_wday != 0)
+	if (rtc->tm_wday != 0) {
 		sdate.WeekDay = rtc->tm_wday;
+	}
 
-	if (format == KRTC_FORMAT_BIN)
+	if (format == KRTC_FORMAT_BIN) {
 		HAL_RTC_SetDate(&hrtc, &sdate, RTC_FORMAT_BIN);
-	else
+	} else {
 		HAL_RTC_SetDate(&hrtc, &sdate, RTC_FORMAT_BCD);
+	}
 
 	/*##-2- Configure the Time ###############################################*/
 	/* Set Time: 00:00:00 */
-	if (format == KRTC_FORMAT_BIN)
+	if (format == KRTC_FORMAT_BIN) {
 		HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BIN);
-	else
+	} else {
 		HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BCD);
+	}
 
 	stime.Hours = rtc->tm_hour;
 	stime.Minutes = rtc->tm_min;
@@ -176,10 +188,11 @@ void rtc_calendar_set(struct tm *rtc, u8 format)
 	stime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE ;
 	stime.StoreOperation = RTC_STOREOPERATION_RESET;
 
-	if (format == KRTC_FORMAT_BIN)
+	if (format == KRTC_FORMAT_BIN) {
 		HAL_RTC_SetTime(&hrtc, &stime, RTC_FORMAT_BIN);
-	else
+	} else {
 		HAL_RTC_SetTime(&hrtc, &stime, RTC_FORMAT_BCD);
+	}
 
 	/*##-3- Writes a data in a RTC Backup data Register1 #####################*/
 	rtc_backup_reg_write();
@@ -188,8 +201,9 @@ void rtc_calendar_set(struct tm *rtc, u8 format)
 		u64 write_time = ktime_to_ms(ktime_sub(ktime_get(), start_time));
 		rtc_statistics.total_time_sets++;
 		rtc_statistics.total_write_time_ms += write_time;
-		if (write_time > rtc_statistics.max_write_time_ms)
+		if (write_time > rtc_statistics.max_write_time_ms) {
 			rtc_statistics.max_write_time_ms = write_time;
+		}
 
 		pr_debug("RTC time set in %llu ms", write_time);
 	}
@@ -210,8 +224,9 @@ void rtc_calendar_set(struct tm *rtc, u8 format)
 		rtc->tm_hour, rtc->tm_min, rtc->tm_sec);
 	ds3231_SetTimeWithString(time);
 
-	if (rtc->tm_wday != 0)
+	if (rtc->tm_wday != 0) {
 		ds3231_SetWeek(rtc->tm_wday);
+	}
 
 #endif
 }
@@ -220,31 +235,35 @@ void rtc_calendar_get(struct tm *rtc, u8 format)
 {
 	ktime_t start_time;
 
-	if (rtc_performance_monitoring)
+	if (rtc_performance_monitoring) {
 		start_time = ktime_get();
+	}
 
 #ifdef USING_CHIP_RTC
 	RTC_DateTypeDef sdate;
 	RTC_TimeTypeDef stime;
 
 	/* Get the RTC current Date */
-	if (format == KRTC_FORMAT_BIN)
+	if (format == KRTC_FORMAT_BIN) {
 		HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BIN);
-	else
+	} else {
 		HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BCD);
+	}
 
 	rtc->tm_year = sdate.Year;
 	rtc->tm_mon = sdate.Month;
 	rtc->tm_mday = sdate.Date;
 
-	if (rtc->tm_wday != 0)
+	if (rtc->tm_wday != 0) {
 		rtc->tm_wday = sdate.WeekDay;
+	}
 
 	/* Get the RTC current Time */
-	if (format == KRTC_FORMAT_BIN)
+	if (format == KRTC_FORMAT_BIN) {
 		HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BIN);
-	else
+	} else {
 		HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BCD);
+	}
 
 	rtc->tm_hour = stime.Hours;
 	rtc->tm_min = stime.Minutes;
@@ -254,8 +273,9 @@ void rtc_calendar_get(struct tm *rtc, u8 format)
 		u64 read_time = ktime_to_ms(ktime_sub(ktime_get(), start_time));
 		rtc_statistics.total_time_reads++;
 		rtc_statistics.total_read_time_ms += read_time;
-		if (read_time > rtc_statistics.max_read_time_ms)
+		if (read_time > rtc_statistics.max_read_time_ms) {
 			rtc_statistics.max_read_time_ms = read_time;
+		}
 
 		pr_debug("RTC time read in %llu ms", read_time);
 	}
@@ -264,10 +284,11 @@ void rtc_calendar_get(struct tm *rtc, u8 format)
 #ifdef USING_DS3231
 	u8 time[6], week;
 
-	if (format == KRTC_FORMAT_BIN)
+	if (format == KRTC_FORMAT_BIN) {
 		ds3231_ReadTime(time, DS3231_FORMAT_BIN);
-	else
+	} else {
 		ds3231_ReadTime(time, DS3231_FORMAT_BCD);
+	}
 
 	ds3231_ReadWeek(&week);
 	rtc->tm_year = time[5];
@@ -324,8 +345,9 @@ void rtc_enable_performance_monitoring(bool enable)
 
 void rtc_get_statistics(struct rtc_stats *stats)
 {
-	if (stats)
+	if (stats) {
 		*stats = rtc_statistics;
+	}
 }
 
 void rtc_reset_statistics(void)
@@ -361,8 +383,9 @@ void rtc_print_performance_report(void)
 
 bool rtc_is_leap_year(u16 year)
 {
-	if (year < 100)
-		year += 2000; // Handle 2-digit years
+	if (year < 100) {
+		year += 2000;    // Handle 2-digit years
+	}
 	return (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0));
 }
 
@@ -391,8 +414,9 @@ int rtc_get_days_in_month(u16 year, u8 month)
 
 void rtc_format_time_string(struct tm *rtc, char *buffer, size_t buffer_size)
 {
-	if (!rtc || !buffer || buffer_size < 20)
+	if (!rtc || !buffer || buffer_size < 20) {
 		return;
+	}
 
 	snprintf(buffer, buffer_size, "%04d-%02d-%02d %02d:%02d:%02d",
 		rtc->tm_year + 2000, rtc->tm_mon, rtc->tm_mday,
@@ -420,8 +444,9 @@ int t_rtc_set_clock(int argc, char **argv)
 
 	pr_info("=== RTC Set Clock Basic Test ===");
 
-	if (rtc_performance_monitoring)
+	if (rtc_performance_monitoring) {
 		start_time = ktime_get();
+	}
 
 	rtc.tm_year = get_random_u32() % 100;
 	rtc.tm_mon = get_random_u32() % 12;
@@ -431,26 +456,33 @@ int t_rtc_set_clock(int argc, char **argv)
 	rtc.tm_sec = get_random_u32() % 60;
 	rtc.tm_wday = get_random_u32() % 7;
 
-	if (argc > 1)
+	if (argc > 1) {
 		rtc.tm_year = simple_strtoul(argv[1], &argv[1], 10);
+	}
 
-	if (argc > 2)
+	if (argc > 2) {
 		rtc.tm_mon = simple_strtoul(argv[2], &argv[2], 10);
+	}
 
-	if (argc > 3)
+	if (argc > 3) {
 		rtc.tm_mday = simple_strtoul(argv[3], &argv[3], 10);
+	}
 
-	if (argc > 4)
+	if (argc > 4) {
 		rtc.tm_hour = simple_strtoul(argv[4], &argv[4], 10);
+	}
 
-	if (argc > 5)
+	if (argc > 5) {
 		rtc.tm_min = simple_strtoul(argv[5], &argv[5], 10);
+	}
 
-	if (argc > 6)
+	if (argc > 6) {
 		rtc.tm_sec = simple_strtoul(argv[6], &argv[6], 10);
+	}
 
-	if (argc > 7)
+	if (argc > 7) {
 		rtc.tm_wday = simple_strtoul(argv[7], &argv[7], 10);
+	}
 
 	pr_info("Setting RTC time: %s", get_rtc_string());
 	rtc_calendar_set(&rtc, KRTC_FORMAT_BIN);
@@ -470,8 +502,9 @@ int t_rtc_get_clock(int argc, char **argv)
 
 	pr_info("=== RTC Get Clock Basic Test ===");
 
-	if (rtc_performance_monitoring)
+	if (rtc_performance_monitoring) {
 		start_time = ktime_get();
+	}
 
 	rtc_calendar_get(&rtc, KRTC_FORMAT_BIN);
 	pr_info("Getting RTC time: %s", get_rtc_string());
@@ -551,24 +584,27 @@ int t_rtc_validation(int argc, char **argv)
 		char time_str[32];
 		rtc_format_time_string(&test_times[i], time_str, sizeof(time_str));
 
-		if (test_results[i])
+		if (test_results[i]) {
 			pr_info("PASS - Test %d: %s", i + 1, time_str);
-		else
+		} else {
 			pr_err("FAIL - Test %d: %s", i + 1, time_str);
+		}
 	}
 
 	// Test leap year function
-	if (rtc_is_leap_year(2024) && !rtc_is_leap_year(2023))
+	if (rtc_is_leap_year(2024) && !rtc_is_leap_year(2023)) {
 		pr_info("PASS - Leap year detection working");
-	else
+	} else {
 		pr_err("FAIL - Leap year detection failed");
+	}
 	// Test days in month function
 	if (rtc_get_days_in_month(2024, 2) == 29 &&
 		rtc_get_days_in_month(2023, 2) == 28 &&
-		rtc_get_days_in_month(2024, 4) == 30)
+		rtc_get_days_in_month(2024, 4) == 30) {
 		pr_info("PASS - Days in month calculation working");
-	else
+	} else {
 		pr_err("FAIL - Days in month calculation failed");
+	}
 }
 
 int t_rtc_performance(int argc, char **argv)
@@ -617,8 +653,9 @@ int t_rtc_performance(int argc, char **argv)
 
 	// Test time getting performance
 	start_time = ktime_get();
-	for (i = 0; i < 50; i++)
+	for (i = 0; i < 50; i++) {
 		rtc_calendar_get(&test_time, KRTC_FORMAT_BIN);
+	}
 	end_time = ktime_get();
 	pr_info("50 time get operations completed in %llu ms",
 		ktime_to_ms(ktime_sub(end_time, start_time)));
@@ -649,19 +686,20 @@ int t_rtc_backup(int argc, char **argv)
 		// Read back the value
 		rtc_backup_reg_read(&read_values[i]);
 
-		if (read_values[i] == 0x32F2)   // Default value + written value
+		if (read_values[i] == 0x32F2) { // Default value + written value
 			pr_info("PASS - Backup test %d: 0x%08X", i + 1, read_values[i]);
-		else {
+		} else {
 			pr_err("FAIL - Backup test %d: expected 0x32F2, got 0x%08X",
 				i + 1, read_values[i]);
 			errors++;
 		}
 	}
 
-	if (errors == 0)
+	if (errors == 0) {
 		pr_info("PASS - All backup register tests passed");
-	else
+	} else {
 		pr_err("FAIL - %d out of %d backup register tests failed", errors, 5);
+	}
 	rtc_print_performance_report();
 	return errors == 0 ? PASS : FAIL;
 }

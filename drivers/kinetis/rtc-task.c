@@ -10,7 +10,6 @@
 #include <kinetis/design_verification.h>
 #include <kinetis/rtc-task.h>
 
-
 //rtc_task rtc_task list head.
 static LIST_HEAD(rtc_task_head);
 static LIST_HEAD(rtc_task_suspend_head);
@@ -35,7 +34,6 @@ static u8 history_index = 0;
   * @step 4:  An infinite loop calls function rtc_task_Loop.
   */
 
-
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /**
@@ -45,23 +43,29 @@ static u8 history_index = 0;
   */
 static bool rtc_task_expired(struct rtc_task *rtc_task)
 {
-	if (current_time.tm_year != rtc_task->expired.tm_year)
+	if (current_time.tm_year != rtc_task->expired.tm_year) {
 		return time_after32(current_time.tm_year, rtc_task->expired.tm_year);
+	}
 
-	if (current_time.tm_mon != rtc_task->expired.tm_mon)
+	if (current_time.tm_mon != rtc_task->expired.tm_mon) {
 		return time_after32(current_time.tm_mon, rtc_task->expired.tm_mon);
+	}
 
-	if (current_time.tm_mday != rtc_task->expired.tm_mday)
+	if (current_time.tm_mday != rtc_task->expired.tm_mday) {
 		return time_after32(current_time.tm_mday, rtc_task->expired.tm_mday);
+	}
 
-	if (current_time.tm_hour != rtc_task->expired.tm_hour)
+	if (current_time.tm_hour != rtc_task->expired.tm_hour) {
 		return time_after32(current_time.tm_hour, rtc_task->expired.tm_hour);
+	}
 
-	if (current_time.tm_min != rtc_task->expired.tm_min)
+	if (current_time.tm_min != rtc_task->expired.tm_min) {
 		return time_after32(current_time.tm_min, rtc_task->expired.tm_min);
+	}
 
-	if (current_time.tm_sec != rtc_task->expired.tm_sec)
+	if (current_time.tm_sec != rtc_task->expired.tm_sec) {
 		return time_after32(current_time.tm_sec, rtc_task->expired.tm_sec);
+	}
 
 	return true;
 }
@@ -77,8 +81,9 @@ static void rtc_task_special_add_days(struct tm *date_time)
 		*/
 		if (date_time->tm_year % 4 == 0) {
 			//No more than 29 days
-			if (date_time->tm_mday < 30)
+			if (date_time->tm_mday < 30) {
 				return ;
+			}
 
 			//Minus the overflow of 29
 			//month +1
@@ -86,8 +91,9 @@ static void rtc_task_special_add_days(struct tm *date_time)
 			++date_time->tm_mon;
 		} else {
 			//No more than 28 days
-			if (date_time->tm_mday < 29)
+			if (date_time->tm_mday < 29) {
 				return ;
+			}
 
 			//Minus the overflow of 28
 			//month +1
@@ -100,8 +106,9 @@ static void rtc_task_special_add_days(struct tm *date_time)
 	if (date_time->tm_mon == 4 || date_time->tm_mon == 6 ||
 		date_time->tm_mon == 9 || date_time->tm_mon == 11) {
 		//No more than 30 days
-		if (date_time->tm_mday < 31)
+		if (date_time->tm_mday < 31) {
 			return;
+		}
 
 		//Minus the overflow of 30
 		//month+1
@@ -115,8 +122,9 @@ static void rtc_task_special_add_days(struct tm *date_time)
 		date_time->tm_mon == 8 || date_time->tm_mon == 10 ||
 		date_time->tm_mon == 12) {
 		//No more than 31 days
-		if (date_time->tm_mday < 32)
+		if (date_time->tm_mday < 32) {
 			return;
+		}
 
 		//Minus the overflow of 30
 		//month +1
@@ -126,8 +134,9 @@ static void rtc_task_special_add_days(struct tm *date_time)
 
 	//No more than December
 
-	if (date_time->tm_mon < 13)
+	if (date_time->tm_mon < 13) {
 		return ;
+	}
 
 	//Minus 12 months of overflow
 	//year +1
@@ -139,31 +148,35 @@ static void rtc_task_special_add_days(struct tm *date_time)
 
 static void rtc_task_time_add_seconds(struct tm *date_time, u8 seconds)
 {
-	if (seconds > 60)
+	if (seconds > 60) {
 		return ;
+	}
 
 	//Plus the number of seconds
 	date_time->tm_sec += seconds;
 
 	//Finished
-	if (date_time->tm_sec < 60)
+	if (date_time->tm_sec < 60) {
 		return ;
+	}
 
 	//Minute + 1
 	date_time->tm_sec -= 60;
 	++date_time->tm_min;
 
 	//Finished
-	if (date_time->tm_min < 60)
+	if (date_time->tm_min < 60) {
 		return ;
+	}
 
 	//tm_hour + 1
 	date_time->tm_min -= 60;
 	++date_time->tm_hour;
 
 	//Finished
-	if (date_time->tm_hour < 24)
+	if (date_time->tm_hour < 24) {
 		return ;
+	}
 
 	//Days + 1;
 	date_time->tm_hour -= 24;
@@ -175,23 +188,26 @@ static void rtc_task_time_add_seconds(struct tm *date_time, u8 seconds)
 // minutes cannot be greater than 60 minutes
 static void rtc_task_time_add_minutes(struct tm *date_time, u8 minutes)
 {
-	if (minutes > 60)
+	if (minutes > 60) {
 		return ;
+	}
 
 	//Plus the number of minutes
 	date_time->tm_min += minutes;
 
 	//Finished
-	if (date_time->tm_min < 60)
+	if (date_time->tm_min < 60) {
 		return ;
+	}
 
 	//hours + 1
 	date_time->tm_min -= 60;
 	++date_time->tm_hour;
 
 	//Finished
-	if (date_time->tm_hour < 24)
+	if (date_time->tm_hour < 24) {
 		return ;
+	}
 
 	//days + 1;
 	date_time->tm_hour -= 24;
@@ -203,14 +219,16 @@ static void rtc_task_time_add_minutes(struct tm *date_time, u8 minutes)
 // An hour cannot be greater than 24
 static void rtc_task_time_add_hours(struct tm *date_time, u8 hours)
 {
-	if (hours > 24)
+	if (hours > 24) {
 		return;
+	}
 
 	date_time->tm_hour += hours;
 
 	//Finished
-	if (date_time->tm_hour < 24)
+	if (date_time->tm_hour < 24) {
 		return ;
+	}
 
 	//days + 1;
 	date_time->tm_hour -= 24;
@@ -222,8 +240,9 @@ static void rtc_task_time_add_hours(struct tm *date_time, u8 hours)
 static void rtc_task_time_add_days(struct tm *date_time, u8 days)
 {
 	//Make sure january doesn't jump to march
-	if (days > 28)
+	if (days > 28) {
 		return;
+	}
 
 	date_time->tm_mday += days;
 	rtc_task_special_add_days(date_time);
@@ -231,13 +250,15 @@ static void rtc_task_time_add_days(struct tm *date_time, u8 days)
 
 static void rtc_task_time_add_months(struct tm *date_time, u8 months)
 {
-	if (months > 12)
+	if (months > 12) {
 		return;
+	}
 
 	date_time->tm_mon += months;
 
-	if (date_time->tm_mon < 13)
+	if (date_time->tm_mon < 13) {
 		return;
+	}
 
 	date_time->tm_mon -= 12;
 	++date_time->tm_year;
@@ -307,8 +328,9 @@ static void rtc_task_update_time(struct rtc_task *rtc_task)
 		rtc_task_time_add_minutes(&(rtc_task->expired), rtc_task->interval.tm_min);
 	}
 
-	if (rtc_task->interval.tm_sec != 0)
+	if (rtc_task->interval.tm_sec != 0) {
 		rtc_task_time_add_seconds(&(rtc_task->expired), rtc_task->interval.tm_sec);
+	}
 }
 
 /**
@@ -341,8 +363,9 @@ int rtc_task_add(u16 add_year, u8 add_month, u8 add_date,
 
 	rtc_task = kmalloc(sizeof(*rtc_task), GFP_KERNEL);
 
-	if (!rtc_task)
+	if (!rtc_task) {
 		return -ENOMEM;
+	}
 
 	if (!callback) {
 		kfree(rtc_task);
@@ -414,8 +437,9 @@ int rtc_task_enqueue(struct rtc_task *rtc_task,
 		return -ETIMEDOUT;
 	}
 
-	if (!callback)
+	if (!callback) {
 		return -EINVAL;
+	}
 
 	rtc_task->callback = callback;
 
@@ -494,16 +518,18 @@ void rtc_task_loop(void)
 	struct rtc_task *rtc_task, *tmp;
 	ktime_t loop_start_time;
 
-	if (performance_profiling_enabled)
+	if (performance_profiling_enabled) {
 		loop_start_time = ktime_get();
+	}
 
 	list_for_each_entry_safe(rtc_task, tmp, &rtc_task_head, list) {
 		if (rtc_task_expired(rtc_task)) {
 			ktime_t task_start_time, task_end_time;
 			u32 execution_time_ms;
 
-			if (performance_profiling_enabled)
+			if (performance_profiling_enabled) {
 				task_start_time = ktime_get();
+			}
 
 			pr_debug("%04d-%02d-%02d %02d:%02d:%02d - Executing RTC task\n",
 				current_time.tm_year, current_time.tm_mon, current_time.tm_mday,
@@ -518,35 +544,40 @@ void rtc_task_loop(void)
 
 				// Update statistics
 				rtc_stats.total_execution_time_ms += execution_time_ms;
-				if (execution_time_ms > rtc_stats.max_execution_time_ms)
+				if (execution_time_ms > rtc_stats.max_execution_time_ms) {
 					rtc_stats.max_execution_time_ms = execution_time_ms;
-				if (rtc_stats.min_execution_time_ms == 0 || execution_time_ms < rtc_stats.min_execution_time_ms)
+				}
+				if (rtc_stats.min_execution_time_ms == 0 || execution_time_ms < rtc_stats.min_execution_time_ms) {
 					rtc_stats.min_execution_time_ms = execution_time_ms;
+				}
 
 				// Store in history
 				task_execution_history[history_index] = execution_time_ms;
 				history_index = (history_index + 1) % 100;
 
 				// Performance warning
-				if (execution_time_ms > 50)
+				if (execution_time_ms > 50) {
 					pr_warn("RTC task took %u ms (threshold: 50ms)\n", execution_time_ms);
+				}
 			}
 
-			if (rtc_task->auto_load)
+			if (rtc_task->auto_load) {
 				rtc_task_update_time(rtc_task);
-			else {
+			} else {
 				list_del(&rtc_task->list);
 
-				if (rtc_task->self_alloc == true)
+				if (rtc_task->self_alloc == true) {
 					kfree(rtc_task);
+				}
 			}
 		}
 	}
 
 	if (performance_profiling_enabled) {
 		u64 loop_time = ktime_to_ms(ktime_sub(ktime_get(), loop_start_time));
-		if (loop_time > 10)
+		if (loop_time > 10) {
 			pr_warn("RTC task loop took %llu ms (should be < 10ms)\n", loop_time);
+		}
 	}
 }
 
@@ -573,19 +604,22 @@ bool rtc_task_validate_time(u16 year, u8 month, u8 date,
 	if (year < 1970 || year > 9999 ||
 		month < 1 || month > 12 ||
 		date < 1 || date > 31 ||
-		hours > 23 || minutes > 59 || seconds > 59)
+		hours > 23 || minutes > 59 || seconds > 59) {
 		return false;
+	}
 
 	// February validation
 	if (month == 2) {
 		bool is_leap = (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0));
-		if (date > (is_leap ? 29 : 28))
+		if (date > (is_leap ? 29 : 28)) {
 			return false;
+		}
 	}
 
 	// Months with 30 days
-	if ((month == 4 || month == 6 || month == 9 || month == 11) && date > 30)
+	if ((month == 4 || month == 6 || month == 9 || month == 11) && date > 30) {
 		return false;
+	}
 
 	return true;
 }
@@ -646,8 +680,9 @@ struct rtc_task *rtc_task_find_by_callback(void (*callback)(void))
 	struct rtc_task *rtc_task;
 
 	list_for_each_entry(rtc_task, &rtc_task_head, list) {
-		if (rtc_task->callback == callback)
+		if (rtc_task->callback == callback) {
 			return rtc_task;
+		}
 	}
 
 	return NULL;
@@ -656,8 +691,9 @@ struct rtc_task *rtc_task_find_by_callback(void (*callback)(void))
 int rtc_task_get_current_time_safe(u16 *year, u8 *month, u8 *date,
 	u8 *hours, u8 *minutes, u8 *seconds)
 {
-	if (!year || !month || !date || !hours || !minutes || !seconds)
+	if (!year || !month || !date || !hours || !minutes || !seconds) {
 		return -EINVAL;
+	}
 
 	*year = current_time.tm_year;
 	*month = current_time.tm_mon;
@@ -675,14 +711,16 @@ void rtc_task_cleanup_all(void)
 
 	list_for_each_entry_safe(rtc_task, tmp, &rtc_task_head, list) {
 		list_del(&rtc_task->list);
-		if (rtc_task->self_alloc)
+		if (rtc_task->self_alloc) {
 			kfree(rtc_task);
+		}
 	}
 
 	list_for_each_entry_safe(rtc_task, tmp, &rtc_task_suspend_head, list) {
 		list_del(&rtc_task->list);
-		if (rtc_task->self_alloc)
+		if (rtc_task->self_alloc) {
 			kfree(rtc_task);
+		}
 	}
 
 	pr_info("All RTC tasks cleaned up\n");
@@ -705,10 +743,11 @@ void rtc_task_callback(void)
 	delta = ktime_ms_delta(ktime_get(),  time_stamp);
 	pr_info("RTC task callback #%d executed after %llu ms.\n", test_callback_count, delta);
 
-	if (delta >= 59000 && delta <= 61000)
+	if (delta >= 59000 && delta <= 61000) {
 		pr_info("PASS - RTC task timing correct\n");
-	else
+	} else {
 		pr_info("FAIL - RTC task timing incorrect (expected: 59000-61000ms, actual: %llums)\n", delta);
+	}
 	time_stamp = ktime_get();
 }
 
@@ -842,8 +881,9 @@ int t_rtc_task_performance(int argc, char **argv)
 
 	// Run tasks briefly
 	ktime_t test_end = ktime_add_ms(ktime_get(), 3000);
-	while (ktime_compare(ktime_get(), test_end) < 0)
+	while (ktime_compare(ktime_get(), test_end) < 0) {
 		rtc_task_loop();
+	}
 	// Get final stats
 	rtc_task_get_stats(&stats);
 	pr_info("Performance stats:\n");
@@ -888,4 +928,3 @@ int t_rtc_task_cleanup(int argc, char **argv)
 }
 
 #endif
-

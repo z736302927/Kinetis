@@ -14,7 +14,6 @@ static char user_input_buffer[SHELL_INPUT_BUFFER_SIZE];
 static u16 user_input_length = 0;
 static bool user_input_ready = false;
 
-
 static pthread_t input_thread;
 
 /* The following program is modified by the hardware device, otherwise the driver cannot run. */
@@ -26,8 +25,6 @@ static pthread_t input_thread;
   * @step 4:  .
   * @step 5:
   */
-
-
 
 void *pthread_shell_input(void *para)
 {
@@ -86,8 +83,9 @@ int get_user_input_string(char *buffer, int max_len)
 	int copy_len;
 	bool has_input = false;
 
-	if (buffer == NULL || max_len <= 0)
+	if (buffer == NULL || max_len <= 0) {
 		return -ENOMEM;
+	}
 
 	// Check if there's any input ready
 	if (user_input_ready == true) {
@@ -109,17 +107,11 @@ int get_user_input_string(char *buffer, int max_len)
 		user_input_ready = false;
 	}
 
-	if (has_input == true)
+	if (has_input == true) {
 		return 0;
-	else {
+	} else {
 		// No input ready - return immediately without blocking
 		buffer[0] = '\0';
 		return -ETIMEDOUT;
 	}
 }
-
-
-
-
-
-

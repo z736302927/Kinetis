@@ -7,7 +7,6 @@
 #include <kinetis/fmu.h>
 #include <kinetis/tim-task.h>
 
-
 static void fmu_reset_pid(struct fmu_parameter *para)
 {
 	/* Attitude control angle speed ring PID parameters */
@@ -133,12 +132,14 @@ static void task_1ms(struct tim_task *task)
 	int ret;
 
 	ret = bmi088_accel_get_all_axis();
-	if (ret)
+	if (ret) {
 		pr_info("Failed to get accel data");
+	}
 
 	ret = bmi088_gyro_get_all_axis();
-	if (ret)
+	if (ret) {
 		pr_info("Failed to get gyro data");
+	}
 
 	ahrs_container_in(&fmu->ahrs, 1);
 
@@ -146,8 +147,9 @@ static void task_1ms(struct tim_task *task)
 	if (ret == 0x03) {
 		ret = imu_calculate_offset(&fmu->para.accel_offset,
 				&fmu->para.gyro_offset);
-		if (ret)
+		if (ret) {
 			pr_info("Failed to calculate offset");
+		}
 	}
 
 }
@@ -157,12 +159,14 @@ static void task_20ms(struct tim_task *task)
 	int ret;
 
 	ret = spl06_get_temp_and_pressure();
-	if (ret)
+	if (ret) {
 		pr_info("Failed to get pressure data");
+	}
 
 	ret = ak8975_get_all_axis();
-	if (ret)
+	if (ret) {
 		pr_info("Failed to get magnet data");
+	}
 
 }
 
@@ -422,19 +426,22 @@ int fmu_init(void)
 	int ret;
 
 	fmu = kzalloc(sizeof(*fmu), GFP_KERNEL);
-	if (!fmu)
+	if (!fmu) {
 		return -ENOMEM;
+	}
 	kinetis_fmu = fmu;
 
 	ret = fatfs_find_file(FMU_FILE_PATH, FMU_PARA_FILE);
 	if (ret) {
 		ret = fatfs_create_file(FMU_FILE_PATH, FMU_PARA_FILE);
-		if (ret)
+		if (ret) {
 			return ret;
+		}
 		ret = fatfs_read_store_info(FMU_FILE_PATH, FMU_PARA_FILE,
 				0, (u8 *)&fmu->para, sizeof(fmu->para));
-		if (ret)
+		if (ret) {
 			return ret;
+		}
 	}
 
 	if (fmu->para.frist_init) {
@@ -446,71 +453,61 @@ int fmu_init(void)
 
 		ret = fatfs_write_store_info(FMU_FILE_PATH, FMU_PARA_FILE,
 				0, (u8 *)&fmu->para, sizeof(fmu->para));
-		if (ret)
+		if (ret) {
 			return ret;
+		}
 	}
 
-//	ret = ahrs_init_container(1024);
-//	if (ret)
-//		return 0;
+	//	ret = ahrs_init_container(1024);
+	//	if (ret)
+	//		return 0;
 
 	ret = rc_module_init(&fmu->rc);
-	if (ret)
+	if (ret) {
 		return 0;
+	}
 
-//	ret = fmu_check_esc();
-//	if (ret)
-//		return 0;
+	//	ret = fmu_check_esc();
+	//	if (ret)
+	//		return 0;
 
-//	ret = sensor_check_battery();
-//	if (ret)
-//		return 0;
+	//	ret = sensor_check_battery();
+	//	if (ret)
+	//		return 0;
 
-//	ret = sensor_check_magnetometer();
-//	if (ret)
-//		return 0;
+	//	ret = sensor_check_magnetometer();
+	//	if (ret)
+	//		return 0;
 
-//	ret = sensor_check_pressure();
-//	if (ret)
-//		return 0;
+	//	ret = sensor_check_pressure();
+	//	if (ret)
+	//		return 0;
 
-//	ret = sensor_check_imu();
-//	if (ret)
-//		return 0;
+	//	ret = sensor_check_imu();
+	//	if (ret)
+	//		return 0;
 
-//	ret = sensor_check_laser();
-//	if (ret)
-//		return 0;
+	//	ret = sensor_check_laser();
+	//	if (ret)
+	//		return 0;
 
-//	ret = sensor_check_optical_flow();
-//	if (ret)
-//		return 0;
+	//	ret = sensor_check_optical_flow();
+	//	if (ret)
+	//		return 0;
 
-//	ret = sensor_check_gps();
-//	if (ret)
-//		return 0;
+	//	ret = sensor_check_gps();
+	//	if (ret)
+	//		return 0;
 
-//	ret = sensor_check_heat_res();
-//	if (ret)
-//		return 0;
+	//	ret = sensor_check_heat_res();
+	//	if (ret)
+	//		return 0;
 
-//	ret = sensor_check_ano_dt();
-//	if (ret)
-//		return 0;
+	//	ret = sensor_check_ano_dt();
+	//	if (ret)
+	//		return 0;
 
 	pr_info("All checker pass, you can fly now!");
 
 	return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-

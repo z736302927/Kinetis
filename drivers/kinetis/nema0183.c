@@ -3,7 +3,6 @@
 #include <linux/err.h>
 #include <linux/ktime.h>
 
-
 struct ubx_protocol {
 	u16 sync_char;
 #define UBX_HEAD	0xB562
@@ -413,11 +412,13 @@ int ubx_decode_link_partner(void *buffer, u32 len)
 		check_add += check_sum;
 	}
 
-	if (check_sum != check_buff[len - 2] || check_add != check_buff[len - 1])
+	if (check_sum != check_buff[len - 2] || check_add != check_buff[len - 1]) {
 		return -EPIPE;
+	}
 
-	if (UBX_HEAD != *(u16 *)check_buff)
+	if (UBX_HEAD != *(u16 *)check_buff) {
 		return -EPIPE;
+	}
 
 	switch (check_buff[2]) {
 	case UBX_CLASS_NAV:
@@ -463,25 +464,26 @@ void ubx_receive_frame(u8 data, void *buffer, u8 *done)
 	static ktime_t time;
 	u16 i, len = 0;
 	int ret;
-	
-	if (ktime_us_delta(ktime_get(), time) > 2500 && time)
+
+	if (ktime_us_delta(ktime_get(), time) > 2500 && time) {
 		cnt = 0;
+	}
 	time = ktime_get();
 
 	buf[cnt++] = data;
 
-	if (buf[0] != 0xB5 || buf[1] == 0x62)
+	if (buf[0] != 0xB5 || buf[1] == 0x62) {
 		cnt = 0;
-	if (buf[2] < UBX_CLASS_NAV || buf[2] > UBX_CLASS_HNR)
+	}
+	if (buf[2] < UBX_CLASS_NAV || buf[2] > UBX_CLASS_HNR) {
 		cnt = 0;
-	
-	if (cnt == 6)
+	}
+
+	if (cnt == 6) {
 		len = *(((u16 *)buf) + 2);
-	else if (cnt == len + 6 + 2)
+	} else if (cnt == len + 6 + 2) {
 		*done = 1;
-	else
+	} else {
 		*done = 0;
+	}
 }
-
-
-

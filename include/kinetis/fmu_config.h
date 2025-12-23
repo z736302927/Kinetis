@@ -29,12 +29,12 @@
 
 static inline int ano_transfer_module(void *buffer, u32 len)
 {
-//	int ret;
-//
-//	ret = HAL_UART_Transmit(&huart5, buffer, len, 1000);
-//
-//	if (ret)
-//		return -EPIPE;
+	//	int ret;
+	//
+	//	ret = HAL_UART_Transmit(&huart5, buffer, len, 1000);
+	//
+	//	if (ret)
+	//		return -EPIPE;
 
 	return 0;
 }

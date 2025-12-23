@@ -70,8 +70,9 @@ int tim_task_add(struct tim_task *tim_task,
 	int ret;
 	u32 priority_level = 1; // Default normal priority
 
-	if (!callback || !name || !tim_task)
+	if (!callback || !name || !tim_task) {
 		return -EINVAL;
+	}
 
 	// Enhanced validation
 	if (interval == 0 || interval > 3600000) { // Max 1 hour
@@ -87,8 +88,9 @@ int tim_task_add(struct tim_task *tim_task,
 	}
 
 	tim_task->name = kstrdup_const(name, GFP_KERNEL);
-	if (!tim_task->name)
+	if (!tim_task->name) {
 		return -ENOMEM;
+	}
 
 	tim_task->callback = callback;
 	tim_task->timeout = ktime_to_ms(ktime_get()) + interval;
@@ -144,12 +146,13 @@ void tim_task_drop(struct tim_task *tim_task)
 	list_del(&tim_task->main_list);
 
 	// Update priority counters
-	if (tim_task->priority == 0)
+	if (tim_task->priority == 0) {
 		tim_stats.high_priority_tasks--;
-	else if (tim_task->priority == 1)
+	} else if (tim_task->priority == 1) {
 		tim_stats.normal_priority_tasks--;
-	else
+	} else {
 		tim_stats.low_priority_tasks--;
+	}
 
 	//if (tim_task->sched)
 	//	fmu_sch_drop_task(tim_task);
@@ -189,8 +192,9 @@ void tim_task_loop(void)
 	ktime_t loop_start_time;
 	u64 current_time_ms;
 
-	if (performance_profiling_enabled)
+	if (performance_profiling_enabled) {
 		loop_start_time = ktime_get();
+	}
 
 	current_time_ms = ktime_to_ms(ktime_get());
 
@@ -201,8 +205,9 @@ void tim_task_loop(void)
 				ktime_t task_start_time, task_end_time;
 				u32 execution_time_ms;
 
-				if (performance_profiling_enabled)
+				if (performance_profiling_enabled) {
 					task_start_time = ktime_get();
+				}
 
 				pr_debug("Executing timer task: %s (ID: %u, priority: %u)\n",
 					tim_task->name, tim_task->task_id, priority);
@@ -221,10 +226,12 @@ void tim_task_loop(void)
 
 					// Update global statistics
 					tim_stats.total_execution_time_ms += execution_time_ms;
-					if (execution_time_ms > tim_stats.max_execution_time_ms)
+					if (execution_time_ms > tim_stats.max_execution_time_ms) {
 						tim_stats.max_execution_time_ms = execution_time_ms;
-					if (tim_stats.min_execution_time_ms == 0 || execution_time_ms < tim_stats.min_execution_time_ms)
+					}
+					if (tim_stats.min_execution_time_ms == 0 || execution_time_ms < tim_stats.min_execution_time_ms) {
 						tim_stats.min_execution_time_ms = execution_time_ms;
+					}
 
 					// Store in history
 					task_execution_history[history_index] = execution_time_ms;
@@ -245,12 +252,13 @@ void tim_task_loop(void)
 					list_del(&tim_task->main_list);
 
 					// Update priority counters
-					if (priority == 0)
+					if (priority == 0) {
 						tim_stats.high_priority_tasks--;
-					else if (priority == 1)
+					} else if (priority == 1) {
 						tim_stats.normal_priority_tasks--;
-					else
+					} else {
 						tim_stats.low_priority_tasks--;
+					}
 				}
 			}
 		}
@@ -258,8 +266,9 @@ void tim_task_loop(void)
 
 	if (performance_profiling_enabled) {
 		u64 loop_time = ktime_to_ms(ktime_sub(ktime_get(), loop_start_time));
-		if (loop_time > 10)
+		if (loop_time > 10) {
 			pr_warn("Timer task loop took %llu ms (should be < 10ms)\n", loop_time);
+		}
 	}
 }
 
@@ -267,12 +276,14 @@ struct tim_task *tim_task_find_by_name(const char *name)
 {
 	struct tim_task *tim_task;
 
-	if (!name)
+	if (!name) {
 		return NULL;
+	}
 
 	list_for_each_entry(tim_task, &tim_task_head, main_list) {
-		if (tim_task->name && strcmp(tim_task->name, name) == 0)
+		if (tim_task->name && strcmp(tim_task->name, name) == 0) {
 			return tim_task;
+		}
 	}
 
 	return NULL;
@@ -283,8 +294,9 @@ struct tim_task *tim_task_find_by_id(u32 task_id)
 	struct tim_task *tim_task;
 
 	list_for_each_entry(tim_task, &tim_task_head, main_list) {
-		if (tim_task->task_id == task_id)
+		if (tim_task->task_id == task_id) {
 			return tim_task;
+		}
 	}
 
 	return NULL;
@@ -292,19 +304,21 @@ struct tim_task *tim_task_find_by_id(u32 task_id)
 
 int tim_task_set_priority(struct tim_task *tim_task, u32 new_priority)
 {
-	if (!tim_task || new_priority >= MAX_PRIORITY_LEVELS)
+	if (!tim_task || new_priority >= MAX_PRIORITY_LEVELS) {
 		return -EINVAL;
+	}
 
 	// Remove from current priority list
 	list_del(&tim_task->list);
 
 	// Update counters
-	if (tim_task->priority == 0)
+	if (tim_task->priority == 0) {
 		tim_stats.high_priority_tasks--;
-	else if (tim_task->priority == 1)
+	} else if (tim_task->priority == 1) {
 		tim_stats.normal_priority_tasks--;
-	else
+	} else {
 		tim_stats.low_priority_tasks--;
+	}
 
 	// Set new priority
 	tim_task->priority = new_priority;
@@ -313,12 +327,13 @@ int tim_task_set_priority(struct tim_task *tim_task, u32 new_priority)
 	list_add_tail(&tim_task->list, &priority_heads[new_priority]);
 
 	// Update counters
-	if (new_priority == 0)
+	if (new_priority == 0) {
 		tim_stats.high_priority_tasks++;
-	else if (new_priority == 1)
+	} else if (new_priority == 1) {
 		tim_stats.normal_priority_tasks++;
-	else
+	} else {
 		tim_stats.low_priority_tasks++;
+	}
 
 	pr_info("Task %s priority changed to %u\n", tim_task->name, new_priority);
 	return 0;
@@ -415,10 +430,10 @@ void tim_task_cleanup_all(void)
 
 	// Clear main list (using main_list node)
 	list_for_each_entry_safe(tim_task, tmp, &tim_task_head, main_list) {
-			list_del(&tim_task->list);
-			list_del(&tim_task->main_list);
-			kfree(tim_task->name);
-			kfree(tim_task);
+		list_del(&tim_task->list);
+		list_del(&tim_task->main_list);
+		kfree(tim_task->name);
+		kfree(tim_task);
 	}
 
 	pr_info("All timer tasks cleaned up\n");
@@ -462,23 +477,24 @@ static void tim_task_callback(struct tim_task *task)
 	pr_info("Timer task '%s' callback #%d executed after %llu ms.\n",
 		task ? task->name : "unknown", tim_test_callback_count, delta);
 
-	if (delta >= 900 && delta <= 1100)
+	if (delta >= 900 && delta <= 1100) {
 		pr_info("PASS - Timer task timing correct\n");
-	else
+	} else {
 		pr_info("FAIL - Timer task timing incorrect (expected: 900-1100ms, actual: %llums)\n", delta);
+	}
 	time_stamp = ktime_get();
 }
 
 static void tim_test_validation_callback(struct tim_task *task)
 {
 	tim_test_callback_count++;
-	pr_info("Timer validation task '%s' executed - count: %d\n", 
+	pr_info("Timer validation task '%s' executed - count: %d\n",
 		task ? task->name : "unknown", tim_test_callback_count);
 }
 
 static void tim_test_priority_callback(struct tim_task *task)
 {
-	pr_info("Priority task '%s' (ID:%u, Priority:%u) executed\n", 
+	pr_info("Priority task '%s' (ID:%u, Priority:%u) executed\n",
 		task ? task->name : "unknown", task ? task->task_id : 0, task ? task->priority : 0);
 }
 
@@ -495,9 +511,9 @@ int t_tim_task_add(int argc, char **argv)
 	time_stamp = ktime_get();
 
 	ret = tim_task_add(&example_task, "example task",
-		1000, true, false, tim_task_callback); //1s loop
+			1000, true, false, tim_task_callback); //1s loop
 
-		if (ret) {
+	if (ret) {
 		pr_err("Timer task creation failed: %d\n", ret);
 		return FAIL;
 	}
@@ -521,7 +537,7 @@ int t_tim_task_validation(int argc, char **argv)
 		return FAIL;
 	}
 
-	pr_info("PASS - Task with priority created (ID: %u, Priority: %u)\n", 
+	pr_info("PASS - Task with priority created (ID: %u, Priority: %u)\n",
 		test_task.task_id, test_task.priority);
 
 	// Test 2: Task lookup by name
@@ -566,7 +582,7 @@ int t_tim_task_validation(int argc, char **argv)
 		return FAIL;
 	}
 
-	pr_info("PASS - Statistics working (created: %u, high_priority: %u)\n", 
+	pr_info("PASS - Statistics working (created: %u, high_priority: %u)\n",
 		stats.total_tasks_created, stats.high_priority_tasks);
 
 	// Test 7: Performance profiling
@@ -589,10 +605,10 @@ int t_tim_task_priority(int argc, char **argv)
 
 	// Create tasks with different priorities
 	for (i = 0; i < 3; i++) {
-		ret = tim_task_add(&priority_tasks[i], task_names[i], 
-			200, true, false, tim_test_priority_callback);
+		ret = tim_task_add(&priority_tasks[i], task_names[i],
+				200, true, false, tim_test_priority_callback);
 		if (ret) {
-				pr_err("FAIL - Priority task %d creation failed: %d\n", i, ret);
+			pr_err("FAIL - Priority task %d creation failed: %d\n", i, ret);
 			return FAIL;
 		}
 
@@ -639,20 +655,20 @@ int t_tim_task_performance(int argc, char **argv)
 	for (i = 0; i < 20; i++) {
 		char task_name[32];
 		snprintf(task_name, sizeof(task_name), "perf-task-%d", i);
-		
-		ret = tim_task_add(&perf_tasks[i], task_name, 
-			50 + (i * 10), true, false, tim_test_validation_callback);
+
+		ret = tim_task_add(&perf_tasks[i], task_name,
+				50 + (i * 10), true, false, tim_test_validation_callback);
 		if (ret) {
-	pr_err("FAIL - Performance task %d creation failed: %d\n", i, ret);
+			pr_err("FAIL - Performance task %d creation failed: %d\n", i, ret);
 			return FAIL;
-			}
+		}
 
 		// Set priority based on index
 		tim_task_set_priority(&perf_tasks[i], i % 3);
 	}
 
 	end_time = ktime_get();
-	pr_info("PASS - 20 timer tasks created in %llu ms\n", 
+	pr_info("PASS - 20 timer tasks created in %llu ms\n",
 		ktime_to_ms(ktime_sub(end_time, start_time)));
 
 	// Run tasks briefly
@@ -681,14 +697,14 @@ int t_tim_task_cleanup(int argc, char **argv)
 	tim_test_callback_count = 0;
 
 	// Create a cleanup task
-	ret = tim_task_add(&cleanup_task, "cleanup-test-task", 
-		100, false, false, tim_test_cleanup_callback);
+	ret = tim_task_add(&cleanup_task, "cleanup-test-task",
+			100, false, false, tim_test_cleanup_callback);
 	if (ret) {
 		pr_err("FAIL - Cleanup task creation failed: %d\n", ret);
 		return FAIL;
 	}
 
-		pr_info("Created cleanup task with ID: %u\n", cleanup_task.task_id);
+	pr_info("Created cleanup task with ID: %u\n", cleanup_task.task_id);
 
 	// Run loop to execute task
 	tim_task_loop();
@@ -711,4 +727,3 @@ int t_tim_task_cleanup(int argc, char **argv)
 }
 
 #endif
-

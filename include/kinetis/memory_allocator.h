@@ -16,26 +16,26 @@ typedef uint64_t u64;
 
 // Memory block status
 typedef enum {
-    BLOCK_FREE,
-    BLOCK_USED
+	BLOCK_FREE,
+	BLOCK_USED
 } block_status;
 
 // Memory block control structure
 typedef struct {
-    void* start;          // Start address of memory block
-    u32 size;           // Size of memory block
-    block_status status;   // Status of memory block
+	void *start;          // Start address of memory block
+	u32 size;           // Size of memory block
+	block_status status;   // Status of memory block
 } memory_block;
 
 // Public API functions
 void mem_init(void);
-void* mem_alloc(u32 size);
-void* mem_alloc_aligned(u32 size, u32 alignment);
+void *mem_alloc(u32 size);
+void *mem_alloc_aligned(u32 size, u32 alignment);
 void mem_free(void* ptr);
-void* mem_calloc(u32 count, u32 size);
-void* mem_calloc_aligned(u32 count, u32 size, u32 alignment);
-void* mem_realloc(void* ptr, u32 new_size);
-void* mem_realloc_aligned(void* ptr, u32 new_size, u32 alignment);
+void *mem_calloc(u32 count, u32 size);
+void *mem_calloc_aligned(u32 count, u32 size, u32 alignment);
+void *mem_realloc(void* ptr, u32 new_size);
+void *mem_realloc_aligned(void* ptr, u32 new_size, u32 alignment);
 
 // Statistics functions
 u32 mem_get_used(void);

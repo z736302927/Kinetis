@@ -59,7 +59,7 @@ struct fmu_pid_ctrl {
 		struct pid_coef_op pit;
 		struct pid_coef_op yaw;
 	} angel_df;
-	
+
 	struct pid_coef_op height;
 	struct pid_coef_op height_df;
 
@@ -72,7 +72,7 @@ struct fmu_pid_ctrl {
 		struct pid_coef_op x;
 		struct pid_coef_op y;
 	} position_df_fix;
-	
+
 	u8 position_sensor;
 #define FMU_PS_OF	1
 #define FMU_PS_GPS	2

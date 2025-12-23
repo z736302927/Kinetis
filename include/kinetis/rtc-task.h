@@ -56,7 +56,6 @@ int rtc_task_get_current_time_safe(u16 *year, u8 *month, u8 *date,
 void rtc_task_cleanup_all(void);
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-
 #ifdef __cplusplus
 }
 #endif

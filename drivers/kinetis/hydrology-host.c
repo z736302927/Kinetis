@@ -12,7 +12,6 @@
 #include "hydrology-cmd.h"
 #include "hydrology-identifier.h"
 
-
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /**
@@ -807,10 +806,11 @@ static int hydrology_host_make_down_body(struct hydrology_element_info *element_
 				return ret;
 			}
 
-			if (down_body->element[0]->guide[0] % 8 == 0)
+			if (down_body->element[0]->guide[0] % 8 == 0) {
 				down_body->element[0]->num = down_body->element[0]->guide[0] / 8;
-			else
+			} else {
 				down_body->element[0]->num = down_body->element[0]->guide[0] / 8 + 1;
+			}
 
 			down_body->element[0]->value = kmalloc(down_body->element[0]->num, __GFP_ZERO);
 
@@ -1353,8 +1353,9 @@ static int hydrology_host_make_up_body(u8 *input, int len, int position,
 			upbody->count++;
 		}
 
-		if (upbody->count == 0)
+		if (upbody->count == 0) {
 			return -EINVAL;
+		}
 
 		break;
 
@@ -1371,8 +1372,9 @@ static int hydrology_host_make_up_body(u8 *input, int len, int position,
 
 		upbody->count = i;
 
-		if (upbody->count == 0)
+		if (upbody->count == 0) {
 			return -EINVAL;
+		}
 
 		break;
 
@@ -1534,10 +1536,11 @@ static int hydrology_host_make_up_body(u8 *input, int len, int position,
 		position += 1;
 		len -= 1;
 
-		if (upbody->element[0]->guide[0] % 8 == 0)
+		if (upbody->element[0]->guide[0] % 8 == 0) {
 			upbody->element[0]->num = upbody->element[0]->guide[0] / 8;
-		else
+		} else {
 			upbody->element[0]->num = upbody->element[0]->guide[0] / 8 + 1;
+		}
 
 		upbody->element[0]->value = kmalloc(upbody->element[0]->num, __GFP_ZERO);
 
@@ -1607,10 +1610,11 @@ int hydrology_host_print_up_packet(void)
 		header->password[0], header->password[1]);
 	pr_info("Packet type: %s\n", hydrology_type_string(header->funcode));
 
-	if (header->dir_len[0] & 0x80)
+	if (header->dir_len[0] & 0x80) {
 		pr_info("Downstream packet\n");
-	else
+	} else {
 		pr_info("Upstream packet\n");
+	}
 
 	total_pkt = (header->count_seq[0] << 4) + (header->count_seq[1] >> 4);
 	current_pkt = (header->count_seq[1] & 0x0F) + header->count_seq[2];
@@ -1701,6 +1705,8 @@ int hydrology_host_print_up_packet(void)
 			*pbuffer = kmalloc(upbody->element[i]->num, __GFP_ZERO);
 
 			if (NULL == *pbuffer) {
+				kfree(element_table);
+				element_table = NULL;
 				return -ENOMEM;
 			}
 
@@ -1708,8 +1714,9 @@ int hydrology_host_print_up_packet(void)
 			value = strtof(*pbuffer, pbuffer);
 			kfree(*pbuffer);
 
-			for (j = 0; j < element_table[i].d; ++j)
+			for (j = 0; j < element_table[i].d; ++j) {
 				value /= 10;
+			}
 
 			pr_info("element[%u].value: %f\n", i, value);
 		}
@@ -1735,9 +1742,9 @@ int hydrology_host_print_up_packet(void)
 			pr_info("element[%u].value: \n", i);
 
 			for (j = 0, k = 0; j < 12; ++j, k += 2) {
-				if (upbody->element[i]->num == 12)
+				if (upbody->element[i]->num == 12) {
 					pr_info("[%u]%02X\n", j, upbody->element[i]->value[j]);
-				else
+				} else
 					pr_info("[%u]%02X%02X\n", j,
 						upbody->element[i]->value[k], upbody->element[i]->value[k + 1]);
 			}
@@ -1755,9 +1762,9 @@ int hydrology_host_print_up_packet(void)
 			pr_info("element[%u].value: \n", i);
 
 			for (j = 0; j < 12; ++j, k += 2) {
-				if (upbody->element[i]->num == 12)
+				if (upbody->element[i]->num == 12) {
 					pr_info("[%u]%02X\n", j, upbody->element[i]->value[j]);
-				else
+				} else
 					pr_info("[%u]%02X%02X\n", j,
 						upbody->element[i]->value[k], upbody->element[i]->value[k + 1]);
 			}
@@ -1782,9 +1789,9 @@ int hydrology_host_print_up_packet(void)
 		pr_info("element[1].value: \n");
 
 		for (j = 0; j < 12; ++j, k += 2) {
-			if (upbody->element[1]->num == 12)
+			if (upbody->element[1]->num == 12) {
 				pr_info("[%u]%02X\n", j, upbody->element[1]->value[j]);
-			else
+			} else
 				pr_info("[%u]%02X%02X\n", j,
 					upbody->element[1]->value[k], upbody->element[1]->value[k + 1]);
 		}
@@ -1801,8 +1808,9 @@ int hydrology_host_print_up_packet(void)
 
 			pr_info("element[%u].value: \n", i);
 
-			for (j = 0; j < upbody->element[i]->num; ++j)
+			for (j = 0; j < upbody->element[i]->num; ++j) {
 				printk("%02X\n", upbody->element[i]->value[j]);
+			}
 		}
 
 		break;
@@ -1823,65 +1831,77 @@ int hydrology_host_print_up_packet(void)
 
 		status_val = *((u32 *)upbody->element[0]->value);
 
-		if (status_val & 0x0001)
+		if (status_val & 0x0001) {
 			pr_info("BIT[0]: 1, AC charging status: Power off\n");
-		else
+		} else {
 			pr_info("BIT[0]: 0, AC charging status: Normal\n");
+		}
 
-		if (status_val & 0x0002)
+		if (status_val & 0x0002) {
 			pr_info("BIT[1]: 1, Battery voltage status: Low power\n");
-		else
+		} else {
 			pr_info("BIT[1]: 0, Battery voltage status: Normal\n");
+		}
 
-		if (status_val & 0x0004)
+		if (status_val & 0x0004) {
 			pr_info("BIT[2]: 1, Water level over limit alarm status: Alert\n");
-		else
+		} else {
 			pr_info("BIT[2]: 0, Water level over limit alarm status: Normal\n");
+		}
 
-		if (status_val & 0x0008)
+		if (status_val & 0x0008) {
 			pr_info("BIT[3]: 1, Flow overrun alarm status: Alert\n");
-		else
+		} else {
 			pr_info("BIT[3]: 0, Flow overrun alarm status: Normal\n");
+		}
 
-		if (status_val & 0x0010)
+		if (status_val & 0x0010) {
 			pr_info("BIT[4]: 1, Water quality limit alarm status: Alert\n");
-		else
+		} else {
 			pr_info("BIT[4]: 0, Water quality limit alarm status: Normal\n");
+		}
 
-		if (status_val & 0x0020)
+		if (status_val & 0x0020) {
 			pr_info("BIT[5]: 1, Flow meter status: Broken\n");
-		else
+		} else {
 			pr_info("BIT[5]: 0, Flow meter status: Normal\n");
+		}
 
-		if (status_val & 0x0040)
+		if (status_val & 0x0040) {
 			pr_info("BIT[6]: 1, Water level meter status: Broken\n");
-		else
+		} else {
 			pr_info("BIT[6]: 0, Water level meter status: Normal\n");
+		}
 
-		if (status_val & 0x0080)
+		if (status_val & 0x0080) {
 			pr_info("BIT[7]: 1, Terminal box door status: Shut off\n");
-		else
+		} else {
 			pr_info("BIT[7]: 0, Terminal box door status: Power on\n");
+		}
 
-		if (status_val & 0x0100)
+		if (status_val & 0x0100) {
 			pr_info("BIT[8]: 1, Memory status: Abnormal\n");
-		else
+		} else {
 			pr_info("BIT[8]: 0, Memory status: Normal\n");
+		}
 
-		if (status_val & 0x0200)
+		if (status_val & 0x0200) {
 			pr_info("BIT[9]: 1, IC card function is effective: IC Card normal\n");
-		else
+		} else {
 			pr_info("BIT[9]: 0, IC card function is effective: Shut off\n");
+		}
 
-		if (status_val & 0x0400)
+		if (status_val & 0x0400) {
 			pr_info("BIT[10]: 1, Working state of water pump: Water pump power off\n");
-		else
+		} else {
 			pr_info("BIT[10]: 0, Working state of water pump: Water pump power on\n");
+		}
 
-		if (status_val & 0x0800)
+		if (status_val & 0x0800) {
 			pr_info("BIT[11]: 1, Remaining water alarm: Water yield overlimit\n");
-		else
+		} else {
 			pr_info("BIT[11]: 0, Remaining water alarm: Water yield normal\n");
+		}
 
 		break;
 
@@ -1900,10 +1920,11 @@ int hydrology_host_print_up_packet(void)
 
 		for (i = 0; i < upbody->element[0]->guide[0]; ++i) {
 			for (j = 0; j < 8; ++j) {
-				if (upbody->element[0]->value[i] & (1 << j))
+				if (upbody->element[0]->value[i] & (1 << j)) {
 					pr_info("Pump[%u]: Open\n", i * 8 + j);
-				else
+				} else {
 					pr_info("Pump[%u]: Close\n", i * 8 + j);
+				}
 			}
 		}
 
@@ -1914,10 +1935,11 @@ int hydrology_host_print_up_packet(void)
 
 		for (i = 0; i < upbody->element[0]->guide[0]; ++i) {
 			for (j = 0; j < 8; ++j) {
-				if (upbody->element[0]->value[i] & (1 << j))
+				if (upbody->element[0]->value[i] & (1 << j)) {
 					pr_info("VALVE_REPORT[%u]: Open\n", i * 8 + j);
-				else
+				} else {
 					pr_info("VALVE_REPORT[%u]: Close\n", i * 8 + j);
+				}
 			}
 		}
 
@@ -1926,30 +1948,34 @@ int hydrology_host_print_up_packet(void)
 	case GATE_REPORT:
 		pr_info("Total count: %u\n", upbody->element[0]->guide[0]);
 
-		if (upbody->element[0]->guide[0] % 8 == 0)
+		if (upbody->element[0]->guide[0] % 8 == 0) {
 			cnt = upbody->element[0]->guide[0] / 8;
-		else
+		} else {
 			cnt = upbody->element[0]->guide[0] / 8 + 1;
+		}
 
 		for (i = 0, k = 0; i < cnt; ++i) {
 			for (j = 0; j < 8; ++j, ++k) {
-				if (k == upbody->element[0]->guide[0])
+				if (k == upbody->element[0]->guide[0]) {
 					break;
+				}
 
-				if (upbody->element[0]->value[i] & (1 << j))
+				if (upbody->element[0]->value[i] & (1 << j)) {
 					pr_info("GATE_REPORT[%u]: Open\n", k);
-				else
+				} else {
 					pr_info("GATE_REPORT[%u]: Close\n", k);
+				}
 			}
 		}
 
 		break;
 
 	case WATER_SETTING_REPORT:
-		if (upbody->element[0]->value[0])
+		if (upbody->element[0]->value[0]) {
 			pr_info("Water value: Enter\n");
-		else
+		} else {
 			pr_info("Water value: Exit\n");
+		}
 
 		break;
 
@@ -2004,22 +2030,26 @@ int hydrology_host_process_receieve(u8 *input, int inputlen, enum hydrology_mode
 	int ret;
 
 	ret = hydrology_host_init_receieve();
-	if (ret)
+	if (ret) {
 		return ret;
+	}
 
 	header = (struct hydrology_up_header *)g_hydrology.up_packet->header;
 
 	ret = hydrology_host_make_up_header(input, inputlen, &i, &bodylen);
-	if (ret)
+	if (ret) {
 		return ret;
+	}
 
 	ret = hydrology_host_make_up_body(input, bodylen, i, mode, (enum hydrology_body_type)header->funcode);
-	if (ret)
+	if (ret) {
 		return ret;
+	}
 
 	ret = hydrology_host_print_up_packet();
-	if (ret)
+	if (ret) {
 		return ret;
+	}
 
 	g_hydrology.up_packet->end = input[inputlen - 3];
 
@@ -2097,18 +2127,21 @@ int hydrology_host_process_m3_err_packet(struct hydrology_element_info *element_
 	int ret;
 
 	ret = hydrology_host_init_send(cnt, funcode);
-	if (ret)
+	if (ret) {
 		return ret;
+	}
 
 	hydrology_host_make_down_header(HYDROLOGY_M3, funcode);
 
 	ret = hydrology_host_make_down_body(element_table, HYDROLOGY_M3, funcode);
-	if (ret)
+	if (ret) {
 		return ret;
+	}
 
 	ret = hydrology_host_make_err_down_tail_and_send(HYDROLOGY_M3, funcode, Err_Packet);
-	if (ret)
+	if (ret) {
 		return ret;
+	}
 
 	hydrology_host_exit_send();
 
@@ -2127,8 +2160,9 @@ int hydrology_host_process_m3_err_packet(struct hydrology_element_info *element_
 		return hydrology_host_process_m3_err_packet(element_table, cnt, funcode, cerr, Err_Packet);
 	}
 	ret = hydrology_host_process_receieve(*ppdata, length, HYDROLOGY_M3);
-	if (ret)
+	if (ret) {
 		return ret;
+	}
 	switch (ppdata[0][length - 3]) {
 	case EOT:
 		pr_err("[EOT]Link is disconnecting\n");
@@ -2161,8 +2195,9 @@ int hydrology_host_process_m1m2(enum hydrology_mode mode)
 			return ret;
 		}
 		ret = hydrology_host_process_receieve(*ppdata, length, mode);
-		if (ret)
+		if (ret) {
 			return ret;
+		}
 	}
 }
 
@@ -2211,8 +2246,9 @@ int hydrology_host_process_m4(struct hydrology_element_info *element_table, u8 c
 	int ret;
 
 	ret = hydrology_host_process_send(element_table, cnt, HYDROLOGY_M4, funcode, ENQ);
-	if (ret)
+	if (ret) {
 		return ret;
+	}
 
 	do {
 		ret = hydrology_port_receive(ppdata, &length, HYDROLOGY_H_PORT_TIMEOUT);
@@ -2306,8 +2342,9 @@ int t_hydrology_host_random_element(enum hydrology_mode mode, enum hydrology_bod
 	case SPECIFIED_ELEMENT_REPORT:
 		count = random_get8bit() % (117 - 100);
 
-		if (count == 0)
+		if (count == 0) {
 			count = 1;
+		}
 
 		element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
@@ -2318,15 +2355,17 @@ int t_hydrology_host_random_element(enum hydrology_mode mode, enum hydrology_bod
 		for (i = 0;;) {
 			guide = random_get8bit() % 0x75;
 
-			if (!guide)
+			if (!guide) {
 				continue;
+			}
 
 			hydrology_read_specified_element_info(&element_table[i], funcode, guide);
 
-			if (i == count - 1)
+			if (i == count - 1) {
 				break;
-			else
+			} else {
 				i++;
+			}
 		}
 
 		ret = hydrology_host_process(element_table, count, mode, funcode);
@@ -2338,8 +2377,9 @@ int t_hydrology_host_random_element(enum hydrology_mode mode, enum hydrology_bod
 	case CONFIG_READ_REPORT:
 		count = random_get8bit() % 15;
 
-		if (count == 0)
+		if (count == 0) {
 			count = 1;
+		}
 
 		element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
@@ -2350,15 +2390,17 @@ int t_hydrology_host_random_element(enum hydrology_mode mode, enum hydrology_bod
 		for (i = 0;;) {
 			guide = random_get8bit() % 0x0F;
 
-			if (!guide)
+			if (!guide) {
 				continue;
+			}
 
 			hydrology_read_specified_element_info(&element_table[i], funcode, guide);
 
-			if (i == count - 1)
+			if (i == count - 1) {
 				break;
-			else
+			} else {
 				i++;
+			}
 		}
 
 		ret = hydrology_host_process(element_table, count, mode, funcode);
@@ -2370,8 +2412,9 @@ int t_hydrology_host_random_element(enum hydrology_mode mode, enum hydrology_bod
 	case PARA_READ_REPORT:
 		count = random_get8bit() % (137 - 120);
 
-		if (count == 0)
+		if (count == 0) {
 			count = 1;
+		}
 
 		element_table = kmalloc(sizeof(struct hydrology_element_info) * count, __GFP_ZERO);
 
@@ -2382,15 +2425,17 @@ int t_hydrology_host_random_element(enum hydrology_mode mode, enum hydrology_bod
 		for (i = 0;;) {
 			guide = random_get8bit() % 0xA8;
 
-			if (guide < 0x20)
+			if (guide < 0x20) {
 				continue;
+			}
 
 			hydrology_read_specified_element_info(&element_table[i], funcode, guide);
 
-			if (i == count - 1)
+			if (i == count - 1) {
 				break;
-			else
+			} else {
 				i++;
+			}
 		}
 
 		ret = hydrology_host_process(element_table, count, mode, funcode);
@@ -2480,74 +2525,95 @@ int t_hydrology_host_random_element(enum hydrology_mode mode, enum hydrology_bod
 
 int t_hydrology_host_m4(void)
 {
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, REAL_TIME_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, REAL_TIME_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, PERIOD_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, PERIOD_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, INQUIRE_ARTIFICIAL_NUM_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, INQUIRE_ARTIFICIAL_NUM_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, SPECIFIED_ELEMENT_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, SPECIFIED_ELEMENT_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, CONFIG_WRITE_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, CONFIG_WRITE_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, CONFIG_READ_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, CONFIG_READ_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, PARA_WRITE_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, PARA_WRITE_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, PARA_READ_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, PARA_READ_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, WATER_PUMP_MOTOR_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, WATER_PUMP_MOTOR_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, SW_VERSION_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, SW_VERSION_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, STATUS_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, STATUS_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, INIT_SOLID_STORAGE_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, INIT_SOLID_STORAGE_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, RESET_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, RESET_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, CHANGE_PASSWORD_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, CHANGE_PASSWORD_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, SET_CLOCK_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, SET_CLOCK_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, SET_IC_CARD_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, SET_IC_CARD_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, PUMP_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, PUMP_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, VALVE_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, VALVE_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, GATE_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, GATE_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, WATER_SETTING_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, WATER_SETTING_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, RECORD_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, RECORD_REPORT)) {
 		return -1;
+	}
 
-	if (t_hydrology_host_random_element(HYDROLOGY_M4, TIME_REPORT))
+	if (t_hydrology_host_random_element(HYDROLOGY_M4, TIME_REPORT)) {
 		return -1;
+	}
 
 	return 0;
 }
 
 #endif
-

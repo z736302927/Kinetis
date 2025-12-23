@@ -212,7 +212,7 @@ struct fmu_core {
 	struct fmu_axis_data gyro_degree_nb;
 	struct fmu_axis_data gyro_radian_nb;
 	struct fmu_axis_data magnet;
-    float height;
+	float height;
 
 	struct fmu_ahrs_data ahrs;
 #define AHRS_AVERAGE_CNT	1000
@@ -224,8 +224,9 @@ static inline void vector_x_matrix_t(float *in, float matrix[3][3], float *out)
 	int i, j;
 
 	for (i = 0; i < FMU_DIMENSION; i++) {
-		for (j = 0, temp = 0; j < FMU_DIMENSION; j++)
+		for (j = 0, temp = 0; j < FMU_DIMENSION; j++) {
 			temp += in[j] * matrix[i][j];
+		}
 
 		out[i] = temp;
 	}
@@ -237,8 +238,9 @@ static inline void vector_x_matrix(float *in, float matrix[3][3], float *out)
 	int i, j;
 
 	for (i = 0; i < FMU_DIMENSION; i++) {
-		for (j = 0, temp = 0; j < FMU_DIMENSION; j++)
+		for (j = 0, temp = 0; j < FMU_DIMENSION; j++) {
 			temp += in[j] * matrix[j][i];
+		}
 
 		out[i] = temp;
 	}
@@ -406,7 +408,6 @@ float my_deadzone_3(float T, float hz, float x, float, float zoom, float range_x
 ======================================*/
 //void vec_3dh_transition(float ref[VEC_XYZ], float in[VEC_XYZ], float out[VEC_XYZ]);
 //void vec_3dh_transition_matrix(float ref[VEC_XYZ], float wh_matrix[VEC_XYZ][VEC_XYZ]);
-
 
 #define TAN_MAP_RES		0.003921569f     /* (smallest non-zero value in table) */
 #define RAD_PER_DEG		0.017453293f

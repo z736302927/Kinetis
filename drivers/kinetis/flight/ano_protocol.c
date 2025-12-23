@@ -471,11 +471,13 @@ int ano_decode_link_partner(void *buffer, u32 len)
 		check_add += check_sum;
 	}
 
-	if (check_sum != check_buff[len - 2] || check_add != check_buff[len - 1])
+	if (check_sum != check_buff[len - 2] || check_add != check_buff[len - 1]) {
 		return -EPIPE;
+	}
 
-	if (0xAA != check_buff[0])
+	if (0xAA != check_buff[0]) {
 		return -EPIPE;
+	}
 
 	switch (check_buff[1]) {
 	case ANO_NO_TARGET:
@@ -509,22 +511,25 @@ void ano_receive_frame(u8 data, void *buffer, u8 *done)
 	static ktime_t time;
 	u16 i, len;
 	int ret;
-	
-	if (ktime_us_delta(ktime_get(), time) > 2500 && time)
+
+	if (ktime_us_delta(ktime_get(), time) > 2500 && time) {
 		cnt = 0;
+	}
 	time = ktime_get();
 
 	buf[cnt++] = data;
 
-	if (buf[0] != ANO_HEAD)
+	if (buf[0] != ANO_HEAD) {
 		cnt = 0;
-	
-	if (cnt == 4)
+	}
+
+	if (cnt == 4) {
 		len = buf[3];
-	else if (cnt == len + 4 + 2)
+	} else if (cnt == len + 4 + 2) {
 		*done = true;
-	else
+	} else {
 		*done = false;
+	}
 }
 
 int ano_send_ack(u8 func_code, u8 check_sum, u8 check_add)
@@ -1068,8 +1073,9 @@ int ano_send_log_string(u8 color, char *buffer)
 	ano.func_code = LOG_STRING;
 	ano.len = len + sizeof(color);
 	ano.buffer = kmalloc(ano.len, GFP_KERNEL);
-	if (ano.buffer)
+	if (ano.buffer) {
 		return -ENOMEM;
+	}
 	memcpy(ano.buffer, &color, sizeof(color));
 	memcpy(ano.buffer + sizeof(color), &buffer, len);
 	ano.check_sum = 0;
@@ -1087,8 +1093,9 @@ int ano_send_log_string(u8 color, char *buffer)
 
 	ret = ano_transfer_module(ano.buffer,
 			ano.len + sizeof(ano) - sizeof(ano.buffer));
-	if (ret)
+	if (ret) {
 		return ret;
+	}
 
 	kfree(ano.buffer);
 
@@ -1107,8 +1114,9 @@ int ano_send_log_string_num(s32 val, char *buffer)
 	ano.func_code = LOG_STRING_NUM;
 	ano.len = len + sizeof(val);
 	ano.buffer = kmalloc(ano.len, GFP_KERNEL);
-	if (ano.buffer)
+	if (ano.buffer) {
 		return -ENOMEM;
+	}
 	memcpy(ano.buffer, &val, sizeof(val));
 	memcpy(ano.buffer + sizeof(val), &buffer, len);
 	ano.check_sum = 0;
@@ -1852,15 +1860,3 @@ int ano_send_parameter_write(u16 par_id, s32 par_val)
 
 	return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-

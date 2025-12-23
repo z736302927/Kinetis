@@ -30,7 +30,6 @@ int w25qxxx_block_erase_with_64kb(u8 w25qxxx, u32 addr);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-
 #ifdef __cplusplus
 }
 #endif

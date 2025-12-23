@@ -52,8 +52,9 @@ create_sch_task(struct fmu_sch_bw_info *bw_info, struct tim_task *task)
 	mem_size = sizeof(struct fmu_sch_task_info) +
 		len_bw_budget_table * sizeof(u32);
 	sch_task = kzalloc(mem_size, GFP_KERNEL);
-	if (!sch_task)
+	if (!sch_task) {
 		return ERR_PTR(-ENOMEM);
+	}
 
 	sch_task->bw_info = bw_info;
 	sch_task->task = task;
@@ -93,8 +94,9 @@ static u32 get_max_bw(struct fmu_sch_bw_info *sch_bw,
 		for (j = 0; j < sch_task->num_budget_frames; j++) {
 			k = FMU_SCH_BW_INDEX(base + j);
 			bw = sch_bw->bus_bw[k] + sch_task->bw_budget_table[j];
-			if (bw > max_bw)
+			if (bw > max_bw) {
 				max_bw = bw;
+			}
 		}
 	}
 	return max_bw;
@@ -110,10 +112,11 @@ static void update_bus_bw(struct fmu_sch_bw_info *sch_bw,
 		base = sch_task->offset + i * sch_task->interval;
 		for (j = 0; j < sch_task->num_budget_frames; j++) {
 			k = FMU_SCH_BW_INDEX(base + j);
-			if (used)
+			if (used) {
 				sch_bw->bus_bw[k] += sch_task->bw_budget_table[j];
-			else
+			} else {
 				sch_bw->bus_bw[k] -= sch_task->bw_budget_table[j];
+			}
 		}
 	}
 }
@@ -143,20 +146,23 @@ static int check_sch_bw(struct fmu_sch_task_info *sch_task)
 	 */
 	for (offset = 0; offset < sch_task->interval; offset++) {
 		worst_bw = get_max_bw(sch_bw, sch_task, offset);
-		if (worst_bw > FMU_SCH_BW_BOUNDARY)
+		if (worst_bw > FMU_SCH_BW_BOUNDARY) {
 			continue;
+		}
 
 		if (min_bw > worst_bw) {
 			min_bw = worst_bw;
 			min_index = offset;
 		}
 
-		if (min_bw == 0)
+		if (min_bw == 0) {
 			break;
+		}
 	}
 
-	if (min_index < 0)
+	if (min_index < 0) {
 		return ret ? ret : -ESCH_BW_OVERFLOW;
+	}
 
 	sch_task->offset = min_index;
 
@@ -166,8 +172,9 @@ static int check_sch_bw(struct fmu_sch_task_info *sch_task)
 static void destroy_sch_task(struct fmu_sch_task_info *sch_task)
 {
 	/* only release task bw check passed by check_sch_bw() */
-	if (sch_task->allocated)
+	if (sch_task->allocated) {
 		load_task_bw(sch_task->bw_info, sch_task, false);
+	}
 
 	list_del(&sch_task->list);
 	hlist_del(&sch_task->hentry);
@@ -180,13 +187,15 @@ static struct fmu_sch_bw_info sch_bandwidth;
 
 struct fmu_sch_bw_info *task_sch_init(u32 max_esit)
 {
-	if (max_esit < fmu_sch_max_esit)
+	if (max_esit < fmu_sch_max_esit) {
 		return ERR_PTR(-EINVAL);
+	}
 
 	sch_bandwidth.bus_bw = kzalloc(max_esit * sizeof(*sch_bandwidth.bus_bw),
 		GFP_KERNEL);
-	if (sch_bandwidth.bus_bw == NULL)
+	if (sch_bandwidth.bus_bw == NULL) {
 		return ERR_PTR(-ENOMEM);
+	}
 
 	fmu_sch_max_esit = max_esit;
 
@@ -239,12 +248,14 @@ int fmu_sch_add_task(struct tim_task *task)
 
 	pr_debug("%s %s\n", __func__, tim_task_decode(task));
 
-	if (task->interval > fmu_sch_max_esit)
+	if (task->interval > fmu_sch_max_esit) {
 		return -ERANGE;
+	}
 
 	sch_task = create_sch_task(&sch_bandwidth, task);
-	if (IS_ERR_OR_NULL(sch_task))
+	if (IS_ERR_OR_NULL(sch_task)) {
 		return -ENOMEM;
+	}
 
 	setup_sch_info(task, sch_task);
 
@@ -275,4 +286,3 @@ void fmu_sch_drop_task(struct tim_task *task)
 		}
 	}
 }
-

@@ -11,15 +11,14 @@ extern "C" {
 #include "kinetis/core_common.h"
 
 typedef enum {
-    PASS = 0U,
-    FAIL,
-    NOT_EXSIST
+	PASS = 0U,
+	FAIL,
+	NOT_EXSIST
 } test_status;
 
 int k_test_case_schedule(void);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
-
 
 #ifdef __cplusplus
 }

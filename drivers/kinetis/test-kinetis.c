@@ -14,7 +14,6 @@
 
 #include "hydrology.h"
 
-
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /**
@@ -371,25 +370,27 @@ static int idle_task_init(void)
 
 	ret = fatfs_init();
 
-	if (ret)
+	if (ret) {
 		goto err;
+	}
 
 	shell_init_async();
 
 	ret = hydrology_device_reboot();
 
-	if (ret)
+	if (ret) {
 		goto err;
+	}
 
-// 	ret = button_task_init();
-//
-// 	if (ret)
-// 		goto err;
-//
-// 	ret = switch_task_init();
-//
-// 	if (ret)
-// 		goto err;
+	// 	ret = button_task_init();
+	//
+	// 	if (ret)
+	// 		goto err;
+	//
+	// 	ret = switch_task_init();
+	//
+	// 	if (ret)
+	// 		goto err;
 
 	return 0;
 err:
@@ -399,8 +400,8 @@ err:
 
 static void idle_task_exit(void)
 {
-// 	button_task_exit();
-// 	switch_task_init();
+	// 	button_task_exit();
+	// 	switch_task_init();
 }
 
 static void idle_task_schedule(void)
@@ -421,16 +422,18 @@ int parse_test_all_case(char *cmd)
 			break;
 		}
 		argv[argc] = strsep(&cmd, " ");
-		if (!argv[argc])
+		if (!argv[argc]) {
 			break;
+		}
 		pr_info("[%d] %s\n", argc, argv[argc]);
 		argc++;
 	} while (cmd);
 
 	for (i = 0; i < ARRAY_SIZE(kinetis_case_table); i++) {
 		if (!strcmp(kinetis_case_table[i].command, argv[0]) &&
-			kinetis_case_table[i].function != NULL)
+			kinetis_case_table[i].function != NULL) {
 			return kinetis_case_table[i].function(argc, argv);
+		}
 	}
 
 	return NOT_EXSIST;
@@ -442,8 +445,9 @@ int k_test_case_schedule(void)
 	int ret;
 
 	ret = idle_task_init();
-	if (ret)
+	if (ret) {
 		goto err;
+	}
 
 	pr_info("/----------Test platform has been activated.----------/");
 
@@ -470,18 +474,19 @@ int k_test_case_schedule(void)
 			} else if (buffer[0] != '\0') {
 				ret = parse_test_all_case(buffer);
 
-				if (ret == PASS)
+				if (ret == PASS) {
 					pr_info("TEST PASS\n");
-				else if (ret == FAIL)
+				} else if (ret == FAIL) {
 					pr_info("TEST FAIL\n");
-				else
+				} else {
 					pr_info("TEST NOT EXSIST\n");
+				}
 				printf("/ # ");
 				continue;  // Skip to next iteration
 			}
-		} else if (ret == -ETIMEDOUT)
+		} else if (ret == -ETIMEDOUT) {
 			idle_task_schedule();
-		else {
+		} else {
 			pr_err("get_user_input_string() failed, ret=%d\n", ret);
 			break;
 		}

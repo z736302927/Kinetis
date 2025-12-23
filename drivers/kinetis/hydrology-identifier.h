@@ -9,7 +9,6 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 
-
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 #define HYDROLOGY_EA_TT_LEN             5
@@ -634,4 +633,3 @@ extern "C" {
 #endif
 
 #endif /* __HYDROLOGY_IDENTIFIER_H */
-

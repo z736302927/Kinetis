@@ -6,7 +6,6 @@
 
 #include "fmu_math.h"
 
-
 /**
  * function pid_calculate
  * @dt_s:	Scale factor
@@ -29,10 +28,11 @@ float pid_calculate(float dt_s,
 
 	result->expected_d = (expect - result->expected_old) * hz;
 
-	if (coef->feedback_d_mode == 0)
+	if (coef->feedback_d_mode == 0) {
 		result->feedback_d = (feedback - result->feedback_old) * hz;
-	else
+	} else {
 		result->feedback_d = result->feedback_d_ex;
+	}
 
 	differential = coef->kd_ex * result->expected_d - coef->kd_fb * result->feedback_d;
 
@@ -97,14 +97,14 @@ void fmu_ctrl_pid_init(struct fmu_pid_ctrl *ctrl,
 
 #if (MOTOR_ESC_TYPE == 2)
 #define DIFF_GAIN 0.3f
-//	ctrl->angel_df.rol.coef.kd_ex = ctrl->angel_df.rol.coef.kd_ex * DIFF_GAIN;
-//	ctrl->angel_df.pit.coef.kd_ex = ctrl->angel_df.pit.coef.kd_ex * DIFF_GAIN;
+	//	ctrl->angel_df.rol.coef.kd_ex = ctrl->angel_df.rol.coef.kd_ex * DIFF_GAIN;
+	//	ctrl->angel_df.pit.coef.kd_ex = ctrl->angel_df.pit.coef.kd_ex * DIFF_GAIN;
 	ctrl->angel_df.rol.coef.kd_fb = ctrl->angel_df.rol.coef.kd_fb * DIFF_GAIN;
 	ctrl->angel_df.pit.coef.kd_fb = ctrl->angel_df.pit.coef.kd_fb * DIFF_GAIN;
 #elif (MOTOR_ESC_TYPE == 1)
 #define DIFF_GAIN 1.0f
-//	ctrl->angel_df.rol.coef.kd_ex = ctrl->angel_df.rol.coef.kd_ex * DIFF_GAIN;
-//	ctrl->angel_df.pit.coef.kd_ex = ctrl->angel_df.pit.coef.kd_ex * DIFF_GAIN;
+	//	ctrl->angel_df.rol.coef.kd_ex = ctrl->angel_df.rol.coef.kd_ex * DIFF_GAIN;
+	//	ctrl->angel_df.pit.coef.kd_ex = ctrl->angel_df.pit.coef.kd_ex * DIFF_GAIN;
 	ctrl->angel_df.rol.coef.kd_fb = ctrl->angel_df.rol.coef.kd_fb * DIFF_GAIN;
 	ctrl->angel_df.pit.coef.kd_fb = ctrl->angel_df.pit.coef.kd_fb * DIFF_GAIN;
 #endif
@@ -373,102 +373,106 @@ void pid_angle_control(struct fmu_pid_ctrl *ctrl, struct pid_ctrl_status *status
 	s32 max_yaw_speed, yaw_angle_df;
 
 	/*积分微调*/
-//    expected_rol = - loc_ctrl_1.out[Y];
-//    expected_pit = - loc_ctrl_1.out[X];
+	//    expected_rol = - loc_ctrl_1.out[Y];
+	//    expected_pit = - loc_ctrl_1.out[X];
 
-//	if (flight_mode == ATT_STAB) {
-//		if (imu_abs(expected_rol + status->expected_rol_adj) < 5) {
-//			status->expected_rol_adj += 0.2f * expected_rol * dt;
-//			status->expected_rol_adj = clamp(status->expected_rol_adj, -1.0f, 1.0f);
-//		}
+	//	if (flight_mode == ATT_STAB) {
+	//		if (imu_abs(expected_rol + status->expected_rol_adj) < 5) {
+	//			status->expected_rol_adj += 0.2f * expected_rol * dt;
+	//			status->expected_rol_adj = clamp(status->expected_rol_adj, -1.0f, 1.0f);
+	//		}
 
-//		if (imu_abs(expected_pit + status->expected_pit_adj) < 5) {
-//			status->expected_pit_adj += 0.2f * expected_pit * dt;
-//			status->expected_pit_adj = clamp(status->expected_pit_adj, -1.0f, 1.0f);
-//		}
-//	} else {
-//		status->expected_rol_adj = 0;
-//		status->expected_pit_adj = 0;
-//	}
+	//		if (imu_abs(expected_pit + status->expected_pit_adj) < 5) {
+	//			status->expected_pit_adj += 0.2f * expected_pit * dt;
+	//			status->expected_pit_adj = clamp(status->expected_pit_adj, -1.0f, 1.0f);
+	//		}
+	//	} else {
+	//		status->expected_rol_adj = 0;
+	//		status->expected_pit_adj = 0;
+	//	}
 
 	/*正负参考ANO坐标参考方向*/
 	status->expected_rol = expected_rol + status->expected_rol_adj;
 	status->expected_pit = expected_pit + status->expected_pit_adj;
 
 	/*期望角度限幅*/
-//	status->expected_rol = clamp(status->expected_rol, -MAX_ANGLE, MAX_ANGLE);
-//	status->expected_pit = clamp(status->expected_pit, -MAX_ANGLE, MAX_ANGLE);
+	//	status->expected_rol = clamp(status->expected_rol, -MAX_ANGLE, MAX_ANGLE);
+	//	status->expected_pit = clamp(status->expected_pit, -MAX_ANGLE, MAX_ANGLE);
 
-//	if (speed_mode == 3)
-//		max_yaw_speed = MAX_SPEED_YAW;
-//	else if (speed_mode == 2)
-//		max_yaw_speed = 220;
-//	else
-//		max_yaw_speed = 200;
+	//	if (speed_mode == 3)
+	//		max_yaw_speed = MAX_SPEED_YAW;
+	//	else if (speed_mode == 2)
+	//		max_yaw_speed = 220;
+	//	else
+	//		max_yaw_speed = 200;
 
-//	fc_stv.yaw_pal_limit = max_yaw_speed;
-//	/*摇杆量转换为YAW期望角速度 + 程控期望角速度*/
-//	yaw_angle_df = (s32)(0.0023f * my_deadzone(CH_N[CH_YAW], 0, 65) * max_yaw_speed) +
-//		(-program_ctrl.yaw_pal_dps) + pc_user.pal_dps_set;
+	//	fc_stv.yaw_pal_limit = max_yaw_speed;
+	//	/*摇杆量转换为YAW期望角速度 + 程控期望角速度*/
+	//	yaw_angle_df = (s32)(0.0023f * my_deadzone(CH_N[CH_YAW], 0, 65) * max_yaw_speed) +
+	//		(-program_ctrl.yaw_pal_dps) + pc_user.pal_dps_set;
 
 	/*最大YAW角速度限幅*/
 	yaw_angle_df = clamp(yaw_angle_df, -max_yaw_speed, max_yaw_speed);
 
-//	/*没有起飞，复位*/
-//	if (flag.taking_off == 0 || (flag.locking)) {
-//		status->expected_rol = status->expected_pit = yaw_angle_df = 0;
-//		status->expected_yaw = status->feedback_yaw;
-//	}
+	//	/*没有起飞，复位*/
+	//	if (flag.taking_off == 0 || (flag.locking)) {
+	//		status->expected_rol = status->expected_pit = yaw_angle_df = 0;
+	//		status->expected_yaw = status->feedback_yaw;
+	//	}
 
 	/*限制误差增大*/
 	if (status->yaw_error > 90) {
-		if (yaw_angle_df > 0)
+		if (yaw_angle_df > 0) {
 			yaw_angle_df = 0;
+		}
 	} else if (status->yaw_error < -90) {
-		if (yaw_angle_df < 0)
+		if (yaw_angle_df < 0) {
 			yaw_angle_df = 0;
+		}
 	}
 
-//	//增量限幅
-//	att_1l_ct.set_yaw_speed += clamp(yaw_angle_df - att_1l_ct.set_yaw_speed, -30, 30);
-//	/*设置期望YAW角度*/
-//	status->expected_yaw += att_1l_ct.set_yaw_speed * dt;
+	//	//增量限幅
+	//	att_1l_ct.set_yaw_speed += clamp(yaw_angle_df - att_1l_ct.set_yaw_speed, -30, 30);
+	//	/*设置期望YAW角度*/
+	//	status->expected_yaw += att_1l_ct.set_yaw_speed * dt;
 
 	/*限制为+-180度*/
-	if (status->expected_yaw < -180)
+	if (status->expected_yaw < -180) {
 		status->expected_yaw += 360;
-	else if (status->expected_yaw > 180)
+	} else if (status->expected_yaw > 180) {
 		status->expected_yaw -= 360;
+	}
 
 	/*计算YAW角度误差*/
 	status->yaw_error = status->expected_yaw - status->feedback_yaw;
 
 	/*限制为+-180度*/
-	if (status->yaw_error < -180)
+	if (status->yaw_error < -180) {
 		status->yaw_error += 360;
-	else if (status->yaw_error > 180)
+	} else if (status->yaw_error > 180) {
 		status->yaw_error -= 360;
+	}
 
 	/*赋值反馈角度值*/
-//	status->feedback_yaw = imu_data.yaw;
-//	status->feedback_rol = imu_data.rol;
-//	status->feedback_pit = imu_data.pit;
+	//	status->feedback_yaw = imu_data.yaw;
+	//	status->feedback_rol = imu_data.rol;
+	//	status->feedback_pit = imu_data.pit;
 
-//	pid_calculate(dt, 0,
-//		status->expected_rol, status->feedback_rol,
-//		&ctrl->angel.rol.coef, &ctrl->angel.rol.op,
-//		5, 5 * flag.taking_off);
+	//	pid_calculate(dt, 0,
+	//		status->expected_rol, status->feedback_rol,
+	//		&ctrl->angel.rol.coef, &ctrl->angel.rol.op,
+	//		5, 5 * flag.taking_off);
 
-//	pid_calculate(dt,
-//		0,
-//		status->expected_pit, status->feedback_pit,
-//		&ctrl->angel.pit.coef, &ctrl->angel.pit.op,
-//		5, 5 * flag.taking_off);
+	//	pid_calculate(dt,
+	//		0,
+	//		status->expected_pit, status->feedback_pit,
+	//		&ctrl->angel.pit.coef, &ctrl->angel.pit.op,
+	//		5, 5 * flag.taking_off);
 
-//	pid_calculate(dt,
-//		0,
-//		status->yaw_error,
-//		0,
-//		&ctrl->angel.yaw.coef, &ctrl->angel.yaw.op,
-//		5, 5 * flag.taking_off);
+	//	pid_calculate(dt,
+	//		0,
+	//		status->yaw_error,
+	//		0,
+	//		&ctrl->angel.yaw.coef, &ctrl->angel.yaw.op,
+	//		5, 5 * flag.taking_off);
 }

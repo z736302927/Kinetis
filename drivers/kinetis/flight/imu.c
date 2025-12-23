@@ -31,20 +31,22 @@ int imu_static_detect(float dt_s,
 		hold_time_ms[0] = 0;
 		ret &= ~0x01;
 	} else {
-		if (hold_time_ms[0] < 200)
+		if (hold_time_ms[0] < 200) {
 			hold_time_ms[0] += 1e3f * (dt_s);
-		else
+		} else {
 			ret |= 0x01;
+		}
 	}
 
 	if (gyro_delta_length > GYRO_STATIC_THRESHOLD) {
 		hold_time_ms[1] = 0;
 		ret &= ~0x02;
 	} else {
-		if (hold_time_ms[1] < 200)
+		if (hold_time_ms[1] < 200) {
 			hold_time_ms[1] += 1e3f * (dt_s);
-		else
+		} else {
 			ret |= 0x02;
+		}
 	}
 
 	return ret;
@@ -58,12 +60,14 @@ int imu_calculate_offset(struct fmu_axis_data *accel_offset,
 	int ret;
 
 	ahrs = kzalloc(sizeof(*ahrs) * AHRS_AVERAGE_CNT, GFP_KERNEL);
-	if (ahrs)
+	if (ahrs) {
 		return -ENOMEM;
+	}
 
 	ret = ahrs_container_out(ahrs, AHRS_AVERAGE_CNT);
-	if (ret)
+	if (ret) {
 		return ret;
+	}
 
 	memset(&temp, 0, sizeof(temp));
 
@@ -76,9 +80,9 @@ int imu_calculate_offset(struct fmu_axis_data *accel_offset,
 		temp.gyro.z += ahrs[i].gyro.z;
 	}
 
-//	accel_offset->x = temp.accel.x / AHRS_AVERAGE_CNT;
-//	accel_offset->y = temp.accel.y / AHRS_AVERAGE_CNT;
-//	accel_offset->z = temp.accel.z / AHRS_AVERAGE_CNT;
+	//	accel_offset->x = temp.accel.x / AHRS_AVERAGE_CNT;
+	//	accel_offset->y = temp.accel.y / AHRS_AVERAGE_CNT;
+	//	accel_offset->z = temp.accel.z / AHRS_AVERAGE_CNT;
 
 	gyro_offset->x = temp.gyro.x / AHRS_AVERAGE_CNT;
 	gyro_offset->y = temp.gyro.y / AHRS_AVERAGE_CNT;
@@ -276,8 +280,9 @@ int ahrs_container_out(struct fmu_ahrs_data *output, u32 size)
 {
 	int ret;
 
-	if (kfifo_len(&ahrs_data) < size)
+	if (kfifo_len(&ahrs_data) < size) {
 		return -ERANGE;
+	}
 
 	/* get max of 2 elements from the fifo */
 	ret = kfifo_out(&ahrs_data, output, size);
@@ -295,8 +300,9 @@ int ahrs_container_in(struct fmu_ahrs_data *input, u32 size)
 
 	/* put values into the fifo */
 	ret = kfifo_in(&ahrs_data, input, size);
-	if (!ret)
+	if (!ret) {
 		return -ERANGE;
+	}
 
 	return 0;
 }
@@ -547,8 +553,9 @@ void imu_update(struct imu_state *state, struct imu *imu, float dt,
 				&normalized_magnet[0]);
 
 		/* If it is reversed, directly give the maximum error */
-		if (magnet_dot_x_err < 0)
+		if (magnet_dot_x_err < 0) {
 			magnet_yaw_err = my_sign(magnet_yaw_err) * 1.0f;
+		}
 	}
 #endif
 
@@ -573,12 +580,12 @@ void imu_update(struct imu_state *state, struct imu *imu, float dt,
 	vector_err_integral.z += clamp(vector_err.z, -0.1f, 0.1f) * dt * ki_use;
 
 	/* Construct incremental rotation (with blend correction). */
-//		d_angle.x = (gyro.x + (vector_err.x + vector_err_integral.x) * kp_use -
-//				magnet_yaw_err * imu->vector_z.x * kmp_use * RAD_PER_DEG) * dT / 2;
-//		d_angle.y = (gyro.y + (vector_err.y + vector_err_integral.y) * kp_use -
-//				magnet_yaw_err * imu->vector_z.y * kmp_use * RAD_PER_DEG) * dT / 2;
-//		d_angle.z = (gyro.z + (vector_err.z + vector_err_integral.z) * kp_use -
-//				magnet_yaw_err * imu->vector_z.z * kmp_use * RAD_PER_DEG) * dT / 2;
+	//		d_angle.x = (gyro.x + (vector_err.x + vector_err_integral.x) * kp_use -
+	//				magnet_yaw_err * imu->vector_z.x * kmp_use * RAD_PER_DEG) * dT / 2;
+	//		d_angle.y = (gyro.y + (vector_err.y + vector_err_integral.y) * kp_use -
+	//				magnet_yaw_err * imu->vector_z.y * kmp_use * RAD_PER_DEG) * dT / 2;
+	//		d_angle.z = (gyro.z + (vector_err.z + vector_err_integral.z) * kp_use -
+	//				magnet_yaw_err * imu->vector_z.z * kmp_use * RAD_PER_DEG) * dT / 2;
 
 #ifdef USE_MAGNET
 	d_angle.x = (gyro->x + (vector_err.x + vector_err_integral.x) * kp_use + magnet_yaw_err * imu->vector_z.x * mkp_use) * dt / 2;
@@ -619,10 +626,12 @@ void imu_update(struct imu_state *state, struct imu *imu, float dt,
 			/* Align by Increment */
 			mkp_use = 10.0f;
 			/* When the error is less than 2, clear the reset flag */
-			if (magnet_yaw_err != 0 && imu_abs(magnet_yaw_err) < 0.01f)
+			if (magnet_yaw_err != 0 && imu_abs(magnet_yaw_err) < 0.01f) {
 				state->magnet_rst = 0;
-		} else  //normal correction
+			}
+		} else { //normal correction
 			mkp_use = state->mkp;
+		}
 	}
 #endif
 	/* Gravity direction correction */
@@ -638,28 +647,28 @@ void imu_update(struct imu_state *state, struct imu *imu, float dt,
 			//Quick correction, alignment by increments
 			kp_use = 10.0f;
 			ki_use = 0.0f;
-//			imu->est_speed_world.x = 0;
-//			imu->est_speed_world.y = 0;
-//			imu->est_accel_world.x = 0;
-//			imu->est_accel_world.y = 0;
-//			imu->est_accel_hori.x = 0;
-//			imu->est_accel_hori.y = 0;
+			//			imu->est_speed_world.x = 0;
+			//			imu->est_speed_world.y = 0;
+			//			imu->est_accel_world.x = 0;
+			//			imu->est_accel_world.y = 0;
+			//			imu->est_accel_hori.x = 0;
+			//			imu->est_accel_hori.y = 0;
 
 			//Calculate whether the static error is reduced
 			imu_reset_val = imu_abs(vector_err.x) + imu_abs(vector_err.y);
 			imu_reset_val = clamp(imu_reset_val, 0.0f, 1.0f);
 
-//			if (imu_reset_val < 0.02f && !state->magnet_rst && st_imuData.data_sta != 0) {
-//				/* start timer */
-//				reset_cnt += 2;
+			//			if (imu_reset_val < 0.02f && !state->magnet_rst && st_imuData.data_sta != 0) {
+			//				/* start timer */
+			//				reset_cnt += 2;
 
-//				if (reset_cnt > 400) {
-//					//Aligned, clear reset mark
-//					reset_cnt = 0;
-//					state->gravity_rst = 0;
-//				}
-//			} else
-//				reset_cnt = 0;
+			//				if (reset_cnt > 400) {
+			//					//Aligned, clear reset mark
+			//					reset_cnt = 0;
+			//					state->gravity_rst = 0;
+			//				}
+			//			} else
+			//				reset_cnt = 0;
 		}
 	}
 }
@@ -752,25 +761,26 @@ float fast_atan(float y, float x)
 	int index;
 
 	/* don't divide by zero! */
-	if (y == 0.0f && x == 0.0f)
+	if (y == 0.0f && x == 0.0f) {
 		angle = 0.0f;
-	else {
+	} else {
 		/* normalize to +/- 45 degree range */
 		y_abs = imu_abs(y);
 		x_abs = imu_abs(x);
 
 		/* z = (y_abs < x_abs ? y_abs / x_abs : x_abs / y_abs); */
-		if (y_abs < x_abs)
+		if (y_abs < x_abs) {
 			z = y_abs / x_abs;
-		else
+		} else {
 			z = x_abs / y_abs;
+		}
 
 		/* when ratio approaches the table resolution, the angle is
 		 * best approximated with the argument itself...
 		 */
-		if (z < TAN_MAP_RES)
+		if (z < TAN_MAP_RES) {
 			base_angle = z;
-		else {
+		} else {
 			/* find index and interpolation value */
 			alpha = z * (float) TAN_MAP_SIZE - .5f;
 			index = (int) alpha;
@@ -786,18 +796,20 @@ float fast_atan(float y, float x)
 			/* -45 -> 45 or 135 -> 225 */
 			if (x >= 0.0f) {
 				/* -45 -> 45 */
-				if (y >= 0.0f)
-					angle = base_angle;   /* 0 -> 45, angle OK */
-				else
-					angle = -base_angle;  /* -45 -> 0, angle = -angle */
+				if (y >= 0.0f) {
+					angle = base_angle;    /* 0 -> 45, angle OK */
+				} else {
+					angle = -base_angle;    /* -45 -> 0, angle = -angle */
+				}
 			} else {
 				/* 135 -> 180 or 180 -> -135 */
 				angle = 3.14159265358979323846;
 
-				if (y >= 0.0f)
-					angle -= base_angle;  /* 135 -> 180, angle = 180 - angle */
-				else
-					angle = base_angle - angle;   /* 180 -> -135, angle = angle - 180 */
+				if (y >= 0.0f) {
+					angle -= base_angle;    /* 135 -> 180, angle = 180 - angle */
+				} else {
+					angle = base_angle - angle;    /* 180 -> -135, angle = angle - 180 */
+				}
 			}
 		} else {
 			/* 45 -> 135 or -135 -> -45 */
@@ -805,27 +817,30 @@ float fast_atan(float y, float x)
 				/* 45 -> 135 */
 				angle = 1.57079632679489661923;
 
-				if (x >= 0.0f)
-					angle -= base_angle;  /* 45 -> 90, angle = 90 - angle */
-				else
-					angle += base_angle;  /* 90 -> 135, angle = 90 + angle */
+				if (x >= 0.0f) {
+					angle -= base_angle;    /* 45 -> 90, angle = 90 - angle */
+				} else {
+					angle += base_angle;    /* 90 -> 135, angle = 90 + angle */
+				}
 			} else {
 				/* -135 -> -45 */
 				angle = -1.57079632679489661923;
 
-				if (x >= 0.0f)
-					angle += base_angle;  /* -90 -> -45, angle = -90 + angle */
-				else
-					angle -= base_angle;  /* -135 -> -90, angle = -90 - angle */
+				if (x >= 0.0f) {
+					angle += base_angle;    /* -90 -> -45, angle = -90 + angle */
+				} else {
+					angle -= base_angle;    /* -135 -> -90, angle = -90 - angle */
+				}
 			}
 		}
 	}
 
 #ifdef ZERO_TO_TWOPI
-	if (angle < 0)
+	if (angle < 0) {
 		return angle + TWOPI;
-	else
+	} else {
 		return angle;
+	}
 #else
 	return angle;
 #endif
@@ -843,8 +858,9 @@ float float_pow(float base, unsigned int exp)
 	float result = 1;
 
 	while (exp) {
-		if (exp & 1)
+		if (exp & 1) {
 			result *= base;
+		}
 		exp >>= 1;
 		base *= base;
 	}
@@ -878,15 +894,17 @@ double sinx(double rad)
 {
 	double sine;
 
-	if (rad < 0)
+	if (rad < 0) {
 		sine = rad * (1.27323954f + 0.405284735f * rad);
-	else
+	} else {
 		sine = rad * (1.27323954f - 0.405284735f * rad);
+	}
 
-	if (sine < 0)
+	if (sine < 0) {
 		sine = sine * (-0.225f * (sine + 1) + 1);
-	else
+	} else {
 		sine = sine * (0.225f * (sine - 1) + 1);
+	}
 
 	return sine;
 }
@@ -923,13 +941,15 @@ float deadzone_1(float x, float ref, float zoom)
 	if (x > ref) {
 		t = x - zoom;
 
-		if (t < ref)
+		if (t < ref) {
 			t = ref;
+		}
 	} else {
 		t = x + zoom;
 
-		if (t > ref)
+		if (t > ref) {
 			t = ref;
+		}
 	}
 
 	return (t);
@@ -939,10 +959,11 @@ float deadzone_2(float x, float ref, float zoom)
 {
 	float t;
 
-	if (x > (-zoom + ref) && x < (zoom + ref))
+	if (x > (-zoom + ref) && x < (zoom + ref)) {
 		t = ref;
-	else
+	} else {
 		t = x;
+	}
 
 	return (t);
 }
@@ -950,17 +971,19 @@ float deadzone_2(float x, float ref, float zoom)
 float high_pass_filter(float T, float hz, float x,
 	float zoom, float range, float *zoom_adj)
 {
-	if (imu_abs(x) < 0.5f * range * zoom)
+	if (imu_abs(x) < 0.5f * range * zoom) {
 		hz *= 1.2f;
-	else if (imu_abs(x) < range * zoom)
+	} else if (imu_abs(x) < range * zoom) {
 		hz *= 0.8f;
+	}
 
-	else if (imu_abs(x) < zoom)
+	else if (imu_abs(x) < zoom) {
 		hz *= 0.5f;
-	else if (imu_abs(x) < 2 * zoom)
+	} else if (imu_abs(x) < 2 * zoom) {
 		hz *= 0.2f;
-	else
+	} else {
 		hz *= 0.1f;
+	}
 
 	*zoom_adj += (1 / (1 + 1 / (hz * 6.28f * T))) * (x - *zoom_adj);
 	*zoom_adj = clamp(*zoom_adj, -range * zoom, range * zoom);

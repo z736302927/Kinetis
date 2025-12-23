@@ -10,7 +10,6 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include <linux/types.h>
 
-
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 void my9221_send_packet(void);

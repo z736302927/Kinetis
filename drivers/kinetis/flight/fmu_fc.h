@@ -3,7 +3,6 @@
 
 #include <linux/types.h>
 
-
 struct fmu_state {
 	//Basic status/sensor
 	u8 start_ok;
@@ -70,6 +69,5 @@ struct fmu_sensor_state {
 	unsigned uwb_on : 1;
 	unsigned opmv_on : 1;
 };
-
 
 #endif /* _FMU_FC_H */

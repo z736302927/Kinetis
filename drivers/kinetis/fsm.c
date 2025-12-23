@@ -48,8 +48,9 @@ fsm_state fsm_step(struct state_machine *machine, struct sm_var *sm_var, struct 
 	ktime_t start_time;
 	fsm_state previous_state;
 
-	if (fsm_performance_monitoring)
+	if (fsm_performance_monitoring) {
 		start_time = ktime_get();
+	}
 
 	previous_state = machine->current_state;
 
@@ -89,22 +90,25 @@ fsm_state fsm_step(struct state_machine *machine, struct sm_var *sm_var, struct 
 
 		sm_var->_repeats = 0;
 
-		if (machine->current_state == sNB_UDP_RECEIVE)
+		if (machine->current_state == sNB_UDP_RECEIVE) {
 			machine->current_state = sNB_UDP_CLOSE;
-		else if (machine->current_state == sNB_UDP_CLOSE)
+		} else if (machine->current_state == sNB_UDP_CLOSE) {
 			machine->current_state = sNB_END;
-		else
+		} else {
 			machine->current_state = sNB_RESET;
+		}
 	}
 
 	if (fsm_performance_monitoring && previous_state != machine->current_state) {
 		u64 exec_time = ktime_to_ms(ktime_sub(ktime_get(), start_time));
 		fsm_stats.total_state_changes++;
 		fsm_stats.total_execution_time_ms += exec_time;
-		if (exec_time > fsm_stats.max_execution_time_ms)
+		if (exec_time > fsm_stats.max_execution_time_ms) {
 			fsm_stats.max_execution_time_ms = exec_time;
-		if (fsm_stats.min_execution_time_ms == 0 || exec_time < fsm_stats.min_execution_time_ms)
+		}
+		if (fsm_stats.min_execution_time_ms == 0 || exec_time < fsm_stats.min_execution_time_ms) {
 			fsm_stats.min_execution_time_ms = exec_time;
+		}
 
 		pr_debug("FSM: Step completed in %llu ms\n", exec_time);
 	}
@@ -234,8 +238,9 @@ void fsm_enable_performance_monitoring(bool enable)
 
 void fsm_get_statistics(struct fsm_statistics *stats)
 {
-	if (stats)
+	if (stats) {
 		*stats = fsm_stats;
+	}
 }
 
 void fsm_reset_statistics(void)
@@ -264,8 +269,9 @@ void fsm_print_performance_report(void)
 
 	pr_info("State visit counts:\n");
 	for (int i = 0; i < FSM_STATES; i++) {
-		if (fsm_stats.state_counters[i] > 0)
+		if (fsm_stats.state_counters[i] > 0) {
 			pr_info("  %s: %u visits\n", fsm_state_names[i], fsm_stats.state_counters[i]);
+		}
 	}
 
 	pr_info("=============================\n");
@@ -273,15 +279,17 @@ void fsm_print_performance_report(void)
 
 const char *fsm_get_state_name(fsm_state state)
 {
-	if (state >= FSM_STATES)
+	if (state >= FSM_STATES) {
 		return "UNKNOWN";
+	}
 	return fsm_state_names[state];
 }
 
 const char *fsm_get_condition_name(fsm_condition condition)
 {
-	if (condition >= FSM_CONDITIONS)
+	if (condition >= FSM_CONDITIONS) {
 		return "UNKNOWN";
+	}
 	return fsm_condition_names[condition];
 }
 
@@ -289,8 +297,9 @@ void NB_IOT_FSM_Init(void)
 {
 	pr_info("Initializing NB IoT FSM with %d states and %d conditions\n", FSM_STATES, FSM_CONDITIONS);
 
-	if (fsm_performance_monitoring)
+	if (fsm_performance_monitoring) {
 		pr_info("FSM performance monitoring active\n");
+	}
 
 	NB_IOT_Trans_Table[sNB_NONE][0] = NB_None2Init;
 	NB_IOT_Trans_Table[sNB_NONE][1] = NB_Reset2None;
@@ -320,9 +329,9 @@ void NB_IOT_FSM_Init(void)
 	NB_IOT_Trans_Table[sNB_UDP_REGISTER][1] = NB_UDPCreate2Register;
 	NB_IOT_Trans_Table[sNB_UDP_REGISTER][2] = NB_Fail2Reset;
 
-//  NB_IOT_Trans_Table[sNB_CERTIFICATE][0] = NB_GuyuCertificate2SendData;
-//  NB_IOT_Trans_Table[sNB_CERTIFICATE][1] = NB_Register2GuyuCertificate;
-//  NB_IOT_Trans_Table[sNB_CERTIFICATE][2] = NB_GuyuCertificate2SendData;
+	//  NB_IOT_Trans_Table[sNB_CERTIFICATE][0] = NB_GuyuCertificate2SendData;
+	//  NB_IOT_Trans_Table[sNB_CERTIFICATE][1] = NB_Register2GuyuCertificate;
+	//  NB_IOT_Trans_Table[sNB_CERTIFICATE][2] = NB_GuyuCertificate2SendData;
 
 	NB_IOT_Trans_Table[sNB_UDP_SEND][0] = NB_UDPSendData2ReceiveData;
 	NB_IOT_Trans_Table[sNB_UDP_SEND][1] = NB_UDPRegister2SendData;
@@ -461,8 +470,9 @@ int t_fsm_error_handling(int argc, char **argv)
 	if (machine.current_state == sNB_MODULE_INFO) {
 		pr_info("PASS - Normal operation works\n");
 		error_passes++;
-	} else
+	} else {
 		pr_err("FAIL - Normal operation failed\n");
+	}
 	error_tests++;
 
 	// Test 2: Repeat limit error
@@ -473,8 +483,9 @@ int t_fsm_error_handling(int argc, char **argv)
 	if (fsm_last_error_code == 0x01) {
 		pr_info("PASS - Repeat limit error detected\n");
 		error_passes++;
-	} else
+	} else {
 		pr_err("FAIL - Repeat limit error not detected\n");
+	}
 	error_tests++;
 
 	// Test 3: Invalid state recovery
@@ -485,8 +496,9 @@ int t_fsm_error_handling(int argc, char **argv)
 	if (machine.current_state == sNB_RESET) {
 		pr_info("PASS - Error recovery working\n");
 		error_passes++;
-	} else
+	} else {
 		pr_err("FAIL - Error recovery failed\n");
+	}
 	error_tests++;
 
 	pr_info("Error handling test: %d/%d tests passed\n", error_passes, error_tests);
@@ -551,18 +563,18 @@ int t_fsm_validation(int argc, char **argv)
 
 	// Test state name conversion
 	const char *state_name = fsm_get_state_name(sNB_INIT);
-	if (state_name && strcmp(state_name, "INIT") == 0)
+	if (state_name && strcmp(state_name, "INIT") == 0) {
 		pr_info("PASS - State name conversion working\n");
-	else {
+	} else {
 		pr_err("FAIL - State name conversion failed\n");
 		return FAIL;
 	}
 
 	// Test condition name conversion
 	const char *condition_name = fsm_get_condition_name(cOK);
-	if (condition_name && strcmp(condition_name, "OK") == 0)
+	if (condition_name && strcmp(condition_name, "OK") == 0) {
 		pr_info("PASS - Condition name conversion working\n");
-	else {
+	} else {
 		pr_err("FAIL - Condition name conversion failed\n");
 		return FAIL;
 	}
@@ -571,9 +583,9 @@ int t_fsm_validation(int argc, char **argv)
 	struct fsm_statistics stats;
 	fsm_get_statistics(&stats);
 
-	if (stats.total_transitions == 0)
+	if (stats.total_transitions == 0) {
 		pr_info("PASS - Statistics functions working (empty state)\n");
-	else {
+	} else {
 		pr_err("FAIL - Statistics functions returned unexpected data\n");
 		return FAIL;
 	}
@@ -582,9 +594,9 @@ int t_fsm_validation(int argc, char **argv)
 	fsm_reset_statistics();
 	fsm_get_statistics(&stats);
 
-	if (stats.total_transitions == 0)
+	if (stats.total_transitions == 0) {
 		pr_info("PASS - Statistics reset working\n");
-	else {
+	} else {
 		pr_err("FAIL - Statistics reset failed\n");
 		return FAIL;
 	}
@@ -599,4 +611,3 @@ int t_fsm_example(int argc, char **argv)
 }
 
 #endif
-

@@ -27,7 +27,6 @@ int fatfs_raw_speed(BYTE pdrv, DWORD lba, DWORD len, void *buff, UINT sz_buff);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-
 #ifdef __cplusplus
 }
 #endif

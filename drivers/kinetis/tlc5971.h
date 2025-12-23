@@ -9,9 +9,7 @@ extern "C" {
 
 /* Includes ------------------------------------------------------------------*/
 
-
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
-
 
 #ifdef __cplusplus
 }
