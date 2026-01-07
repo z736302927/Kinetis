@@ -1430,8 +1430,8 @@ static void stm32_usart_console_write(struct console *co, const char *s,
 //	new_cr1 |=  USART_CR1_TE | BIT(cfg->uart_enable_bit);
 //	writel_relaxed(new_cr1, port->membase + ofs->cr1);
 
-	uart_console_write(port, s, cnt, stm32_usart_console_putchar);
-//	_puts(s, cnt);
+// 	uart_console_write(port, s, cnt, stm32_usart_console_putchar);
+	_puts(s, cnt);
 //	/* Restore interrupt state */
 //	writel_relaxed(old_cr1, port->membase + ofs->cr1);
 //

@@ -15,6 +15,7 @@ import os
 import re
 import argparse
 import sys
+import shutil
 from pathlib import Path
 
 # ================================
@@ -62,12 +63,37 @@ DELETE_PATTERNS = [
 ]
 
 # ========================================
-# 自动转换为完整规则（不需要修改下面的代码）
+# 要复制的文件配置
 # ========================================
 
-# ================================
+# 要复制的文件列表，支持通配符
+FILES_TO_COPY = [
+    "*.c",
+    "*.h",
+    # "Makefile",      # 如果需要复制Makefile，取消注释
+    # "Kconfig",       # 如果需要复制Kconfig，取消注释
+    "*.txt",
+    "README*",
+    "LICENSE*",
+    # 添加更多文件模式
+]
+
+# 要跳过的文件夹（复制时）
+COPY_EXCLUDE_DIRS = [
+    ".git",
+    ".svn",
+    ".hg",
+    "__pycache__",
+    "node_modules",
+    "build",
+    "dist",
+    "bin",
+    "obj"
+]
+
+# ========================================
 # 文件删除配置
-# ================================
+# ========================================
 
 # 要删除的文件名列表
 FILES_TO_DELETE = ["Kconfig", "Makefile", "TODO", "*.o", "*.S", "*.cmd", "*.release"]
@@ -79,8 +105,85 @@ EXCLUDED_PATHS = [
 ]
 
 # ================================
-# 核心功能函数
+# 新增文件复制功能
 # ================================
+
+def copy_files_before_delete(source_dir, dest_dir, verbose=False):
+    """
+    在删除操作前复制指定文件
+    
+    Args:
+        source_dir: 源目录
+        dest_dir: 目标目录
+        verbose: 是否显示详细信息
+    
+    Returns:
+        tuple: (复制的文件数, 跳过的文件数, 错误列表)
+    """
+    from fnmatch import fnmatch
+    
+    if not os.path.exists(source_dir):
+        print(f"错误: 源目录不存在: {source_dir}")
+        return 0, 0, [(source_dir, "源目录不存在")]
+    
+    if not os.path.exists(dest_dir):
+        try:
+            os.makedirs(dest_dir, exist_ok=True)
+            print(f"已创建目标目录: {dest_dir}")
+        except Exception as e:
+            print(f"错误: 无法创建目标目录 {dest_dir}: {e}")
+            return 0, 0, [(dest_dir, f"无法创建目录: {e}")]
+    
+    copied_files = 0
+    skipped_files = 0
+    errors = []
+    
+    print(f"\n开始从 {source_dir} 复制文件到 {dest_dir}")
+    print(f"要复制的文件模式: {FILES_TO_COPY}")
+    print(f"排除的目录: {COPY_EXCLUDE_DIRS}")
+    print("-" * 60)
+    
+    for root, dirs, files in os.walk(source_dir):
+        # 排除不需要的目录
+        dirs[:] = [d for d in dirs if d not in COPY_EXCLUDE_DIRS]
+        
+        for file in files:
+            # 检查文件是否匹配要复制的模式
+            should_copy = False
+            for pattern in FILES_TO_COPY:
+                if fnmatch(file, pattern):
+                    should_copy = True
+                    break
+            
+            if not should_copy:
+                if verbose:
+                    print(f"跳过 (不匹配模式): {os.path.join(root, file)}")
+                skipped_files += 1
+                continue
+            
+            # 获取完整路径
+            source_path = os.path.join(root, file)
+            
+            # 计算相对路径
+            rel_path = os.path.relpath(source_path, source_dir)
+            dest_path = os.path.join(dest_dir, rel_path)
+            
+            # 创建目标目录（如果不存在）
+            dest_dir_path = os.path.dirname(dest_path)
+            os.makedirs(dest_dir_path, exist_ok=True)
+            
+            try:
+                # 复制文件
+                shutil.copy2(source_path, dest_path)
+                print(f"复制: {rel_path}")
+                copied_files += 1
+            except Exception as e:
+                error_msg = f"复制失败: {e}"
+                errors.append((source_path, error_msg))
+                print(f"复制失败: {rel_path}")
+                print(f"  错误: {error_msg}")
+    
+    return copied_files, skipped_files, errors
 
 def auto_generate_rules():
     """
@@ -484,6 +587,10 @@ def main():
     parser = argparse.ArgumentParser(description='删除文件夹中所有文件的特定内容（内置规则）')
     parser.add_argument('-d', '--directory', default='.', 
                        help='要处理的目录 (默认: 当前目录)')
+    parser.add_argument('-s', '--source', 
+                       help='源目录（从中复制文件）')
+    parser.add_argument('-t', '--target', 
+                       help='目标目录（复制文件到此处）')
     parser.add_argument('-e', '--extensions', nargs='+', 
                        help='要处理的文件扩展名 (例如: .txt .py .js)')
     parser.add_argument('-r', '--rules', nargs='+', 
@@ -499,8 +606,10 @@ def main():
                        help='显示详细信息')
     parser.add_argument('--list-rules', action='store_true', 
                        help='列出所有可用的规则并退出')
-    parser.add_argument('--mode', choices=['content', 'files', 'both'], default='both',
-                       help='执行模式: content=只删除内容, files=只删除文件, both=两者都执行 (默认: both)')
+    parser.add_argument('--mode', choices=['content', 'files', 'both', 'copy'], default='both',
+                       help='执行模式: content=只删除内容, files=只删除文件, both=两者都执行, copy=只复制文件 (默认: both)')
+    parser.add_argument('--no-copy', action='store_true', 
+                       help='不执行文件复制，即使指定了源目录和目标目录')
     
     args = parser.parse_args()
     
@@ -518,6 +627,33 @@ def main():
     if not os.path.exists(args.directory):
         print(f"错误: 目录 '{args.directory}' 不存在")
         sys.exit(1)
+    
+    # 检查是否需要执行复制操作
+    if args.mode == 'copy' or (args.source and args.target and not args.no_copy):
+        if not args.source or not args.target:
+            print("错误: 复制模式需要指定源目录(--source)和目标目录(--target)")
+            sys.exit(1)
+        
+        # 执行文件复制
+        copied_files, skipped_files, copy_errors = copy_files_before_delete(
+            args.source, args.target, args.verbose
+        )
+        
+        print("\n" + "="*60)
+        print("文件复制完成!")
+        print(f"复制文件数: {copied_files}")
+        print(f"跳过文件数: {skipped_files}")
+        
+        if copy_errors:
+            print(f"复制失败文件数: {len(copy_errors)}")
+            print("\n复制失败详情:")
+            for file_path, error in copy_errors:
+                print(f"  {file_path}: {error}")
+        
+        # 如果是只复制模式，则直接退出
+        if args.mode == 'copy':
+            print("复制模式完成，退出程序")
+            return
     
     # 获取选中的规则
     selected_rules = get_selected_rules(args.rules)

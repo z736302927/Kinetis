@@ -19,7 +19,7 @@ static struct tim_task_stats tim_stats = {0};
 
 // Priority scheduling
 #define MAX_PRIORITY_LEVELS 3
-static LIST_HEAD(priority_heads[MAX_PRIORITY_LEVELS]);
+static struct list_head priority_heads[MAX_PRIORITY_LEVELS];
 
 // Performance monitoring
 static bool performance_profiling_enabled = false;

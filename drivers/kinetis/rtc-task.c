@@ -357,7 +357,7 @@ int rtc_task_add(u16 add_year, u8 add_month, u8 add_date,
 	ret = readl_poll_timeout_atomic(&current_time.tm_year, val, val, 1, 3000000);
 
 	if (ret) {
-		printk(KERN_ERR "Native time has not been updated.\n");
+		pr_err("Native time has not been updated.\n");
 		return -ETIMEDOUT;
 	}
 
@@ -433,7 +433,7 @@ int rtc_task_enqueue(struct rtc_task *rtc_task,
 	ret = readl_poll_timeout_atomic(&current_time.tm_year, val, val, 1, 3000000);
 
 	if (ret) {
-		printk(KERN_ERR "Native time has not been updated.\n");
+		pr_err("Native time has not been updated.\n");
 		return -ETIMEDOUT;
 	}
 

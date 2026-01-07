@@ -2089,11 +2089,11 @@ int hydrology_host_process_receieve(u8 *input, int inputlen, enum hydrology_mode
 		break;
 
 	default:
-		printk(KERN_ERR "Unknown end packet identifier\n");
+		pr_err("Unknown end packet identifier\n");
 		break;
 	}
 
-	printk(KERN_ERR " \n");
+	pr_err(" \n");
 
 	hydrology_host_exit_receieve();
 
@@ -2114,7 +2114,7 @@ void hydrology_host_process_end_identifier(u8 End)
 		break;
 
 	default:
-		printk(KERN_ERR "Unknown end packet identifier\n");
+		pr_err("Unknown end packet identifier\n");
 		break;
 	}
 }
@@ -2175,7 +2175,7 @@ int hydrology_host_process_m3_err_packet(struct hydrology_element_info *element_
 		break;
 
 	default:
-		printk(KERN_ERR "Unknown end packet identifier\n");
+		pr_err("Unknown end packet identifier\n");
 		break;
 	}
 

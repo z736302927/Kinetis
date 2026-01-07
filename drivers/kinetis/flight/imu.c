@@ -259,7 +259,7 @@ int ahrs_init_container(u32 fifo_size)
 
 	ret = kfifo_alloc(&ahrs_data, fifo_size, GFP_KERNEL);
 	if (ret) {
-		printk(KERN_ERR "error init container\n");
+		pr_err("error init container\n");
 		return ret;
 	}
 

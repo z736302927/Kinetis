@@ -23,7 +23,7 @@
 #include <linux/sizes.h>
 #include <linux/spi/spi-mem.h>
 
-#include "quadspi.h"
+// #include "quadspi.h"
 
 #define QSPI_CR			0x00
 #define CR_EN			BIT(0)
@@ -334,7 +334,7 @@ static int stm32_qspi_send(struct spi_mem *mem, const struct spi_mem_op *op)
 {
 	struct stm32_qspi *qspi = spi_controller_get_devdata(mem->spi->master);
 	struct stm32_qspi_flash *flash = &qspi->flash[mem->spi->chip_select];
-    QSPI_CommandTypeDef qspi_cmd;
+//     QSPI_CommandTypeDef qspi_cmd;
 	u32 ccr, cr;
 	int timeout, err = 0, ret;
 
@@ -377,148 +377,148 @@ static int stm32_qspi_send(struct spi_mem *mem, const struct spi_mem_op *op)
 //				  stm32_qspi_get_mode(qspi, op->data.buswidth));
 //	}
 
-    switch (op->cmd.buswidth) {
-    case 0:
-        qspi_cmd.InstructionMode = QSPI_INSTRUCTION_NONE;
-        break;
-    case 1:
-        qspi_cmd.InstructionMode = QSPI_INSTRUCTION_1_LINE;
-        break;
-    case 2:
-        qspi_cmd.InstructionMode = QSPI_INSTRUCTION_2_LINES;
-        break;
-    case 4:
-        qspi_cmd.InstructionMode = QSPI_INSTRUCTION_4_LINES;
-        break;
-    default:
-        qspi_cmd.InstructionMode = QSPI_INSTRUCTION_4_LINES;
-        break;
-    }
-    qspi_cmd.Instruction = op->cmd.opcode;
-
-    switch (op->addr.buswidth) {
-    case 0:
-        qspi_cmd.AddressMode = QSPI_ADDRESS_NONE;
-        break;
-    case 1:
-        qspi_cmd.AddressMode = QSPI_ADDRESS_1_LINE;
-        break;
-    case 2:
-        qspi_cmd.AddressMode = QSPI_ADDRESS_2_LINES;
-        break;
-    case 4:
-        qspi_cmd.AddressMode = QSPI_ADDRESS_4_LINES;
-        break;
-    default:
-        qspi_cmd.AddressMode = QSPI_ADDRESS_4_LINES;
-        break;
-    }
-    qspi_cmd.Address = op->addr.val;
-    switch (op->addr.nbytes) {
-    case 0:
-        qspi_cmd.AddressSize = QSPI_ADDRESS_8_BITS;
-        break;
-    case 1:
-        qspi_cmd.AddressSize = QSPI_ADDRESS_16_BITS;
-        break;
-    case 2:
-        qspi_cmd.AddressSize = QSPI_ADDRESS_24_BITS;
-        break;
-    case 4:
-        qspi_cmd.AddressSize = QSPI_ADDRESS_32_BITS;
-        break;
-    default:
-        qspi_cmd.AddressSize = QSPI_ADDRESS_32_BITS;
-        break;
-    }
-
-    switch (op->dummy.buswidth) {
-    case 0:
-        qspi_cmd.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
-        break;
-    case 1:
-        qspi_cmd.AlternateByteMode = QSPI_ALTERNATE_BYTES_1_LINE;
-        break;
-    case 2:
-        qspi_cmd.AlternateByteMode = QSPI_ALTERNATE_BYTES_2_LINES;
-        break;
-    case 4:
-        qspi_cmd.AlternateByteMode = QSPI_ALTERNATE_BYTES_4_LINES;
-        break;
-    default:
-        qspi_cmd.AlternateByteMode = QSPI_ALTERNATE_BYTES_4_LINES;
-        break;
-    }
-    switch (op->dummy.nbytes) {
-    case 0:
-        qspi_cmd.AlternateBytesSize = QSPI_ALTERNATE_BYTES_8_BITS;
-        break;
-    case 1:
-        qspi_cmd.AlternateBytesSize = QSPI_ALTERNATE_BYTES_16_BITS;
-        break;
-    case 2:
-        qspi_cmd.AlternateBytesSize = QSPI_ALTERNATE_BYTES_24_BITS;
-        break;
-    case 4:
-        qspi_cmd.AlternateBytesSize = QSPI_ALTERNATE_BYTES_32_BITS;
-        break;
-    default:
-        qspi_cmd.AlternateBytesSize = QSPI_ALTERNATE_BYTES_32_BITS;
-        break;
-    }
-
-    switch (op->data.buswidth) {
-    case 0:
-        qspi_cmd.DataMode = QSPI_DATA_NONE;
-        break;
-    case 1:
-        qspi_cmd.DataMode = QSPI_DATA_1_LINE;
-        break;
-    case 2:
-        qspi_cmd.DataMode = QSPI_DATA_2_LINES;
-        break;
-    case 4:
-        qspi_cmd.DataMode = QSPI_DATA_4_LINES;
-        break;
-    default:
-        qspi_cmd.DataMode = QSPI_DATA_4_LINES;
-        break;
-    }
-    qspi_cmd.NbData = op->data.nbytes;
-    qspi_cmd.DummyCycles = 0;
-    qspi_cmd.DdrMode = QSPI_DDR_MODE_DISABLE;
-    qspi_cmd.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
-    qspi_cmd.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
-
-//	pr_info("%08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x\n",
-//		qspi_cmd.Instruction,
-//		qspi_cmd.Address,
-//		qspi_cmd.AlternateBytes,
-//		qspi_cmd.AddressSize,
-//		qspi_cmd.AlternateBytesSize,
-//		qspi_cmd.DummyCycles,
-//		qspi_cmd.InstructionMode,
-//		qspi_cmd.AddressMode,
-//		qspi_cmd.AlternateByteMode,
-//		qspi_cmd.DataMode,
-//		qspi_cmd.NbData,
-//		qspi_cmd.DdrMode,
-//		qspi_cmd.DdrHoldHalfCycle,
-//		qspi_cmd.SIOOMode);
-	
-    ret = HAL_QSPI_Command(&hqspi, &qspi_cmd, 5000);
-    if (ret)
-        return -ret;
-
-	if (!op->data.nbytes)
-		return 0;
-
-    if (op->data.dir == SPI_MEM_DATA_IN)
-        ret = HAL_QSPI_Receive(&hqspi, op->data.buf.in, 5000);
-    else
-        ret = HAL_QSPI_Transmit(&hqspi, op->data.buf.out, 5000);
-    if (ret)
-        return -ret;
+//     switch (op->cmd.buswidth) {
+//     case 0:
+//         qspi_cmd.InstructionMode = QSPI_INSTRUCTION_NONE;
+//         break;
+//     case 1:
+//         qspi_cmd.InstructionMode = QSPI_INSTRUCTION_1_LINE;
+//         break;
+//     case 2:
+//         qspi_cmd.InstructionMode = QSPI_INSTRUCTION_2_LINES;
+//         break;
+//     case 4:
+//         qspi_cmd.InstructionMode = QSPI_INSTRUCTION_4_LINES;
+//         break;
+//     default:
+//         qspi_cmd.InstructionMode = QSPI_INSTRUCTION_4_LINES;
+//         break;
+//     }
+//     qspi_cmd.Instruction = op->cmd.opcode;
+// 
+//     switch (op->addr.buswidth) {
+//     case 0:
+//         qspi_cmd.AddressMode = QSPI_ADDRESS_NONE;
+//         break;
+//     case 1:
+//         qspi_cmd.AddressMode = QSPI_ADDRESS_1_LINE;
+//         break;
+//     case 2:
+//         qspi_cmd.AddressMode = QSPI_ADDRESS_2_LINES;
+//         break;
+//     case 4:
+//         qspi_cmd.AddressMode = QSPI_ADDRESS_4_LINES;
+//         break;
+//     default:
+//         qspi_cmd.AddressMode = QSPI_ADDRESS_4_LINES;
+//         break;
+//     }
+//     qspi_cmd.Address = op->addr.val;
+//     switch (op->addr.nbytes) {
+//     case 0:
+//         qspi_cmd.AddressSize = QSPI_ADDRESS_8_BITS;
+//         break;
+//     case 1:
+//         qspi_cmd.AddressSize = QSPI_ADDRESS_16_BITS;
+//         break;
+//     case 2:
+//         qspi_cmd.AddressSize = QSPI_ADDRESS_24_BITS;
+//         break;
+//     case 4:
+//         qspi_cmd.AddressSize = QSPI_ADDRESS_32_BITS;
+//         break;
+//     default:
+//         qspi_cmd.AddressSize = QSPI_ADDRESS_32_BITS;
+//         break;
+//     }
+// 
+//     switch (op->dummy.buswidth) {
+//     case 0:
+//         qspi_cmd.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+//         break;
+//     case 1:
+//         qspi_cmd.AlternateByteMode = QSPI_ALTERNATE_BYTES_1_LINE;
+//         break;
+//     case 2:
+//         qspi_cmd.AlternateByteMode = QSPI_ALTERNATE_BYTES_2_LINES;
+//         break;
+//     case 4:
+//         qspi_cmd.AlternateByteMode = QSPI_ALTERNATE_BYTES_4_LINES;
+//         break;
+//     default:
+//         qspi_cmd.AlternateByteMode = QSPI_ALTERNATE_BYTES_4_LINES;
+//         break;
+//     }
+//     switch (op->dummy.nbytes) {
+//     case 0:
+//         qspi_cmd.AlternateBytesSize = QSPI_ALTERNATE_BYTES_8_BITS;
+//         break;
+//     case 1:
+//         qspi_cmd.AlternateBytesSize = QSPI_ALTERNATE_BYTES_16_BITS;
+//         break;
+//     case 2:
+//         qspi_cmd.AlternateBytesSize = QSPI_ALTERNATE_BYTES_24_BITS;
+//         break;
+//     case 4:
+//         qspi_cmd.AlternateBytesSize = QSPI_ALTERNATE_BYTES_32_BITS;
+//         break;
+//     default:
+//         qspi_cmd.AlternateBytesSize = QSPI_ALTERNATE_BYTES_32_BITS;
+//         break;
+//     }
+// 
+//     switch (op->data.buswidth) {
+//     case 0:
+//         qspi_cmd.DataMode = QSPI_DATA_NONE;
+//         break;
+//     case 1:
+//         qspi_cmd.DataMode = QSPI_DATA_1_LINE;
+//         break;
+//     case 2:
+//         qspi_cmd.DataMode = QSPI_DATA_2_LINES;
+//         break;
+//     case 4:
+//         qspi_cmd.DataMode = QSPI_DATA_4_LINES;
+//         break;
+//     default:
+//         qspi_cmd.DataMode = QSPI_DATA_4_LINES;
+//         break;
+//     }
+//     qspi_cmd.NbData = op->data.nbytes;
+//     qspi_cmd.DummyCycles = 0;
+//     qspi_cmd.DdrMode = QSPI_DDR_MODE_DISABLE;
+//     qspi_cmd.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+//     qspi_cmd.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
+// 
+// //	pr_info("%08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x, %08x\n",
+// //		qspi_cmd.Instruction,
+// //		qspi_cmd.Address,
+// //		qspi_cmd.AlternateBytes,
+// //		qspi_cmd.AddressSize,
+// //		qspi_cmd.AlternateBytesSize,
+// //		qspi_cmd.DummyCycles,
+// //		qspi_cmd.InstructionMode,
+// //		qspi_cmd.AddressMode,
+// //		qspi_cmd.AlternateByteMode,
+// //		qspi_cmd.DataMode,
+// //		qspi_cmd.NbData,
+// //		qspi_cmd.DdrMode,
+// //		qspi_cmd.DdrHoldHalfCycle,
+// //		qspi_cmd.SIOOMode);
+// 	
+//     ret = HAL_QSPI_Command(&hqspi, &qspi_cmd, 5000);
+//     if (ret)
+//         return -ret;
+// 
+// 	if (!op->data.nbytes)
+// 		return 0;
+// 
+//     if (op->data.dir == SPI_MEM_DATA_IN)
+//         ret = HAL_QSPI_Receive(&hqspi, op->data.buf.in, 5000);
+//     else
+//         ret = HAL_QSPI_Transmit(&hqspi, op->data.buf.out, 5000);
+//     if (ret)
+//         return -ret;
 
 //	writel_relaxed(ccr, qspi->io_base + QSPI_CCR);
 //

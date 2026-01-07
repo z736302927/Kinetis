@@ -8,6 +8,11 @@ import re
 import sys
 from pathlib import Path
 
+# Fix encoding for Windows
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 
 def parse_dependency_file(dep_file_path):
     """Parse a single .d dependency file and extract source and header dependencies"""
@@ -63,7 +68,7 @@ def build_dependency_tree(dep_files, max_header_depth=2):
 
 
 def find_dependency_files(build_dir):
-    """Find all .d dependency files in the build directory"""
+    """Find all .d dependency files in the build directory (recursive)"""
     dep_files = []
     obj_dir = os.path.join(build_dir, 'obj')
 
@@ -72,9 +77,11 @@ def find_dependency_files(build_dir):
         print("Please run 'make' first to generate dependency files")
         return dep_files
 
-    for file in os.listdir(obj_dir):
-        if file.endswith('.d'):
-            dep_files.append(os.path.join(obj_dir, file))
+    # Recursively find all .d files in subdirectories
+    for root, dirs, files in os.walk(obj_dir):
+        for file in files:
+            if file.endswith('.d'):
+                dep_files.append(os.path.join(root, file))
 
     return sorted(dep_files)
 
@@ -214,6 +221,10 @@ def find_all_project_files(project_root):
             # Skip build directories and hidden directories
             dirs[:] = [d for d in dirs if not d.startswith(
                 '.') and 'build' not in d.lower() and 'output' not in d.lower()]
+            
+            # Skip the scripts directory itself when running from scripts
+            if os.path.abspath(root) == os.path.abspath('.'):
+                continue
 
             for file in files:
                 abs_path = os.path.abspath(os.path.join(root, file))
@@ -536,7 +547,7 @@ def delete_unused_files_from_report():
                     file_entry = line.lstrip()
                     
                     # Handle emoji prefixes if present
-                    if file_entry.startswith('❌ ') or file_entry.startswith('⚠️  ') or file_entry.startswith('📝 '):
+                    if file_entry.startswith('- ') or file_entry.startswith('  - '):
                         file_path = file_entry.split(' ', 1)[1]  # Get everything after the emoji
                     else:
                         file_path = file_entry

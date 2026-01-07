@@ -185,6 +185,8 @@ EXCLUDE_SOURCES += ../mm/dmapool.c
 # EXCLUDE_SOURCES += $(wildcard ../lib/vsprintf.c)
 EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/flight/filter.c)
 EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/flight/fmu_task.c)
+EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/chinese.c)
+EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/kinetis-module-boot.c)
 
 C_SOURCES := $(filter-out $(EXCLUDE_SOURCES),$(C_SOURCES))
 
@@ -266,11 +268,12 @@ LIBS = -lm
 LIBDIR = 
 LDFLAGS = -Wl,-Map=$(BUILD_DIR)/$(PROJECT).map,--cref -Wl,--gc-sections
 
-# Object files - simplified path structure
-C_OBJS = $(addprefix $(BUILD_DIR)/obj/, $(notdir $(C_SOURCES:.c=.o)))
+# Object files - maintain directory structure to avoid name conflicts
+# Convert each source path to corresponding object path with same directory structure
+C_OBJS = $(patsubst ..%.c,$(BUILD_DIR)/obj%.o,$(C_SOURCES))
 OBJS = $(C_OBJS)
 
-# Create directory mapping for each source file
+# Create directory mapping for each source file  
 vpath %.c $(sort $(dir $(C_SOURCES)))
 
 # OS-specific commands
@@ -308,7 +311,19 @@ $(BUILD_DIR)/obj:
 	$(call MKDIR, $(BUILD_DIR)/obj)
 
 # Create object files from C sources with dependency tracking
-$(BUILD_DIR)/obj/%.o: %.c | $(BUILD_DIR)/obj
+# Maintain full directory structure to avoid name conflicts
+$(BUILD_DIR)/obj/%.o: ../%.c | $(BUILD_DIR)/obj
+ifeq ($(DETECTED_OS),Windows)
+	@if not exist $(subst /,\,$(dir $@)) ( \
+		$(ECHO) "Creating directory: $(dir $@)" && \
+		mkdir $(subst /,\,$(dir $@)) \
+	)
+else
+	@if [ ! -d "$(dir $@)" ]; then \
+		$(ECHO) "Creating directory: $(dir $@)" && \
+		mkdir -p $(dir $@); \
+	fi
+endif
 	@$(ECHO) "Compiling C: $< -> $@"
 #	@$(ECHO) "Command: $(CC) -c $(CFLAGS) $(DEPFLAGS) -o $@ $<"
 	@$(CC) -c $(CFLAGS) $(DEPFLAGS) -o $@ $<
@@ -388,16 +403,10 @@ endif
 check-deps:
 	@$(ECHO) "Checking dependency files..."
 ifeq ($(DETECTED_OS),Windows)
-	@if exist "$(BUILD_DIR)\obj\*.d" (
-		@for %%f in ($(BUILD_DIR)\obj\*.d) do @$(ECHO) Found: %%f
-	) else (
-		@$(ECHO) No dependency files found yet. Run 'make' first.
-	)
+	@for /r $(BUILD_DIR)\obj %%f in (*.d) do @$(ECHO) Found: %%f
 else
-	@if [ -n "$(wildcard $(BUILD_DIR)/obj/*.d)" ]; then \
-		for dep in $(BUILD_DIR)/obj/*.d; do \
-			$(ECHO) "Found: $$dep"; \
-		done; \
+	@if [ -n "$(wildcard $(BUILD_DIR)/obj/**/*.d)" ]; then \
+		find $(BUILD_DIR)/obj -name "*.d" -exec $(ECHO) "Found: {}" \;; \
 	else \
 		$(ECHO) "No dependency files found yet. Run 'make' first."; \
 	fi

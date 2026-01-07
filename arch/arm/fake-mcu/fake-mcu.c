@@ -49,6 +49,10 @@ int _putc(int ch)
 
 int _puts(char *string, int cnt)
 {
+	/* Output cnt characters from string to console */
+	if (string && cnt > 0) {
+		return printf("%.*s", cnt, string);
+	}
 	return 0;
 }
 

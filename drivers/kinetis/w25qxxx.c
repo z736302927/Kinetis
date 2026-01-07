@@ -212,7 +212,7 @@ void w25qxxx_transmmit_cmd(u8 w25qxxx, u8 cmd)
 void w25qxxx_hard_reset(u8 w25qxxx)
 {
 	if (w25qxxx != W25Q128 && w25qxxx != W25Q256) {
-		printk(KERN_ERR "Invalid device type: 0x%02X\n", w25qxxx);
+		pr_err("Invalid device type: 0x%02X\n", w25qxxx);
 		return;
 	}
 
@@ -833,7 +833,7 @@ static int w25qxxx_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
 	int ret;
 
 	if (length == 0) {
-		printk(KERN_ERR "Programing page length is 0.\n");
+		pr_err("Programing page length is 0.\n");
 		return -EINVAL;
 	}
 
@@ -861,7 +861,7 @@ static int w25qxxx_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
 			busy == 0, 1, 30000000);
 
 	if (ret) {
-		printk(KERN_ERR "Programing page is timeout.\n");
+		pr_err("Programing page is timeout.\n");
 	}
 
 	return 0;
@@ -892,7 +892,7 @@ static int w25qxxx_multi_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 lengt
 			while (num_of_page--) {
 				ret = w25qxxx_page_program(w25qxxx, addr, pdata, W25Q_PAGE_SIZE);
 				if (ret) {
-					printk(KERN_ERR "Page programming failed at address 0x%08X\n", addr);
+					pr_err("Page programming failed at address 0x%08X\n", addr);
 					return ret;
 				}
 
@@ -904,7 +904,7 @@ static int w25qxxx_multi_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 lengt
 			if (num_of_single != 0) {
 				ret = w25qxxx_page_program(w25qxxx, addr, pdata, num_of_single);
 				if (ret) {
-					printk(KERN_ERR "Page programming failed at address 0x%08X\n", addr);
+					pr_err("Page programming failed at address 0x%08X\n", addr);
 					return ret;
 				}
 			}
@@ -919,7 +919,7 @@ static int w25qxxx_multi_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 lengt
 				/* Fill in the front page first */
 				ret = w25qxxx_page_program(w25qxxx, addr, pdata, cnt);
 				if (ret) {
-					printk(KERN_ERR "Page programming failed at address 0x%08X\n", addr);
+					pr_err("Page programming failed at address 0x%08X\n", addr);
 					return ret;
 				}
 
@@ -929,13 +929,13 @@ static int w25qxxx_multi_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 lengt
 				/* Let me write the rest of the data */
 				ret = w25qxxx_page_program(w25qxxx, addr, pdata, remain_of_single);
 				if (ret) {
-					printk(KERN_ERR "Page programming failed at address 0x%08X\n", addr);
+					pr_err("Page programming failed at address 0x%08X\n", addr);
 					return ret;
 				}
 			} else { /* The remaining count position of the current page can write num_of_single data */
 				ret = w25qxxx_page_program(w25qxxx, addr, pdata, length);
 				if (ret) {
-					printk(KERN_ERR "Page programming failed at address 0x%08X\n", addr);
+					pr_err("Page programming failed at address 0x%08X\n", addr);
 					return ret;
 				}
 			}
@@ -954,7 +954,7 @@ static int w25qxxx_multi_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 lengt
 			while (num_of_page--) {
 				ret = w25qxxx_page_program(w25qxxx, addr, pdata, W25Q_PAGE_SIZE);
 				if (ret) {
-					printk(KERN_ERR "Page programming failed at address 0x%08X\n", addr);
+					pr_err("Page programming failed at address 0x%08X\n", addr);
 					return ret;
 				}
 
@@ -966,7 +966,7 @@ static int w25qxxx_multi_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 lengt
 			if (num_of_single != 0) {
 				ret = w25qxxx_page_program(w25qxxx, addr, pdata, num_of_single);
 				if (ret) {
-					printk(KERN_ERR "Page programming failed at address 0x%08X\n", addr);
+					pr_err("Page programming failed at address 0x%08X\n", addr);
 					return ret;
 				}
 			}
@@ -987,7 +987,7 @@ static int w25qxxx_process_partial_sector(u8 w25qxxx, u32 start_addr, u8 *pdata,
 	/* 分配临时缓冲区，确保线程安全 */
 	w25qxxx_single_sector = kmalloc(SECTOR_SIZE, GFP_KERNEL);
 	if (!w25qxxx_single_sector) {
-		printk(KERN_ERR "Failed to allocate memory for sector buffer\n");
+		pr_err("Failed to allocate memory for sector buffer\n");
 		return -ENOMEM;
 	}
 
@@ -1003,13 +1003,13 @@ static int w25qxxx_process_partial_sector(u8 w25qxxx, u32 start_addr, u8 *pdata,
 			memcpy(&w25qxxx_single_sector[offset], pdata, length);
 			ret = w25qxxx_sector_erase(w25qxxx, addr);
 			if (ret) {
-				printk(KERN_ERR "Sector erase failed at address 0x%08X\n", addr);
+				pr_err("Sector erase failed at address 0x%08X\n", addr);
 				kfree(w25qxxx_single_sector);
 				return ret;
 			}
 			ret = w25qxxx_multi_page_program(w25qxxx, addr, w25qxxx_single_sector, SECTOR_SIZE);
 			if (ret) {
-				printk(KERN_ERR "Multi page programming failed at address 0x%08X\n", addr);
+				pr_err("Multi page programming failed at address 0x%08X\n", addr);
 				kfree(w25qxxx_single_sector);
 				return ret;
 			}
@@ -1020,7 +1020,7 @@ static int w25qxxx_process_partial_sector(u8 w25qxxx, u32 start_addr, u8 *pdata,
 
 	ret = w25qxxx_multi_page_program(w25qxxx, start_addr, pdata, length);
 	if (ret) {
-		printk(KERN_ERR "Multi page programming failed at address 0x%08X\n", start_addr);
+		pr_err("Multi page programming failed at address 0x%08X\n", start_addr);
 		kfree(w25qxxx_single_sector);
 		return ret;
 	}
@@ -1147,12 +1147,12 @@ int w25qxxx_write_data(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
 	int ret;
 
 	if (!pdata) {
-		printk(KERN_ERR "Data buffer is NULL\n");
+		pr_err("Data buffer is NULL\n");
 		return -EINVAL;
 	}
 
 	if (length == 0) {
-		printk(KERN_ERR "Write length is 0\n");
+		pr_err("Write length is 0\n");
 		return -EINVAL;
 	}
 
@@ -1161,7 +1161,7 @@ int w25qxxx_write_data(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
 	} else if (w25qxxx == W25Q256) {
 		remain = w25q256_max_addr - addr + 1;
 	} else {
-		printk(KERN_ERR "Invalid device type: 0x%02X\n", w25qxxx);
+		pr_err("Invalid device type: 0x%02X\n", w25qxxx);
 		return -EINVAL;
 	}
 
@@ -1183,7 +1183,7 @@ int w25qxxx_sector_erase(u8 w25qxxx, u32 addr)
 	int ret;
 
 	if (w25qxxx != W25Q128 && w25qxxx != W25Q256) {
-		printk(KERN_ERR "Invalid device type: 0x%02X\n", w25qxxx);
+		pr_err("Invalid device type: 0x%02X\n", w25qxxx);
 		return -EINVAL;
 	}
 
@@ -1210,7 +1210,7 @@ int w25qxxx_sector_erase(u8 w25qxxx, u32 addr)
 			busy == 0, 1, W25Q_SECTOR_ERASE_TIMEOUT);
 
 	if (ret) {
-		printk(KERN_ERR "Sector erase timeout at address 0x%08X\n", addr);
+		pr_err("Sector erase timeout at address 0x%08X\n", addr);
 		return -ETIMEDOUT;
 	}
 
@@ -1224,7 +1224,7 @@ int w25qxxx_block_erase_with_32kb(u8 w25qxxx, u32 addr)
 	int ret;
 
 	if (w25qxxx != W25Q128 && w25qxxx != W25Q256) {
-		printk(KERN_ERR "Invalid device type: 0x%02X\n", w25qxxx);
+		pr_err("Invalid device type: 0x%02X\n", w25qxxx);
 		return -EINVAL;
 	}
 
@@ -1251,7 +1251,7 @@ int w25qxxx_block_erase_with_32kb(u8 w25qxxx, u32 addr)
 			busy == 0, 1, W25Q_BLOCK_ERASE_TIMEOUT);
 
 	if (ret) {
-		printk(KERN_ERR "32KB block erase timeout at address 0x%08X\n", addr);
+		pr_err("32KB block erase timeout at address 0x%08X\n", addr);
 		return -ETIMEDOUT;
 	}
 
@@ -1265,7 +1265,7 @@ int w25qxxx_block_erase_with_64kb(u8 w25qxxx, u32 addr)
 	int ret;
 
 	if (w25qxxx != W25Q128 && w25qxxx != W25Q256) {
-		printk(KERN_ERR "Invalid device type: 0x%02X\n", w25qxxx);
+		pr_err("Invalid device type: 0x%02X\n", w25qxxx);
 		return -EINVAL;
 	}
 
@@ -1292,7 +1292,7 @@ int w25qxxx_block_erase_with_64kb(u8 w25qxxx, u32 addr)
 			busy == 0, 1, W25Q_BLOCK_ERASE_TIMEOUT);
 
 	if (ret) {
-		printk(KERN_ERR "64KB block erase timeout at address 0x%08X\n", addr);
+		pr_err("64KB block erase timeout at address 0x%08X\n", addr);
 		return -ETIMEDOUT;
 	}
 
@@ -1305,7 +1305,7 @@ int sw25qxxx_chip_erase(u8 w25qxxx)
 	int ret;
 
 	if (w25qxxx != W25Q128 && w25qxxx != W25Q256) {
-		printk(KERN_ERR "Invalid device type: 0x%02X\n", w25qxxx);
+		pr_err("Invalid device type: 0x%02X\n", w25qxxx);
 		return -EINVAL;
 	}
 
@@ -1316,7 +1316,7 @@ int sw25qxxx_chip_erase(u8 w25qxxx)
 			busy == 0, 1, W25Q_CHIP_ERASE_TIMEOUT);
 
 	if (ret) {
-		printk(KERN_ERR "Chip erase timeout\n");
+		pr_err("Chip erase timeout\n");
 		return -ETIMEDOUT;
 	}
 
@@ -1587,12 +1587,12 @@ void w25qxxx_enable_reset(u8 w25qxxx)
 int w25qxxx_soft_reset(u8 w25qxxx)
 {
 	if (w25qxxx != W25Q128 && w25qxxx != W25Q256) {
-		printk(KERN_ERR "Invalid device type: 0x%02X\n", w25qxxx);
+		pr_err("Invalid device type: 0x%02X\n", w25qxxx);
 		return -EINVAL;
 	}
 
 	if (w25qxxx_read_busy(w25qxxx) == 1 || w25qxxx_read_sus(w25qxxx) == 1) {
-		printk(KERN_ERR "Device cannot be reset while busy or suspended\n");
+		pr_err("Device cannot be reset while busy or suspended\n");
 		return -EBUSY;
 	}
 
@@ -1608,14 +1608,14 @@ int w25qxxx_init(u8 w25qxxx)
 	int ret;
 
 	if (w25qxxx != W25Q128 && w25qxxx != W25Q256) {
-		printk(KERN_ERR "Invalid device type: 0x%02X\n", w25qxxx);
+		pr_err("Invalid device type: 0x%02X\n", w25qxxx);
 		return -EINVAL;
 	}
 
 	w25qxxx_release_power_down(w25qxxx);
 	ret = w25qxxx_soft_reset(w25qxxx);
 	if (ret) {
-		printk(KERN_ERR "Failed to reset device\n");
+		pr_err("Failed to reset device\n");
 		return ret;
 	}
 	w25qxxx_release_device_id(w25qxxx);
@@ -1632,7 +1632,7 @@ int w25qxxx_init(u8 w25qxxx)
 		break;
 
 	default:
-		printk(KERN_ERR "Unsupported device type: 0x%02X\n", w25qxxx);
+		pr_err("Unsupported device type: 0x%02X\n", w25qxxx);
 		return -ENODEV;
 	}
 
@@ -1645,21 +1645,22 @@ void w25qxxx_read_info(u8 w25qxxx)
 	u8 jedec_id[3];
 	u8 unique_id[8];
 
-	printk(KERN_DEBUG "w25qxxx is %#02X.\n", w25qxxx);
+	pr_debug("w25qxxx is %#02X.\n", w25qxxx);
 	w25qxxx_read_jedec_id(w25qxxx, jedec_id);
-	printk(KERN_DEBUG "JEDEC ID is %#02X%02X%02X\n",
+	pr_debug("JEDEC ID is %#02X%02X%02X\n",
 		jedec_id[0], jedec_id[1], jedec_id[2]);
 	w25qxxx_read_manufacturer_device_id(w25qxxx, &manufacturer_id, &device_id);
-	printk(KERN_DEBUG "Manufacturer ID is %#02X, Device ID is %#02X.\n",
+	pr_debug("Manufacturer ID is %#02X, Device ID is %#02X.\n",
 		manufacturer_id, device_id);
 	w25qxxx_read_unique_id(w25qxxx, unique_id);
-	printk(KERN_DEBUG "Unique ID is %02X%02X%02X%02X%02X%02X%02X%02X\n",
+	pr_debug("Unique ID is %02X%02X%02X%02X%02X%02X%02X%02X\n",
 		unique_id[0], unique_id[1], unique_id[2], unique_id[3],
 		unique_id[4], unique_id[5], unique_id[6], unique_id[7]);
 }
 
 #ifdef DESIGN_VERIFICATION_W25QXXX
 #include "kinetis/test-kinetis.h"
+#include "kinetis/random-gene.h"
 
 int t_w25qxxx_chip_erase(int argc, char **argv)
 {
@@ -1674,11 +1675,11 @@ int t_w25qxxx_chip_erase(int argc, char **argv)
 		}
 	}
 
-	printk(KERN_DEBUG "Erasing is doing, 30 seconds will cost.\n");
+	pr_debug("Erasing is doing, 30 seconds will cost.\n");
 
 	ret = sw25qxxx_chip_erase(w25qxxx);
 	if (ret) {
-		printk(KERN_ERR "Chip erase failed with error: %d\n", ret);
+		pr_err("Chip erase failed with error: %d\n", ret);
 		return FAIL;
 	}
 
@@ -1747,7 +1748,7 @@ int t_w25qxxx_loopback(int argc, char **argv)
 			test_addr = 0;
 			break;
 		}
-		printk(KERN_DEBUG "round[%4u], test addr@0x%08x, length = %d.\n",
+		pr_debug("round[%4u], test addr@0x%08x, length = %d.\n",
 			j, test_addr, length);
 
 		random_get_array(tx_buffer, length, RNG_8BITS);
@@ -1764,7 +1765,7 @@ int t_w25qxxx_loopback(int argc, char **argv)
 
 		for (i = 0; i < length; i++) {
 			if (tx_buffer[i] != rx_buffer[i]) {
-				printk(KERN_ERR "tx[%d]: %#02x, rx[%d]: %#02x\n",
+				pr_err("tx[%d]: %#02x, rx[%d]: %#02x\n",
 					i, tx_buffer[i],
 					i, rx_buffer[i]);
 				printk(KERN_ERR
@@ -1774,7 +1775,7 @@ int t_w25qxxx_loopback(int argc, char **argv)
 		}
 	}
 
-	printk(KERN_DEBUG "w25qxxx read and write TEST PASSED !\n");
+	pr_debug("w25qxxx read and write TEST PASSED !\n");
 
 	return PASS;
 }

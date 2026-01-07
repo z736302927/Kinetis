@@ -4,6 +4,7 @@
 #include <linux/kernel.h>
 #include <linux/printk.h>
 
+#include "kinetis/design_verification.h"
 #include "kinetis/test-kinetis.h"
 #include "kinetis/user-shell.h"
 #include "kinetis/rtc-task.h"
@@ -11,6 +12,8 @@
 // #include "kinetis/button.h"
 // #include "kinetis/switch.h"
 #include "kinetis/fatfs.h"
+#include "kinetis/iic_soft.h"
+#include "kinetis/ak8975.h"
 
 #include "hydrology.h"
 
@@ -29,6 +32,7 @@ int t_ak8975_basic_info(int argc, char **argv);
 int t_ak8975_magnetic(int argc, char **argv);
 int t_ak8975_selftest(int argc, char **argv);
 int t_ak8975_fuse_rom_access(int argc, char **argv);
+int t_ak8975_program_process(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_AT24CXX
@@ -96,7 +100,7 @@ int t_general_timeout(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_HC_05
-int t_hc_05_test_cmd(int argc, char **argv);
+int t_hc05_integration_test(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_HYDROLOGY
@@ -115,7 +119,7 @@ int t_random_array(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_RS485
-{"test", NULL},
+
 #endif
 
 #ifdef DESIGN_VERIFICATION_RTC
@@ -135,11 +139,11 @@ int t_serial_port_shell(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_SHELL
-{"test", NULL},
+
 #endif
 
 #ifdef DESIGN_VERIFICATION_SLIST
-{"test", NULL},
+
 #endif
 
 #ifdef DESIGN_VERIFICATION_SWITCH
@@ -169,6 +173,12 @@ int t_w25qxxx_read_info(int argc, char **argv);
 int t_w25qxxx_loopback(int argc, char **argv);
 #endif
 
+static int t_function(int argc, char **argv)
+{
+	pr_err("ToDo, please implement this function.");
+	return FAIL;
+}
+
 struct test_case_typedef {
 	char *command;
 	int (*function)(int argc, char **argv);
@@ -181,6 +191,7 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"ak8975.magnetic",             t_ak8975_magnetic},
 	{"ak8975.selftest",             t_ak8975_selftest},
 	{"ak8975.fuse-rom-access",      t_ak8975_fuse_rom_access},
+	{"ak8975.process",      		t_ak8975_program_process},
 #endif
 #ifdef DESIGN_VERIFICATION_AT24CXX
 	{"at24cxx.loopback",            t_at24cxx_loopback},
@@ -190,7 +201,7 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"at24cxx.lb-speed",            t_at24cxx_loopback_speed},
 #endif
 #ifdef DESIGN_VERIFICATION_BMI160
-	{"bmi160.", fuction},
+	{"bmi160.", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_DS3231
 	{"ds3231.set-clock",            t_ds3231_set_clock},
@@ -202,41 +213,41 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"ds3231.get-temprature",       t_ds3231_get_temprature},
 #endif
 #ifdef DESIGN_VERIFICATION_ESP32
-	{"esp32.", fuction},
+	{"esp32.", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_GPRS
-	{"gprs.", fuction},
+	{"gprs.", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_GSM
-	{"gsm.", fuction},
+	{"gsm.", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_GT9271
 	{"gt9271.", },
 #endif
 #ifdef DESIGN_VERIFICATION_HC_05
-	{"hc-05.test",                  t_hc_05_test_cmd},
+	{"hc-05.test",                  t_hc05_integration_test},
 #endif
 #ifdef DESIGN_VERIFICATION_HMC5883L
-	{"hmc5883l.", fuction},
+	{"hmc5883l.", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_HYDROLOGY
 	{"hydrology.init",              t_hydrology_init},
 	{"hydrology.test",              t_hydrology},
 #endif
 #ifdef DESIGN_VERIFICATION_ICM20602
-	{"icm20602.", fuction},
+	{"icm20602.", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_IIC
-	{"iic.", fuction},
+	{"iic.", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_IS25LPWP256D
-	{"is25lpwp256d.", fuction},
+	{"is25lpwp256d.", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_BASICTIMER
 	{"basic-timer.get-tick",        t_basic_timer_get_tick},
 #endif
 #ifdef DESIGN_VERIFICATION_CHINESE
-	{"chinese.", fuction},
+	{"chinese.", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_CRC
 	{"crc.test",                    t_crc},
@@ -275,7 +286,7 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"button.drop",                 t_button_drop},
 #endif
 #ifdef DESIGN_VERIFICATION_LCD
-	{"test", fuction},
+	{"test", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_LED
 	{"led.add",                     t_led_add},
@@ -286,7 +297,7 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"random.array",                t_random_array},
 #endif
 #ifdef DESIGN_VERIFICATION_RS485
-	{"test", fuction},
+	{"test", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_RTC
 	{"rtc.set-clock",               t_rtc_set_clock},
@@ -302,10 +313,10 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"serial-port.shell",           t_serial_port_shell},
 #endif
 #ifdef DESIGN_VERIFICATION_SHELL
-	{"test", fuction},
+	{"test", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_SLIST
-	{"test", fuction},
+	{"test", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_SWITCH
 	{"switch.add",                  t_switch_add},
@@ -319,37 +330,37 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"tim-task.cleanup",             t_tim_task_cleanup},
 #endif
 #ifdef DESIGN_VERIFICATION_TOUCHSCREEN
-	{"test", fuction},
+	{"test", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_MAX30205
-	{"test", fuction},
+	{"test", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_MPU6050
-	{"test", fuction},
+	{"test", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_MT29F4G08
-	{"test", fuction},
+	{"test", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_MY9221
 	{"my9221.send",                 t_my9221_send_packet},
 #endif
 #ifdef DESIGN_VERIFICATION_NBIOT
-	{"test", fuction},
+	{"test", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_OLED
-	{"test", fuction},
+	{"test", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_RAK477
-	{"test", fuction},
+	{"test", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_SHT20
-	{"test", fuction},
+	{"test", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_SPL06
-	{"test", fuction},
+	{"test", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_SSD1306
-	{"test", fuction},
+	{"test", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_TLC5971
 	{"tlc5971.send",                t_tlc5971_send_packet},
@@ -360,7 +371,7 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"w25qxxx.erase",               t_w25qxxx_chip_erase},
 #endif
 #ifdef DESIGN_VERIFICATION_XMODEM
-	{"test", fuction},
+	{"test", t_function},
 #endif
 };
 
@@ -376,11 +387,11 @@ static int idle_task_init(void)
 
 	shell_init_async();
 
-	ret = hydrology_device_reboot();
-
-	if (ret) {
-		goto err;
-	}
+	// 	ret = hydrology_device_reboot();
+	//
+	// 	if (ret) {
+	// 		goto err;
+	// 	}
 
 	// 	ret = button_task_init();
 	//
@@ -406,8 +417,8 @@ static void idle_task_exit(void)
 
 static void idle_task_schedule(void)
 {
-	tim_task_loop();
-	rtc_task_loop();
+	// tim_task_loop();
+	// rtc_task_loop();
 }
 
 int parse_test_all_case(char *cmd)
@@ -448,6 +459,19 @@ int k_test_case_schedule(void)
 	if (ret) {
 		goto err;
 	}
+
+// 	ret = iic_slave_test();
+// 	if (ret) {
+// 		goto err;
+// 	}
+
+	ak8975_slave_start();
+	u8 tmp = 0;
+	pr_info("=== AK8975 Basic Info Test ===");
+	ak8975_who_am_i(&tmp);
+	pr_info("Device ID of AKM8975 is 0x%02X", tmp);
+	ak8975_slave_stop();
+	return -EIO;
 
 	pr_info("/----------Test platform has been activated.----------/");
 

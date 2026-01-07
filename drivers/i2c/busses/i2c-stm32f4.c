@@ -30,7 +30,7 @@
 #include <linux/reset.h>
 
 #include "i2c-stm32.h"
-#include "i2c.h"
+// #include "i2c.h"
 #include "kinetis-core.h"
 
 ///* STM32F4 I2C offset registers */
@@ -694,28 +694,28 @@ static int stm32f4_i2c_xfer(struct i2c_adapter *i2c_adap, struct i2c_msg msgs[],
 	struct stm32f4_i2c_dev *i2c_dev = i2c_get_adapdata(i2c_adap);
 	int ret = 0, i;
 
-//	ret = clk_enable(i2c_dev->clk);
-//	if (ret) {
-//		dev_err(i2c_dev->dev, "Failed to enable clock\n");
-//		return ret;
-//	}
-
-	for (i = 0; i < num && !ret; i++) {
-//		ret = stm32f4_i2c_xfer_msg(i2c_dev, &msgs[i], i == 0,
-//					   i == num - 1);
-		if (msgs[i].flags & I2C_M_RD)
-			ret = HAL_I2C_Master_Receive(&hi2c1,
-				i2c_8bit_addr_from_msg(&msgs[i]),
-				msgs[i].buf, msgs[i].len, i2c_dev->adap.timeout);
-		else
-			ret = HAL_I2C_Master_Transmit(&hi2c1,
-				i2c_8bit_addr_from_msg(&msgs[i]),
-				msgs[i].buf, msgs[i].len, i2c_dev->adap.timeout);
-	}
-
-	if (ret)
-		ret = -EPIPE;
-//	clk_disable(i2c_dev->clk);
+// //	ret = clk_enable(i2c_dev->clk);
+// //	if (ret) {
+// //		dev_err(i2c_dev->dev, "Failed to enable clock\n");
+// //		return ret;
+// //	}
+// 
+// 	for (i = 0; i < num && !ret; i++) {
+// //		ret = stm32f4_i2c_xfer_msg(i2c_dev, &msgs[i], i == 0,
+// //					   i == num - 1);
+// 		if (msgs[i].flags & I2C_M_RD)
+// 			ret = HAL_I2C_Master_Receive(&hi2c1,
+// 				i2c_8bit_addr_from_msg(&msgs[i]),
+// 				msgs[i].buf, msgs[i].len, i2c_dev->adap.timeout);
+// 		else
+// 			ret = HAL_I2C_Master_Transmit(&hi2c1,
+// 				i2c_8bit_addr_from_msg(&msgs[i]),
+// 				msgs[i].buf, msgs[i].len, i2c_dev->adap.timeout);
+// 	}
+// 
+// 	if (ret)
+// 		ret = -EPIPE;
+// //	clk_disable(i2c_dev->clk);
 
 	return (ret < 0) ? ret : num;
 }

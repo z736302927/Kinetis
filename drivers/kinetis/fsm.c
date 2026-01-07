@@ -375,7 +375,7 @@ int t_fsm_basic(int argc, char **argv)
 		fsm_state prev_state = machine.current_state;
 		sm_var._condition = cOK;
 
-		fsm_step(&machine, &sm_var, NB_IOT_Trans_Table);
+		fsm_step(&machine, &sm_var, (struct transition **)NB_IOT_Trans_Table);
 
 		if (machine.current_state != prev_state) {
 			steps++;
@@ -424,7 +424,7 @@ int t_fsm_state_transitions(int argc, char **argv)
 		fsm_state prev_state = machine.current_state;
 
 		// Trigger transition
-		fsm_step(&machine, &sm_var, NB_IOT_Trans_Table);
+		fsm_step(&machine, &sm_var, (struct transition **)NB_IOT_Trans_Table);
 
 		if (machine.current_state == expected_sequence[i]) {
 			matches++;
@@ -466,7 +466,7 @@ int t_fsm_error_handling(int argc, char **argv)
 	sm_var._condition = cOK;
 
 	// Test 1: Normal operation
-	fsm_step(&machine, &sm_var, NB_IOT_Trans_Table);
+	fsm_step(&machine, &sm_var, (struct transition **)NB_IOT_Trans_Table);
 	if (machine.current_state == sNB_MODULE_INFO) {
 		pr_info("PASS - Normal operation works\n");
 		error_passes++;
@@ -478,7 +478,7 @@ int t_fsm_error_handling(int argc, char **argv)
 	// Test 2: Repeat limit error
 	sm_var._repeats = 3; // Exceed repeat limit
 	fsm_state prev_state = machine.current_state;
-	fsm_step(&machine, &sm_var, NB_IOT_Trans_Table);
+	fsm_step(&machine, &sm_var, (struct transition **)NB_IOT_Trans_Table);
 
 	if (fsm_last_error_code == 0x01) {
 		pr_info("PASS - Repeat limit error detected\n");
@@ -490,8 +490,8 @@ int t_fsm_error_handling(int argc, char **argv)
 
 	// Test 3: Invalid state recovery
 	machine.current_state = sNB_UDP_CLOSE;
-	sm_var._condition = cERROR;
-	fsm_step(&machine, &sm_var, NB_IOT_Trans_Table);
+	sm_var._condition = cERROR_REPEATS_L3;
+	fsm_step(&machine, &sm_var, (struct transition **)NB_IOT_Trans_Table);
 
 	if (machine.current_state == sNB_RESET) {
 		pr_info("PASS - Error recovery working\n");
@@ -528,7 +528,7 @@ int t_fsm_performance(int argc, char **argv)
 		sm_var._condition = cOK;
 		sm_var._repeats = 0;
 
-		fsm_step(&machine, &sm_var, NB_IOT_Trans_Table);
+		fsm_step(&machine, &sm_var, (struct transition **)NB_IOT_Trans_Table);
 	}
 
 	end_time = ktime_get();
@@ -541,8 +541,8 @@ int t_fsm_performance(int argc, char **argv)
 	machine.current_state = sNB_INIT;
 
 	for (int i = 0; i < 500; i++) {
-		sm_var._condition = cERROR;
-		fsm_step(&machine, &sm_var, NB_IOT_Trans_Table);
+		sm_var._condition = cERROR_REPEATS_L3;
+		fsm_step(&machine, &sm_var, (struct transition **)NB_IOT_Trans_Table);
 
 		if (machine.current_state == sNB_RESET) {
 			machine.current_state = sNB_INIT; // Reset for next iteration
