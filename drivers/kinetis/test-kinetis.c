@@ -10,7 +10,7 @@
 #include "kinetis/rtc-task.h"
 #include "kinetis/tim-task.h"
 #include "kinetis/basic-timer.h"
-// #include "kinetis/button.h"
+#include "kinetis/button.h"
 // #include "kinetis/switch.h"
 #include "kinetis/fatfs.h"
 #include "kinetis/iic_soft.h"
@@ -121,6 +121,7 @@ int t_led_drop(int argc, char **argv);
 #ifdef DESIGN_VERIFICATION_RNG
 int t_random_number(int argc, char **argv);
 int t_random_array(int argc, char **argv);
+int t_random_statistics(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_RS485
@@ -303,6 +304,7 @@ struct test_case_typedef kinetis_case_table[] = {
 #ifdef DESIGN_VERIFICATION_RNG
 	{"random.number",               t_random_number},
 	{"random.array",                t_random_array},
+	{"random.statistics",           t_random_statistics},
 #endif
 #ifdef DESIGN_VERIFICATION_RS485
 	{"test", t_function},
@@ -404,10 +406,10 @@ static int idle_task_init(void)
 	// 		goto err;
 	// 	}
 
-	// ret = button_task_init();
-	// if (ret) {
-	// 	goto err;
-	// }
+	ret = button_task_init();
+	if (ret) {
+		goto err;
+	}
 
 	ret = switch_task_init();
 	if (ret) {

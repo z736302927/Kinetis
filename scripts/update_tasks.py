@@ -312,14 +312,14 @@ class TasksJsonGenerator:
         
     def generate_task_config(self, parser, gcc_path="E:/Plugin/mingw64/bin/gcc.exe"):
         """生成VSCode任务配置"""
-        
+
         # 构建参数数组
         args = []
-        
+
         # 添加基础编译标志
         args.extend(parser.cflags)
-        
-        # 添加包含目录
+
+        # 添加包含目录 - 使用相对路径
         i = 0
         while i < len(parser.include_dirs):
             include = parser.include_dirs[i]
@@ -327,37 +327,34 @@ class TasksJsonGenerator:
                 # -include参数，后跟头文件路径
                 args.append(include)
                 if i + 1 < len(parser.include_dirs):
-                    args.append(parser.include_dirs[i + 1])
+                    header_path = parser.include_dirs[i + 1]
+                    # 转换为相对于工作空间的路径
+                    args.append(self._to_relative_path(header_path))
                     i += 2  # 跳过头文件路径
                 else:
                     i += 1
             else:
-                # 普通的-I参数，确保是绝对路径
+                # 普通的-I参数，使用相对路径
                 args.append('-I')
-                if not (include.startswith('E:/') or include.startswith('C:')):
-                    # 如果不是绝对路径，转换为绝对路径
-                    abs_path = (self.workspace_root / include).resolve()
-                    args.append(str(abs_path))
-                else:
-                    args.append(include)
+                args.append(self._to_relative_path(include))
                 i += 1
-        
+
         # 添加预定义宏
         args.extend(parser.defines)
-        
+
         # 添加调试标志
         args.extend(['-g', '-fdiagnostics-color=always'])
-        
-        # 添加源文件
+
+        # 添加源文件 - 使用相对路径
         for src_file in parser.source_files:
             args.append('-g')
-            args.append(src_file)
-        
-        # 添加输出文件
+            args.append(self._to_relative_path(src_file))
+
+        # 添加输出文件 - 使用绝对路径
         output_dir = self.workspace_root / '.vscode' / 'output'
         output_file = output_dir / 'kinetis.exe'
-        args.extend(['-o', str(output_file)])
-        
+        args.extend(['-o', str(output_file.resolve())])
+
         # 构建任务配置
         task_config = {
             "type": "cppbuild",
@@ -365,7 +362,7 @@ class TasksJsonGenerator:
             "command": gcc_path,
             "args": args,
             "options": {
-                "cwd": "E:/Plugin/mingw64/bin"
+                "cwd": "${workspaceFolder}"  # 使用VSCode内置变量
             },
             "problemMatcher": [
                 "$gcc"
@@ -376,55 +373,45 @@ class TasksJsonGenerator:
             },
             "detail": "Auto-generated from Makefile"
         }
-        
+
         return task_config, output_dir
+
+    def _to_relative_path(self, path):
+        """将路径转换为相对于工作空间根目录的路径"""
+        if isinstance(path, str):
+            path_obj = Path(path)
+        else:
+            path_obj = path
+
+        try:
+            # 尝试转换为相对路径
+            rel_path = path_obj.relative_to(self.workspace_root)
+            return str(rel_path)
+        except ValueError:
+            # 如果无法转换为相对路径，使用绝对路径
+            return str(path_obj)
     
     def update_tasks_json(self, task_config, output_dir):
-        """更新tasks.json文件"""
-        
+        """更新tasks.json文件 - 直接覆盖"""
+
         # 确保输出目录存在
         output_dir.mkdir(parents=True, exist_ok=True)
-        
-        # 读取现有的tasks.json或创建新的
-        if self.tasks_json_path.exists():
-            with open(self.tasks_json_path, 'r', encoding='utf-8') as f:
-                tasks_data = json.load(f)
-        else:
-            tasks_data = {
-                "version": "2.0.0",
-                "tasks": []
-            }
-        
-        # 更新或添加任务
-        tasks = tasks_data.get("tasks", [])
-        
-        # 查找是否已存在相同标签的任务
-        existing_task_index = -1
-        for i, task in enumerate(tasks):
-            if task.get("label") == task_config["label"]:
-                existing_task_index = i
-                break
-        
-        if existing_task_index >= 0:
-            # 更新现有任务
-            tasks[existing_task_index] = task_config
-            print(f"更新现有任务: {task_config['label']}")
-        else:
-            # 添加新任务
-            tasks.append(task_config)
-            print(f"添加新任务: {task_config['label']}")
-        
-        tasks_data["tasks"] = tasks
-        
+
+        # 直接创建新的配置，覆盖现有文件
+        tasks_data = {
+            "version": "2.0.0",
+            "tasks": [task_config]
+        }
+
         # 确保目录存在
         self.tasks_json_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # 写入文件
         with open(self.tasks_json_path, 'w', encoding='utf-8') as f:
             json.dump(tasks_data, f, indent=4, ensure_ascii=False)
-        
+
         print(f"tasks.json已更新: {self.tasks_json_path}")
-        
+
         # 输出统计信息
         print(f"\n任务配置统计:")
         print(f"  源文件数量: {len([arg for arg in task_config['args'] if arg.endswith('.c') and not arg.startswith('-')])}")

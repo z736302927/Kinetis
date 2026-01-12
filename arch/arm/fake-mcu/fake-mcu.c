@@ -232,6 +232,8 @@ int fake_mcu_glue_func(void)
 {
 	pthread_t timer_thread;
 	pthread_t rtc_thread;
+	u64 entropy[16];
+	struct timespec ts;
 	int ret = 0;
 
 //	cm_backtrace_init("CmBacktrace", "V1.0.0", "V0.1.0");
@@ -254,6 +256,13 @@ int fake_mcu_glue_func(void)
 	ret = rand_initialize();
 	if (ret)
 		return ret;
+
+	/* Add enough entropy to initialize CRNG in fake environment */
+	/* CRNG requires at least 64 bytes (CRNG_INIT_CNT_THRESH) */
+	clock_gettime(CLOCK_REALTIME, &ts);
+	for (int i = 0; i < 16; i++)
+		entropy[i] = 0x1234567890abcdefULL ^ (u64)(ts.tv_sec + ts.tv_nsec) * (i + 1);
+	add_device_randomness(entropy, sizeof(entropy));
 
 	register_console(&stm32_console);
 

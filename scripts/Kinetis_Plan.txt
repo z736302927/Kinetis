@@ -71,6 +71,7 @@ delay.test
 /*随机数测试*/
 random.number
 random.array
+random.statistics
 
 /*获取时钟*/
 rtc.set-clock
