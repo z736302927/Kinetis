@@ -9,11 +9,13 @@
 #include "kinetis/user-shell.h"
 #include "kinetis/rtc-task.h"
 #include "kinetis/tim-task.h"
+#include "kinetis/basic-timer.h"
 // #include "kinetis/button.h"
 // #include "kinetis/switch.h"
 #include "kinetis/fatfs.h"
 #include "kinetis/iic_soft.h"
 #include "kinetis/ak8975.h"
+#include "kinetis/switch.h"
 
 #include "hydrology.h"
 
@@ -32,7 +34,7 @@ int t_ak8975_basic_info(int argc, char **argv);
 int t_ak8975_magnetic(int argc, char **argv);
 int t_ak8975_selftest(int argc, char **argv);
 int t_ak8975_fuse_rom_access(int argc, char **argv);
-int t_ak8975_program_process(int argc, char **argv);
+int t_ak8975_program_thread(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_AT24CXX
@@ -41,6 +43,7 @@ int t_at24cxx_current_addr_read(int argc, char **argv);
 int t_at24cxx_current_random_read(int argc, char **argv);
 int t_at24cxx_sequential_read(int argc, char **argv);
 int t_at24cxx_loopback_speed(int argc, char **argv);
+int t_at24cxx_program_thread(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_DS3231
@@ -55,6 +58,7 @@ int t_ds3231_get_temprature(int argc, char **argv);
 
 #ifdef DESIGN_VERIFICATION_BASICTIMER
 int t_basic_timer_get_tick(int argc, char **argv);
+int t_basic_timer_thread_op(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_CRC
@@ -62,6 +66,7 @@ int t_crc(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_BUTTON
+int t_button_task(int argc, char **argv);
 int t_button_add(int argc, char **argv);
 int t_button_drop(int argc, char **argv);
 #endif
@@ -191,7 +196,7 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"ak8975.magnetic",             t_ak8975_magnetic},
 	{"ak8975.selftest",             t_ak8975_selftest},
 	{"ak8975.fuse-rom-access",      t_ak8975_fuse_rom_access},
-	{"ak8975.process",      		t_ak8975_program_process},
+	{"ak8975.thread",      			t_ak8975_program_thread},
 #endif
 #ifdef DESIGN_VERIFICATION_AT24CXX
 	{"at24cxx.loopback",            t_at24cxx_loopback},
@@ -199,6 +204,7 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"at24cxx.random-read",         t_at24cxx_current_random_read},
 	{"at24cxx.seq-read",            t_at24cxx_sequential_read},
 	{"at24cxx.lb-speed",            t_at24cxx_loopback_speed},
+	{"at24cxx.thread",            	t_at24cxx_program_thread},
 #endif
 #ifdef DESIGN_VERIFICATION_BMI160
 	{"bmi160.", t_function},
@@ -245,6 +251,7 @@ struct test_case_typedef kinetis_case_table[] = {
 #endif
 #ifdef DESIGN_VERIFICATION_BASICTIMER
 	{"basic-timer.get-tick",        t_basic_timer_get_tick},
+	{"basic-timer.thread",			t_basic_timer_thread_op},
 #endif
 #ifdef DESIGN_VERIFICATION_CHINESE
 	{"chinese.", t_function},
@@ -282,6 +289,7 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"general.timeout",             t_general_timeout},
 #endif
 #ifdef DESIGN_VERIFICATION_BUTTON
+	{"button.task",                 t_button_task},
 	{"button.add",                  t_button_add},
 	{"button.drop",                 t_button_drop},
 #endif
@@ -379,8 +387,12 @@ static int idle_task_init(void)
 {
 	int ret;
 
-	ret = fatfs_init();
+	ret = basic_timer_thread_start();
+	if (ret) {
+		goto err;
+	}
 
+	ret = fatfs_init();
 	if (ret) {
 		goto err;
 	}
@@ -388,20 +400,19 @@ static int idle_task_init(void)
 	shell_init_async();
 
 	// 	ret = hydrology_device_reboot();
-	//
 	// 	if (ret) {
 	// 		goto err;
 	// 	}
 
-	// 	ret = button_task_init();
-	//
-	// 	if (ret)
-	// 		goto err;
-	//
-	// 	ret = switch_task_init();
-	//
-	// 	if (ret)
-	// 		goto err;
+	// ret = button_task_init();
+	// if (ret) {
+	// 	goto err;
+	// }
+
+	ret = switch_task_init();
+	if (ret) {
+		goto err;
+	}
 
 	return 0;
 err:
@@ -411,13 +422,13 @@ err:
 
 static void idle_task_exit(void)
 {
-	// 	button_task_exit();
+	// button_task_exit();
 	// 	switch_task_init();
 }
 
 static void idle_task_schedule(void)
 {
-	// tim_task_loop();
+	tim_task_loop();
 	// rtc_task_loop();
 }
 
@@ -460,18 +471,18 @@ int k_test_case_schedule(void)
 		goto err;
 	}
 
-// 	ret = iic_slave_test();
-// 	if (ret) {
-// 		goto err;
-// 	}
+	// 		ret = iic_slave_test();
+	// 		if (ret) {
+	// 			goto err;
+	// 		}
 
-	ak8975_slave_start();
-	u8 tmp = 0;
-	pr_info("=== AK8975 Basic Info Test ===");
-	ak8975_who_am_i(&tmp);
-	pr_info("Device ID of AKM8975 is 0x%02X", tmp);
-	ak8975_slave_stop();
-	return -EIO;
+	// 	ak8975_slave_start();
+	// 	u8 tmp = 0;
+	// 	pr_info("=== AK8975 Basic Info Test ===");
+	// 	ak8975_who_am_i(&tmp);
+	// 	pr_info("Device ID of AKM8975 is 0x%02X", tmp);
+	// 	ak8975_slave_stop();
+	// 	return -EIO;
 
 	pr_info("/----------Test platform has been activated.----------/");
 

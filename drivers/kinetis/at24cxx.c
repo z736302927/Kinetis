@@ -1,6 +1,7 @@
 #include <linux/printk.h>
 #include <linux/errno.h>
 #include <linux/delay.h>
+#include <linux/slab.h>
 
 #include "kinetis/at24cxx.h"
 #include "kinetis/iic_soft.h"
@@ -9,7 +10,6 @@
 #include "kinetis/design_verification.h"
 
 /* AT24CXX device related constants and definitions */
-#define AT24CXX_IIC                     IIC_HW_1
 #define AT24CXX_ADDR                    0x50
 #define PAGE_SIZE                       8
 #define AT24CXX_MAX_ADDR                255
@@ -31,14 +31,16 @@
   * @step 5:
   */
 
+static struct iic_master *at24cxx_iic = &fake_master;
+
 static inline void at24cxx_port_multi_transmit(u8 addr, u8 *pdata, u32 length)
 {
-	iic_master_port_multi_transmmit(AT24CXX_IIC, AT24CXX_ADDR, addr, pdata, length);
+	iic_master_port_multi_transmit(at24cxx_iic, AT24CXX_ADDR, addr, pdata, length);
 }
 
 static inline void at24cxx_port_multi_receive(u8 addr, u8 *pdata, u32 length)
 {
-	iic_master_port_multi_receive(AT24CXX_IIC, AT24CXX_ADDR, addr, pdata, length);
+	iic_master_port_multi_receive(at24cxx_iic, AT24CXX_ADDR, addr, pdata, length);
 }
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -306,16 +308,16 @@ int at24cxx_write_data(u8 addr, u8 *pdata, u32 length)
 
 int at24cxx_current_addr_read(u8 *pdata)
 {
-	iic_master_soft_start(AT24CXX_IIC);
-	iic_master_soft_send_byte(AT24CXX_IIC, (AT24CXX_ADDR << 1) | 0x01);
+	iic_master_soft_start(at24cxx_iic);
+	iic_master_soft_send_byte(at24cxx_iic, (AT24CXX_ADDR << 1) | 0x01);
 
-	if (iic_master_soft_wait_ack(AT24CXX_IIC)) {
-		iic_master_soft_stop(AT24CXX_IIC);
+	if (iic_master_soft_wait_ack(at24cxx_iic)) {
+		iic_master_soft_stop(at24cxx_iic);
 		return -EPIPE;
 	}
 
-	*pdata = iic_master_soft_read_byte(AT24CXX_IIC, 0);
-	iic_master_soft_stop(AT24CXX_IIC);
+	*pdata = iic_master_soft_read_byte(at24cxx_iic, 0);
+	iic_master_soft_stop(at24cxx_iic);
 
 	return 0;
 }
@@ -344,20 +346,20 @@ int at24cxx_device_detect(void)
 	u8 dummy_data;
 
 	/* Attempt to read device address for detection */
-	if (iic_master_soft_start(AT24CXX_IIC)) {
+	if (iic_master_soft_start(at24cxx_iic)) {
 		return -ENODEV;
 	}
 
-	iic_master_soft_send_byte(AT24CXX_IIC, (AT24CXX_ADDR << 1) | 0x01);
+	iic_master_soft_send_byte(at24cxx_iic, (AT24CXX_ADDR << 1) | 0x01);
 
-	if (iic_master_soft_wait_ack(AT24CXX_IIC)) {
-		iic_master_soft_stop(AT24CXX_IIC);
+	if (iic_master_soft_wait_ack(at24cxx_iic)) {
+		iic_master_soft_stop(at24cxx_iic);
 		return -ENODEV;
 	}
 
 	/* Read one byte of data */
-	dummy_data = iic_master_soft_read_byte(AT24CXX_IIC, 0);
-	iic_master_soft_stop(AT24CXX_IIC);
+	dummy_data = iic_master_soft_read_byte(at24cxx_iic, 0);
+	iic_master_soft_stop(at24cxx_iic);
 
 	return 0;
 }
@@ -395,26 +397,26 @@ int at24cxx_check_write_protection(void)
 
 int at24cxx_sequential_read(u8 *pdata, u32 length)
 {
-	iic_master_soft_start(AT24CXX_IIC);
-	iic_master_soft_send_byte(AT24CXX_IIC, (AT24CXX_ADDR << 1) | 0x01);
+	iic_master_soft_start(at24cxx_iic);
+	iic_master_soft_send_byte(at24cxx_iic, (AT24CXX_ADDR << 1) | 0x01);
 
-	if (iic_master_soft_wait_ack(AT24CXX_IIC)) {
-		iic_master_soft_stop(AT24CXX_IIC);
+	if (iic_master_soft_wait_ack(at24cxx_iic)) {
+		iic_master_soft_stop(at24cxx_iic);
 		return -EPIPE;
 	}
 
 	while (length) {
 		if (length == 1) {
-			*pdata = iic_master_soft_read_byte(AT24CXX_IIC, 0);
+			*pdata = iic_master_soft_read_byte(at24cxx_iic, 0);
 		} else {
-			*pdata = iic_master_soft_read_byte(AT24CXX_IIC, 1);
+			*pdata = iic_master_soft_read_byte(at24cxx_iic, 1);
 		}
 
 		pdata++;
 		length--;
 	}
 
-	iic_master_soft_stop(AT24CXX_IIC);
+	iic_master_soft_stop(at24cxx_iic);
 
 	return 0;
 }
@@ -423,6 +425,77 @@ int at24cxx_sequential_read(u8 *pdata, u32 length)
 #include "kinetis/test-kinetis.h"
 #include "kinetis/random-gene.h"
 #include "kinetis/basic-timer.h"
+
+static struct iic_slave *at24cxx_slave = NULL;
+/* Simulated AT24C02 memory (256 bytes) */
+static u8 *at24cxx_slave_memory = NULL;
+
+/**
+ * @brief Start AT24C02 I2C slave simulation for testing
+ */
+int at24cxx_slave_start(void)
+{
+	/* Create I2C slave device with address 0x50 (thread is auto-started in iic_slave_soft_init) */
+	at24cxx_slave_memory = kzalloc(AT24CXX_VOLUME, GFP_KERNEL);
+	if (!at24cxx_slave_memory) {
+		return -ENOMEM;
+	}
+	at24cxx_slave = iic_slave_soft_init("at24cxx", AT24CXX_ADDR, at24cxx_slave_memory, AT24CXX_VOLUME);
+	if (IS_ERR(at24cxx_slave)) {
+		pr_err("at24cxx_slave: Failed to initialize I2C slave");
+		return PTR_ERR(at24cxx_slave);
+	}
+
+	pr_info("at24cxx_slave: Initialized at I2C address 0x%02X with %d bytes memory",
+		AT24CXX_ADDR, AT24CXX_VOLUME);
+
+	return 0;
+}
+
+/**
+ * @brief Stop AT24C02 I2C slave simulation for testing
+ */
+int at24cxx_slave_stop(void)
+{
+	if (at24cxx_slave) {
+		/* Stop and free I2C slave (thread is auto-stopped in iic_slave_soft_exit) */
+		kfree(at24cxx_slave_memory);
+		at24cxx_slave_memory = NULL;
+		iic_slave_soft_exit(at24cxx_slave);
+		at24cxx_slave = NULL;
+		return 0;
+	}
+
+	pr_warn("at24cxx_slave: No slave instance to stop");
+	return 0;
+}
+
+int t_at24cxx_program_thread(int argc, char **argv)
+{
+	int ret;
+	bool on_off = true;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "on")) {
+			on_off = true;
+		} else if (!strcmp(argv[1], "off")) {
+			on_off = false;
+		} else {
+			return -EINVAL;
+		}
+	}
+
+	if (on_off) {
+		ret = at24cxx_slave_start();
+	} else {
+		ret = at24cxx_slave_stop();
+	}
+	if (ret) {
+		return ret;
+	}
+
+	return PASS;
+}
 
 static u8 tx_buffer[AT24CXX_VOLUME];
 static u8 rx_buffer[AT24CXX_VOLUME];

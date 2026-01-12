@@ -3,6 +3,7 @@
 #include <linux/bitmap.h>
 #include <linux/kernel.h>
 #include <linux/random.h>
+#include <linux/string.h>
 
 #include "kinetis/button.h"
 #include "kinetis/tim-task.h"
@@ -19,6 +20,7 @@
   */
 
 static struct tim_task button_task;
+static bool button_task_running = false;
 
 static void button_task_callback(struct tim_task *task)
 {
@@ -27,13 +29,29 @@ static void button_task_callback(struct tim_task *task)
 
 int button_task_init(void)
 {
-	return tim_task_add(&button_task, "button_task",
+	int ret;
+
+	if (button_task_running) {
+		return 0;
+	}
+
+	ret = tim_task_add(&button_task, "button_task",
 			5, true, false, button_task_callback);
+	if (ret == 0) {
+		button_task_running = true;
+	}
+
+	return ret;
 }
 
 void button_task_exit(void)
 {
+	if (!button_task_running) {
+		return;
+	}
+
 	tim_task_drop(&button_task);
+	button_task_running = false;
 }
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
@@ -203,7 +221,7 @@ static void button_handler(struct button *button)
 
 			if (button->cnt == 1)
 				tim_task_add(&button->task, "button_task",
-					300, true, false, click);
+					300, false, false, click);
 		} else if (button->valid_ticks > 1500 && button->valid_ticks <= 3000) {
 			button->event = (u8)LONG_RRESS;
 
@@ -321,7 +339,7 @@ static u8 button_sim_read_with_debounce(u32 unique_id)
 	/* Auto-generate button events randomly */
 	if (sim->current_level == 1 && sim->next_event == NONE_PRESS) {
 		/* Button is released, randomly press it */
-		if ((get_random_int() % 100) < 5) {  /* 5% chance per call */
+		if ((get_random_int() % 100) < 50) {  /* 5% chance per call */
 			enum press_button_event event = button_sim_random_event();
 			sim->next_event = event;
 			button_sim_press(unique_id);
@@ -462,6 +480,23 @@ static void button_test_callback(struct button *button)
 	}
 }
 
+int t_button_task(int argc, char **argv)
+{
+	if (argc < 2) {
+		return -EINVAL;
+	}
+
+	if (strcmp(argv[1], "on") == 0) {
+		return button_task_init();
+	} else if (strcmp(argv[1], "off") == 0) {
+		button_task_exit();
+		return 0;
+	}
+
+	pr_debug("Usage: t_button_task <on|off>\n");
+	return -EINVAL;
+}
+
 int t_button_add(int argc, char **argv)
 {
 #ifdef KINETIS_FAKE_SIM
@@ -470,8 +505,6 @@ int t_button_add(int argc, char **argv)
 	button_sim_init(2);
 	button_sim_init(3);
 #endif
-
-	button_task_init();
 
 	button_add(1, button_read_pin, 0, button_test_callback);
 	button_add(2, button_read_pin, 0, button_test_callback);
@@ -484,8 +517,6 @@ int t_button_add(int argc, char **argv)
 
 int t_button_drop(int argc, char **argv)
 {
-	button_task_exit();
-
 	button_drop(1);
 	button_drop(2);
 	button_drop(3);

@@ -1,4 +1,5 @@
 {
+    "version": "2.0.0",
     "tasks": [
         {
             "type": "cppbuild",
@@ -301,6 +302,10 @@
                 "-g",
                 "E:\\Code\\Kinetis\\lib\\random32.c",
                 "-g",
+                "E:\\Code\\Kinetis\\lib\\crypto\\chacha.c",
+                "-g",
+                "E:\\Code\\Kinetis\\lib\\sha1.c",
+                "-g",
                 "E:\\Code\\Kinetis\\mm\\maccess.c",
                 "-g",
                 "E:\\Code\\Kinetis\\mm\\mempool.c",
@@ -455,6 +460,5 @@
             },
             "detail": "Auto-generated from Makefile"
         }
-    ],
-    "version": "2.0.0"
+    ]
 }

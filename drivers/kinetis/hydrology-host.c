@@ -990,7 +990,7 @@ static int hydrology_host_make_down_tail_and_send(enum hydrology_mode mode,
 
 	g_hydrology.down_packet->len = pointer;
 
-	return hydrology_port_transmmit(g_hydrology.down_packet->buffer,
+	return hydrology_port_transmit(g_hydrology.down_packet->buffer,
 			g_hydrology.down_packet->len);
 }
 
@@ -1131,7 +1131,7 @@ static int hydrology_host_make_err_down_tail_and_send(enum hydrology_mode mode,
 
 	g_hydrology.down_packet->len = pointer;
 
-	return hydrology_port_transmmit(g_hydrology.down_packet->buffer,
+	return hydrology_port_transmit(g_hydrology.down_packet->buffer,
 			g_hydrology.down_packet->len);
 }
 

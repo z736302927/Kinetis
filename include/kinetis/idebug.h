@@ -23,8 +23,8 @@ extern "C" {
 #define KERN_DEFAULT	3
 #endif
 
-#define ERR_PRINT_TIME  printk("[%05d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt())
-#define DBG_PRINT_TIME  printk("[%05d.%06d] ", basic_timer_get_ss(), basic_timer_get_timer_cnt())
+#define ERR_PRINT_TIME  printk("[%05d.%06d] ", basic_timer_get_ss(), basic_timer_get_us() % 1000000)
+#define DBG_PRINT_TIME  printk("[%05d.%06d] ", basic_timer_get_ss(), basic_timer_get_us() % 1000000)
 #define kinetis_info(...)     do{if(!(KERN_DEFAULT >= KERN_INFO))break;DBG_PRINT_TIME;printk(__VA_ARGS__); printk("\r\n");}while(0)
 #define kinetis_err(...)      do{if(!(KERN_DEFAULT >= KERN_ERR))break;DBG_PRINT_TIME;printk(__VA_ARGS__); printk("\r\n");}while(0)
 #define kinetis_dbg_track     do{if(!(KERN_DEFAULT >= KERN_DEBUG))break;DBG_PRINT_TIME;printk("%s,%d",  __FUNCTION__, __LINE__ ); printk("\r\n");}while(0)

@@ -103,7 +103,7 @@ static void general_generate_cmd(struct general_cmd *cmd)
 	serial_port_open(cmd->serial_port);
 }
 
-static void general_transmmit_cmd(struct general_cmd *cmd)
+static void general_transmit_cmd(struct general_cmd *cmd)
 {
 	serial_port_send(cmd->serial_port);
 }
@@ -154,7 +154,7 @@ void general_process_cmd(struct general_cmd *cmd)
 
 	while (cmd->current_repetition < cmd->error_repetition) {
 		general_generate_cmd(cmd);
-		general_transmmit_cmd(cmd);
+		general_transmit_cmd(cmd);
 		general_receive_cmd(cmd);
 
 		if (cmd->timeout_flag) {

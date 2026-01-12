@@ -1,16 +1,20 @@
 
 /*ak8975测试*/
+ak8975.thread on
 ak8975.basic-info
 ak8975.magnetic
 ak8975.selftest
 ak8975.fuse-rom-access
+ak8975.thread off
 
 /*at24cxx测试*/
+at24cxx.thread on
 at24cxx.loopback
 at24cxx.current-addr-read
 at24cxx.random-read1
 at24cxx.seq-read
 at24cxx.lb-speed
+at24cxx.thread off
 
 /*ds3231测试*/
 ds3231.set-clock
@@ -45,8 +49,10 @@ fatfs.raw-speed
 basic-timer.get-tick
 
 /*按键测试*/
+button.task on
 button.add
 button.drop
+button.task off
 
 /*led测试*/
 led.add

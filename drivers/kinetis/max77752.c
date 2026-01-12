@@ -19,6 +19,8 @@
 /* Device I2C address - MAX77752 typically uses 0x3C */
 #define MAX77752_ADDR                    MAX77752_I2C_ADDR
 
+static struct iic_master *max77752_iic = &fake_master;
+
 /* Private variables */
 static u8 g_device_present = 0;
 static u8 g_init_complete = 0;
@@ -49,24 +51,24 @@ static u8 g_last_charge_status = MAX77752_CHG_IDLE;
 static s16 g_last_temperature = 0;
 
 /* I/O port functions - using Kinetis I2C implementation */
-static inline void max77752_port_transmmit(u8 reg_addr, u8 data)
+static inline void max77752_port_transmit(u8 reg_addr, u8 data)
 {
-	iic_master_port_transmmit(IIC_SW_1, MAX77752_ADDR, reg_addr, data);
+	iic_master_port_transmit(max77752_iic, MAX77752_ADDR, reg_addr, data);
 }
 
 static inline void max77752_port_receive(u8 reg_addr, u8 *pdata)
 {
-	iic_master_port_receive(IIC_SW_1, MAX77752_ADDR, reg_addr, pdata);
+	iic_master_port_receive(max77752_iic, MAX77752_ADDR, reg_addr, pdata);
 }
 
-static inline void max77752_port_multi_transmmit(u8 reg_addr, u8 *pdata, u32 length)
+static inline void max77752_port_multi_transmit(u8 reg_addr, u8 *pdata, u32 length)
 {
-	iic_master_port_multi_transmmit(IIC_SW_1, MAX77752_ADDR, reg_addr, pdata, length);
+	iic_master_port_multi_transmit(max77752_iic, MAX77752_ADDR, reg_addr, pdata, length);
 }
 
 static inline void max77752_port_multi_receive(u8 reg_addr, u8 *pdata, u32 length)
 {
-	iic_master_port_multi_receive(IIC_SW_1, MAX77752_ADDR, reg_addr, pdata, length);
+	iic_master_port_multi_receive(max77752_iic, MAX77752_ADDR, reg_addr, pdata, length);
 }
 
 /* Delay functions */
@@ -86,6 +88,9 @@ void max77752_Delayms(u32 ticks)
 void max77752_init(void)
 {
 	u8 dev_id, dev_rev, status;
+
+	/* Initialize IIC master */
+	max77752_iic->init();
 
 	printk("Initializing MAX77752 power management chip...");
 
@@ -162,7 +167,7 @@ u8 max77752_read_status(void)
 
 void max77752_write_status(u8 status)
 {
-	max77752_port_transmmit(MAX77752_REG_STATUS, status);
+	max77752_port_transmit(MAX77752_REG_STATUS, status);
 }
 
 /* Power management functions */
@@ -182,7 +187,7 @@ void max77752_enable_power(u8 enable)
 		printk("Power disabled");
 	}
 
-	max77752_port_transmmit(MAX77752_REG_PWR_SLA, pwr_cfg);
+	max77752_port_transmit(MAX77752_REG_PWR_SLA, pwr_cfg);
 }
 
 u8 max77752_get_power_status(void)
@@ -205,7 +210,7 @@ void max77752_set_sleep_mode(u8 enable)
 		printk("Exiting sleep mode");
 	}
 
-	max77752_port_transmmit(MAX77752_REG_CONFIG, config);
+	max77752_port_transmit(MAX77752_REG_CONFIG, config);
 }
 
 void max77752_enable_wake_source(u8 source, u8 enable)
@@ -220,13 +225,13 @@ void max77752_enable_wake_source(u8 source, u8 enable)
 		pwr_masks &= ~(1 << source);
 	}
 
-	max77752_port_transmmit(MAX77752_REG_PWR_MSK, pwr_masks);
+	max77752_port_transmit(MAX77752_REG_PWR_MSK, pwr_masks);
 }
 
 void max77752_reset_system(void)
 {
 	printk("Performing system reset...");
-	max77752_port_transmmit(MAX77752_REG_RESET, 0x01);
+	max77752_port_transmit(MAX77752_REG_RESET, 0x01);
 	max77752_Delayms(100); /* Wait for reset to complete */
 }
 
@@ -250,7 +255,7 @@ void max77752_configure_battery(u8 bat_type, u8 enable)
 		bat_cfg &= ~MAX77752_BAT_CFG_BAT_EN;
 	}
 
-	max77752_port_transmmit(MAX77752_REG_BAT_CFG, bat_cfg);
+	max77752_port_transmit(MAX77752_REG_BAT_CFG, bat_cfg);
 	printk("Battery configured: Type=%d, Enabled=%d", bat_type, enable);
 }
 
@@ -318,7 +323,7 @@ void max77752_enable_charging(u8 enable)
 		printk("Charging disabled");
 	}
 
-	max77752_port_transmmit(MAX77752_REG_CHG_CFG, chg_cfg);
+	max77752_port_transmit(MAX77752_REG_CHG_CFG, chg_cfg);
 }
 
 void max77752_configure_charging(u16 current_limit, u16 voltage_limit)
@@ -341,7 +346,7 @@ void max77752_configure_charging(u16 current_limit, u16 voltage_limit)
 	/* Enable safety timer */
 	chg_cfg |= MAX77752_CHG_CFG_TMR_EN;
 
-	max77752_port_transmmit(MAX77752_REG_CHG_CFG, chg_cfg);
+	max77752_port_transmit(MAX77752_REG_CHG_CFG, chg_cfg);
 
 	printk("Charging configured: Current=%dmA, Voltage=%dmV",
 		current_limit * 100, (voltage_limit + 4) * 100);
@@ -402,7 +407,7 @@ void max77752_configure_thermal(u8 enable)
 		printk("Thermal monitoring disabled");
 	}
 
-	max77752_port_transmmit(MAX77752_REG_TEMP_CFG, temp_cfg);
+	max77752_port_transmit(MAX77752_REG_TEMP_CFG, temp_cfg);
 }
 
 u8 max77752_get_thermal_status(void)
@@ -442,7 +447,7 @@ void max77752_set_temperature_limits(u8 low_limit, u8 high_limit)
 	temp_cfg |= ((low_limit & 0x07) << 2); /* Low limit */
 	temp_cfg |= ((high_limit & 0x07) << 4); /* High limit */
 
-	max77752_port_transmmit(MAX77752_REG_TEMP_CFG, temp_cfg);
+	max77752_port_transmit(MAX77752_REG_TEMP_CFG, temp_cfg);
 
 	printk("Temperature limits set: %d°C to %d°C", low_limit, high_limit);
 }
@@ -461,7 +466,7 @@ void max77752_configure_led(u8 led_id, u8 mode, u8 brightness)
 
 	led_cfg = (mode & 0x03) | ((brightness & 0x0F) << 4);
 
-	max77752_port_transmmit(reg_addr, led_cfg);
+	max77752_port_transmit(reg_addr, led_cfg);
 	printk("LED%d configured: Mode=%d, Brightness=%d", led_id, mode, brightness);
 }
 
@@ -484,7 +489,7 @@ void max77752_set_led_state(u8 led_id, u8 state)
 		led_cfg &= ~0x01; /* Disable LED */
 	}
 
-	max77752_port_transmmit(reg_addr, led_cfg);
+	max77752_port_transmit(reg_addr, led_cfg);
 }
 
 void max77752_configure_led_charging_indicator(u8 enable)
@@ -499,7 +504,7 @@ void max77752_configure_led_charging_indicator(u8 enable)
 		led_cfg &= ~0x01; /* Disable charging indicator */
 	}
 
-	max77752_port_transmmit(MAX77752_REG_LED_CFG, led_cfg);
+	max77752_port_transmit(MAX77752_REG_LED_CFG, led_cfg);
 }
 
 /* Interrupt handling functions */
@@ -512,7 +517,7 @@ u8 max77752_read_interrupt_status(void)
 
 void max77752_clear_interrupt(u8 interrupt_mask)
 {
-	max77752_port_transmmit(MAX77752_REG_INT, interrupt_mask);
+	max77752_port_transmit(MAX77752_REG_INT, interrupt_mask);
 }
 
 void max77752_configure_interrupt_mask(u8 mask, u8 enable)
@@ -527,7 +532,7 @@ void max77752_configure_interrupt_mask(u8 mask, u8 enable)
 		int_mask |= mask; /* Disable interrupt */
 	}
 
-	max77752_port_transmmit(MAX77752_REG_INT_MSK, int_mask);
+	max77752_port_transmit(MAX77752_REG_INT_MSK, int_mask);
 }
 
 void max77752_register_callback(void (*callback)(u8 interrupt_source))
@@ -645,7 +650,7 @@ void max77752_set_default_config(void)
 
 	/* Set default power configuration */
 	u8 pwr_cfg = MAX77752_PWR_SLA_WAKE_EN | MAX77752_PWR_SLA_ILIM_EN;
-	max77752_port_transmmit(MAX77752_REG_PWR_SLA, pwr_cfg);
+	max77752_port_transmit(MAX77752_REG_PWR_SLA, pwr_cfg);
 
 	/* Set default thermal configuration */
 	max77752_configure_thermal(1);

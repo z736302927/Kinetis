@@ -40,7 +40,7 @@ struct my9221 {
 	struct rgb_led led4;
 };
 
-static inline void my9221_port_transmmit(u16 tmp)
+static inline void my9221_port_transmit(u16 tmp)
 {
 
 }
@@ -52,7 +52,7 @@ static inline u16 my9221_port_receive(void)
 	return tmp;
 }
 
-static inline void my9221_port_multi_transmmit(u16 *pdata, u32 Length)
+static inline void my9221_port_multi_transmit(u16 *pdata, u32 Length)
 {
 
 }
@@ -145,7 +145,7 @@ static void my9221_internal_latch_pulse_generation(void)
 	my9221_delay_70ns();
 	my9221_di_low();
 	/* After the descending edge of the fourth DI signal, the Tstop* > 200ns can be
-	 * used to transmit new gray-scale data.
+	 * used to transmitnew gray-scale data.
 	 * Note: in tandem applications, Tsop(minimum) must be greater than [200ns+N*10ns],
 	 * where N is the number of chips in series.
 	 */
@@ -154,7 +154,7 @@ static void my9221_internal_latch_pulse_generation(void)
 
 void my9221_send_packet(void)
 {
-	my9221_port_multi_transmmit((u16 *)g_my9221, 14 * MY9221_NUM);
+	my9221_port_multi_transmit((u16 *)g_my9221, 14 * MY9221_NUM);
 	my9221_internal_latch_pulse_generation();
 }
 

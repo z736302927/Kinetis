@@ -43,6 +43,8 @@
 #define AK8975_ADDR                    0x0F
 #endif
 
+static struct iic_master *ak8975_iic = &fake_master;
+
 static inline void ak8975_csb_low(void)
 {
 #if MCU_PLATFORM_STM32
@@ -59,10 +61,10 @@ static inline void ak8975_csb_high(void)
 #endif
 }
 
-static inline void ak8975_port_transmmit(u8 addr, u8 tmp)
+static inline void ak8975_port_transmit(u8 addr, u8 tmp)
 {
 #ifdef AK8975_USING_IIC
-	iic_master_port_transmmit(IIC_SW_1, AK8975_ADDR, addr, tmp);
+	iic_master_port_transmit(ak8975_iic, AK8975_ADDR, addr, tmp);
 #else
 	ak8975_csb_low();
 #if MCU_PLATFORM_STM32
@@ -77,7 +79,7 @@ static inline void ak8975_port_transmmit(u8 addr, u8 tmp)
 static inline void ak8975_port_receive(u8 addr, u8 *pdata)
 {
 #ifdef AK8975_USING_IIC
-	iic_master_port_receive(IIC_SW_1, AK8975_ADDR, addr, pdata);
+	iic_master_port_receive(ak8975_iic, AK8975_ADDR, addr, pdata);
 #else
 	ak8975_csb_low();
 #if MCU_PLATFORM_STM32
@@ -89,10 +91,10 @@ static inline void ak8975_port_receive(u8 addr, u8 *pdata)
 #endif
 }
 
-static inline void ak8975_port_multi_transmmit(u8 addr, u8 *pdata, u32 length)
+static inline void ak8975_port_multi_transmit(u8 addr, u8 *pdata, u32 length)
 {
 #ifdef AK8975_USING_IIC
-	iic_master_port_multi_transmmit(IIC_SW_1, AK8975_ADDR, addr, pdata, length);
+	iic_master_port_multi_transmit(ak8975_iic, AK8975_ADDR, addr, pdata, length);
 #else
 	ak8975_csb_low();
 #if MCU_PLATFORM_STM32
@@ -107,7 +109,7 @@ static inline void ak8975_port_multi_transmmit(u8 addr, u8 *pdata, u32 length)
 static inline void ak8975_port_multi_receive(u8 addr, u8 *pdata, u32 length)
 {
 #ifdef AK8975_USING_IIC
-	iic_master_port_multi_receive(IIC_SW_1, AK8975_ADDR, addr, pdata, length);
+	iic_master_port_multi_receive(ak8975_iic, AK8975_ADDR, addr, pdata, length);
 #else
 	ak8975_csb_low();
 #if MCU_PLATFORM_STM32
@@ -173,7 +175,7 @@ static inline void ak8975_port_multi_receive(u8 addr, u8 *pdata, u32 length)
 
 void ak8975_enter_power_down_mode(void)
 {
-	ak8975_port_transmmit(CNTL1, POWER_DOWN);
+	ak8975_port_transmit(CNTL1, POWER_DOWN);
 	mdelay(MODE_SWITCH_DELAY_MS);
 }
 
@@ -203,45 +205,45 @@ u8 ak8975_get_power_state(void)
 
 void ak8975_enter_single_measurement_mode(void)
 {
-	ak8975_port_transmmit(CNTL1, SINGLE_MEASUREMENT & 0xFF);
+	ak8975_port_transmit(CNTL1, SINGLE_MEASUREMENT & 0xFF);
 	mdelay(1);
 }
 
 void ak8975_enter_continuous_8hz_mode(void)
 {
-	ak8975_port_transmmit(CNTL1, CONTINUOUS_MEASUREMENT_8HZ & 0xFF);
+	ak8975_port_transmit(CNTL1, CONTINUOUS_MEASUREMENT_8HZ & 0xFF);
 	mdelay(1);
 }
 
 void ak8975_enter_continuous_10hz_mode(void)
 {
-	ak8975_port_transmmit(CNTL1, CONTINUOUS_MEASUREMENT_10HZ & 0xFF);
+	ak8975_port_transmit(CNTL1, CONTINUOUS_MEASUREMENT_10HZ & 0xFF);
 	mdelay(1);
 }
 
 void ak8975_enter_continuous_20hz_mode(void)
 {
-	ak8975_port_transmmit(CNTL1, CONTINUOUS_MEASUREMENT_20HZ & 0xFF);
+	ak8975_port_transmit(CNTL1, CONTINUOUS_MEASUREMENT_20HZ & 0xFF);
 	mdelay(1);
 }
 
 void ak8975_enter_continuous_100hz_mode(void)
 {
-	ak8975_port_transmmit(CNTL1, CONTINUOUS_MEASUREMENT_100HZ & 0xFF);
+	ak8975_port_transmit(CNTL1, CONTINUOUS_MEASUREMENT_100HZ & 0xFF);
 	mdelay(1);
 }
 
 void ak8975_enter_selftest_mode(void)
 {
-	ak8975_port_transmmit(CNTL1, SELF_TEST & 0xFF);
+	ak8975_port_transmit(CNTL1, SELF_TEST & 0xFF);
 	mdelay(10);
 }
 
 void ak8975_enter_self_test_mode(void)
 {
-	ak8975_port_transmmit(ASTC, ASTC_SELF_BIT);
+	ak8975_port_transmit(ASTC, ASTC_SELF_BIT);
 	mdelay(1);
-	ak8975_port_transmmit(CNTL1, SELF_TEST & 0xFF);
+	ak8975_port_transmit(CNTL1, SELF_TEST & 0xFF);
 	mdelay(10);
 }
 
@@ -272,7 +274,7 @@ u8 ak8975_self_test(void)
 
 void ak8975_enter_fuse_rom_access_mode(void)
 {
-	ak8975_port_transmmit(CNTL1, FUSE_ROM_ACCESS & 0xFF);
+	ak8975_port_transmit(CNTL1, FUSE_ROM_ACCESS & 0xFF);
 	mdelay(10);
 }
 
@@ -371,7 +373,7 @@ void ak8975_operation_mode_setting(u8 tmp)
 
 	set_mask_bits(&reg, 0x0F, tmp);
 
-	ak8975_port_transmmit(CNTL1, reg);
+	ak8975_port_transmit(CNTL1, reg);
 }
 
 void ak8975_output_bit_setting(u8 tmp)
@@ -382,7 +384,7 @@ void ak8975_output_bit_setting(u8 tmp)
 
 	set_mask_bits(&reg, 0x10, tmp);
 
-	ak8975_port_transmmit(CNTL1, reg);
+	ak8975_port_transmit(CNTL1, reg);
 }
 
 void ak8975_soft_reset(u8 tmp)
@@ -393,7 +395,7 @@ void ak8975_soft_reset(u8 tmp)
 
 	set_mask_bits(&reg, 0x01, tmp);
 
-	ak8975_port_transmmit(CNTL2, reg);
+	ak8975_port_transmit(CNTL2, reg);
 }
 
 void ak8975_selftest_control(u8 tmp)
@@ -404,12 +406,12 @@ void ak8975_selftest_control(u8 tmp)
 
 	set_mask_bits(&reg, 0x40, tmp);
 
-	ak8975_port_transmmit(ASTC, reg);
+	ak8975_port_transmit(ASTC, reg);
 }
 
 void ak8975_i2c_disable(void)
 {
-	ak8975_port_transmmit(I2CDIS, 0x1B);
+	ak8975_port_transmit(I2CDIS, 0x1B);
 }
 
 void ak8975_i2c_enable(void)
@@ -463,6 +465,8 @@ u8 ak8975_magnetic_adjusted_measurements(u16 *pdata)
 
 void ak8975_init(void)
 {
+	ak8975_iic->init();
+
 	ak8975_enter_fuse_rom_access_mode();
 	ak8975_sensitivity_adjustment_values(ak8975_asa_values);
 	pr_debug("ak8975 Adjustment Values %x, %x, %x",
@@ -940,7 +944,7 @@ int t_ak8975_fuse_rom_access(int argc, char **argv)
 	return PASS;
 }
 
-int t_ak8975_program_process(int argc, char **argv)
+int t_ak8975_program_thread(int argc, char **argv)
 {
 	int ret;
 	bool on_off = true;

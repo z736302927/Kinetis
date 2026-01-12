@@ -25,7 +25,7 @@
   * @step 5:
   */
 
-static inline void w25qxxx_port_transmmit(u8 w25qxxx, u8 tmp)
+static inline void w25qxxx_port_transmit(u8 w25qxxx, u8 tmp)
 {
 #ifdef STM32_HAL_LIBRARY
 	switch (w25qxxx) {
@@ -65,7 +65,7 @@ static inline u8 w25qxxx_port_receive(u8 w25qxxx)
 	return tmp;
 }
 
-static inline void w25qxxx_port_multi_transmmit(u8 w25qxxx,
+static inline void w25qxxx_port_multi_transmit(u8 w25qxxx,
 	u8 *pdata, u32 length)
 {
 #ifdef STM32_HAL_LIBRARY
@@ -139,10 +139,10 @@ static inline void w25qxxx_cs_high(u8 w25qxxx)
 #endif
 }
 
-void w25qxxx_transmmit_cmd(u8 w25qxxx, u8 cmd)
+void w25qxxx_transmit_cmd(u8 w25qxxx, u8 cmd)
 {
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, cmd);
+	w25qxxx_port_transmit(w25qxxx, cmd);
 	w25qxxx_cs_high(w25qxxx);
 }
 
@@ -216,10 +216,10 @@ void w25qxxx_hard_reset(u8 w25qxxx)
 		return;
 	}
 
-	w25qxxx_transmmit_cmd(w25qxxx, ENABLE_RESET);
+	w25qxxx_transmit_cmd(w25qxxx, ENABLE_RESET);
 	udelay(1);  /* 短暂延时确保命令被接收 */
 
-	w25qxxx_transmmit_cmd(w25qxxx, RESET_DEVICE);
+	w25qxxx_transmit_cmd(w25qxxx, RESET_DEVICE);
 
 	udelay(W25Q_HARD_RESET_DELAY);
 }
@@ -458,7 +458,7 @@ void w25qxxx_write_srp0(u8 w25qxxx, u8 tmp)
 
 	__assign_bit(7, (unsigned long *)&reg, tmp);
 
-	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_transmit_cmd(w25qxxx, WRITE_ENABLE);
 	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER1, reg);
 }
 
@@ -470,7 +470,7 @@ void w25qxxx_write_sec(u8 w25qxxx, u8 tmp)
 
 	__assign_bit(6, (unsigned long *)&reg, tmp);
 
-	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_transmit_cmd(w25qxxx, WRITE_ENABLE);
 	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER1, reg);
 }
 
@@ -482,7 +482,7 @@ void w25qxxx_write_tb(u8 w25qxxx, u8 tmp)
 
 	__assign_bit(5, (unsigned long *)&reg, tmp);
 
-	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_transmit_cmd(w25qxxx, WRITE_ENABLE);
 	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER1, reg);
 }
 
@@ -497,7 +497,7 @@ void w25qxxx_write_bp(u8 w25qxxx, u8 tmp)
 	reg &= ~(0x07 << 2);  /* 清除bit2-4 */
 	reg |= (bp_val << 2); /* 设置新的BP值 */
 
-	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_transmit_cmd(w25qxxx, WRITE_ENABLE);
 	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER1, reg);
 }
 
@@ -509,7 +509,7 @@ void w25qxxx_write_cmp(u8 w25qxxx, u8 tmp)
 
 	__assign_bit(6, (unsigned long *)&reg, tmp);
 
-	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_transmit_cmd(w25qxxx, WRITE_ENABLE);
 	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
 }
 
@@ -521,7 +521,7 @@ void w25qxxx_write_lb(u8 w25qxxx, u8 tmp)
 
 	__assign_bit(7, (unsigned long *)&reg, tmp);
 
-	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_transmit_cmd(w25qxxx, WRITE_ENABLE);
 	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
 }
 
@@ -533,7 +533,7 @@ void w25qxxx_write_bp3(u8 w25qxxx, u8 tmp)
 
 	__assign_bit(5, (unsigned long *)&reg, tmp);
 
-	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_transmit_cmd(w25qxxx, WRITE_ENABLE);
 	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
 }
 
@@ -545,7 +545,7 @@ void w25qxxx_write_qe(u8 w25qxxx, u8 tmp)
 
 	__assign_bit(1, (unsigned long *)&reg, tmp);
 
-	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_transmit_cmd(w25qxxx, WRITE_ENABLE);
 	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
 }
 
@@ -557,7 +557,7 @@ void w25qxxx_write_srp1(u8 w25qxxx, u8 tmp)
 
 	__assign_bit(0, (unsigned long *)&reg, tmp);
 
-	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_transmit_cmd(w25qxxx, WRITE_ENABLE);
 	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER2, reg);
 }
 
@@ -569,7 +569,7 @@ void w25qxxx_write_hold_rst(u8 w25qxxx, u8 tmp)
 
 	__assign_bit(7, (unsigned long *)&reg, tmp);
 
-	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_transmit_cmd(w25qxxx, WRITE_ENABLE);
 	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
 }
 
@@ -581,7 +581,7 @@ void w25qxxx_write_drv1(u8 w25qxxx, u8 tmp)
 
 	__assign_bit(6, (unsigned long *)&reg, tmp);
 
-	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_transmit_cmd(w25qxxx, WRITE_ENABLE);
 	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
 }
 
@@ -593,7 +593,7 @@ void w25qxxx_write_drv0(u8 w25qxxx, u8 tmp)
 
 	__assign_bit(5, (unsigned long *)&reg, tmp);
 
-	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_transmit_cmd(w25qxxx, WRITE_ENABLE);
 	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
 }
 
@@ -605,7 +605,7 @@ void w25qxxx_write_wps(u8 w25qxxx, u8 tmp)
 
 	__assign_bit(2, (unsigned long *)&reg, tmp);
 
-	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_transmit_cmd(w25qxxx, WRITE_ENABLE);
 	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
 }
 
@@ -617,23 +617,23 @@ void w25qxxx_write_adp(u8 w25qxxx, u8 tmp)
 
 	__assign_bit(1, (unsigned long *)&reg, tmp);
 
-	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_transmit_cmd(w25qxxx, WRITE_ENABLE);
 	w25qxxx_write_status_reg(w25qxxx, WRITE_STATUS_REGISTER3, reg);
 }
 
 void w25qxxx_write_enable(u8 w25qxxx)
 {
-	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE);
+	w25qxxx_transmit_cmd(w25qxxx, WRITE_ENABLE);
 }
 
 void w25qxxx_write_enable_forvolatile(u8 w25qxxx)
 {
-	w25qxxx_transmmit_cmd(w25qxxx, WRITE_ENABLE_FORVOLATILE);
+	w25qxxx_transmit_cmd(w25qxxx, WRITE_ENABLE_FORVOLATILE);
 }
 
 void w25qxxx_write_disable(u8 w25qxxx)
 {
-	w25qxxx_transmmit_cmd(w25qxxx, WRITE_DISABLE);
+	w25qxxx_transmit_cmd(w25qxxx, WRITE_DISABLE);
 }
 
 u8 w25qxxx_read_status_reg(u8 w25qxxx, u8 num)
@@ -644,17 +644,17 @@ u8 w25qxxx_read_status_reg(u8 w25qxxx, u8 num)
 
 	switch (num) {
 	case READ_STATUS_REGISTER1:
-		w25qxxx_port_transmmit(w25qxxx, READ_STATUS_REGISTER1);
+		w25qxxx_port_transmit(w25qxxx, READ_STATUS_REGISTER1);
 		tmp = w25qxxx_port_receive(w25qxxx);
 		break;
 
 	case READ_STATUS_REGISTER2:
-		w25qxxx_port_transmmit(w25qxxx, READ_STATUS_REGISTER2);
+		w25qxxx_port_transmit(w25qxxx, READ_STATUS_REGISTER2);
 		tmp = w25qxxx_port_receive(w25qxxx);
 		break;
 
 	case READ_STATUS_REGISTER3:
-		w25qxxx_port_transmmit(w25qxxx, READ_STATUS_REGISTER3);
+		w25qxxx_port_transmit(w25qxxx, READ_STATUS_REGISTER3);
 		tmp = w25qxxx_port_receive(w25qxxx);
 		break;
 
@@ -675,18 +675,18 @@ void w25qxxx_write_status_reg(u8 w25qxxx, u8 num, u8 tmp)
 
 	switch (num) {
 	case WRITE_STATUS_REGISTER1:
-		w25qxxx_port_transmmit(w25qxxx, WRITE_STATUS_REGISTER1);
-		w25qxxx_port_transmmit(w25qxxx, tmp);
+		w25qxxx_port_transmit(w25qxxx, WRITE_STATUS_REGISTER1);
+		w25qxxx_port_transmit(w25qxxx, tmp);
 		break;
 
 	case WRITE_STATUS_REGISTER2:
-		w25qxxx_port_transmmit(w25qxxx, WRITE_STATUS_REGISTER2);
-		w25qxxx_port_transmmit(w25qxxx, tmp);
+		w25qxxx_port_transmit(w25qxxx, WRITE_STATUS_REGISTER2);
+		w25qxxx_port_transmit(w25qxxx, tmp);
 		break;
 
 	case WRITE_STATUS_REGISTER3:
-		w25qxxx_port_transmmit(w25qxxx, WRITE_STATUS_REGISTER3);
-		w25qxxx_port_transmmit(w25qxxx, tmp);
+		w25qxxx_port_transmit(w25qxxx, WRITE_STATUS_REGISTER3);
+		w25qxxx_port_transmit(w25qxxx, tmp);
 		break;
 
 	default:
@@ -701,7 +701,7 @@ u8 w25q256_read_ext_addr_reg(u8 w25qxxx)
 	u8 tmp = 0;
 
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, READ_EXTENDED_ADDRESS_REGISTER);
+	w25qxxx_port_transmit(w25qxxx, READ_EXTENDED_ADDRESS_REGISTER);
 	tmp = w25qxxx_port_receive(w25qxxx);
 	w25qxxx_cs_high(w25qxxx);
 
@@ -712,19 +712,19 @@ void w25q256_write_ext_addr_reg(u8 w25qxxx, u8 tmp)
 {
 	w25qxxx_write_enable(w25qxxx);
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, WRITE_EXTENDED_ADDRESS_REGISTER);
-	w25qxxx_port_transmmit(w25qxxx, tmp);
+	w25qxxx_port_transmit(w25qxxx, WRITE_EXTENDED_ADDRESS_REGISTER);
+	w25qxxx_port_transmit(w25qxxx, tmp);
 	w25qxxx_cs_high(w25qxxx);
 }
 
 void w25q256_enter_4byte_addr_mode(u8 w25qxxx)
 {
-	w25qxxx_transmmit_cmd(w25qxxx, ENTER_4BYTE_ADDRESS_MODE);
+	w25qxxx_transmit_cmd(w25qxxx, ENTER_4BYTE_ADDRESS_MODE);
 }
 
 void w25q256_exit_4byte_addr_mode(u8 w25qxxx)
 {
-	w25qxxx_transmmit_cmd(w25qxxx, EXIT_4BYTE_ADDRESS_MODE);
+	w25qxxx_transmit_cmd(w25qxxx, EXIT_4BYTE_ADDRESS_MODE);
 }
 
 void w25qxxx_read_data(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
@@ -753,13 +753,13 @@ void w25qxxx_read_data(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 	sub_addr[3] = (addr & 0x000000FF);
 
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, READ_DATA);
+	w25qxxx_port_transmit(w25qxxx, READ_DATA);
 
 	if (w25qxxx == W25Q256) {
-		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+		w25qxxx_port_transmit(w25qxxx, sub_addr[0]);
 	}
 
-	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
+	w25qxxx_port_multi_transmit(w25qxxx, &sub_addr[1], 3);
 
 	w25qxxx_port_multi_receive(w25qxxx, pdata, length);
 	w25qxxx_cs_high(w25qxxx);
@@ -775,8 +775,8 @@ void w25q256_read_data_with_4byte_addr(u8 w25qxxx, u32 addr, u8 *pdata, u32 leng
 	sub_addr[3] = (addr & 0x000000FF);
 
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, READ_DATA_WITH_4Byte_ADDRESS);
-	w25qxxx_port_multi_transmmit(w25qxxx, sub_addr, 4);
+	w25qxxx_port_transmit(w25qxxx, READ_DATA_WITH_4Byte_ADDRESS);
+	w25qxxx_port_multi_transmit(w25qxxx, sub_addr, 4);
 
 	w25qxxx_port_multi_receive(w25qxxx, pdata, length);
 	w25qxxx_cs_high(w25qxxx);
@@ -795,14 +795,14 @@ void w25qxxx_fast_read(u8 w25qxxx, u32 addr, u8 *pdata, u32 length)
 	sub_addr[3] = (addr & 0x000000FF);
 
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, FAST_READ);
+	w25qxxx_port_transmit(w25qxxx, FAST_READ);
 
 	if (w25qxxx == W25Q256) {
-		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+		w25qxxx_port_transmit(w25qxxx, sub_addr[0]);
 	}
 
-	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
-	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
+	w25qxxx_port_multi_transmit(w25qxxx, &sub_addr[1], 3);
+	w25qxxx_port_transmit(w25qxxx, DUMMY_BYTE);
 
 	w25qxxx_port_multi_receive(w25qxxx, pdata, length);
 	w25qxxx_cs_high(w25qxxx);
@@ -818,9 +818,9 @@ void w25q256_fast_read_with_4byte_addr(u8 w25qxxx, u32 addr, u8 *pdata, u32 leng
 	sub_addr[3] = (addr & 0x000000FF);
 
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, FAST_READ_WITH_4Byte_ADDRESS);
-	w25qxxx_port_multi_transmmit(w25qxxx, sub_addr, 4);
-	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
+	w25qxxx_port_transmit(w25qxxx, FAST_READ_WITH_4Byte_ADDRESS);
+	w25qxxx_port_multi_transmit(w25qxxx, sub_addr, 4);
+	w25qxxx_port_transmit(w25qxxx, DUMMY_BYTE);
 
 	w25qxxx_port_multi_receive(w25qxxx, pdata, length);
 	w25qxxx_cs_high(w25qxxx);
@@ -847,14 +847,14 @@ static int w25qxxx_page_program(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
 
 	w25qxxx_write_enable(w25qxxx);
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, PAGE_PROGRAM);
+	w25qxxx_port_transmit(w25qxxx, PAGE_PROGRAM);
 
 	if (w25qxxx == W25Q256) {
-		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+		w25qxxx_port_transmit(w25qxxx, sub_addr[0]);
 	}
 
-	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
-	w25qxxx_port_multi_transmmit(w25qxxx, pdata, length);
+	w25qxxx_port_multi_transmit(w25qxxx, &sub_addr[1], 3);
+	w25qxxx_port_multi_transmit(w25qxxx, pdata, length);
 	w25qxxx_cs_high(w25qxxx);
 
 	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
@@ -1197,13 +1197,13 @@ int w25qxxx_sector_erase(u8 w25qxxx, u32 addr)
 
 	w25qxxx_write_enable(w25qxxx);
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, SECTOR_ERASE);
+	w25qxxx_port_transmit(w25qxxx, SECTOR_ERASE);
 
 	if (w25qxxx == W25Q256) {
-		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+		w25qxxx_port_transmit(w25qxxx, sub_addr[0]);
 	}
 
-	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
+	w25qxxx_port_multi_transmit(w25qxxx, &sub_addr[1], 3);
 	w25qxxx_cs_high(w25qxxx);
 
 	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
@@ -1238,13 +1238,13 @@ int w25qxxx_block_erase_with_32kb(u8 w25qxxx, u32 addr)
 
 	w25qxxx_write_enable(w25qxxx);
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, BLOCK_ERASE_32KB);
+	w25qxxx_port_transmit(w25qxxx, BLOCK_ERASE_32KB);
 
 	if (w25qxxx == W25Q256) {
-		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+		w25qxxx_port_transmit(w25qxxx, sub_addr[0]);
 	}
 
-	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
+	w25qxxx_port_multi_transmit(w25qxxx, &sub_addr[1], 3);
 	w25qxxx_cs_high(w25qxxx);
 
 	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
@@ -1279,13 +1279,13 @@ int w25qxxx_block_erase_with_64kb(u8 w25qxxx, u32 addr)
 
 	w25qxxx_write_enable(w25qxxx);
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, BLOCK_ERASE_64KB);
+	w25qxxx_port_transmit(w25qxxx, BLOCK_ERASE_64KB);
 
 	if (w25qxxx == W25Q256) {
-		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+		w25qxxx_port_transmit(w25qxxx, sub_addr[0]);
 	}
 
-	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
+	w25qxxx_port_multi_transmit(w25qxxx, &sub_addr[1], 3);
 	w25qxxx_cs_high(w25qxxx);
 
 	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
@@ -1310,7 +1310,7 @@ int sw25qxxx_chip_erase(u8 w25qxxx)
 	}
 
 	w25qxxx_write_enable(w25qxxx);
-	w25qxxx_transmmit_cmd(w25qxxx, CHIP_ERASE);
+	w25qxxx_transmit_cmd(w25qxxx, CHIP_ERASE);
 
 	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
 			busy == 0, 1, W25Q_CHIP_ERASE_TIMEOUT);
@@ -1329,7 +1329,7 @@ void w25qxxx_erase_program_suspend(u8 w25qxxx)
 		return ;
 	}
 
-	w25qxxx_transmmit_cmd(w25qxxx, ERASE_PROGRAM_SUSPEND);
+	w25qxxx_transmit_cmd(w25qxxx, ERASE_PROGRAM_SUSPEND);
 	udelay(20);
 }
 
@@ -1339,18 +1339,18 @@ void w25qxxx_erase_program_resume(u8 w25qxxx)
 		return ;
 	}
 
-	w25qxxx_transmmit_cmd(w25qxxx, ERASE_PROGRAM_RESUME);
+	w25qxxx_transmit_cmd(w25qxxx, ERASE_PROGRAM_RESUME);
 }
 
 void w25qxxx_power_down(u8 w25qxxx)
 {
-	w25qxxx_transmmit_cmd(w25qxxx, POWER_DOWN);
+	w25qxxx_transmit_cmd(w25qxxx, POWER_DOWN);
 	udelay(3);
 }
 
 void w25qxxx_release_power_down(u8 w25qxxx)
 {
-	w25qxxx_transmmit_cmd(w25qxxx, RELEASE_POWERDOWN_DEVICE_ID);
+	w25qxxx_transmit_cmd(w25qxxx, RELEASE_POWERDOWN_DEVICE_ID);
 	udelay(3);
 }
 
@@ -1359,10 +1359,10 @@ u8 w25qxxx_release_device_id(u8 w25qxxx)
 	u8 tmp = 0;
 
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, RELEASE_POWERDOWN_DEVICE_ID);
-	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
-	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
-	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
+	w25qxxx_port_transmit(w25qxxx, RELEASE_POWERDOWN_DEVICE_ID);
+	w25qxxx_port_transmit(w25qxxx, DUMMY_BYTE);
+	w25qxxx_port_transmit(w25qxxx, DUMMY_BYTE);
+	w25qxxx_port_transmit(w25qxxx, DUMMY_BYTE);
 	tmp = w25qxxx_port_receive(w25qxxx);
 	w25qxxx_cs_high(w25qxxx);
 
@@ -1372,10 +1372,10 @@ u8 w25qxxx_release_device_id(u8 w25qxxx)
 void w25qxxx_read_manufacturer_device_id(u8 w25qxxx, u8 *ManufacturerID, u8 *DeviceID)
 {
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, READ_MANUFACTURER_DEVICE_ID);
-	w25qxxx_port_transmmit(w25qxxx, 0x00);
-	w25qxxx_port_transmmit(w25qxxx, 0x00);
-	w25qxxx_port_transmmit(w25qxxx, 0x00);
+	w25qxxx_port_transmit(w25qxxx, READ_MANUFACTURER_DEVICE_ID);
+	w25qxxx_port_transmit(w25qxxx, 0x00);
+	w25qxxx_port_transmit(w25qxxx, 0x00);
+	w25qxxx_port_transmit(w25qxxx, 0x00);
 	*ManufacturerID = w25qxxx_port_receive(w25qxxx);
 	*DeviceID = w25qxxx_port_receive(w25qxxx);
 	w25qxxx_cs_high(w25qxxx);
@@ -1384,18 +1384,18 @@ void w25qxxx_read_manufacturer_device_id(u8 w25qxxx, u8 *ManufacturerID, u8 *Dev
 void w25qxxx_read_unique_id(u8 w25qxxx, u8 *unique_id)
 {
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, READ_UNIQUE_ID_NUMBER);
+	w25qxxx_port_transmit(w25qxxx, READ_UNIQUE_ID_NUMBER);
 
 	if (w25qxxx == W25Q256) {
 		if (w25qxxx_read_ads(w25qxxx) == 1) {
-			w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
+			w25qxxx_port_transmit(w25qxxx, DUMMY_BYTE);
 		}
 	}
 
-	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
-	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
-	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
-	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
+	w25qxxx_port_transmit(w25qxxx, DUMMY_BYTE);
+	w25qxxx_port_transmit(w25qxxx, DUMMY_BYTE);
+	w25qxxx_port_transmit(w25qxxx, DUMMY_BYTE);
+	w25qxxx_port_transmit(w25qxxx, DUMMY_BYTE);
 
 	w25qxxx_port_multi_receive(w25qxxx, unique_id, 8);
 	w25qxxx_cs_high(w25qxxx);
@@ -1404,7 +1404,7 @@ void w25qxxx_read_unique_id(u8 w25qxxx, u8 *unique_id)
 void w25qxxx_read_jedec_id(u8 w25qxxx, u8 *JEDECID)
 {
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, READ_JEDEC_ID);
+	w25qxxx_port_transmit(w25qxxx, READ_JEDEC_ID);
 
 	w25qxxx_port_multi_receive(w25qxxx, JEDECID, 3);
 	w25qxxx_cs_high(w25qxxx);
@@ -1417,11 +1417,11 @@ void w25qxxx_read_sfdp_reg(u8 w25qxxx, u32 addr, u8 *pdata, u16 length)
 	sub_addr = (addr & 0x000000FF);
 
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, READ_SFDP_REGISTER);
-	w25qxxx_port_transmmit(w25qxxx, 0x00);
-	w25qxxx_port_transmmit(w25qxxx, 0x00);
-	w25qxxx_port_transmmit(w25qxxx, sub_addr);
-	w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
+	w25qxxx_port_transmit(w25qxxx, READ_SFDP_REGISTER);
+	w25qxxx_port_transmit(w25qxxx, 0x00);
+	w25qxxx_port_transmit(w25qxxx, 0x00);
+	w25qxxx_port_transmit(w25qxxx, sub_addr);
+	w25qxxx_port_transmit(w25qxxx, DUMMY_BYTE);
 
 	w25qxxx_port_multi_receive(w25qxxx, pdata, length);
 	w25qxxx_cs_high(w25qxxx);
@@ -1433,15 +1433,15 @@ void w25qxxx_erase_security_regs(u8 w25qxxx, u8 addr)
 
 	w25qxxx_write_enable(w25qxxx);
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, ERASE_SECURITY_REGISTERS);
+	w25qxxx_port_transmit(w25qxxx, ERASE_SECURITY_REGISTERS);
 
 	if (w25qxxx == W25Q256) {
-		w25qxxx_port_transmmit(w25qxxx, 0x00);
+		w25qxxx_port_transmit(w25qxxx, 0x00);
 	}
 
-	w25qxxx_port_transmmit(w25qxxx, 0x00);
-	w25qxxx_port_transmmit(w25qxxx, addr);
-	w25qxxx_port_transmmit(w25qxxx, 0x00);
+	w25qxxx_port_transmit(w25qxxx, 0x00);
+	w25qxxx_port_transmit(w25qxxx, addr);
+	w25qxxx_port_transmit(w25qxxx, 0x00);
 	w25qxxx_cs_high(w25qxxx);
 
 	readx_poll_timeout_atomic(w25qxxx_read_busy, w25qxxx, busy,
@@ -1452,25 +1452,25 @@ void w25qxxx_erase_security_regs(u8 w25qxxx, u8 addr)
 //{
 //  w25qxxx_write_enable(w25qxxx);
 //  w25qxxx_cs_low(w25qxxx);
-//  w25qxxx_port_transmmit(w25qxxx, PROGRAM_SECURITY_REGISTERS);
+//  w25qxxx_port_transmit(w25qxxx, PROGRAM_SECURITY_REGISTERS);
 //  if(w25qxxx == W25Q256)
 //  {
-//    w25qxxx_port_transmmit(w25qxxx, 0x00);
+//    w25qxxx_port_transmit(w25qxxx, 0x00);
 //  }
-//  w25qxxx_port_transmmit(w25qxxx, 0x00);
-//  w25qxxx_port_transmmit(w25qxxx, regNum);
-//  w25qxxx_port_transmmit(w25qxxx, Byteaddr);
+//  w25qxxx_port_transmit(w25qxxx, 0x00);
+//  w25qxxx_port_transmit(w25qxxx, regNum);
+//  w25qxxx_port_transmit(w25qxxx, Byteaddr);
 //  w25qxxx_cs_high(w25qxxx);
 //}
 //
 //void w25qxxx_read_security_regs(u8 w25qxxx, u8 regNum, u8 Byteaddr, u8 *pdata, u16 length)
 //{
 //  w25qxxx_cs_low(w25qxxx);
-//  w25qxxx_port_transmmit(w25qxxx, READ_SECURITY_REGISTERS);
-//  w25qxxx_port_transmmit(w25qxxx, 0x00);
-//  w25qxxx_port_transmmit(w25qxxx, regNum);
-//  w25qxxx_port_transmmit(w25qxxx, Byteaddr);
-//  w25qxxx_port_transmmit(w25qxxx, DUMMY_BYTE);
+//  w25qxxx_port_transmit(w25qxxx, READ_SECURITY_REGISTERS);
+//  w25qxxx_port_transmit(w25qxxx, 0x00);
+//  w25qxxx_port_transmit(w25qxxx, regNum);
+//  w25qxxx_port_transmit(w25qxxx, Byteaddr);
+//  w25qxxx_port_transmit(w25qxxx, DUMMY_BYTE);
 //
 //  for(u32 i = 0;i < length;i++)
 //  {
@@ -1483,12 +1483,12 @@ void w25qxxx_erase_security_regs(u8 w25qxxx, u8 addr)
 void w25qxxx_enter_qpi_mode(u8 w25qxxx)
 {
 	w25qxxx_write_qe(w25qxxx, 1);
-	w25qxxx_transmmit_cmd(w25qxxx, ENTER_QPI_MODE);
+	w25qxxx_transmit_cmd(w25qxxx, ENTER_QPI_MODE);
 }
 
 void w25qxxx_exit_qpi_mode(u8 w25qxxx)
 {
-	w25qxxx_transmmit_cmd(w25qxxx, EXIT_QPI_MODE);
+	w25qxxx_transmit_cmd(w25qxxx, EXIT_QPI_MODE);
 }
 
 void w25qxxx_individual_block_sector_lock(u8 w25qxxx, u32 addr)
@@ -1505,13 +1505,13 @@ void w25qxxx_individual_block_sector_lock(u8 w25qxxx, u32 addr)
 
 	w25qxxx_write_wps(w25qxxx, 1);
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, INDIVIDUAL_BLOCK_SECTOR_LOCK);
+	w25qxxx_port_transmit(w25qxxx, INDIVIDUAL_BLOCK_SECTOR_LOCK);
 
 	if (w25qxxx == W25Q256) {
-		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+		w25qxxx_port_transmit(w25qxxx, sub_addr[0]);
 	}
 
-	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
+	w25qxxx_port_multi_transmit(w25qxxx, &sub_addr[1], 3);
 	w25qxxx_cs_high(w25qxxx);
 }
 
@@ -1529,13 +1529,13 @@ void w25qxxx_individual_block_sector_unlock(u8 w25qxxx, u32 addr)
 
 	w25qxxx_write_wps(w25qxxx, 1);
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, INDIVIDUAL_BLOCK_SECTOR_UNLOCK);
+	w25qxxx_port_transmit(w25qxxx, INDIVIDUAL_BLOCK_SECTOR_UNLOCK);
 
 	if (w25qxxx == W25Q256) {
-		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+		w25qxxx_port_transmit(w25qxxx, sub_addr[0]);
 	}
 
-	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
+	w25qxxx_port_multi_transmit(w25qxxx, &sub_addr[1], 3);
 	w25qxxx_cs_high(w25qxxx);
 }
 
@@ -1554,13 +1554,13 @@ u8 w25qxxx_read_block_sector_lock(u8 w25qxxx, u32 addr)
 
 	w25qxxx_write_wps(w25qxxx, 1);
 	w25qxxx_cs_low(w25qxxx);
-	w25qxxx_port_transmmit(w25qxxx, READ_BLOCK_SECTOR_LOCK);
+	w25qxxx_port_transmit(w25qxxx, READ_BLOCK_SECTOR_LOCK);
 
 	if (w25qxxx == W25Q256) {
-		w25qxxx_port_transmmit(w25qxxx, sub_addr[0]);
+		w25qxxx_port_transmit(w25qxxx, sub_addr[0]);
 	}
 
-	w25qxxx_port_multi_transmmit(w25qxxx, &sub_addr[1], 3);
+	w25qxxx_port_multi_transmit(w25qxxx, &sub_addr[1], 3);
 	tmp = w25qxxx_port_receive(w25qxxx);
 	w25qxxx_cs_high(w25qxxx);
 
@@ -1570,18 +1570,18 @@ u8 w25qxxx_read_block_sector_lock(u8 w25qxxx, u32 addr)
 void w25qxxx_global_block_sector_lock(u8 w25qxxx)
 {
 	w25qxxx_write_enable(w25qxxx);
-	w25qxxx_transmmit_cmd(w25qxxx, GLOBAL_BLOCK_SECTOR_LOCK);
+	w25qxxx_transmit_cmd(w25qxxx, GLOBAL_BLOCK_SECTOR_LOCK);
 }
 
 void w25qxxx_global_block_sector_unlock(u8 w25qxxx)
 {
 	w25qxxx_write_enable(w25qxxx);
-	w25qxxx_transmmit_cmd(w25qxxx, GLOBAL_BLOCK_SECTOR_UNLOCK);
+	w25qxxx_transmit_cmd(w25qxxx, GLOBAL_BLOCK_SECTOR_UNLOCK);
 }
 
 void w25qxxx_enable_reset(u8 w25qxxx)
 {
-	w25qxxx_transmmit_cmd(w25qxxx, ENABLE_RESET);
+	w25qxxx_transmit_cmd(w25qxxx, ENABLE_RESET);
 }
 
 int w25qxxx_soft_reset(u8 w25qxxx)
@@ -1597,7 +1597,7 @@ int w25qxxx_soft_reset(u8 w25qxxx)
 	}
 
 	w25qxxx_enable_reset(w25qxxx);
-	w25qxxx_transmmit_cmd(w25qxxx, RESET_DEVICE);
+	w25qxxx_transmit_cmd(w25qxxx, RESET_DEVICE);
 	udelay(W25Q_SOFT_RESET_DELAY);
 
 	return 0;

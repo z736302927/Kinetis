@@ -1,6 +1,6 @@
 
-#undef DEBUG
-#undef VERBOSE_DEBUG
+// #undef DEBUG
+// #undef VERBOSE_DEBUG
 
 #include <linux/printk.h>
 #include <linux/delay.h>
@@ -79,6 +79,258 @@
 #define ADDRESS_8       0
 #define ADDRESS_MODE    ADDRESS_8
 
+/* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
+
+void iic_master_soft_delay(u32 ticks)
+{
+#ifdef KINETIS_FAKE_SIM
+	// 	pr_debug("iic_master: delay %d us", ticks);
+#endif
+	udelay(ticks);
+}
+
+int iic_master_soft_start(struct iic_master *master)
+{
+	master->sda_out();
+	master->sda_high();
+	master->scl_high();
+	iic_master_soft_delay(IIC_DELAY_START_SETUP);
+
+	if (!master->sda_read()) {
+		return -EBUSY;
+	}
+
+	master->sda_low();
+	iic_master_soft_delay(IIC_DELAY_START_HOLD);
+
+	if (master->sda_read()) {
+		return -EBUSY;
+	}
+
+	return 0;
+}
+
+void iic_master_soft_stop(struct iic_master *master)
+{
+	master->sda_out();
+	master->sda_low();
+	iic_master_soft_delay(IIC_DELAY_STOP_SETUP);
+	master->scl_high();
+	iic_master_soft_delay(IIC_DELAY_STOP_SETUP);
+	master->sda_high();
+	iic_master_soft_delay(IIC_DELAY_STOP_SETUP);
+}
+
+void iic_master_soft_ack(struct iic_master *master)
+{
+	master->sda_out();
+	master->sda_low();
+	master->scl_low();
+	iic_master_soft_delay(IIC_DELAY_DATA_SETUP);
+	master->scl_high();
+	iic_master_soft_delay(IIC_DELAY_DATA_HOLD);
+	master->scl_low();
+	iic_master_soft_delay(IIC_DELAY_DATA_HOLD);
+}
+
+void iic_master_soft_no_ack(struct iic_master *master)
+{
+	master->sda_out();
+	master->sda_high();
+	master->scl_low();
+	iic_master_soft_delay(IIC_DELAY_DATA_SETUP);
+	master->scl_high();
+	iic_master_soft_delay(IIC_DELAY_DATA_HOLD);
+	master->scl_low();
+	iic_master_soft_delay(IIC_DELAY_DATA_HOLD);
+}
+
+int iic_master_soft_wait_ack(struct iic_master *master)
+{
+	master->sda_in();
+	master->scl_low();
+	iic_master_soft_delay(IIC_DELAY_DATA_SETUP);
+	master->scl_high();
+	iic_master_soft_delay(IIC_DELAY_DATA_HOLD);
+
+	/* Read SDA while SCL is high - this is when master should see ACK */
+	if (master->sda_read()) {
+		/* SDA is high = NACK */
+		pr_debug("iic_master: Received NACK");
+		master->scl_low();
+		iic_master_soft_delay(IIC_DELAY_SCL_LOW);
+		return -EIO;
+	} else {
+		/* SDA is low = ACK */
+		pr_debug("iic_master: Received ACK");
+		master->scl_low();
+		iic_master_soft_delay(IIC_DELAY_SCL_LOW);
+		return 0;
+	}
+}
+
+int iic_master_soft_send_byte(struct iic_master *master, u8 tmp)
+{
+	u8 i = 8;
+	int ret;
+
+	master->sda_out();
+
+	while (i--) {
+		master->scl_low();
+		iic_master_soft_delay(IIC_DELAY_SCL_LOW);
+
+		if (tmp & 0x80) {
+			master->sda_high();
+		} else {
+			master->sda_low();
+		}
+
+		tmp <<= 1;
+		iic_master_soft_delay(IIC_DELAY_DATA_SETUP);
+		master->scl_high();
+		iic_master_soft_delay(IIC_DELAY_SCL_HIGH);
+	}
+	master->scl_low();
+	iic_master_soft_delay(IIC_DELAY_SCL_LOW);
+
+	ret = iic_master_soft_wait_ack(master);
+	if (ret) {
+		iic_master_soft_stop(master);
+		return ret;
+	}
+}
+
+u8 iic_master_soft_read_byte(struct iic_master *master, u8 ack)
+{
+	u8 i = 8, tmp = 0;
+
+	master->sda_in();
+	// 	scl_high();
+	// 	// sda_high();
+	// 	iic_master_soft_delay(IIC_DELAY_DATA_SETUP);
+
+	while (i) {
+		master->scl_low();
+		iic_master_soft_delay(IIC_DELAY_SCL_LOW);
+		master->scl_high();
+		iic_master_soft_delay(IIC_DELAY_SCL_HIGH);
+
+		if (master->sda_read()) {
+			tmp |= 0x01 << (i - 1);
+		}
+		i--;
+		pr_debug("iic_master: Received data byte 0x%02X",
+			tmp);
+	}
+
+	master->scl_low();
+
+	if (ack) {
+		iic_master_soft_ack(master);
+	} else {
+		iic_master_soft_no_ack(master);
+	}
+
+	return tmp;
+}
+
+static int iic_master_soft_write_bytes_with_addr(struct iic_master *master, u8 slave_addr, u16 reg,
+	u8 *pdata, u8 length)
+{
+	int ret;
+
+	if (iic_master_soft_start(master) != 0) {
+		pr_err("Arbitration failed ! Device(addr = 0x%X) cannot obtain the bus.",
+			slave_addr);
+		return -EBUSY;
+	}
+
+	ret = iic_master_soft_send_byte(master, (slave_addr << 1) | 0x00);
+	if (ret) {
+		return ret;
+	}
+
+	if (ADDRESS_MODE == ADDRESS_16) {
+		ret = iic_master_soft_send_byte(master, reg >> 8);
+		if (ret) {
+			return ret;
+		}
+	}
+
+	ret = iic_master_soft_send_byte(master, reg & 0xFF);
+	if (ret) {
+		return ret;
+	}
+
+	while (length--) {
+		ret = iic_master_soft_send_byte(master, *pdata);
+		if (ret) {
+			return ret;
+		}
+		pdata++;
+	}
+
+	iic_master_soft_stop(master);
+
+	return 0;
+}
+
+static int iic_master_soft_read_bytes_with_addr(struct iic_master *master, u8 slave_addr, u16 reg,
+	u8 *pdata, u8 length)
+{
+	int ret;
+
+	if (iic_master_soft_start(master) != 0) {
+		pr_err("Arbitration failed ! Device(addr = 0x%X) cannot obtain the bus.",
+			slave_addr);
+		return -EBUSY;
+	}
+
+	ret = iic_master_soft_send_byte(master, (slave_addr << 1) | 0x00);
+	if (ret) {
+		return ret;
+	}
+
+	if (ADDRESS_MODE == ADDRESS_16) {
+		ret = iic_master_soft_send_byte(master, reg >> 8);
+		if (ret) {
+			return ret;
+		}
+	}
+
+	ret = iic_master_soft_send_byte(master, reg & 0xFF);
+	if (ret) {
+		return ret;
+	}
+
+	ret = iic_master_soft_start(master);
+	if (ret) {
+		return ret;
+	}
+
+	ret = iic_master_soft_send_byte(master, (slave_addr << 1) | 0x01);
+	if (ret) {
+		return ret;
+	}
+
+	while (length) {
+		if (length == 1) {
+			*pdata = iic_master_soft_read_byte(master, 0);
+		} else {
+			*pdata = iic_master_soft_read_byte(master, 1);
+		}
+
+		pdata++;
+		length--;
+	}
+
+	iic_master_soft_stop(master);
+
+	return 0;
+}
+
+#ifdef KINETIS_FAKE_SIM
 /* I2C Slave state machine */
 enum {
 	IIC_SLAVE_STATE_IDLE = 0,
@@ -100,521 +352,6 @@ struct {
 	.master_sda_direction = 1,  /* Master usually controls SDA */
 	.slave_sda_direction = 0    /* Slave usually receives SDA */
 };
-
-static int iic_master_soft_write_bytes_with_addr(u8 iic, u8 slave_addr, u16 reg,
-	u8 *pdata, u8 length);
-static int iic_master_soft_read_bytes_with_addr(u8 iic, u8 slave_addr, u16 reg,
-	u8 *pdata, u8 length);
-
-void iic_master_soft_init(void)
-{
-#if MCU_PLATFORM_STM32
-	GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-	/* GPIO Ports Clock Enable */
-	__HAL_RCC_GPIOB_CLK_ENABLE();
-
-	/*Configure GPIO pin : PF6 */
-	GPIO_InitStruct.Pin = GPIO_PIN_8;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-	GPIO_InitStruct.Pin = GPIO_PIN_9;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_SET);
-	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
-#else
-#endif
-}
-
-void iic_master_soft_delay(u32 ticks)
-{
-#ifdef KINETIS_FAKE_SIM
-	// 	pr_debug("iic_master: delay %d us", ticks);
-#endif
-	udelay(ticks);
-}
-
-void iic_master_port_transmmit(u8 iic, u8 slave_addr, u16 reg, u8 tmp)
-{
-	if (iic == IIC_SW_1) {
-		iic_master_soft_write_bytes_with_addr(iic, slave_addr, reg, &tmp, 1);
-	} else if (iic == IIC_HW_1) {
-#if MCU_PLATFORM_STM32
-		HAL_I2C_Mem_Write_DMA(&hi2c1, (u16)slave_addr, reg, I2C_MEMADD_SIZE_8BIT,
-			&tmp, 1);
-#else
-#endif
-	}
-}
-
-void iic_master_port_receive(u8 iic, u8 slave_addr, u16 reg, u8 *tmp)
-{
-	if (iic == IIC_SW_1) {
-		iic_master_soft_read_bytes_with_addr(iic, slave_addr, reg, tmp, 1);
-	} else if (iic == IIC_HW_1) {
-#if MCU_PLATFORM_STM32
-		HAL_I2C_Mem_Read_DMA(&hi2c1, (u16)(slave_addr), reg, I2C_MEMADD_SIZE_8BIT,
-			tmp, 1);
-#else
-#endif
-	}
-}
-
-void iic_master_port_multi_transmmit(u8 iic, u8 slave_addr, u16 reg,
-	u8 *pdata, u8 length)
-{
-	if (iic == IIC_SW_1) {
-		iic_master_soft_write_bytes_with_addr(iic, slave_addr, reg, pdata, length);
-	} else if (iic == IIC_HW_1) {
-#if MCU_PLATFORM_STM32
-		HAL_I2C_Mem_Write_DMA(&hi2c1, (u16)slave_addr, reg, I2C_MEMADD_SIZE_8BIT,
-			pdata, length);
-#else
-#endif
-	}
-}
-
-void iic_master_port_multi_receive(u8 iic, u8 slave_addr, u16 reg,
-	u8 *pdata, u8 length)
-{
-	if (iic == IIC_SW_1) {
-		iic_master_soft_read_bytes_with_addr(iic, slave_addr, reg, pdata, length);
-	} else if (iic == IIC_HW_1) {
-#if MCU_PLATFORM_STM32
-		HAL_I2C_Mem_Read_DMA(&hi2c1, (u16)(slave_addr), reg, I2C_MEMADD_SIZE_8BIT,
-			pdata, length);
-#else
-#endif
-	}
-}
-
-/* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
-
-static inline void scl_low(u8 iic)
-{
-#ifdef KINETIS_FAKE_SIM
-	pr_debug("iic_master: scl pulled low");
-	i2c_bus_simulation.scl_line = 0;
-#else
-#if MCU_PLATFORM_STM32
-	if (iic == IIC_SW_1) {
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
-	} else if (iic == IIC_SW_2) {
-		HAL_GPIO_WritePin(GPIOH, GPIO_PIN_6, GPIO_PIN_RESET);
-	}
-#else
-#endif
-#endif
-}
-
-static inline void scl_high(u8 iic)
-{
-#ifdef KINETIS_FAKE_SIM
-	pr_debug("iic_master: scl pulled high");
-	i2c_bus_simulation.scl_line = 1;
-#else
-#if MCU_PLATFORM_STM32
-	if (iic == IIC_SW_1) {
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_SET);
-	} else if (iic == IIC_SW_2) {
-		HAL_GPIO_WritePin(GPIOH, GPIO_PIN_6, GPIO_PIN_SET);
-	}
-#else
-#endif
-#endif
-}
-
-static inline void sda_low(u8 iic)
-{
-#ifdef KINETIS_FAKE_SIM
-	pr_debug("iic_master: sda pulled low");
-	i2c_bus_simulation.sda_line = 0;
-	i2c_bus_simulation.master_sda_direction = 1;
-#else
-#if MCU_PLATFORM_STM32
-	if (iic == IIC_SW_1) {
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
-	} else if (iic == IIC_SW_2) {
-		HAL_GPIO_WritePin(GPIOI, GPIO_PIN_3, GPIO_PIN_RESET);
-	}
-#else
-#endif
-#endif
-}
-
-static inline void sda_high(u8 iic)
-{
-#ifdef KINETIS_FAKE_SIM
-	pr_debug("iic_master: sda pulled high");
-	i2c_bus_simulation.sda_line = 1;
-	i2c_bus_simulation.master_sda_direction = 1;
-#else
-#if MCU_PLATFORM_STM32
-	if (iic == IIC_SW_1) {
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
-	} else if (iic == IIC_SW_2) {
-		HAL_GPIO_WritePin(GPIOI, GPIO_PIN_3, GPIO_PIN_SET);
-	}
-#else
-#endif
-#endif
-}
-
-static inline void sda_in(u8 iic)
-{
-#ifdef KINETIS_FAKE_SIM
-	pr_debug("iic_master: sda set to input");
-	/* Set SDA direction to input for master (will be controlled by slave) */
-	i2c_bus_simulation.master_sda_direction = 0;
-	/* When in input mode, let slave control the line if it's driving */
-	if (!i2c_bus_simulation.slave_sda_direction) {
-		/* Only set to high if slave is not driving the line */
-		i2c_bus_simulation.sda_line = 1;
-	}
-	/* If slave is driving, keep slave's value (should be low for ACK) */
-#else
-#if MCU_PLATFORM_STM32
-	GPIO_InitTypeDef gpio = {
-		.Pull = GPIO_PULLUP,
-		.Speed = GPIO_SPEED_FREQ_VERY_HIGH
-	};
-	/*
-	 * It doesn't have to switch direction in
-	 * open drain mode.
-	 */
-	if (iic == IIC_SW_1) {
-		gpio.Pin = GPIO_PIN_9;
-		gpio.Mode = GPIO_MODE_INPUT;
-		HAL_GPIO_Init(GPIOB, &gpio);
-	} else if (iic == IIC_SW_2) {
-		gpio.Pin = GPIO_PIN_3;
-		gpio.Mode = GPIO_MODE_INPUT;
-		HAL_GPIO_Init(GPIOI, &gpio);
-	}
-#else
-#endif
-#endif
-}
-
-static inline void sda_out(u8 iic)
-{
-#ifdef KINETIS_FAKE_SIM
-	pr_debug("iic_master: sda set to output");
-	/* Set SDA direction to output for master */
-	i2c_bus_simulation.master_sda_direction = 1;
-	i2c_bus_simulation.slave_sda_direction = 0;
-	/* When SDA is set to output, it should default to high due to pull-up */
-	/* The actual level will be set by sda_high() or sda_low() */
-#else
-#if MCU_PLATFORM_STM32
-	GPIO_InitTypeDef gpio = {
-		.Pull = GPIO_PULLUP,
-		.Speed = GPIO_SPEED_FREQ_VERY_HIGH
-	};
-	/*
-	 * It doesn't have to switch direction in
-	 * open drain mode.
-	 */
-	if (iic == IIC_SW_1) {
-		gpio.Pin = GPIO_PIN_9;
-		gpio.Mode = GPIO_MODE_OUTPUT_OD;
-		HAL_GPIO_Init(GPIOB, &gpio);
-	} else if (iic == IIC_SW_2) {
-		gpio.Pin = GPIO_PIN_3;
-		gpio.Mode = GPIO_MODE_OUTPUT_OD;
-		HAL_GPIO_Init(GPIOI, &gpio);
-	}
-#else
-#endif
-#endif
-}
-
-static inline int sda_read(u8 iic)
-{
-#ifdef KINETIS_FAKE_SIM
-	/* Read from shared bus simulation */
-	/* Slave driving SDA has highest priority */
-	if (i2c_bus_simulation.slave_sda_direction) {
-		pr_debug("iic_master: reading sda(%d) from slave", i2c_bus_simulation.sda_line);
-		return i2c_bus_simulation.sda_line;
-	}
-	/* If master is driving SDA, return master's last set value */
-	else if (i2c_bus_simulation.master_sda_direction) {
-		pr_debug("iic_master: reading sda(%d) from master", i2c_bus_simulation.sda_line);
-		return i2c_bus_simulation.sda_line;
-	}
-	/* Otherwise, return default pull-up state */
-	else {
-		pr_debug("iic_master: reading sda(1) pull-up");
-		return 1; /* Pull-up high by default */
-	}
-#else
-#if MCU_PLATFORM_STM32
-	if (iic == IIC_SW_1) {
-		return HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_9);
-	} else if (iic == IIC_SW_2) {
-		return HAL_GPIO_ReadPin(GPIOI, GPIO_PIN_3);
-	}
-#else
-#endif
-
-	return 0;
-#endif
-}
-
-int iic_master_soft_start(u8 iic)
-{
-	sda_out(iic);
-	sda_high(iic);
-	scl_high(iic);
-	iic_master_soft_delay(IIC_DELAY_START_SETUP);
-
-	if (!sda_read(iic)) {
-		return -EBUSY;
-	}
-
-	sda_low(iic);
-	iic_master_soft_delay(IIC_DELAY_START_HOLD);
-
-	if (sda_read(iic)) {
-		return -EBUSY;
-	}
-
-	// 	scl_low(iic);
-	// 	iic_master_soft_delay(IIC_DELAY_START_HOLD);
-
-	return 0;
-}
-
-void iic_master_soft_stop(u8 iic)
-{
-	sda_out(iic);
-	sda_low(iic);
-	iic_master_soft_delay(IIC_DELAY_STOP_SETUP);
-	scl_high(iic);
-	iic_master_soft_delay(IIC_DELAY_STOP_SETUP);
-	sda_high(iic);
-	iic_master_soft_delay(IIC_DELAY_STOP_SETUP);
-}
-
-void iic_master_soft_ack(u8 iic)
-{
-	sda_out(iic);
-	sda_low(iic);
-	scl_low(iic);
-	iic_master_soft_delay(IIC_DELAY_DATA_SETUP);
-	scl_high(iic);
-	iic_master_soft_delay(IIC_DELAY_DATA_HOLD);
-	scl_low(iic);
-	iic_master_soft_delay(IIC_DELAY_DATA_HOLD);
-}
-
-void iic_master_soft_no_ack(u8 iic)
-{
-	sda_out(iic);
-	sda_high(iic);
-	scl_low(iic);
-	iic_master_soft_delay(IIC_DELAY_DATA_SETUP);
-	scl_high(iic);
-	iic_master_soft_delay(IIC_DELAY_DATA_HOLD);
-	scl_low(iic);
-	iic_master_soft_delay(IIC_DELAY_DATA_HOLD);
-}
-
-int iic_master_soft_wait_ack(u8 iic)
-{
-	u8 err_time = 0;
-
-	sda_in(iic);
-	scl_low(iic);
-	iic_master_soft_delay(IIC_DELAY_DATA_SETUP);
-	scl_high(iic);
-	iic_master_soft_delay(IIC_DELAY_DATA_HOLD);
-
-	/* Read SDA while SCL is high - this is when master should see ACK */
-	if (sda_read(iic)) {
-		/* SDA is high = NACK */
-		pr_debug("iic_master: Received NACK");
-		scl_low(iic);
-		iic_master_soft_delay(IIC_DELAY_SCL_LOW);
-		return -EIO;
-	} else {
-		/* SDA is low = ACK */
-		pr_debug("iic_master: Received ACK");
-		scl_low(iic);
-		iic_master_soft_delay(IIC_DELAY_SCL_LOW);
-		return 0;
-	}
-}
-
-int iic_master_soft_send_byte(u8 iic, u8 tmp)
-{
-	u8 i = 8;
-	int ret;
-
-	sda_out(iic);
-
-	while (i--) {
-		scl_low(iic);
-		iic_master_soft_delay(IIC_DELAY_SCL_LOW);
-
-		if (tmp & 0x80) {
-			sda_high(iic);
-		} else {
-			sda_low(iic);
-		}
-
-		tmp <<= 1;
-		iic_master_soft_delay(IIC_DELAY_DATA_SETUP);
-		scl_high(iic);
-		iic_master_soft_delay(IIC_DELAY_SCL_HIGH);
-	}
-	scl_low(iic);
-	iic_master_soft_delay(IIC_DELAY_SCL_LOW);
-
-	ret = iic_master_soft_wait_ack(iic);
-	if (ret) {
-		iic_master_soft_stop(iic);
-		return ret;
-	}
-}
-
-u8 iic_master_soft_read_byte(u8 iic, u8 ack)
-{
-	u8 i = 8, tmp = 0;
-
-	sda_in(iic);
-	// 	scl_high(iic);
-	// 	// sda_high(iic);
-	// 	iic_master_soft_delay(IIC_DELAY_DATA_SETUP);
-
-	while (i) {
-		scl_low(iic);
-		iic_master_soft_delay(IIC_DELAY_SCL_LOW);
-		scl_high(iic);
-		iic_master_soft_delay(IIC_DELAY_SCL_HIGH);
-
-		if (sda_read(iic)) {
-			tmp |= 0x01 << (i - 1);
-		}
-		i--;
-		pr_debug("iic_master: Received data byte 0x%02X",
-			tmp);
-	}
-
-	scl_low(iic);
-
-	if (ack) {
-		iic_master_soft_ack(iic);
-	} else {
-		iic_master_soft_no_ack(iic);
-	}
-
-	return tmp;
-}
-
-static int iic_master_soft_write_bytes_with_addr(u8 iic, u8 slave_addr, u16 reg,
-	u8 *pdata, u8 length)
-{
-	int ret;
-
-	if (iic_master_soft_start(iic) != 0) {
-		pr_err("Arbitration failed ! Device(addr = 0x%X) cannot obtain the bus.",
-			slave_addr);
-		return -EBUSY;
-	}
-
-	ret = iic_master_soft_send_byte(iic, (slave_addr << 1) | 0x00);
-	if (ret) {
-		return ret;
-	}
-
-	if (ADDRESS_MODE == ADDRESS_16) {
-		ret = iic_master_soft_send_byte(iic, reg >> 8);
-		if (ret) {
-			return ret;
-		}
-	}
-
-	ret = iic_master_soft_send_byte(iic, reg & 0xFF);
-	if (ret) {
-		return ret;
-	}
-
-	while (length--) {
-		ret = iic_master_soft_send_byte(iic, *pdata);
-		if (ret) {
-			return ret;
-		}
-		pdata++;
-	}
-
-	iic_master_soft_stop(iic);
-
-	return 0;
-}
-
-static int iic_master_soft_read_bytes_with_addr(u8 iic, u8 slave_addr, u16 reg,
-	u8 *pdata, u8 length)
-{
-	int ret;
-
-	if (iic_master_soft_start(iic) != 0) {
-		pr_err("Arbitration failed ! Device(addr = 0x%X) cannot obtain the bus.",
-			slave_addr);
-		return -EBUSY;
-	}
-
-	ret = iic_master_soft_send_byte(iic, (slave_addr << 1) | 0x00);
-	if (ret) {
-		return ret;
-	}
-
-	if (ADDRESS_MODE == ADDRESS_16) {
-		ret = iic_master_soft_send_byte(iic, reg >> 8);
-		if (ret) {
-			return ret;
-		}
-	}
-
-	ret = iic_master_soft_send_byte(iic, reg & 0xFF);
-	if (ret) {
-		return ret;
-	}
-
-	ret = iic_master_soft_start(iic);
-	if (ret) {
-		return ret;
-	}
-
-	ret = iic_master_soft_send_byte(iic, (slave_addr << 1) | 0x01);
-	if (ret) {
-		return ret;
-	}
-
-	while (length) {
-		if (length == 1) {
-			*pdata = iic_master_soft_read_byte(iic, 0);
-		} else {
-			*pdata = iic_master_soft_read_byte(iic, 1);
-		}
-
-		pdata++;
-		length--;
-	}
-
-	iic_master_soft_stop(iic);
-
-	return 0;
-}
 
 static const char *iic_slave_get_state_name(u8 state)
 {
@@ -639,14 +376,8 @@ static const char *iic_slave_get_state_name(u8 state)
  */
 static void iic_slave_read_bus_lines(bool *scl, bool *sda)
 {
-#ifdef KINETIS_FAKE_SIM
 	*scl = i2c_bus_simulation.scl_line;
 	*sda = i2c_bus_simulation.sda_line;
-#else
-	/* In real hardware, read GPIO pins */
-	*scl = 1;  /* Default high (should read actual GPIO) */
-	*sda = 1;  /* Default high (should read actual GPIO) */
-#endif
 }
 
 /**
@@ -654,11 +385,9 @@ static void iic_slave_read_bus_lines(bool *scl, bool *sda)
  */
 static void iic_slave_set_sda(bool state)
 {
-#ifdef KINETIS_FAKE_SIM
 	i2c_bus_simulation.sda_line = state;
 	/* Slave should always drive the SDA line when transmitting */
 	i2c_bus_simulation.slave_sda_direction = 1;
-#endif
 }
 
 static void iic_slave_handle_byte_received(struct iic_slave *device, u8 byte)
@@ -1055,8 +784,298 @@ struct iic_slave *iic_slave_soft_init(char *name, u8 slave_addr, u8 *buffer, u32
 
 	return device;
 }
+#endif
+
+int iic_master_soft_init(struct iic_master *master)
+{
+	master->init();
+}
+
+int iic_master_port_transmit(struct iic_master *master, u8 slave_addr, u16 reg, u8 tmp)
+{
+	if (master->write_bytes) {
+		return master->write_bytes(slave_addr, reg, &tmp, 1);
+	} else {
+		return iic_master_soft_write_bytes_with_addr(master, slave_addr, reg, &tmp, 1);
+	}
+}
+
+int iic_master_port_receive(struct iic_master *master, u8 slave_addr, u16 reg, u8 *tmp)
+{
+	if (master->read_bytes) {
+		return master->read_bytes(slave_addr, reg, tmp, 1);
+	} else {
+		return iic_master_soft_read_bytes_with_addr(master, slave_addr, reg, tmp, 1);
+	}
+}
+
+int iic_master_port_multi_transmit(struct iic_master *master, u8 slave_addr, u16 reg,
+	u8 *pdata, u8 length)
+{
+	if (master->write_bytes) {
+		return master->write_bytes(slave_addr, reg, pdata, length);
+	} else {
+		return iic_master_soft_write_bytes_with_addr(master, slave_addr, reg, pdata, length);
+	}
+}
+
+int iic_master_port_multi_receive(struct iic_master *master, u8 slave_addr, u16 reg,
+	u8 *pdata, u8 length)
+{
+	if (master->read_bytes) {
+		return master->read_bytes(slave_addr, reg, pdata, length);
+	} else {
+		return iic_master_soft_read_bytes_with_addr(master, slave_addr, reg, pdata, length);
+	}
+}
 
 #ifdef DESIGN_VERIFICATION_IIC
+
+#ifdef KINETIS_FAKE_SIM
+void fake_scl_low()
+{
+	pr_debug("iic_master: scl pulled low");
+	i2c_bus_simulation.scl_line = 0;
+}
+
+void fake_scl_high()
+{
+	pr_debug("iic_master: scl pulled high");
+	i2c_bus_simulation.scl_line = 1;
+}
+
+void fake_sda_low()
+{
+	pr_debug("iic_master: sda pulled low");
+	i2c_bus_simulation.sda_line = 0;
+	i2c_bus_simulation.master_sda_direction = 1;
+}
+
+void fake_sda_high()
+{
+	pr_debug("iic_master: sda pulled high");
+	i2c_bus_simulation.sda_line = 1;
+	i2c_bus_simulation.master_sda_direction = 1;
+}
+
+void fake_sda_in()
+{
+	pr_debug("iic_master: sda set to input");
+	/* Set SDA direction to input for master (will be controlled by slave) */
+	i2c_bus_simulation.master_sda_direction = 0;
+	/* When in input mode, let slave control the line if it's driving */
+	if (!i2c_bus_simulation.slave_sda_direction) {
+		/* Only set to high if slave is not driving the line */
+		i2c_bus_simulation.sda_line = 1;
+	}
+	/* If slave is driving, keep slave's value (should be low for ACK) */
+}
+
+void fake_sda_out()
+{
+	pr_debug("iic_master: sda set to output");
+	/* Set SDA direction to output for master */
+	i2c_bus_simulation.master_sda_direction = 1;
+	i2c_bus_simulation.slave_sda_direction = 0;
+	/* When SDA is set to output, it should default to high due to pull-up */
+	/* The actual level will be set by sda_high() or sda_low() */
+}
+
+int fake_sda_read()
+{
+	/* Read from shared bus simulation */
+	/* Slave driving SDA has highest priority */
+	if (i2c_bus_simulation.slave_sda_direction) {
+		pr_debug("iic_master: reading sda(%d) from slave", i2c_bus_simulation.sda_line);
+		return i2c_bus_simulation.sda_line;
+	}
+	/* If master is driving SDA, return master's last set value */
+	else if (i2c_bus_simulation.master_sda_direction) {
+		pr_debug("iic_master: reading sda(%d) from master", i2c_bus_simulation.sda_line);
+		return i2c_bus_simulation.sda_line;
+	}
+	/* Otherwise, return default pull-up state */
+	else {
+		pr_debug("iic_master: reading sda(1) pull-up");
+		return 1; /* Pull-up high by default */
+	}
+}
+
+int fake_iic_init(void)
+{
+	return 0;
+}
+#else
+static void scl_low()
+{
+#if MCU_PLATFORM_STM32
+	if (iic == IIC_SW_1) {
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
+	} else if (iic == IIC_SW_2) {
+		HAL_GPIO_WritePin(GPIOH, GPIO_PIN_6, GPIO_PIN_RESET);
+	}
+#else
+#endif
+}
+
+static void scl_high()
+{
+#if MCU_PLATFORM_STM32
+	if (iic == IIC_SW_1) {
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_SET);
+	} else if (iic == IIC_SW_2) {
+		HAL_GPIO_WritePin(GPIOH, GPIO_PIN_6, GPIO_PIN_SET);
+	}
+#else
+#endif
+}
+
+static void sda_low()
+{
+#if MCU_PLATFORM_STM32
+	if (iic == IIC_SW_1) {
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
+	} else if (iic == IIC_SW_2) {
+		HAL_GPIO_WritePin(GPIOI, GPIO_PIN_3, GPIO_PIN_RESET);
+	}
+#else
+#endif
+}
+
+static void sda_high()
+{
+#if MCU_PLATFORM_STM32
+	if (iic == IIC_SW_1) {
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
+	} else if (iic == IIC_SW_2) {
+		HAL_GPIO_WritePin(GPIOI, GPIO_PIN_3, GPIO_PIN_SET);
+	}
+#else
+#endif
+}
+
+static void sda_in()
+{
+#if MCU_PLATFORM_STM32
+	GPIO_InitTypeDef gpio = {
+		.Pull = GPIO_PULLUP,
+		.Speed = GPIO_SPEED_FREQ_VERY_HIGH
+	};
+	/*
+	 * It doesn't have to switch direction in
+	 * open drain mode.
+	 */
+	if (iic == IIC_SW_1) {
+		gpio.Pin = GPIO_PIN_9;
+		gpio.Mode = GPIO_MODE_INPUT;
+		HAL_GPIO_Init(GPIOB, &gpio);
+	} else if (iic == IIC_SW_2) {
+		gpio.Pin = GPIO_PIN_3;
+		gpio.Mode = GPIO_MODE_INPUT;
+		HAL_GPIO_Init(GPIOI, &gpio);
+	}
+#else
+#endif
+}
+
+static void sda_out()
+{
+#if MCU_PLATFORM_STM32
+	GPIO_InitTypeDef gpio = {
+		.Pull = GPIO_PULLUP,
+		.Speed = GPIO_SPEED_FREQ_VERY_HIGH
+	};
+	/*
+	 * It doesn't have to switch direction in
+	 * open drain mode.
+	 */
+	if (iic == IIC_SW_1) {
+		gpio.Pin = GPIO_PIN_9;
+		gpio.Mode = GPIO_MODE_OUTPUT_OD;
+		HAL_GPIO_Init(GPIOB, &gpio);
+	} else if (iic == IIC_SW_2) {
+		gpio.Pin = GPIO_PIN_3;
+		gpio.Mode = GPIO_MODE_OUTPUT_OD;
+		HAL_GPIO_Init(GPIOI, &gpio);
+	}
+#else
+#endif
+}
+
+static int sda_read()
+{
+#if MCU_PLATFORM_STM32
+	if (iic == IIC_SW_1) {
+		return HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_9);
+	} else if (iic == IIC_SW_2) {
+		return HAL_GPIO_ReadPin(GPIOI, GPIO_PIN_3);
+	}
+#else
+	return 0;
+#endif
+}
+
+void iic_master_soft_init()
+{
+#if MCU_PLATFORM_STM32
+	GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+	/* GPIO Ports Clock Enable */
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+
+	/*Configure GPIO pin : PF6 */
+	GPIO_InitStruct.Pin = GPIO_PIN_8;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+	GPIO_InitStruct.Pull = GPIO_PULLUP;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+	GPIO_InitStruct.Pin = GPIO_PIN_9;
+	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+	GPIO_InitStruct.Pull = GPIO_PULLUP;
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+	/*Configure GPIO pin Output Level */
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
+#else
+#endif
+}
+
+void stm32_iic_master_transmit(u8 slave_addr, u16 reg,
+	u8 *pdata, u8 length)
+{
+#if MCU_PLATFORM_STM32
+	HAL_I2C_Mem_Write_DMA(&hi2c1, (u16)slave_addr, reg, I2C_MEMADD_SIZE_8BIT,
+		pdata, length);
+#else
+#endif
+}
+
+void stm32_master_receive(u8 slave_addr, u16 reg,
+	u8 *pdata, u8 length)
+{
+#if MCU_PLATFORM_STM32
+	HAL_I2C_Mem_Read_DMA(&hi2c1, (u16)(slave_addr), reg, I2C_MEMADD_SIZE_8BIT,
+		pdata, length);
+#else
+#endif
+}
+#endif
+
+struct iic_master fake_master = {
+	.init = fake_iic_init,
+	.sda_out = fake_sda_out,
+	.sda_in = fake_sda_in,
+	.sda_high = fake_sda_high,
+	.sda_low = fake_sda_low,
+	.sda_read = fake_sda_read,
+	.scl_high = fake_scl_high,
+	.scl_low = fake_scl_low,
+	.write_bytes = NULL,
+	.read_bytes = NULL,
+};
 
 int iic_slave_test(void)
 {
@@ -1068,38 +1087,36 @@ int iic_slave_test(void)
 
 	pr_info("=== I2C Slave State Machine Test Started ===");
 
+	iic_master_soft_init(&fake_master);
+
 	device = iic_slave_soft_init("iic_test", 0x48, test_buffer, ARRAY_SIZE(test_buffer));
 	if (IS_ERR(device)) {
 		return PTR_ERR(device);
 	}
 
-	// 	ret = iic_master_soft_write_bytes_with_addr(IIC_SW_1, 0x48, 0, write_test_data, 3);
-	// 	if (ret) {
-	// 		pr_err("Master write operation failed");
-	// 		return ret;
-	// 	}
+	ret = iic_master_port_multi_transmit(&fake_master, 0x48, 0, write_test_data, 3);
+	if (ret) {
+		pr_err("Master write operation failed");
+		return ret;
+	}
 
-	ret = iic_master_soft_read_bytes_with_addr(IIC_SW_1, 0x48, 0, read_test_data, 3);
+	ret = iic_master_port_multi_receive(&fake_master, 0x48, 0, read_test_data, 3);
 	if (ret) {
 		pr_err("Master read operation failed");
 		return ret;
 	}
-	for (int i = 0; i < ARRAY_SIZE(read_test_data); i++) {
-		pr_info("read_test_data[%d]: %02X",
-			i, read_test_data[i]);
-	}
 
-	// 	for (int i = 0; i < 3; i++) {
-	// 		if (write_test_data[i] != read_test_data[i]) {
-	// 			pr_err("Mismatch at buffer[%d]: expected %02X, got %02X",
-	// 				i, write_test_data[i], read_test_data[i]);
-	// 			return -EIO;
-	// 		}
-	// 	}
+	for (int i = 0; i < 3; i++) {
+		if (write_test_data[i] != read_test_data[i]) {
+			pr_err("Mismatch at buffer[%d]: expected %02X, got %02X",
+				i, write_test_data[i], read_test_data[i]);
+			return -EIO;
+		}
+	}
 
 	iic_slave_soft_exit(device);
 
-	return -1;
+	return 0;
 }
 
 #endif /* DESIGN_VERIFICATION_IIC */

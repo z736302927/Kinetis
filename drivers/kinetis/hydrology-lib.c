@@ -97,7 +97,7 @@ int hydrology_close_port(void)
 	return 0;
 }
 
-int hydrology_port_transmmit(u8 *pdata, u16 length)
+int hydrology_port_transmit(u8 *pdata, u16 length)
 {
 	//	struct serial_port hydrology_port;
 

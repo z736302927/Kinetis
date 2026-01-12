@@ -12,9 +12,10 @@
   */
 
 static volatile u32 timer_tick_ss;
-#ifdef BASIC_16BIT_TIMER
 static volatile u32 timer_tick_us;
-#endif
+
+#define TIMER_US_PER_SEC 			1000000
+#define TIMER_INTERRUPT_PERIOD		1000  // 1 ms
 
 /**
   * @brief This function configures the source of the time base:
@@ -35,38 +36,42 @@ static volatile u32 timer_tick_us;
 void basic_timer_init(void)
 {
 	timer_tick_ss = 0;
-#ifdef BASIC_16BIT_TIMER
 	timer_tick_us = 0;
-#endif
 }
 
-void basic_timer_inc_ss(void)
+void basic_timer_isr(u32 period)
 {
-#ifdef BASIC_16BIT_TIMER
+	timer_tick_us += period;
 
-	if (timer_tick_us >= 1000000) {
-		timer_tick_us = 0;
+	if (timer_tick_us >= TIMER_US_PER_SEC) {
+		timer_tick_us -= TIMER_US_PER_SEC;
 		timer_tick_ss++;
 	}
-
-#else
-	timer_tick_ss++;
-#endif
 }
 
-void basic_timer_inc_us(void)
+__weak u32 basic_timer_get_counter(void)
 {
-#ifdef BASIC_16BIT_TIMER
-	timer_tick_us += 1000;
+#if MCU_PLATFORM_STM32
+    return (u32)htim2.Instance->CNT;
+#else
+	return 0;
 #endif
 }
 
-/**
-  * @brief Provide a tick value in second.
-  * @note This function is declared as static inline to be overwritten in case of other
-  *       implementations in user file.
-  * @retval tick value
-  */
+static u64 _basic_timer_get_us(void)
+{
+	u32 ss, us, counter;
+
+	do {
+		ss = timer_tick_ss;
+		us = timer_tick_us;
+		counter = basic_timer_get_counter();
+
+	} while (ss != timer_tick_ss);
+
+	return (u64)ss * TIMER_US_PER_SEC + (u64)us + (u64)counter;
+}
+
 u32 basic_timer_get_ss(void)
 {
 	return timer_tick_ss;
@@ -74,17 +79,17 @@ u32 basic_timer_get_ss(void)
 
 u64 basic_timer_get_ms(void)
 {
-	return timer_tick_ss * 1000 + basic_timer_get_timer_cnt() / 1000;
+	return _basic_timer_get_us() / 1000;
 }
 
 u64 basic_timer_get_us(void)
 {
-	return timer_tick_ss * 1000000 + basic_timer_get_timer_cnt();
+	return _basic_timer_get_us();
 }
 
 u64 basic_timer_get_ns(void)
 {
-	return timer_tick_ss * 1000000000 + basic_timer_get_timer_cnt() * 1000;
+	return _basic_timer_get_us() * 1000;
 }
 
 /**
@@ -125,6 +130,103 @@ void basic_timer_resume(void)
 
 #include "kinetis/test-kinetis.h"
 #include "kinetis/idebug.h"
+
+#include <unistd.h>
+#include <pthread.h>
+
+/* Timer thread control */
+static pthread_t p_thread;
+static volatile bool p_thread_running = false;
+
+/**
+ * @brief Timer thread function - increments tick every 1ms
+ */
+static void *timer_thread_func(void *arg)
+{
+	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
+
+	while (p_thread_running) {
+		usleep(TIMER_INTERRUPT_PERIOD);
+		basic_timer_isr(TIMER_INTERRUPT_PERIOD);
+	}
+
+	return NULL;
+}
+
+int basic_timer_thread_start(void)
+{
+	int ret;
+
+	if (p_thread_running) {
+		pr_info("Timer thread is already running\n");
+		return 0;
+	}
+
+	p_thread_running = true;
+
+	ret = pthread_create(&p_thread, NULL, timer_thread_func, NULL);
+	if (ret != 0) {
+		p_thread_running = false;
+		pr_err("Failed to create timer thread: %d\n", ret);
+		return -ret;
+	}
+
+	pr_info("Timer thread started successfully\n");
+	return 0;
+}
+
+int basic_timer_thread_stop(void)
+{
+	void *thread_ret;
+
+	if (!p_thread_running) {
+		pr_info("Timer thread is not running\n");
+		return 0;
+	}
+
+	p_thread_running = false;
+
+	if (pthread_join(p_thread, &thread_ret) == 0) {
+		pr_info("Timer thread stopped successfully\n");
+	} else {
+		pr_warn("Timer thread stop had issues, but continuing\n");
+	}
+
+	return 0;
+}
+
+/**
+ * @brief Start timer thread
+ */
+int t_basic_timer_thread_op(int argc, char **argv)
+{
+	bool on_off = true;
+	void *thread_ret;
+	int ret;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "on")) {
+			on_off = true;
+		} else if (!strcmp(argv[1], "off")) {
+			on_off = false;
+		} else {
+			return -EINVAL;
+		}
+	}
+
+	if (on_off) {
+		ret = basic_timer_thread_start();
+		if (ret)
+			return ret;
+	} else {
+		ret = basic_timer_thread_stop();
+		if (ret)
+			return ret;
+	}
+
+	return PASS;
+}
 
 int t_basic_timer_get_tick(int argc, char **argv)
 {

@@ -48,7 +48,7 @@ struct tlc5971 {
 
 static float g_port_speed = 0.05;
 
-static inline void tlc5971_port_transmmit(u16 tmp)
+static inline void tlc5971_port_transmit(u16 tmp)
 {
 #ifdef STM32_HAL_LIBRARY
 	HAL_SPI_Transmit(&hspi5, &tmp, 1, 1000);
@@ -66,7 +66,7 @@ static inline u16 tlc5971_port_receive(void)
 	return tmp;
 }
 
-static inline void tlc5971_port_multi_transmmit(u16 *pdata, u32 Length)
+static inline void tlc5971_port_multi_transmit(u16 *pdata, u32 Length)
 {
 #ifdef STM32_HAL_LIBRARY
 	HAL_SPI_Transmit(&hspi5, pdata, Length, 1000);
@@ -207,7 +207,7 @@ static void tlc5971_internal_latch_pulse_generation(void)
 
 void tlc5971_sync_with_scki(void)
 {
-	tlc5971_port_multi_transmmit(0x00, 65536 / 16);
+	tlc5971_port_multi_transmit(0x00, 65536 / 16);
 }
 
 /* This mode is ideal for illumination applications that change the display image
@@ -215,7 +215,7 @@ void tlc5971_sync_with_scki(void)
  */
 void tlc5971_send_packet_with_timing1(void)
 {
-	tlc5971_port_multi_transmmit((u16 *)g_tcl5971, 14 * TLC5971_NUM);
+	tlc5971_port_multi_transmit((u16 *)g_tcl5971, 14 * TLC5971_NUM);
 	tlc5971_internal_latch_pulse_generation();
 }
 
@@ -225,9 +225,9 @@ void tlc5971_send_packet_with_timing1(void)
  */
 void tlc5971_send_packet_with_timing2(void)
 {
-	tlc5971_port_multi_transmmit((u16 *)g_tcl5971, 14 * TLC5971_NUM);
+	tlc5971_port_multi_transmit((u16 *)g_tcl5971, 14 * TLC5971_NUM);
 	tlc5971_internal_latch_pulse_generation();
-	tlc5971_port_multi_transmmit(0x00, 4096);
+	tlc5971_port_multi_transmit(0x00, 4096);
 }
 
 /* There is another control procedure that is recommended for a long chain of
@@ -235,9 +235,9 @@ void tlc5971_send_packet_with_timing2(void)
  */
 void tlc5971_send_packet_with_timing3(void)
 {
-	tlc5971_port_multi_transmmit((u16 *)g_tcl5971, 14 * TLC5971_NUM);
+	tlc5971_port_multi_transmit((u16 *)g_tcl5971, 14 * TLC5971_NUM);
 	tlc5971_internal_latch_pulse_generation();
-	tlc5971_port_multi_transmmit(0x00, (65536 - TLC5971_NUM * 224) / 16);
+	tlc5971_port_multi_transmit(0x00, (65536 - TLC5971_NUM * 224) / 16);
 }
 
 #ifdef DESIGN_VERIFICATION_TLC5971

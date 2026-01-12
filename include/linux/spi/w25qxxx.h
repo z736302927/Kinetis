@@ -13,7 +13,7 @@ extern "C" {
 #include <linux/types.h>
 
 struct w25qxxx_ops {
-    int (*transmmit)(u8 id, void *pdata, u32 length);
+    int (*transmit)(u8 id, void *pdata, u32 length);
     int (*receive)(u8 id, void *pdata, u32 length);
     void (*set_cs)(u8 id, bool level);
     void (*hw_reset)(u8 id);

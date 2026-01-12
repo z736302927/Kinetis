@@ -326,7 +326,7 @@ void hydrology_get_time(u8 *time);
 void hydrology_set_time(u8 *time);
 int hydrology_open_port(void);
 int hydrology_close_port(void);
-int hydrology_port_transmmit(u8 *pdata, u16 length);
+int hydrology_port_transmit(u8 *pdata, u16 length);
 int hydrology_port_receive(u8 **ppdata, u16 *plength, u32 Timeout);
 void hydrology_get_observation_time(struct hydrology_element_info *element, u8 *observation_time);
 void hydrology_set_observation_time(struct hydrology_element_info *element);

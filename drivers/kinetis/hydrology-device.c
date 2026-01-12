@@ -781,7 +781,7 @@ static int hydrology_device_split_transfer(u8 *body_buffer, u8 *buffer,
 	pointer += 1;
 	g_hydrology.up_packet->len = pointer;
 
-	return hydrology_port_transmmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len);
+	return hydrology_port_transmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len);
 }
 
 static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funcode)
@@ -974,7 +974,7 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 		pointer += 1;
 
 		g_hydrology.up_packet->len = pointer;
-		ret = hydrology_port_transmmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len);
+		ret = hydrology_port_transmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len);
 		if (ret) {
 			return ret;
 		}
@@ -1222,7 +1222,7 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 				pointer += 1;
 
 				g_hydrology.up_packet->len = pointer;
-				ret = hydrology_port_transmmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len);
+				ret = hydrology_port_transmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len);
 				if (ret) {
 					return ret;
 				}
@@ -1283,7 +1283,7 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 
 				g_hydrology.up_packet->len = pointer;
 
-				ret = hydrology_port_transmmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len);
+				ret = hydrology_port_transmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len);
 				if (ret) {
 					return ret;
 				}
@@ -1523,7 +1523,7 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 
 		g_hydrology.up_packet->len = pointer;
 
-		ret = hydrology_port_transmmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len);
+		ret = hydrology_port_transmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len);
 		if (ret) {
 			return ret;
 		}
@@ -1583,7 +1583,7 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 
 		g_hydrology.up_packet->len = pointer;
 
-		ret = hydrology_port_transmmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len);
+		ret = hydrology_port_transmit(g_hydrology.up_packet->buffer, g_hydrology.up_packet->len);
 		if (ret) {
 			return ret;
 		}

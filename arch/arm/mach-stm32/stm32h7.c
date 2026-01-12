@@ -65,7 +65,7 @@ struct i2c_board_info __initdata fire_i2c_board_info[] = {
 	{I2C_BOARD_INFO("mpu6050", 0x68)},
 };
 
-//static int w25qxxx_port_transmmit(u8 w25qxxx,
+//static int w25qxxx_port_transmit(u8 w25qxxx,
 //								  void *pdata, u32 length)
 //{
 //    switch (w25qxxx) {
@@ -114,7 +114,7 @@ struct i2c_board_info __initdata fire_i2c_board_info[] = {
 //}
 //
 //const struct w25qxxx_ops w25qxxx_io = {
-//	.transmmit = w25qxxx_port_transmmit,
+//	.transmit = w25qxxx_port_transmit,
 //	.receive = w25qxxx_port_receive,
 //	.set_cs = w25qxxx_set_cs,
 //	.hw_reset = w25qxxx_hard_reset,

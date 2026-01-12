@@ -17,8 +17,6 @@ extern "C" {
 #else
 #endif
 
-#define BASIC_32BIT_TIMER
-
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 void basic_timer_init(void);
@@ -28,6 +26,8 @@ u64 basic_timer_get_us(void);
 u64 basic_timer_get_ns(void);
 void basic_timer_suspend(void);
 void basic_timer_resume(void);
+int basic_timer_thread_start(void);
+int basic_timer_thread_stop(void);
 
 /**
   * @brief This function is called to increment a global variable "timerTick"
@@ -38,31 +38,8 @@ void basic_timer_resume(void);
   *      implementations in user file.
   * @retval None
   */
-extern void basic_timer_inc_ss(void);
-extern void basic_timer_inc_us(void);
 
-static inline void basic_timer_inc_tick(void)
-{
-    basic_timer_inc_us();
-    basic_timer_inc_ss();
-}
-
-/**
-  * @brief Provide a timer value in microsecond.
-  * @note You need to set the timer resolution to 1us
-  * @retval tick value
-  */
-static inline u32 basic_timer_get_timer_cnt(void)
-{
-#ifdef BASIC_16BIT_TIMER
-    return timer_tick_us;
-#else
-#if MCU_PLATFORM_STM32
-    return (u32)htim2.Instance->CNT;
-#else
-#endif
-#endif
-}
+void basic_timer_isr(u32 period);
 
 #ifdef __cplusplus
 }

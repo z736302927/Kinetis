@@ -19,24 +19,26 @@
 
 #define MPU6050_ADDR                    0x00
 
-static inline void mpu6050_port_transmmit(u8 addr, u8 tmp)
+static struct iic_master *mpu6050_iic = &fake_master;
+
+static inline void mpu6050_port_transmit(u8 addr, u8 tmp)
 {
-	iic_master_port_transmmit(IIC_SW_1, MPU6050_ADDR, addr, tmp);
+	iic_master_port_transmit(mpu6050_iic, MPU6050_ADDR, addr, tmp);
 }
 
 static inline void mpu6050_port_receive(u8 addr, u8 *pdata)
 {
-	iic_master_port_receive(IIC_SW_1, MPU6050_ADDR, addr, pdata);
+	iic_master_port_receive(mpu6050_iic, MPU6050_ADDR, addr, pdata);
 }
 
-static inline void mpu6050_port_multi_transmmit(u8 addr, u8 *pdata, u32 Length)
+static inline void mpu6050_port_multi_transmit(u8 addr, u8 *pdata, u32 Length)
 {
-	iic_master_port_multi_transmmit(IIC_SW_1, MPU6050_ADDR, addr, pdata, Length);
+	iic_master_port_multi_transmit(mpu6050_iic, MPU6050_ADDR, addr, pdata, Length);
 }
 
 static inline void mpu6050_port_multi_receive(u8 addr, u8 *pdata, u32 Length)
 {
-	iic_master_port_multi_receive(IIC_SW_1, MPU6050_ADDR, addr, pdata, Length);
+	iic_master_port_multi_receive(mpu6050_iic, MPU6050_ADDR, addr, pdata, Length);
 }
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
@@ -176,15 +178,15 @@ void mpu6050_write_gyro_selftest_reg(u8 axis, u8 tmp)
 {
 	switch (axis) {
 	case X_AXIS:
-		mpu6050_port_transmmit(SELF_TEST_X_GYRO, tmp);
+		mpu6050_port_transmit(SELF_TEST_X_GYRO, tmp);
 		break;
 
 	case Y_AXIS:
-		mpu6050_port_transmmit(SELF_TEST_Y_GYRO, tmp);
+		mpu6050_port_transmit(SELF_TEST_Y_GYRO, tmp);
 		break;
 
 	case Z_AXIS:
-		mpu6050_port_transmmit(SELF_TEST_Z_GYRO, tmp);
+		mpu6050_port_transmit(SELF_TEST_Z_GYRO, tmp);
 		break;
 
 	default:
@@ -216,15 +218,15 @@ void mpu6050_write_accel_selftest_reg(u8 axis, u8 tmp)
 {
 	switch (axis) {
 	case X_AXIS:
-		mpu6050_port_transmmit(SELF_TEST_X_ACCEL, tmp);
+		mpu6050_port_transmit(SELF_TEST_X_ACCEL, tmp);
 		break;
 
 	case Y_AXIS:
-		mpu6050_port_transmmit(SELF_TEST_Y_ACCEL, tmp);
+		mpu6050_port_transmit(SELF_TEST_Y_ACCEL, tmp);
 		break;
 
 	case Z_AXIS:
-		mpu6050_port_transmmit(SELF_TEST_Z_ACCEL, tmp);
+		mpu6050_port_transmit(SELF_TEST_Z_ACCEL, tmp);
 		break;
 
 	default:
@@ -270,18 +272,18 @@ void mpu6050_write_gyro_offset_reg(u8 axis, u16 tmp)
 
 	switch (axis) {
 	case X_AXIS:
-		mpu6050_port_transmmit(XG_OFFSET_H, high8);
-		mpu6050_port_transmmit(XG_OFFSET_L, low8);
+		mpu6050_port_transmit(XG_OFFSET_H, high8);
+		mpu6050_port_transmit(XG_OFFSET_L, low8);
 		break;
 
 	case Y_AXIS:
-		mpu6050_port_transmmit(YG_OFFSET_H, high8);
-		mpu6050_port_transmmit(YG_OFFSET_L, low8);
+		mpu6050_port_transmit(YG_OFFSET_H, high8);
+		mpu6050_port_transmit(YG_OFFSET_L, low8);
 		break;
 
 	case Z_AXIS:
-		mpu6050_port_transmmit(ZG_OFFSET_H, high8);
-		mpu6050_port_transmmit(ZG_OFFSET_L, low8);
+		mpu6050_port_transmit(ZG_OFFSET_H, high8);
+		mpu6050_port_transmit(ZG_OFFSET_L, low8);
 		break;
 
 	default:
@@ -339,18 +341,18 @@ void mpu6050_write_accel_offset_reg(uint8_t axis, uint16_t tmp)
 
 	switch (axis) {
 	case X_AXIS:
-		mpu6050_port_transmmit(XA_OFFSET_H, high8);
-		mpu6050_port_transmmit(XA_OFFSET_L, low8);
+		mpu6050_port_transmit(XA_OFFSET_H, high8);
+		mpu6050_port_transmit(XA_OFFSET_L, low8);
 		break;
 
 	case Y_AXIS:
-		mpu6050_port_transmmit(YA_OFFSET_H, high8);
-		mpu6050_port_transmmit(YA_OFFSET_L, low8);
+		mpu6050_port_transmit(YA_OFFSET_H, high8);
+		mpu6050_port_transmit(YA_OFFSET_L, low8);
 		break;
 
 	case Z_AXIS:
-		mpu6050_port_transmmit(ZA_OFFSET_H, high8);
-		mpu6050_port_transmmit(ZA_OFFSET_L, low8);
+		mpu6050_port_transmit(ZA_OFFSET_H, high8);
+		mpu6050_port_transmit(ZA_OFFSET_L, low8);
 		break;
 
 	default:
@@ -360,7 +362,7 @@ void mpu6050_write_accel_offset_reg(uint8_t axis, uint16_t tmp)
 
 void mpu6050_sample_rate_divider(u8 tmp)
 {
-	mpu6050_port_transmmit(SMPLRT_DIV, tmp);
+	mpu6050_port_transmit(SMPLRT_DIV, tmp);
 }
 
 void mpu6050_fifo_mode(u8 tmp)
@@ -371,7 +373,7 @@ void mpu6050_fifo_mode(u8 tmp)
 
 	__assign_bit(6, (unsigned long *)&reg, tmp);
 
-	mpu6050_port_transmmit(CONFIG, reg);
+	mpu6050_port_transmit(CONFIG, reg);
 }
 
 void mpu6050_fsync_set(u8 tmp)
@@ -382,7 +384,7 @@ void mpu6050_fsync_set(u8 tmp)
 
 	set_mask_bits(&reg, 0x07 << 3, tmp);
 
-	mpu6050_port_transmmit(CONFIG, reg);
+	mpu6050_port_transmit(CONFIG, reg);
 }
 
 void mpu6050_config_dlpf(u8 tmp)
@@ -393,7 +395,7 @@ void mpu6050_config_dlpf(u8 tmp)
 
 	set_mask_bits(&reg, 0x07, tmp);
 
-	mpu6050_port_transmmit(CONFIG, reg);
+	mpu6050_port_transmit(CONFIG, reg);
 }
 
 void mpu6050_gyro_selftest(u8 axis, u8 tmp)
@@ -420,7 +422,7 @@ void mpu6050_gyro_selftest(u8 axis, u8 tmp)
 		break;
 	}
 
-	mpu6050_port_transmmit(GYRO_CONFIG, reg);
+	mpu6050_port_transmit(GYRO_CONFIG, reg);
 }
 
 void mpu6050_gyro_full_scale_select(u8 tmp)
@@ -431,7 +433,7 @@ void mpu6050_gyro_full_scale_select(u8 tmp)
 
 	set_mask_bits(&reg, 0x03 << 3, tmp << 3);
 
-	mpu6050_port_transmmit(GYRO_CONFIG, reg);
+	mpu6050_port_transmit(GYRO_CONFIG, reg);
 }
 
 void mpu6050_fchoice_b(u8 tmp)
@@ -442,7 +444,7 @@ void mpu6050_fchoice_b(u8 tmp)
 
 	set_mask_bits(&reg, 0x03 << 0, tmp << 0);
 
-	mpu6050_port_transmmit(GYRO_CONFIG, reg);
+	mpu6050_port_transmit(GYRO_CONFIG, reg);
 }
 
 void mpu6050_accel_selftest(u8 axis, u8 tmp)
@@ -469,7 +471,7 @@ void mpu6050_accel_selftest(u8 axis, u8 tmp)
 		break;
 	}
 
-	mpu6050_port_transmmit(ACCEL_CONFIG, reg);
+	mpu6050_port_transmit(ACCEL_CONFIG, reg);
 }
 
 void mpu6050_accel_full_scale_select(u8 tmp)
@@ -480,7 +482,7 @@ void mpu6050_accel_full_scale_select(u8 tmp)
 
 	set_mask_bits(&reg, 0x03 << 3, tmp << 3);
 
-	mpu6050_port_transmmit(ACCEL_CONFIG, reg);
+	mpu6050_port_transmit(ACCEL_CONFIG, reg);
 }
 
 void mpu6050_accel_fchoice_b(u8 tmp)
@@ -491,7 +493,7 @@ void mpu6050_accel_fchoice_b(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 3, tmp << 3);
 
-	mpu6050_port_transmmit(ACCEL_CONFIG2, reg);
+	mpu6050_port_transmit(ACCEL_CONFIG2, reg);
 }
 
 void mpu6050_config_accel_dlpf(u8 tmp)
@@ -502,7 +504,7 @@ void mpu6050_config_accel_dlpf(u8 tmp)
 
 	set_mask_bits(&reg, 0x07 << 0, tmp << 0);
 
-	mpu6050_port_transmmit(ACCEL_CONFIG2, reg);
+	mpu6050_port_transmit(ACCEL_CONFIG2, reg);
 }
 
 void mpu6050_low_power_accel_odr_control(u8 tmp)
@@ -513,12 +515,12 @@ void mpu6050_low_power_accel_odr_control(u8 tmp)
 
 	set_mask_bits(&reg, 0x0F << 0, tmp << 0);
 
-	mpu6050_port_transmmit(LP_ACCEL_ODR, reg);
+	mpu6050_port_transmit(LP_ACCEL_ODR, reg);
 }
 
 void mpu6050_wake_on_motion_threshold(u8 tmp)
 {
-	mpu6050_port_transmmit(WOM_THR, tmp);
+	mpu6050_port_transmit(WOM_THR, tmp);
 }
 
 void mpu6050_fifo_enable_with_temp(u8 tmp)
@@ -529,7 +531,7 @@ void mpu6050_fifo_enable_with_temp(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 7, tmp << 7);
 
-	mpu6050_port_transmmit(FIFO_EN, reg);
+	mpu6050_port_transmit(FIFO_EN, reg);
 }
 
 void mpu6050_fifo_enable_with_gyro(u8 axis, u8 tmp)
@@ -556,7 +558,7 @@ void mpu6050_fifo_enable_with_gyro(u8 axis, u8 tmp)
 		break;
 	}
 
-	mpu6050_port_transmmit(FIFO_EN, reg);
+	mpu6050_port_transmit(FIFO_EN, reg);
 }
 
 void mpu6050_fifo_enable_with_accel(u8 tmp)
@@ -567,7 +569,7 @@ void mpu6050_fifo_enable_with_accel(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 3, tmp << 3);
 
-	mpu6050_port_transmmit(FIFO_EN, reg);
+	mpu6050_port_transmit(FIFO_EN, reg);
 }
 
 void mpu6050_fifo_enable_with_ext_sensor(u8 slave, u8 tmp)
@@ -594,7 +596,7 @@ void mpu6050_fifo_enable_with_ext_sensor(u8 slave, u8 tmp)
 		break;
 	}
 
-	mpu6050_port_transmmit(FIFO_EN, reg);
+	mpu6050_port_transmit(FIFO_EN, reg);
 }
 
 void mpu6050_enable_multi_master(u8 tmp)
@@ -605,7 +607,7 @@ void mpu6050_enable_multi_master(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 7, tmp << 7);
 
-	mpu6050_port_transmmit(I2C_MST_CTRL, reg);
+	mpu6050_port_transmit(I2C_MST_CTRL, reg);
 }
 
 void mpu6050_wait_for_ext_sensor(u8 tmp)
@@ -616,7 +618,7 @@ void mpu6050_wait_for_ext_sensor(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 6, tmp << 6);
 
-	mpu6050_port_transmmit(I2C_MST_CTRL, reg);
+	mpu6050_port_transmit(I2C_MST_CTRL, reg);
 }
 
 void mpu6050_enable_slave3_fifo(u8 tmp)
@@ -627,7 +629,7 @@ void mpu6050_enable_slave3_fifo(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 5, tmp << 5);
 
-	mpu6050_port_transmmit(I2C_MST_CTRL, reg);
+	mpu6050_port_transmit(I2C_MST_CTRL, reg);
 }
 
 void mpu6050_i2c_signal_between_read(u8 tmp)
@@ -638,7 +640,7 @@ void mpu6050_i2c_signal_between_read(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 4, tmp << 4);
 
-	mpu6050_port_transmmit(I2C_MST_CTRL, reg);
+	mpu6050_port_transmit(I2C_MST_CTRL, reg);
 }
 
 void mpu6050_i2c_master_clock(u8 tmp)
@@ -649,7 +651,7 @@ void mpu6050_i2c_master_clock(u8 tmp)
 
 	set_mask_bits(&reg, 0x0F << 0, tmp << 0);
 
-	mpu6050_port_transmmit(I2C_MST_CTRL, reg);
+	mpu6050_port_transmit(I2C_MST_CTRL, reg);
 }
 
 void mpu6050_i2c_slave_addr(u8 slave, u8 dir, u8 addr)
@@ -661,23 +663,23 @@ void mpu6050_i2c_slave_addr(u8 slave, u8 dir, u8 addr)
 
 	switch (slave) {
 	case I2C_SLAVE0:
-		mpu6050_port_transmmit(I2C_SLV0_ADDR, reg);
+		mpu6050_port_transmit(I2C_SLV0_ADDR, reg);
 		break;
 
 	case I2C_SLAVE1:
-		mpu6050_port_transmmit(I2C_SLV1_ADDR, reg);
+		mpu6050_port_transmit(I2C_SLV1_ADDR, reg);
 		break;
 
 	case I2C_SLAVE2:
-		mpu6050_port_transmmit(I2C_SLV2_ADDR, reg);
+		mpu6050_port_transmit(I2C_SLV2_ADDR, reg);
 		break;
 
 	case I2C_SLAVE3:
-		mpu6050_port_transmmit(I2C_SLV3_ADDR, reg);
+		mpu6050_port_transmit(I2C_SLV3_ADDR, reg);
 		break;
 
 	case I2C_SLAVE4:
-		mpu6050_port_transmmit(I2C_SLV4_ADDR, reg);
+		mpu6050_port_transmit(I2C_SLV4_ADDR, reg);
 		break;
 
 	default:
@@ -689,23 +691,23 @@ void mpu6050_i2c_slave_reg(u8 slave, u8 reg)
 {
 	switch (slave) {
 	case I2C_SLAVE0:
-		mpu6050_port_transmmit(I2C_SLV0_REG, reg);
+		mpu6050_port_transmit(I2C_SLV0_REG, reg);
 		break;
 
 	case I2C_SLAVE1:
-		mpu6050_port_transmmit(I2C_SLV1_REG, reg);
+		mpu6050_port_transmit(I2C_SLV1_REG, reg);
 		break;
 
 	case I2C_SLAVE2:
-		mpu6050_port_transmmit(I2C_SLV2_REG, reg);
+		mpu6050_port_transmit(I2C_SLV2_REG, reg);
 		break;
 
 	case I2C_SLAVE3:
-		mpu6050_port_transmmit(I2C_SLV3_REG, reg);
+		mpu6050_port_transmit(I2C_SLV3_REG, reg);
 		break;
 
 	case I2C_SLAVE4:
-		mpu6050_port_transmmit(I2C_SLV4_REG, reg);
+		mpu6050_port_transmit(I2C_SLV4_REG, reg);
 		break;
 
 	default:
@@ -723,31 +725,31 @@ void mpu6050_i2c_slave_enable(u8 slave, u8 tmp)
 	case I2C_SLAVE0:
 		mpu6050_port_receive(I2C_SLV0_CTRL, &reg);
 		__assign_bit(7, (unsigned long *)&reg, tmp);
-		mpu6050_port_transmmit(I2C_SLV0_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV0_CTRL, reg);
 		break;
 
 	case I2C_SLAVE1:
 		mpu6050_port_receive(I2C_SLV1_CTRL, &reg);
 		__assign_bit(7, (unsigned long *)&reg, tmp);
-		mpu6050_port_transmmit(I2C_SLV1_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV1_CTRL, reg);
 		break;
 
 	case I2C_SLAVE2:
 		mpu6050_port_receive(I2C_SLV2_CTRL, &reg);
 		__assign_bit(7, (unsigned long *)&reg, tmp);
-		mpu6050_port_transmmit(I2C_SLV2_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV2_CTRL, reg);
 		break;
 
 	case I2C_SLAVE3:
 		mpu6050_port_receive(I2C_SLV3_CTRL, &reg);
 		__assign_bit(7, (unsigned long *)&reg, tmp);
-		mpu6050_port_transmmit(I2C_SLV3_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV3_CTRL, reg);
 		break;
 
 	case I2C_SLAVE4:
 		mpu6050_port_receive(I2C_SLV4_CTRL, &reg);
 		__assign_bit(7, (unsigned long *)&reg, tmp);
-		mpu6050_port_transmmit(I2C_SLV4_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV4_CTRL, reg);
 		break;
 
 	default:
@@ -765,25 +767,25 @@ void mpu6050_i2c_slave_swap_bytes(u8 slave, u8 tmp)
 	case I2C_SLAVE0:
 		mpu6050_port_receive(I2C_SLV0_CTRL, &reg);
 		__assign_bit(6, (unsigned long *)&reg, tmp);
-		mpu6050_port_transmmit(I2C_SLV0_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV0_CTRL, reg);
 		break;
 
 	case I2C_SLAVE1:
 		mpu6050_port_receive(I2C_SLV1_CTRL, &reg);
 		__assign_bit(6, (unsigned long *)&reg, tmp);
-		mpu6050_port_transmmit(I2C_SLV1_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV1_CTRL, reg);
 		break;
 
 	case I2C_SLAVE2:
 		mpu6050_port_receive(I2C_SLV2_CTRL, &reg);
 		__assign_bit(6, (unsigned long *)&reg, tmp);
-		mpu6050_port_transmmit(I2C_SLV2_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV2_CTRL, reg);
 		break;
 
 	case I2C_SLAVE3:
 		mpu6050_port_receive(I2C_SLV3_CTRL, &reg);
 		__assign_bit(6, (unsigned long *)&reg, tmp);
-		mpu6050_port_transmmit(I2C_SLV3_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV3_CTRL, reg);
 		break;
 
 	default:
@@ -801,31 +803,31 @@ void mpu6050_i2c_slave_dis_reg(u8 slave, u8 tmp)
 	case I2C_SLAVE0:
 		mpu6050_port_receive(I2C_SLV0_CTRL, &reg);
 		__assign_bit(5, (unsigned long *)&reg, tmp);
-		mpu6050_port_transmmit(I2C_SLV0_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV0_CTRL, reg);
 		break;
 
 	case I2C_SLAVE1:
 		mpu6050_port_receive(I2C_SLV1_CTRL, &reg);
 		__assign_bit(5, (unsigned long *)&reg, tmp);
-		mpu6050_port_transmmit(I2C_SLV1_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV1_CTRL, reg);
 		break;
 
 	case I2C_SLAVE2:
 		mpu6050_port_receive(I2C_SLV2_CTRL, &reg);
 		__assign_bit(5, (unsigned long *)&reg, tmp);
-		mpu6050_port_transmmit(I2C_SLV2_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV2_CTRL, reg);
 		break;
 
 	case I2C_SLAVE3:
 		mpu6050_port_receive(I2C_SLV3_CTRL, &reg);
 		__assign_bit(5, (unsigned long *)&reg, tmp);
-		mpu6050_port_transmmit(I2C_SLV3_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV3_CTRL, reg);
 		break;
 
 	case I2C_SLAVE4:
 		mpu6050_port_receive(I2C_SLV4_CTRL, &reg);
 		__assign_bit(5, (unsigned long *)&reg, tmp);
-		mpu6050_port_transmmit(I2C_SLV4_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV4_CTRL, reg);
 		break;
 
 	default:
@@ -843,25 +845,25 @@ void mpu6050_i2c_slave_group_type(u8 slave, u8 tmp)
 	case I2C_SLAVE0:
 		mpu6050_port_receive(I2C_SLV0_CTRL, &reg);
 		__assign_bit(4, (unsigned long *)&reg, tmp);
-		mpu6050_port_transmmit(I2C_SLV0_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV0_CTRL, reg);
 		break;
 
 	case I2C_SLAVE1:
 		mpu6050_port_receive(I2C_SLV1_CTRL, &reg);
 		__assign_bit(4, (unsigned long *)&reg, tmp);
-		mpu6050_port_transmmit(I2C_SLV1_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV1_CTRL, reg);
 		break;
 
 	case I2C_SLAVE2:
 		mpu6050_port_receive(I2C_SLV2_CTRL, &reg);
 		__assign_bit(4, (unsigned long *)&reg, tmp);
-		mpu6050_port_transmmit(I2C_SLV2_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV2_CTRL, reg);
 		break;
 
 	case I2C_SLAVE3:
 		mpu6050_port_receive(I2C_SLV3_CTRL, &reg);
 		__assign_bit(4, (unsigned long *)&reg, tmp);
-		mpu6050_port_transmmit(I2C_SLV3_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV3_CTRL, reg);
 		break;
 
 	default:
@@ -879,31 +881,31 @@ void mpu6050_i2c_slave_number_of_read_bytes(u8 slave, u8 tmp)
 	case I2C_SLAVE0:
 		mpu6050_port_receive(I2C_SLV0_CTRL, &reg);
 		set_mask_bits(&reg, 0x0F << 0, tmp << 0);
-		mpu6050_port_transmmit(I2C_SLV0_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV0_CTRL, reg);
 		break;
 
 	case I2C_SLAVE1:
 		mpu6050_port_receive(I2C_SLV1_CTRL, &reg);
 		set_mask_bits(&reg, 0x0F << 0, tmp << 0);
-		mpu6050_port_transmmit(I2C_SLV1_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV1_CTRL, reg);
 		break;
 
 	case I2C_SLAVE2:
 		mpu6050_port_receive(I2C_SLV2_CTRL, &reg);
 		set_mask_bits(&reg, 0x0F << 0, tmp << 0);
-		mpu6050_port_transmmit(I2C_SLV2_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV2_CTRL, reg);
 		break;
 
 	case I2C_SLAVE3:
 		mpu6050_port_receive(I2C_SLV3_CTRL, &reg);
 		set_mask_bits(&reg, 0x0F << 0, tmp << 0);
-		mpu6050_port_transmmit(I2C_SLV3_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV3_CTRL, reg);
 		break;
 
 	case I2C_SLAVE4:
 		mpu6050_port_receive(I2C_SLV4_CTRL, &reg);
 		set_mask_bits(&reg, 0x0F << 0, tmp << 0);
-		mpu6050_port_transmmit(I2C_SLV4_CTRL, reg);
+		mpu6050_port_transmit(I2C_SLV4_CTRL, reg);
 		break;
 
 	default:
@@ -915,23 +917,23 @@ void mpu6050_i2c_slave4_do(u8 slave, u8 tmp)
 {
 	switch (slave) {
 	case I2C_SLAVE0:
-		mpu6050_port_transmmit(I2C_SLV0_DO, tmp);
+		mpu6050_port_transmit(I2C_SLV0_DO, tmp);
 		break;
 
 	case I2C_SLAVE1:
-		mpu6050_port_transmmit(I2C_SLV1_DO, tmp);
+		mpu6050_port_transmit(I2C_SLV1_DO, tmp);
 		break;
 
 	case I2C_SLAVE2:
-		mpu6050_port_transmmit(I2C_SLV2_DO, tmp);
+		mpu6050_port_transmit(I2C_SLV2_DO, tmp);
 		break;
 
 	case I2C_SLAVE3:
-		mpu6050_port_transmmit(I2C_SLV3_DO, tmp);
+		mpu6050_port_transmit(I2C_SLV3_DO, tmp);
 		break;
 
 	case I2C_SLAVE4:
-		mpu6050_port_transmmit(I2C_SLV4_DO, tmp);
+		mpu6050_port_transmit(I2C_SLV4_DO, tmp);
 		break;
 
 	default:
@@ -947,7 +949,7 @@ void mpu6050_i2c_slave_enable_int(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 6, tmp << 6);
 
-	mpu6050_port_transmmit(I2C_SLV4_CTRL, reg);
+	mpu6050_port_transmit(I2C_SLV4_CTRL, reg);
 }
 
 void mpu6050_i2c_slave_master_delay(u8 tmp)
@@ -958,7 +960,7 @@ void mpu6050_i2c_slave_master_delay(u8 tmp)
 
 	set_mask_bits(&reg, 0x1F << 0, tmp << 0);
 
-	mpu6050_port_transmmit(I2C_SLV4_CTRL, reg);
+	mpu6050_port_transmit(I2C_SLV4_CTRL, reg);
 }
 
 void mpu6050_i2c_slave4_di(u8 *pdata)
@@ -1043,7 +1045,7 @@ void mpu6050_logic_level_for_int(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 7, tmp << 7);
 
-	mpu6050_port_transmmit(INT_PIN_CFG, reg);
+	mpu6050_port_transmit(INT_PIN_CFG, reg);
 }
 
 void mpu6050_enable_pull_up(u8 tmp)
@@ -1054,7 +1056,7 @@ void mpu6050_enable_pull_up(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 6, tmp << 6);
 
-	mpu6050_port_transmmit(INT_PIN_CFG, reg);
+	mpu6050_port_transmit(INT_PIN_CFG, reg);
 }
 
 void mpu6050_latch_int_pin(u8 tmp)
@@ -1065,7 +1067,7 @@ void mpu6050_latch_int_pin(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 5, tmp << 5);
 
-	mpu6050_port_transmmit(INT_PIN_CFG, reg);
+	mpu6050_port_transmit(INT_PIN_CFG, reg);
 }
 
 void mpu6050_int_anyrd2_clear(u8 tmp)
@@ -1076,7 +1078,7 @@ void mpu6050_int_anyrd2_clear(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 4, tmp << 4);
 
-	mpu6050_port_transmmit(INT_PIN_CFG, reg);
+	mpu6050_port_transmit(INT_PIN_CFG, reg);
 }
 
 void mpu6050_logic_level_for_fsync(u8 tmp)
@@ -1087,7 +1089,7 @@ void mpu6050_logic_level_for_fsync(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 3, tmp << 3);
 
-	mpu6050_port_transmmit(INT_PIN_CFG, reg);
+	mpu6050_port_transmit(INT_PIN_CFG, reg);
 }
 
 void mpu6050_fsync_int_mode(u8 tmp)
@@ -1098,7 +1100,7 @@ void mpu6050_fsync_int_mode(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 2, tmp << 2);
 
-	mpu6050_port_transmmit(INT_PIN_CFG, reg);
+	mpu6050_port_transmit(INT_PIN_CFG, reg);
 }
 
 void mpu6050_bypass_mode(u8 tmp)
@@ -1109,7 +1111,7 @@ void mpu6050_bypass_mode(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 1, tmp << 1);
 
-	mpu6050_port_transmmit(INT_PIN_CFG, reg);
+	mpu6050_port_transmit(INT_PIN_CFG, reg);
 }
 
 void mpu6050_int_for_wake_on_motion(u8 tmp)
@@ -1120,7 +1122,7 @@ void mpu6050_int_for_wake_on_motion(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 6, tmp << 6);
 
-	mpu6050_port_transmmit(INT_ENABLE, reg);
+	mpu6050_port_transmit(INT_ENABLE, reg);
 }
 
 void mpu6050_int_for_fifo_overflow(u8 tmp)
@@ -1131,7 +1133,7 @@ void mpu6050_int_for_fifo_overflow(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 4, tmp << 4);
 
-	mpu6050_port_transmmit(INT_ENABLE, reg);
+	mpu6050_port_transmit(INT_ENABLE, reg);
 }
 
 void mpu6050_int_for_fsync(u8 tmp)
@@ -1142,7 +1144,7 @@ void mpu6050_int_for_fsync(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 3, tmp << 3);
 
-	mpu6050_port_transmmit(INT_ENABLE, reg);
+	mpu6050_port_transmit(INT_ENABLE, reg);
 }
 
 void mpu6050_int_for_raw_sensor_tmp_ready(u8 tmp)
@@ -1153,7 +1155,7 @@ void mpu6050_int_for_raw_sensor_tmp_ready(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 0, tmp << 0);
 
-	mpu6050_port_transmmit(INT_ENABLE, reg);
+	mpu6050_port_transmit(INT_ENABLE, reg);
 }
 
 void mpu6050_int_status(u8 *pdata)
@@ -1229,7 +1231,7 @@ void mpu6050_delay_shadow_of_ext_sensor(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 7, tmp << 7);
 
-	mpu6050_port_transmmit(I2C_MST_DELAY_CTRL, reg);
+	mpu6050_port_transmit(I2C_MST_DELAY_CTRL, reg);
 }
 
 void mpu6050_i2c_slave_delay_enable(u8 slave, u8 tmp)
@@ -1242,31 +1244,31 @@ void mpu6050_i2c_slave_delay_enable(u8 slave, u8 tmp)
 	case I2C_SLAVE0:
 		mpu6050_port_receive(I2C_MST_DELAY_CTRL, &reg);
 		set_mask_bits(&reg, 0x01 << 0, tmp << 0);
-		mpu6050_port_transmmit(I2C_MST_DELAY_CTRL, reg);
+		mpu6050_port_transmit(I2C_MST_DELAY_CTRL, reg);
 		break;
 
 	case I2C_SLAVE1:
 		mpu6050_port_receive(I2C_MST_DELAY_CTRL, &reg);
 		set_mask_bits(&reg, 0x01 << 1, tmp << 1);
-		mpu6050_port_transmmit(I2C_MST_DELAY_CTRL, reg);
+		mpu6050_port_transmit(I2C_MST_DELAY_CTRL, reg);
 		break;
 
 	case I2C_SLAVE2:
 		mpu6050_port_receive(I2C_MST_DELAY_CTRL, &reg);
 		set_mask_bits(&reg, 0x01 << 2, tmp << 2);
-		mpu6050_port_transmmit(I2C_MST_DELAY_CTRL, reg);
+		mpu6050_port_transmit(I2C_MST_DELAY_CTRL, reg);
 		break;
 
 	case I2C_SLAVE3:
 		mpu6050_port_receive(I2C_MST_DELAY_CTRL, &reg);
 		set_mask_bits(&reg, 0x01 << 3, tmp << 3);
-		mpu6050_port_transmmit(I2C_MST_DELAY_CTRL, reg);
+		mpu6050_port_transmit(I2C_MST_DELAY_CTRL, reg);
 		break;
 
 	case I2C_SLAVE4:
 		mpu6050_port_receive(I2C_MST_DELAY_CTRL, &reg);
 		set_mask_bits(&reg, 0x01 << 4, tmp << 4);
-		mpu6050_port_transmmit(I2C_MST_DELAY_CTRL, reg);
+		mpu6050_port_transmit(I2C_MST_DELAY_CTRL, reg);
 		break;
 
 	default:
@@ -1282,7 +1284,7 @@ void mpu6050_gyro_signal_path_reset(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 2, tmp << 2);
 
-	mpu6050_port_transmmit(SIGNAL_PATH_RESET, reg);
+	mpu6050_port_transmit(SIGNAL_PATH_RESET, reg);
 }
 
 void mpu6050_accel_signal_path_reset(u8 tmp)
@@ -1293,7 +1295,7 @@ void mpu6050_accel_signal_path_reset(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 1, tmp << 1);
 
-	mpu6050_port_transmmit(SIGNAL_PATH_RESET, reg);
+	mpu6050_port_transmit(SIGNAL_PATH_RESET, reg);
 }
 
 void mpu6050_temp_signal_path_reset(u8 tmp)
@@ -1304,7 +1306,7 @@ void mpu6050_temp_signal_path_reset(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 0, tmp << 0);
 
-	mpu6050_port_transmmit(SIGNAL_PATH_RESET, reg);
+	mpu6050_port_transmit(SIGNAL_PATH_RESET, reg);
 }
 
 void mpu6050_enable_wake_on_motion(u8 tmp)
@@ -1315,7 +1317,7 @@ void mpu6050_enable_wake_on_motion(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 7, tmp << 7);
 
-	mpu6050_port_transmmit(MOT_DETECT_CTRL, reg);
+	mpu6050_port_transmit(MOT_DETECT_CTRL, reg);
 }
 
 void mpu6050_accel_int_mode(u8 tmp)
@@ -1326,7 +1328,7 @@ void mpu6050_accel_int_mode(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 6, tmp << 6);
 
-	mpu6050_port_transmmit(MOT_DETECT_CTRL, reg);
+	mpu6050_port_transmit(MOT_DETECT_CTRL, reg);
 }
 
 void mpu6050_enable_fifo_raw(u8 tmp)
@@ -1337,7 +1339,7 @@ void mpu6050_enable_fifo_raw(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 6, tmp << 6);
 
-	mpu6050_port_transmmit(USER_CTRL, reg);
+	mpu6050_port_transmit(USER_CTRL, reg);
 }
 
 void mpu6050_enable_i2c_master(u8 tmp)
@@ -1348,7 +1350,7 @@ void mpu6050_enable_i2c_master(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 5, tmp << 5);
 
-	mpu6050_port_transmmit(USER_CTRL, reg);
+	mpu6050_port_transmit(USER_CTRL, reg);
 }
 
 void mpu6050_disable_i2c_slave(u8 tmp)
@@ -1359,7 +1361,7 @@ void mpu6050_disable_i2c_slave(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 4, tmp << 4);
 
-	mpu6050_port_transmmit(USER_CTRL, reg);
+	mpu6050_port_transmit(USER_CTRL, reg);
 }
 
 void mpu6050_reset_fifo_raw(u8 tmp)
@@ -1370,7 +1372,7 @@ void mpu6050_reset_fifo_raw(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 2, tmp << 2);
 
-	mpu6050_port_transmmit(USER_CTRL, reg);
+	mpu6050_port_transmit(USER_CTRL, reg);
 }
 
 void mpu6050_reset_i2c_master(u8 tmp)
@@ -1381,7 +1383,7 @@ void mpu6050_reset_i2c_master(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 1, tmp << 1);
 
-	mpu6050_port_transmmit(USER_CTRL, reg);
+	mpu6050_port_transmit(USER_CTRL, reg);
 }
 
 void mpu6050_reset_signal_path(u8 tmp)
@@ -1392,7 +1394,7 @@ void mpu6050_reset_signal_path(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 0, tmp << 0);
 
-	mpu6050_port_transmmit(USER_CTRL, reg);
+	mpu6050_port_transmit(USER_CTRL, reg);
 }
 
 void mpu6050_soft_reset(u8 tmp)
@@ -1403,7 +1405,7 @@ void mpu6050_soft_reset(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 7, tmp << 7);
 
-	mpu6050_port_transmmit(PWR_MGMT_1, reg);
+	mpu6050_port_transmit(PWR_MGMT_1, reg);
 }
 
 void mpu6050_enter_sleep(u8 tmp)
@@ -1414,7 +1416,7 @@ void mpu6050_enter_sleep(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 6, tmp << 6);
 
-	mpu6050_port_transmmit(PWR_MGMT_1, reg);
+	mpu6050_port_transmit(PWR_MGMT_1, reg);
 }
 
 void mpu6050_cycle_sample(u8 tmp)
@@ -1425,7 +1427,7 @@ void mpu6050_cycle_sample(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 5, tmp << 5);
 
-	mpu6050_port_transmmit(PWR_MGMT_1, reg);
+	mpu6050_port_transmit(PWR_MGMT_1, reg);
 }
 
 void mpu6050_gyro_standby(u8 tmp)
@@ -1436,7 +1438,7 @@ void mpu6050_gyro_standby(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 4, tmp << 4);
 
-	mpu6050_port_transmmit(PWR_MGMT_1, reg);
+	mpu6050_port_transmit(PWR_MGMT_1, reg);
 }
 
 void mpu6050_power_down_ptat(u8 tmp)
@@ -1447,7 +1449,7 @@ void mpu6050_power_down_ptat(u8 tmp)
 
 	set_mask_bits(&reg, 0x01 << 3, tmp << 3);
 
-	mpu6050_port_transmmit(PWR_MGMT_1, reg);
+	mpu6050_port_transmit(PWR_MGMT_1, reg);
 }
 
 void mpu6050_clock_source_select(u8 tmp)
@@ -1458,7 +1460,7 @@ void mpu6050_clock_source_select(u8 tmp)
 
 	set_mask_bits(&reg, 0x07 << 0, tmp << 0);
 
-	mpu6050_port_transmmit(PWR_MGMT_1, reg);
+	mpu6050_port_transmit(PWR_MGMT_1, reg);
 }
 
 void mpu6050_accel_disabled(u8 axis, u8 tmp)
@@ -1485,7 +1487,7 @@ void mpu6050_accel_disabled(u8 axis, u8 tmp)
 		break;
 	}
 
-	mpu6050_port_transmmit(PWR_MGMT_2, reg);
+	mpu6050_port_transmit(PWR_MGMT_2, reg);
 }
 
 void mpu6050_gyro_disabled(u8 axis, u8 tmp)
@@ -1512,7 +1514,7 @@ void mpu6050_gyro_disabled(u8 axis, u8 tmp)
 		break;
 	}
 
-	mpu6050_port_transmmit(PWR_MGMT_2, reg);
+	mpu6050_port_transmit(PWR_MGMT_2, reg);
 }
 
 void mpu6050_fifo_count(u16 *pdata)
@@ -1532,7 +1534,7 @@ void mpu6050_fifo_read(u8 *pdata)
 
 void mpu6050_fifo_write(u8 tmp)
 {
-	mpu6050_port_transmmit(FIFO_R_W, tmp);
+	mpu6050_port_transmit(FIFO_R_W, tmp);
 }
 
 void mpu6050_who_am_i(u8 *pdata)
@@ -1578,18 +1580,18 @@ void mpu9250_write_accel_offset_reg(u8 axis, u16 tmp)
 
 	switch (axis) {
 	case X_AXIS:
-		mpu6050_port_transmmit(XA_OFFSET_H, high8);
-		mpu6050_port_transmmit(XA_OFFSET_L, low8);
+		mpu6050_port_transmit(XA_OFFSET_H, high8);
+		mpu6050_port_transmit(XA_OFFSET_L, low8);
 		break;
 
 	case Y_AXIS:
-		mpu6050_port_transmmit(YA_OFFSET_H, high8);
-		mpu6050_port_transmmit(YA_OFFSET_L, low8);
+		mpu6050_port_transmit(YA_OFFSET_H, high8);
+		mpu6050_port_transmit(YA_OFFSET_L, low8);
 		break;
 
 	case Z_AXIS:
-		mpu6050_port_transmmit(ZA_OFFSET_H, high8);
-		mpu6050_port_transmmit(ZA_OFFSET_L, low8);
+		mpu6050_port_transmit(ZA_OFFSET_H, high8);
+		mpu6050_port_transmit(ZA_OFFSET_L, low8);
 		break;
 
 	default:
@@ -2340,7 +2342,7 @@ void mpu6050_set_high_pass_filter(uint8_t enable, uint8_t frequency)
 		reg |= 0x08; /* Set HPF_EN bit */
 	}
 
-	mpu6050_port_transmmit(CONFIG, reg);
+	mpu6050_port_transmit(CONFIG, reg);
 
 	printk("High-pass filter %s, frequency: 0x%02X",
 		enable ? "enabled" : "disabled", frequency);
@@ -2353,7 +2355,7 @@ void mpu6050_set_high_pass_filter(uint8_t enable, uint8_t frequency)
  */
 void mpu6050_set_motion_detection_threshold(uint8_t threshold)
 {
-	mpu6050_port_transmmit(WOM_THR, threshold);
+	mpu6050_port_transmit(WOM_THR, threshold);
 	printk("Motion detection threshold set to: %d", threshold);
 }
 
@@ -2367,7 +2369,7 @@ void mpu6050_set_zero_motion_detection_threshold(uint8_t threshold)
 	u8 reg = 0;
 
 	/* Write to ZRMOT_THR register (same as WOM_THR for this implementation) */
-	mpu6050_port_transmmit(WOM_THR, threshold);
+	mpu6050_port_transmit(WOM_THR, threshold);
 
 	printk("Zero motion detection threshold set to: %d", threshold);
 }
@@ -2388,7 +2390,7 @@ void mpu6050_set_zero_motion_detection_duration(uint8_t duration)
 	reg &= ~0x3F;
 	reg |= (duration & 0x3F);
 
-	mpu6050_port_transmmit(MOT_DETECT_CTRL, reg);
+	mpu6050_port_transmit(MOT_DETECT_CTRL, reg);
 
 	printk("Zero motion detection duration set to: %d", duration);
 }
@@ -2410,7 +2412,7 @@ void mpu6050_enable_free_fall_detection(uint8_t enable)
 		reg &= ~0x40; /* Clear free fall enable bit */
 	}
 
-	mpu6050_port_transmmit(MOT_DETECT_CTRL, reg);
+	mpu6050_port_transmit(MOT_DETECT_CTRL, reg);
 
 	printk("Free fall detection %s", enable ? "enabled" : "disabled");
 }
@@ -2423,7 +2425,7 @@ void mpu6050_enable_free_fall_detection(uint8_t enable)
 void mpu6050_set_free_fall_threshold(uint8_t threshold)
 {
 	/* For this implementation, use WOM_THR register */
-	mpu6050_port_transmmit(WOM_THR, threshold);
+	mpu6050_port_transmit(WOM_THR, threshold);
 	printk("Free fall threshold set to: %d", threshold);
 }
 
@@ -2442,7 +2444,7 @@ void mpu6050_set_free_fall_duration(uint8_t duration)
 	reg &= ~0xC0;
 	reg |= ((duration & 0x03) << 6);
 
-	mpu6050_port_transmmit(MOT_DETECT_CTRL, reg);
+	mpu6050_port_transmit(MOT_DETECT_CTRL, reg);
 
 	printk("Free fall duration set to: %d", duration);
 }
@@ -2464,7 +2466,7 @@ uint8_t mpu6050_enable_i2c_master_mode(uint8_t enable)
 		reg &= ~0x20; /* Clear I2C_MST_EN bit */
 	}
 
-	mpu6050_port_transmmit(USER_CTRL, reg);
+	mpu6050_port_transmit(USER_CTRL, reg);
 
 	printk("I2C master mode %s", enable ? "enabled" : "disabled");
 
@@ -2553,13 +2555,13 @@ uint8_t mpu6050_write_i2c_slave_data(uint8_t slave_num, uint8_t *data, uint8_t l
 	/* Write to slave data out registers */
 	for (i = 0; i < len; i++) {
 		if (slave_num == 0) {
-			mpu6050_port_transmmit(I2C_SLV0_DO + i, data[i]);
+			mpu6050_port_transmit(I2C_SLV0_DO + i, data[i]);
 		} else if (slave_num == 1) {
-			mpu6050_port_transmmit(I2C_SLV1_DO + i, data[i]);
+			mpu6050_port_transmit(I2C_SLV1_DO + i, data[i]);
 		} else if (slave_num == 2) {
-			mpu6050_port_transmmit(I2C_SLV2_DO + i, data[i]);
+			mpu6050_port_transmit(I2C_SLV2_DO + i, data[i]);
 		} else if (slave_num == 3) {
-			mpu6050_port_transmmit(I2C_SLV3_DO + i, data[i]);
+			mpu6050_port_transmit(I2C_SLV3_DO + i, data[i]);
 		}
 	}
 
@@ -2658,7 +2660,7 @@ void mpu6050_set_accel_artifact_removal(uint8_t enable)
 		reg &= ~0x80; /* Clear accel artifact removal bit */
 	}
 
-	mpu6050_port_transmmit(MOT_DETECT_CTRL, reg);
+	mpu6050_port_transmit(MOT_DETECT_CTRL, reg);
 
 	printk("Accelerometer artifact removal %s", enable ? "enabled" : "disabled");
 }

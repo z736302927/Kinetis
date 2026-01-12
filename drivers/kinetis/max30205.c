@@ -19,6 +19,8 @@
 /* Device I2C address - MAX30205 typically uses 0x48 */
 #define MAX30205_ADDR                    MAX30205_I2C_ADDR
 
+static struct iic_master *max30205_iic = &fake_master;
+
 /* Private variables for calibration and status */
 static float g_temperature_offset = 0.0f;
 static float g_min_temperature_limit = -40.0f;
@@ -31,24 +33,24 @@ static void (*g_low_temp_callback)(float temperature) = NULL;
 static void (*g_temp_normal_callback)(void) = NULL;
 
 /* I/O port functions - using Kinetis I2C implementation */
-static inline void max30205_port_transmmit(u8 addr, u8 data)
+static inline void max30205_port_transmit(u8 addr, u8 data)
 {
-	iic_master_port_transmmit(IIC_SW_1, MAX30205_ADDR, addr, data);
+	iic_master_port_transmit(max30205_iic, MAX30205_ADDR, addr, data);
 }
 
 static inline void max30205_port_receive(u8 addr, u8 *pdata)
 {
-	iic_master_port_receive(IIC_SW_1, MAX30205_ADDR, addr, pdata);
+	iic_master_port_receive(max30205_iic, MAX30205_ADDR, addr, pdata);
 }
 
-static inline void max30205_port_multi_transmmit(u8 addr, u8 *pdata, u32 length)
+static inline void max30205_port_multi_transmit(u8 addr, u8 *pdata, u32 length)
 {
-	iic_master_port_multi_transmmit(IIC_SW_1, MAX30205_ADDR, addr, pdata, length);
+	iic_master_port_multi_transmit(max30205_iic, MAX30205_ADDR, addr, pdata, length);
 }
 
 static inline void max30205_port_multi_receive(u8 addr, u8 *pdata, u32 length)
 {
-	iic_master_port_multi_receive(IIC_SW_1, MAX30205_ADDR, addr, pdata, length);
+	iic_master_port_multi_receive(max30205_iic, MAX30205_ADDR, addr, pdata, length);
 }
 
 /* Delay functions */
@@ -75,6 +77,9 @@ void max30205_init(void)
 {
 	u8 config = 0;
 
+	/* Initialize IIC master */
+	max30205_iic->init();
+
 	printk("Initializing MAX30205 temperature sensor...");
 
 	/* Check if device is present */
@@ -87,7 +92,7 @@ void max30205_init(void)
 	/* Read current config to preserve settings */
 	max30205_port_receive(CONFIGURATION, &config);
 	config |= MAX30205_CONFIG_SHUTDOWN_BIT; /* Start in shutdown mode */
-	max30205_port_transmmit(CONFIGURATION, config);
+	max30205_port_transmit(CONFIGURATION, config);
 
 	max30205_Delayms(10); /* Wait for configuration to take effect */
 
@@ -158,7 +163,7 @@ void max30205_set_shutdown_mode(u8 enable)
 		config &= ~MAX30205_CONFIG_SHUTDOWN_BIT;
 	}
 
-	max30205_port_transmmit(CONFIGURATION, config);
+	max30205_port_transmit(CONFIGURATION, config);
 }
 
 void max30205_set_operating_mode(u8 mode)
@@ -173,7 +178,7 @@ void max30205_set_operating_mode(u8 mode)
 		config &= ~MAX30205_CONFIG_MODE_BIT;
 	}
 
-	max30205_port_transmmit(CONFIGURATION, config);
+	max30205_port_transmit(CONFIGURATION, config);
 }
 
 void max30205_set_os_polarity(u8 polarity)
@@ -188,7 +193,7 @@ void max30205_set_os_polarity(u8 polarity)
 		config &= ~MAX30205_CONFIG_OS_POLARITY_BIT;
 	}
 
-	max30205_port_transmmit(CONFIGURATION, config);
+	max30205_port_transmit(CONFIGURATION, config);
 }
 
 void max30205_set_fault_queue(u8 fault_count)
@@ -200,7 +205,7 @@ void max30205_set_fault_queue(u8 fault_count)
 	config &= ~MAX30205_CONFIG_FAULT_QUEUE_MASK;
 	config |= fault_count;
 
-	max30205_port_transmmit(CONFIGURATION, config);
+	max30205_port_transmit(CONFIGURATION, config);
 }
 
 void max30205_set_data_format(u8 format)
@@ -215,7 +220,7 @@ void max30205_set_data_format(u8 format)
 		config &= ~MAX30205_CONFIG_DATA_FORMAT_BIT;
 	}
 
-	max30205_port_transmmit(CONFIGURATION, config);
+	max30205_port_transmit(CONFIGURATION, config);
 }
 
 void max30205_enable_timeout(u8 enable)
@@ -230,7 +235,7 @@ void max30205_enable_timeout(u8 enable)
 		config &= ~MAX30205_CONFIG_TIMEOUT_BIT;
 	}
 
-	max30205_port_transmmit(CONFIGURATION, config);
+	max30205_port_transmit(CONFIGURATION, config);
 }
 
 void max30205_trigger_one_shot(void)
@@ -239,12 +244,12 @@ void max30205_trigger_one_shot(void)
 
 	max30205_port_receive(CONFIGURATION, &config);
 	config |= MAX30205_CONFIG_ONE_SHOT_BIT;
-	max30205_port_transmmit(CONFIGURATION, config);
+	max30205_port_transmit(CONFIGURATION, config);
 
 	/* Clear the bit after triggering */
 	max30205_Delayus(10);
 	config &= ~MAX30205_CONFIG_ONE_SHOT_BIT;
-	max30205_port_transmmit(CONFIGURATION, config);
+	max30205_port_transmit(CONFIGURATION, config);
 }
 
 /* Threshold management functions */
@@ -255,7 +260,7 @@ void max30205_set_threshold_high(u16 threshold_raw)
 	threshold_data[0] = (threshold_raw >> 8) & 0xFF;
 	threshold_data[1] = threshold_raw & 0xFF;
 
-	max30205_port_multi_transmmit(TOS, threshold_data, 2);
+	max30205_port_multi_transmit(TOS, threshold_data, 2);
 }
 
 void max30205_set_threshold_low(u16 threshold_raw)
@@ -265,7 +270,7 @@ void max30205_set_threshold_low(u16 threshold_raw)
 	threshold_data[0] = (threshold_raw >> 8) & 0xFF;
 	threshold_data[1] = threshold_raw & 0xFF;
 
-	max30205_port_multi_transmmit(THYST, threshold_data, 2);
+	max30205_port_multi_transmit(THYST, threshold_data, 2);
 }
 
 u16 max30205_get_threshold_high(void)
@@ -437,7 +442,7 @@ void max30205_WriteTHYST(u16 Data)
 	TmpVal[0] = Data >> 8;
 	TmpVal[1] = Data & 0xFF;
 
-	max30205_port_multi_transmmit(THYST, TmpVal, 2);
+	max30205_port_multi_transmit(THYST, TmpVal, 2);
 }
 
 void max30205_ReadTOS(u16 *pdata)
@@ -456,7 +461,7 @@ void max30205_WriteTOS(u16 Data)
 	TmpVal[0] = Data >> 8;
 	TmpVal[1] = Data & 0xFF;
 
-	max30205_port_multi_transmmit(TOS, TmpVal, 2);
+	max30205_port_multi_transmit(TOS, TmpVal, 2);
 }
 
 #ifdef DESIGN_VERIFICATION_MAX30205

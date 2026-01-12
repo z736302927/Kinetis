@@ -8,6 +8,8 @@
 #include <linux/spi/w25qxxx.h>
 #include <linux/i2c.h>
 #include <linux/errname.h>
+#include <linux/random.h>
+#include <linux/utsname.h>
 
 #include <kinetis/ano_protocol.h>
 #include <kinetis/tim-task.h>
@@ -26,9 +28,39 @@
 #include <fake-mcu/print.h>
 #endif
 
-
-struct task_struct init_task;
+struct uts_namespace init_uts_ns = {
+	.kref = {
+		.refcount = ATOMIC_INIT(1),
+	},
+	.name = {
+		.sysname = "FakeOS",
+		.nodename = "fake-device",
+		.release = "1.0.0",
+		.version = "#1 Mon Jan 1 00:00:00 UTC 2024",
+		.machine = "arm-fake-mcu",
+		.domainname = "(none)",
+	},
+	.user_ns = NULL,
+	.ucounts = NULL,
+	.ns = {
+		.inum = 0,
+		.ops = NULL,
+	},
+};
+struct nsproxy init_nsproxy = {
+	.count = ATOMIC_INIT(1),
+	.uts_ns = &init_uts_ns,
+};
+struct task_struct init_task = {
+	.nsproxy = &init_nsproxy
+};
 bool static_key_initialized = true;
+
+/* Fake system state for embedded systems */
+enum system_states system_state = SYSTEM_BOOTING;
+
+/* Fake interrupt registers for entropy collection */
+DEFINE_PER_CPU(struct pt_regs *, __irq_regs);
 
 unsigned long read_chip_timer(void)
 {
@@ -219,6 +251,10 @@ int fake_mcu_glue_func(void)
 	if (ret)
 		return ret;
 
+	ret = rand_initialize();
+	if (ret)
+		return ret;
+
 	register_console(&stm32_console);
 
 	ret = fill_stm32_dt();
@@ -333,6 +369,10 @@ int fake_mcu_glue_func(void)
 
 int main(int argc, char **argv)
 {
+	u32 device_id = 0x12345678;  /* Replace with actual device ID */
+	u8 random_bytes[16];
+	u32 rand32;
+	u64 rand64;
 	int ret;
 	float fval = 0.5f;
 
@@ -353,6 +393,31 @@ int main(int argc, char **argv)
 	pr_info("0.5f: %f\n", fval);
 
 	WARN_ON_ONCE(1);
+
+	/* Random number generation examples */
+	/* Example 1: Generate random bytes for encryption key */
+	get_random_bytes(random_bytes, sizeof(random_bytes));
+	pr_info("Random bytes (encryption key): %02x%02x%02x%02x...\n",
+		random_bytes[0], random_bytes[1], random_bytes[2], random_bytes[3]);
+
+	/* Example 2: Generate random 32-bit number for session ID */
+	rand32 = get_random_u32();
+	pr_info("Random session ID: 0x%08x\n", rand32);
+
+	/* Example 3: Generate random 64-bit number */
+	rand64 = get_random_u64();
+	pr_info("Random 64-bit value: 0x%016llx\n", rand64);
+
+	/* Example 4: Add device-specific entropy */
+	add_device_randomness(&device_id, sizeof(device_id));
+	pr_info("Device entropy added: 0x%08x\n", device_id);
+
+	/* Example 5: Check if RNG is ready */
+	if (rng_is_initialized()) {
+		pr_info("RNG is initialized and ready\n");
+	} else {
+		pr_info("RNG is not yet initialized\n");
+	}
 
 	/* USER CODE END 2 */
 
