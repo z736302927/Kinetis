@@ -56,12 +56,6 @@ void button_task_exit(void)
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-/* According to your need to modify the constants. */
-#define TICKS_INTERVAL    5 //ms
-#define DEBOUNCE_CNT      3 //MAX 8
-#define SHORT_TICKS       (300  / TICKS_INTERVAL)
-#define LONG_TICKS        (1000 / TICKS_INTERVAL)
-
 static LIST_HEAD(button_head);
 
 /**
@@ -85,7 +79,7 @@ int button_add(u32 unique_id, u8(*pin_level)(struct button *), u8 active_level,
 	}
 
 	button->unique_id = unique_id;
-	button->event = (u8)NONE_PRESS;
+	button->event = NONE_PRESS;
 	button->hal_button_level = pin_level;
 
 	if (active_level) {
@@ -125,7 +119,7 @@ void button_drop(u32 unique_id)
   * @param  button: the button button strcut.
   * @retval button event.
   */
-static enum press_button_event get_button_event(struct button *button)
+static enum button_event get_button_event(struct button *button)
 {
 	return (button->event);
 }
@@ -135,14 +129,12 @@ static void click(struct tim_task *tim_task)
 	struct button *button = container_of(tim_task, struct button, task);
 
 	if (button->cnt >= 2) {
-		button->event = (u8)DOUBLE_CLICK;
-
+		button->event = DOUBLE_CLICK;
 		if (button->callback) {
 			button->callback(button);
 		}
 	} else {
-		button->event = (u8)SINGLE_CLICK;
-
+		button->event = SINGLE_CLICK;
 		if (button->callback) {
 			button->callback(button);
 		}
@@ -159,18 +151,20 @@ static void button_handler(struct button *button)
 {
 	u8 gpio_level = button->hal_button_level(button);
 	static DECLARE_BITMAP(target_level, DEBOUNCE_CNT) = {~0};
+	u64 current_time;
+	u8 old_state = button->state;
+	char bitmap_str[16];
+	int i;
 
 	/* State machine */
 	switch (button->state) {
-	case NONE_PRESS:
+	case PRESS_IDLE:
 		if (gpio_level == button->active_level) {
 			button->state = PRESS_DEBOUNCE;
 		}
-
 		break;
 
 	case PRESS_DEBOUNCE:
-		/* press down debounce */
 		bitmap_shift_left(button->button_level, button->button_level,
 			1, DEBOUNCE_CNT);
 
@@ -185,19 +179,28 @@ static void button_handler(struct button *button)
 			button->valid_ticks = basic_timer_get_ms();
 			button->state = PRESS_DOWN;
 		}
-
+		for (i = 0; i < DEBOUNCE_CNT; i++) {
+			bitmap_str[i] = test_bit(i, button->button_level) ? '1' : '0';
+		}
+		bitmap_str[DEBOUNCE_CNT] = '\0';
+		pr_debug("button_handler: Button %u button_level %s, time %llu\n",
+			button->unique_id, bitmap_str, button->valid_ticks);
 		break;
 
 	case PRESS_DOWN:
 		if ((basic_timer_get_ms() - button->valid_ticks) > 3000) {
-			button->event = (u8)PRESS_REPEAT;
-
+			button->event = REPEAT_PRESS;
 			if (button->callback) {
 				button->callback(button);
 			}
 		}
 
-		/* press up debounce */
+		if (gpio_level != button->active_level) {
+			button->state = RELEASE_DEBOUNCE;
+		}
+		break;
+
+	case RELEASE_DEBOUNCE:
 		bitmap_shift_left(button->button_level, button->button_level,
 			1, DEBOUNCE_CNT);
 
@@ -209,30 +212,45 @@ static void button_handler(struct button *button)
 
 		if (bitmap_equal(target_level, button->button_level, DEBOUNCE_CNT)) {
 			bitmap_clear(button->button_level, 0, DEBOUNCE_CNT);
-			button->valid_ticks = basic_timer_get_ms() - button->valid_ticks;
 			button->state = PRESS_UP;
 		}
-
+		for (i = 0; i < DEBOUNCE_CNT; i++) {
+			bitmap_str[i] = test_bit(i, button->button_level) ? '1' : '0';
+		}
+		bitmap_str[DEBOUNCE_CNT] = '\0';
+		pr_debug("button_handler: Button %u button_level %s, time %llu\n",
+			button->unique_id, bitmap_str, button->valid_ticks);
 		break;
 
 	case PRESS_UP:
 		if (button->valid_ticks >= 0 && button->valid_ticks <= 1500) {
 			button->cnt++;
 
-			if (button->cnt == 1)
-				tim_task_add(&button->task, "button_task",
-					300, false, false, click);
+// 			if (button->cnt == 1) {
+// 				tim_task_add(&button->task, NULL,
+// 					300, false, false, click);
+// 			}
+			button->event = SINGLE_CLICK;
+			if (button->callback) {
+				button->callback(button);
+			}
 		} else if (button->valid_ticks > 1500 && button->valid_ticks <= 3000) {
-			button->event = (u8)LONG_RRESS;
-
+			button->event = LONG_PRESS;
 			if (button->callback) {
 				button->callback(button);
 			}
 		}
 
-		button->state = NONE_PRESS;
+		button->event = NONE_PRESS;
+		button->state = PRESS_IDLE;
 		button->valid_ticks = 0;
 		break;
+	}
+
+	if (button->state != old_state) {
+		// Debug: log state transitions
+		pr_debug("button_handler, Button %u state %s\n",
+			button->unique_id, button_state_to_string((enum button_state_machine)button->state));
 	}
 }
 
@@ -267,118 +285,131 @@ void button_polling(void)
 #ifdef KINETIS_FAKE_SIM
 /* Button simulation state for fake mode */
 struct button_sim_state {
-	u64 press_start_time;    /* When button was pressed */
+	u32 unique_id;
+	u64 press_time;    /* When button was pressed */
 	u64 release_time;        /* When button was released */
 	u8 current_level;        /* Current GPIO level (0=low, 1=high) */
+	u8 active_level;         /* Active level (0=low, 1=high) */
 	u8 debounce_counter;      /* Debounce counter */
-	enum press_button_event next_event;  /* Next event to generate */
-	bool in_debounce;        /* Currently in debounce state */
+	u8 click_count;
+	enum button_state_machine next_state;
+	enum button_event next_event;
 };
 
 static struct button_sim_state button_sim[4] = {0};
 
 /* Initialize button simulation state */
-static void button_sim_init(u32 unique_id)
+static void button_sim_init(u32 unique_id, u8 active_level)
 {
 	if (unique_id < 4) {
-		button_sim[unique_id].press_start_time = 0;
+		button_sim[unique_id].unique_id = unique_id;
+		button_sim[unique_id].press_time = 0;
 		button_sim[unique_id].release_time = 0;
-		button_sim[unique_id].current_level = 1;  /* Default high (not pressed) */
+		button_sim[unique_id].active_level = active_level;
+		button_sim[unique_id].current_level = !active_level;
 		button_sim[unique_id].debounce_counter = 0;
+		button_sim[unique_id].click_count = 0;
 		button_sim[unique_id].next_event = NONE_PRESS;
-		button_sim[unique_id].in_debounce = false;
-	}
-}
-
-/* Simulate button press with debounce behavior */
-static void button_sim_press(u32 unique_id)
-{
-	if (unique_id < 4) {
-		button_sim[unique_id].press_start_time = basic_timer_get_ms();
-		button_sim[unique_id].current_level = 0;  /* Press = low */
-		button_sim[unique_id].debounce_counter = 0;
-		button_sim[unique_id].in_debounce = true;
-		button_sim[unique_id].next_event = NONE_PRESS;
-	}
-}
-
-/* Simulate button release with debounce behavior */
-static void button_sim_release(u32 unique_id)
-{
-	if (unique_id < 4) {
-		button_sim[unique_id].release_time = basic_timer_get_ms();
-		button_sim[unique_id].current_level = 1;  /* Release = high */
-		button_sim[unique_id].debounce_counter = 0;
-		button_sim[unique_id].in_debounce = true;
-	}
-}
-
-/* Generate random button event */
-static enum press_button_event button_sim_random_event(void)
-{
-	u8 rand_val = get_random_int() % 10;
-
-	if (rand_val < 5) {
-		return SINGLE_CLICK;      /* 50% chance */
-	} else if (rand_val < 8) {
-		return DOUBLE_CLICK;      /* 30% chance */
-	} else if (rand_val < 9) {
-		return LONG_RRESS;        /* 10% chance */
-	} else {
-		return PRESS_REPEAT;      /* 10% chance */
+		button_sim[unique_id].next_state = PRESS_IDLE;
 	}
 }
 
 /* Simulate button reading with debounce behavior */
-static u8 button_sim_read_with_debounce(u32 unique_id)
+static u8 button_sim_read_with_debounce(struct button_sim_state *sim)
 {
-	struct button_sim_state *sim = &button_sim[unique_id];
 	u64 current_time = basic_timer_get_ms();
-	u8 simulated_level;
-
-	/* Auto-generate button events randomly */
-	if (sim->current_level == 1 && sim->next_event == NONE_PRESS) {
-		/* Button is released, randomly press it */
-		if ((get_random_int() % 100) < 50) {  /* 5% chance per call */
-			enum press_button_event event = button_sim_random_event();
-			sim->next_event = event;
-			button_sim_press(unique_id);
-		}
-	}
+	u32 wait_time, time_diff;
+	u8 old_state = sim->next_state;
 
 	/* Handle button state based on next event */
-	switch (sim->next_event) {
-	case SINGLE_CLICK:
+	switch (sim->next_state) {
+	case PRESS_IDLE:
+		if ((get_random_int() % 100) < 50) {
+			// sim->next_event = get_random_int() % PRESS_EVENT_NBR;
+			sim->next_event = get_random_int() % PRESS_EVENT_NBR;
+			if (sim->next_event != NONE_PRESS) {
+				sim->click_count = 0;
+				sim->next_state = PRESS_FIRST_EDGE;
+				pr_debug("button_sim, Button %u event->%s\n",
+					sim->unique_id,
+					button_event_to_string(sim->next_event));
+			}
+		} else {
+			sim->next_event = NONE_PRESS;
+			sim->next_state = PRESS_IDLE;
+		}
+		break;
+
+	case PRESS_FIRST_EDGE:
+		sim->press_time = basic_timer_get_ms();
+		sim->current_level = sim->active_level;
+		sim->debounce_counter = 0;
+		sim->next_state = PRESS_DEBOUNCE;
+		break;
+
+	case PRESS_DEBOUNCE:
+		sim->debounce_counter++;
+
+		/* Debounce period: 15ms (3 ticks * 5ms per tick) */
+		if (sim->debounce_counter < DEBOUNCE_CNT) {
+			/* During debounce, randomly flip bits to simulate bounce */
+			if ((get_random_int() % 10) < 3) {  /* 30% chance to flip */
+				sim->current_level = !sim->active_level;
+			} else {
+				sim->current_level = sim->active_level;
+			}
+		} else {
+			sim->current_level = sim->active_level;
+			sim->debounce_counter = 0;
+			sim->next_state = PRESS_DOWN;
+		}
+		break;
+
+	case PRESS_DOWN:
 		/* Press for 100-200ms, then release */
-		if (current_time - sim->press_start_time > 150) {
-			button_sim_release(unique_id);
+		if (sim->next_event == SINGLE_CLICK || sim->next_event == DOUBLE_CLICK) {
+			wait_time = 150;
+		} else {
+			wait_time = 2000;
+		}
+
+		if (current_time - sim->press_time >= wait_time) {
+			sim->current_level = !sim->active_level;
+			sim->next_state = RELEASE_DEBOUNCE;
 		}
 		break;
 
-	case DOUBLE_CLICK:
-		/* First press: 100ms, release, 50ms, press again 100ms, release */
-		if (current_time - sim->press_start_time > 100 &&
-			current_time - sim->press_start_time < 150) {
-			button_sim_release(unique_id);
-		} else if (current_time - sim->press_start_time > 150 &&
-			current_time - sim->press_start_time < 200) {
-			button_sim_press(unique_id);
-		} else if (current_time - sim->press_start_time > 250) {
-			button_sim_release(unique_id);
+	case RELEASE_DEBOUNCE:
+		sim->debounce_counter++;
+
+		/* Debounce period: 15ms (3 ticks * 5ms per tick) */
+		if (sim->debounce_counter < DEBOUNCE_CNT) {
+			/* During debounce, randomly flip bits to simulate bounce */
+			if ((get_random_int() % 10) < 3) {  /* 30% chance to flip */
+				sim->current_level = sim->active_level;
+			} else {
+				sim->current_level = !sim->active_level;
+			}
+		} else {
+			sim->current_level = !sim->active_level;
+			sim->debounce_counter = 0;
+			sim->next_state = PRESS_UP;
+			sim->click_count++;
 		}
 		break;
 
-	case LONG_RRESS:
-		/* Press for 2000-3000ms, then release */
-		if (current_time - sim->press_start_time > 2500) {
-			button_sim_release(unique_id);
-		}
-		break;
-
-	case PRESS_REPEAT:
-		/* Press for 3500ms, then release */
-		if (current_time - sim->press_start_time > 3500) {
-			button_sim_release(unique_id);
+	case PRESS_UP:
+		if (sim->next_event == DOUBLE_CLICK) {
+			time_diff = current_time - sim->press_time;
+			if (time_diff >= 200) {
+				if (sim->click_count < 2) {
+					sim->next_state = PRESS_FIRST_EDGE;
+				} else {
+					sim->next_state = PRESS_IDLE;
+				}
+			}
+		} else {
+			sim->next_state = PRESS_IDLE;
 		}
 		break;
 
@@ -386,33 +417,12 @@ static u8 button_sim_read_with_debounce(u32 unique_id)
 		break;
 	}
 
-	/* Simulate debounce behavior */
-	if (sim->in_debounce) {
-		sim->debounce_counter++;
-
-		/* Debounce period: 15ms (3 ticks * 5ms per tick) */
-		if (sim->debounce_counter < 3) {
-			/* During debounce, randomly flip bits to simulate bounce */
-			if ((get_random_int() % 10) < 3) {  /* 30% chance to flip */
-				simulated_level = !sim->current_level;
-			} else {
-				simulated_level = sim->current_level;
-			}
-		} else {
-			/* Debounce complete */
-			sim->in_debounce = false;
-			simulated_level = sim->current_level;
-
-			/* Reset next_event after release */
-			if (simulated_level == 1 && sim->next_event != NONE_PRESS) {
-				sim->next_event = NONE_PRESS;
-			}
-		}
-	} else {
-		simulated_level = sim->current_level;
+	if (sim->next_state != old_state) {
+		pr_debug("button_sim, Button %u state->%s",
+			sim->unique_id, button_state_to_string(sim->next_state));
 	}
 
-	return simulated_level;
+	return sim->current_level;
 }
 #endif /* KINETIS_FAKE_SIM */
 
@@ -423,7 +433,7 @@ static u8 button_read_pin(struct button *button)
 #if MCU_PLATFORM_STM32
 		return HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_2);
 #elif KINETIS_FAKE_SIM
-		return button_sim_read_with_debounce(1);
+		return button_sim_read_with_debounce(&button_sim[1]);
 #else
 		return 0;
 #endif
@@ -432,7 +442,7 @@ static u8 button_read_pin(struct button *button)
 #if MCU_PLATFORM_STM32
 		return HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_3);
 #elif KINETIS_FAKE_SIM
-		return button_sim_read_with_debounce(2);
+		return button_sim_read_with_debounce(&button_sim[2]);
 #else
 		return 0;
 #endif
@@ -441,7 +451,7 @@ static u8 button_read_pin(struct button *button)
 #if MCU_PLATFORM_STM32
 		return HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_4);
 #elif KINETIS_FAKE_SIM
-		return button_sim_read_with_debounce(3);
+		return button_sim_read_with_debounce(&button_sim[3]);
 #else
 		return 0;
 #endif
@@ -468,12 +478,12 @@ static void button_test_callback(struct button *button)
 			button->unique_id);
 		break;
 
-	case LONG_RRESS:
+	case LONG_PRESS:
 		pr_debug("Button[%d] long press\n",
 			button->unique_id);
 		break;
 
-	case PRESS_REPEAT:
+	case REPEAT_PRESS:
 		pr_debug("Button[%d] press repeat\n",
 			button->unique_id);
 		break;
@@ -501,14 +511,14 @@ int t_button_add(int argc, char **argv)
 {
 #ifdef KINETIS_FAKE_SIM
 	/* Initialize button simulation states */
-	button_sim_init(1);
-	button_sim_init(2);
-	button_sim_init(3);
+	button_sim_init(1, 0);
+	button_sim_init(2, 0);
+	button_sim_init(3, 0);
 #endif
 
 	button_add(1, button_read_pin, 0, button_test_callback);
-	button_add(2, button_read_pin, 0, button_test_callback);
-	button_add(3, button_read_pin, 0, button_test_callback);
+	// button_add(2, button_read_pin, 0, button_test_callback);
+	// button_add(3, button_read_pin, 0, button_test_callback);
 
 	pr_debug("Button test is running, please push the button.\n");
 
@@ -518,8 +528,8 @@ int t_button_add(int argc, char **argv)
 int t_button_drop(int argc, char **argv)
 {
 	button_drop(1);
-	button_drop(2);
-	button_drop(3);
+	// button_drop(2);
+	// button_drop(3);
 
 	pr_debug("Button test is over\n");
 

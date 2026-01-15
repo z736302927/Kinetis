@@ -29,6 +29,7 @@ struct serial_port {
     u8 *end_char;
     u8 end_char_size;
     u8 *current_buffer;
+    u32 refer;
     struct list_head list;
 };
 

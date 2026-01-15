@@ -1,5 +1,6 @@
 #include <linux/gfp.h>
 #include <linux/slab.h>
+#include <linux/random.h>
 
 #include "kinetis/serial-port.h"
 #include "kinetis/basic-timer.h"
@@ -120,6 +121,7 @@ u8 serial_port_open(struct serial_port *serial_port)
 	serial_port->rx_head = 0;
 	serial_port->rx_tail = 0;
 	serial_port->rx_state = 0;
+	serial_port->refer = 0;
 
 	if (serial_port_alloc(serial_port) == false) {
 		return false;
@@ -178,7 +180,7 @@ static void find_tail(struct serial_port *serial_port)
 		return;
 	}
 
-	while ((serial_port->tmp_buffer[serial_port->rx_tail] >> 8) != 0xFF) {
+	while (serial_port->tmp_buffer[serial_port->rx_tail] != 0xFFFF) {
 		cnt++;
 		serial_port->rx_tail = (serial_port->rx_tail + 1) % serial_port->tmp_buffer_size;
 
@@ -291,7 +293,6 @@ static void extract_valid_data(struct serial_port *serial_port)
 
 u8 serial_port_receive(struct serial_port *serial_port)
 {
-	static u32 refer = 0;
 	u32 delta = 0;
 	u32 current_time = 0;
 	u16 tmp_tail = serial_port->rx_tail;
@@ -306,13 +307,13 @@ u8 serial_port_receive(struct serial_port *serial_port)
 
 	if (serial_port->rx_head != serial_port->rx_tail) {
 		if (tmp_tail != serial_port->rx_tail) {
-			refer = basic_timer_get_ms();
+			serial_port->refer = basic_timer_get_ms();
 		} else {
 			current_time = basic_timer_get_ms();
-			if (current_time >= refer) {
-				delta = current_time - refer;
+			if (current_time >= serial_port->refer) {
+				delta = current_time - serial_port->refer;
 			} else {
-				delta = current_time + (0xFFFFFFFF - refer) + 1;
+				delta = current_time + (0xFFFFFFFF - serial_port->refer) + 1;
 			}
 
 			if (delta > serial_port->rx_scan_interval) {
@@ -329,7 +330,6 @@ u8 serial_port_receive(struct serial_port *serial_port)
 				if (size < serial_port->end_char_size) {
 					kfree(serial_port->current_buffer);
 					serial_port->current_buffer = NULL;
-					wait_rx_done = 0;
 					return false;
 				}
 
@@ -338,7 +338,6 @@ u8 serial_port_receive(struct serial_port *serial_port)
 					serial_port->end_char_size) != 0) {
 					kfree(serial_port->current_buffer);
 					serial_port->current_buffer = NULL;
-					wait_rx_done = 0;
 					return false;
 				} else {
 					kfree(serial_port->current_buffer);
@@ -363,47 +362,97 @@ u8 serial_port_receive(struct serial_port *serial_port)
 
 #ifdef DESIGN_VERIFICATION_SEIRALPORT
 #include "kinetis/test-kinetis.h"
+#include <pthread.h>
+#include <unistd.h>
 
-extern int parse_test_all_case(char *cmd);
+static pthread_t serial_sim_thread;
+static bool sim_thread_running = false;
+
+static void *serial_sim_thread_fn(void *data)
+{
+	const char *test_strings[] = {
+		"test1\r",
+		"hello\r",
+		"world\r",
+		"command\r",
+		"12345\r",
+		"abcde\r"
+	};
+	int num_strings = sizeof(test_strings) / sizeof(test_strings[0]);
+	struct serial_port *serial_port = data;
+	int i;
+
+	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
+
+	while (sim_thread_running) {
+		for (i = 0; i < 5; i++) {
+			const char *str = test_strings[get_random_int() % num_strings];
+			int len = strlen(str);
+			int j;
+
+			for (j = 0; j < len; j++) {
+				serial_port->tmp_buffer[serial_port->rx_write_index] = (u16)str[j];
+				serial_port->rx_write_index++;
+				if (serial_port->rx_write_index >= serial_port->tmp_buffer_size) {
+					serial_port->rx_write_index = 0;
+				}
+			}
+		}
+		usleep(500000);
+	}
+
+	return NULL;
+}
 
 int t_serial_port_shell(int argc, char **argv)
 {
-	struct serial_port serial_port;
+	struct serial_port *serial_port;
 	char *word = "\r";
-	int ret = FAIL;
+	int ret = -1;
 
-	memset(&serial_port, 0, sizeof(struct serial_port));
-	serial_port.port_nbr = 1;
-	serial_port.tx_buffer_size = 128;
-	serial_port.tmp_buffer_size = 200;
-	serial_port.rx_scan_interval = 10;
-	serial_port.end_char = kmalloc(strlen(word), GFP_KERNEL);
-	memcpy(serial_port.end_char, word, strlen(word));
-	serial_port.end_char_size = strlen(word);
-	serial_port_open(&serial_port);
+	serial_port = kzalloc(sizeof(struct serial_port), GFP_KERNEL);
+	if (serial_port == NULL) {
+		return -ENOMEM;
+	}
+	serial_port->port_nbr = 1;
+	serial_port->tx_buffer_size = 128;
+	serial_port->tmp_buffer_size = 200;
+	serial_port->rx_scan_interval = 10;
+	serial_port->end_char = kstrdup_const(word, GFP_KERNEL);
+	serial_port->end_char_size = strlen(word);
+	serial_port_open(serial_port);
+
+	sim_thread_running = true;
+	if (pthread_create(&serial_sim_thread, NULL, serial_sim_thread_fn, serial_port) != 0) {
+		pr_debug("Failed to create serial_sim_thread\n");
+		sim_thread_running = false;
+	}
 
 	while (1) {
-		if (serial_port_receive(&serial_port) == true) {
-			if (serial_port.rx_buffer[0] == '\r') {
+		if (serial_port_receive(serial_port) == true) {
+			if (serial_port->rx_buffer[0] == '\r') {
 				printk("\r\n/ # ");
-			} else if (serial_port.rx_buffer[0] == 27) {
+				kfree(serial_port->rx_buffer);
+			} else if (serial_port->rx_buffer[0] == 27) {
+				kfree(serial_port->rx_buffer);
 				break;
 			} else {
-				if (parse_test_all_case(serial_port.rx_buffer) == PASS) {
-					ret = PASS;
-				} else {
-					ret = FAIL;
-				}
-
+				printk("%.*s", serial_port->rx_buffer_size, serial_port->rx_buffer);
 				printk("\r\n/ # ");
+				kfree(serial_port->rx_buffer);
 			}
-
-			kfree(serial_port.rx_buffer);
 		}
 	}
 
-	serial_port_close(&serial_port);
-	kfree(serial_port.end_char);
+	if (sim_thread_running) {
+		sim_thread_running = false;
+		pthread_join(serial_sim_thread, NULL);
+	}
+
+	serial_port_close(serial_port);
+	kfree(serial_port->end_char);
+	kfree(serial_port);
 
 	return ret;
 }

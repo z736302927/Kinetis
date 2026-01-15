@@ -87,9 +87,11 @@ int tim_task_add(struct tim_task *tim_task,
 		tim_task_init = true;
 	}
 
-	tim_task->name = kstrdup_const(name, GFP_KERNEL);
-	if (!tim_task->name) {
-		return -ENOMEM;
+	if (tim_task->name != NULL) {
+		tim_task->name = kstrdup_const(name, GFP_KERNEL);
+		if (!tim_task->name) {
+			return -ENOMEM;
+		}
 	}
 
 	tim_task->callback = callback;
@@ -208,9 +210,6 @@ void tim_task_loop(void)
 				if (performance_profiling_enabled) {
 					task_start_time = ktime_get();
 				}
-
-				pr_debug("Executing timer task: %s (ID: %u, priority: %u)\n",
-					tim_task->name, tim_task->task_id, priority);
 
 				tim_task->callback(tim_task);
 				tim_task->execution_count++;

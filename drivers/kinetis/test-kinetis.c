@@ -385,6 +385,7 @@ struct test_case_typedef kinetis_case_table[] = {
 #endif
 };
 
+int t_serial_port_shell(int argc, char **argv);
 static int idle_task_init(void)
 {
 	int ret;
@@ -415,7 +416,7 @@ static int idle_task_init(void)
 	if (ret) {
 		goto err;
 	}
-
+	t_serial_port_shell(0, NULL);
 	return 0;
 err:
 	pr_err("Failed to init test platform, error code: %d\n", ret);

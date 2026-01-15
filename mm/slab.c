@@ -3655,8 +3655,8 @@ static __always_inline void *__do_kmalloc(size_t size, gfp_t flags,
 {
 	void *ret;
 
-	if (unlikely(size > KMALLOC_MAX_CACHE_SIZE))
-		return NULL;
+// 	if (unlikely(size > KMALLOC_MAX_CACHE_SIZE))
+// 		return NULL;
 	ret = mem_alloc(size);
     if (ret != NULL) {
         if (flags | __GFP_ZERO)

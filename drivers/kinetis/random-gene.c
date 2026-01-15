@@ -332,8 +332,6 @@ int t_random_statistics(int argc, char **argv)
 
 	if (!data || !frequency) {
 		pr_err("Memory allocation failed\n");
-		kfree(data);
-		kfree(frequency);
 		return FAIL;
 	}
 
