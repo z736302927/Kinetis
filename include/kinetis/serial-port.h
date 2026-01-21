@@ -13,37 +13,56 @@ extern "C" {
 
 #include "kinetis/core_common.h"
 
-struct serial_port {
-    u16 tmp_buffer_size;
-    u16 *tmp_buffer;
-    u16 rx_write_index;
-    u16 rx_buffer_size;
-    char *rx_buffer;
-    u32 rx_scan_interval;
-    u16 rx_head;
-    u16 rx_tail;
-    int rx_state;
-    u8 *tx_buffer;
-    u16 tx_buffer_size;
-    u8 port_nbr;
-    u8 *end_char;
-    u8 end_char_size;
-    u8 *current_buffer;
-    u32 refer;
-    struct list_head list;
+#include <pthread.h>
+
+typedef enum {
+	AT_CMD_TYPE_TEST,            /* Test command (AT+XXX?) - Query current value */
+	AT_CMD_TYPE_READ,            /* Read command (AT+XXX?) - Read parameter */
+	AT_CMD_TYPE_WRITE,           /* Write command (AT+XXX=param) - Set parameter */
+	AT_CMD_TYPE_EXECUTE,         /* Execute command (AT+XXX) - Execute action */
+	AT_CMD_TYPE_BASIC            /* Basic command (AT) - Simple operation */
+} at_cmd_type_t;
+
+struct at_command {
+	const char *command;         /* Command string */
+	at_cmd_type_t type;        /* Command type */
+	const char *description;     /* Command description */
+	const char *params;          /* Parameters description */
+	const char *default_value;   /* Default value */
+	const char *response;        /* Expected response */
+	const char *error_response;  /* Error response if any */
 };
 
+#define SERIAL_PORT_BUFFER_SIZE 256
+
+struct serial_port {
+	u8 rx_buffer[SERIAL_PORT_BUFFER_SIZE];
+	u8 tx_buffer[SERIAL_PORT_BUFFER_SIZE];
+	u16 received_size;
+	u16 transmited_size;
+	u32 rx_scan_interval;
+	u16 producer;
+	u16 consumer;
+	bool rx_complete;
+	bool tx_complete;
+
+	struct list_head list;
+
+	int (*transmit_bytes)(const u8 *data, u16 size);
+
+	pthread_t thread;
+
+	struct at_command *at_cmd_set;
+};
+
+const struct at_command *at_command_find(struct at_command *array, const char *command_name);
+
+void serial_port_init(struct serial_port *serial, struct at_command *at_cmd_set);
+void serial_port_deinit(struct serial_port *serial);
+int serial_port_get_data(struct serial_port *serial_port, char *buffer, int size, u32 timeout_ms);
+int serial_port_transmit_bytes(struct serial_port *serial, const u8 *data, u16 size);
+
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
-
-u8 serial_port_open(struct serial_port *Instance);
-void serial_port_close(struct serial_port *Instance);
-void serial_port_send(struct serial_port *Instance);
-u8 serial_port_receive(struct serial_port *Instance);
-void serial_port_get_rx_data(struct serial_port *Instance, u16 data);
-void serial_port_set_rx_state(struct serial_port *Instance, int state);
-int serial_port_get_rx_state(struct serial_port *Instance);
-
-
 
 #ifdef __cplusplus
 }

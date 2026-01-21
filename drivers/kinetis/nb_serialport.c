@@ -69,18 +69,18 @@ void NB_IOT_UART_RxBuffer_Init(void)
 
 void NB_IOT_UART_Open(NB_RxCallback cb, u32 baud)
 {
-    NB_InterRxCallback = cb;
-    NB_IOT_UART1.rx_scan_interval = 10;
-    NB_IOT_UART1.rx_buffer_size = NB_IOT_UART_RXBUFFER_SIZE;
-    NB_IOT_UART1.rx_buffer = kmalloc(NB_IOT_UART1.rx_buffer_size * sizeof(NB_IOT_UART_RXBUFFER_TYPE), __GFP_ZERO);
-
-    if (NB_IOT_UART1.rx_buffer == NULL) {
-        pr_debug("NB_IOT_UART malloc failed !");
-        return;
-    }
-
-    memset(NB_IOT_UART1.rx_buffer, 0xFF, NB_IOT_UART1.rx_buffer_size * sizeof(NB_IOT_UART_RXBUFFER_TYPE));
-//  HAL_UART_Receive_DMA(&huart4, (u8*)NB_IOT_UART1.rx_buffer, NB_IOT_UART1.rx_buffer_size);
+//     NB_InterRxCallback = cb;
+//     NB_IOT_UART1.rx_scan_interval = 10;
+//     NB_IOT_UART1.rx_buffer_size = NB_IOT_UART_RXBUFFER_SIZE;
+//     NB_IOT_UART1.rx_buffer = kmalloc(NB_IOT_UART1.rx_buffer_size * sizeof(NB_IOT_UART_RXBUFFER_TYPE), __GFP_ZERO);
+// 
+//     if (NB_IOT_UART1.rx_buffer == NULL) {
+//         pr_debug("NB_IOT_UART malloc failed !");
+//         return;
+//     }
+// 
+//     memset(NB_IOT_UART1.rx_buffer, 0xFF, NB_IOT_UART1.rx_buffer_size * sizeof(NB_IOT_UART_RXBUFFER_TYPE));
+// //  HAL_UART_Receive_DMA(&huart4, (u8*)NB_IOT_UART1.rx_buffer, NB_IOT_UART1.rx_buffer_size);
 }
 
 void NB_IOT_UART_Close(void)
@@ -130,53 +130,53 @@ void NB_IOT_UART_Receive(void)
 
 void NB_IOT_UART_RxBuffer_FindTail(void)
 {
-    u16 buffer_cnt = 0;
-
-    while ((NB_IOT_UART1.rx_buffer[NB_IOT_UART1.rx_tail] >> 8) != 0xFF) {
-        buffer_cnt++;
-
-        if (NB_IOT_UART1.rx_tail == NB_IOT_UART_RXBUFFER_SIZE - 1)
-            NB_IOT_UART1.rx_tail = 0;
-        else
-            NB_IOT_UART1.rx_tail++;
-
-        if (buffer_cnt == NB_IOT_UART_RXBUFFER_SIZE - 1)
-            break;
-    }
+//     u16 buffer_cnt = 0;
+// 
+//     while ((NB_IOT_UART1.rx_buffer[NB_IOT_UART1.rx_tail] >> 8) != 0xFF) {
+//         buffer_cnt++;
+// 
+//         if (NB_IOT_UART1.rx_tail == NB_IOT_UART_RXBUFFER_SIZE - 1)
+//             NB_IOT_UART1.rx_tail = 0;
+//         else
+//             NB_IOT_UART1.rx_tail++;
+// 
+//         if (buffer_cnt == NB_IOT_UART_RXBUFFER_SIZE - 1)
+//             break;
+//     }
 }
 
 void NB_IOT_UART_Extract_ValidData(void)
 {
-    u8 rxdata_tmp[NB_IOT_UART_RXBUFFER_SIZE];
-    u8 rxdata_size = 0;
-    u16 i, j;
-
-    memset(rxdata_tmp, 0, sizeof(rxdata_tmp));
-
-    if (NB_IOT_UART1.rx_tail > NB_IOT_UART1.rx_head) {
-        rxdata_size = NB_IOT_UART1.rx_tail - NB_IOT_UART1.rx_head;
-
-        for (i = NB_IOT_UART1.rx_head, j = 0; i < NB_IOT_UART1.rx_tail; i++, j++)
-            rxdata_tmp[j] = NB_IOT_UART1.rx_buffer[i];
-
-        memset(&NB_IOT_UART1.rx_buffer[NB_IOT_UART1.rx_head], 0xFF, rxdata_size * sizeof(NB_IOT_UART_RXBUFFER_TYPE));
-    } else if (NB_IOT_UART1.rx_tail < NB_IOT_UART1.rx_head) {
-        rxdata_size = NB_IOT_UART_RXBUFFER_SIZE - NB_IOT_UART1.rx_head + NB_IOT_UART1.rx_tail;
-
-        for (i = NB_IOT_UART1.rx_head, j = 0; i < NB_IOT_UART_RXBUFFER_SIZE; i++, j++)
-            rxdata_tmp[j] = NB_IOT_UART1.rx_buffer[i];
-
-        for (i = 0; i < NB_IOT_UART1.rx_tail; i++, j++)
-            rxdata_tmp[j] = NB_IOT_UART1.rx_buffer[i];
-
-        memset(&NB_IOT_UART1.rx_buffer[NB_IOT_UART1.rx_head], 0xFF, (NB_IOT_UART_RXBUFFER_SIZE - NB_IOT_UART1.rx_head) * sizeof(NB_IOT_UART_RXBUFFER_TYPE));
-        memset(&NB_IOT_UART1.rx_buffer[0], 0xFF, NB_IOT_UART1.rx_tail * sizeof(NB_IOT_UART_RXBUFFER_TYPE));
-    } else
-        rxdata_size = 0;
-
-    if (rxdata_size != 0) {
-        NB_IOT_UART_RxBuffer_Process(rxdata_tmp, rxdata_size);
-
-        NB_IOT_UART1.rx_head = NB_IOT_UART1.rx_tail;
-    }
+//     u8 rxdata_tmp[NB_IOT_UART_RXBUFFER_SIZE];
+//     u8 rxdata_size = 0;
+//     u16 i, j;
+// 
+//     memset(rxdata_tmp, 0, sizeof(rxdata_tmp));
+// 
+//     if (NB_IOT_UART1.rx_tail > NB_IOT_UART1.rx_head) {
+//         rxdata_size = NB_IOT_UART1.rx_tail - NB_IOT_UART1.rx_head;
+// 
+//         for (i = NB_IOT_UART1.rx_head, j = 0; i < NB_IOT_UART1.rx_tail; i++, j++)
+//             rxdata_tmp[j] = NB_IOT_UART1.rx_buffer[i];
+// 
+//         memset(&NB_IOT_UART1.rx_buffer[NB_IOT_UART1.rx_head], 0xFF, rxdata_size * sizeof(NB_IOT_UART_RXBUFFER_TYPE));
+//     } else if (NB_IOT_UART1.rx_tail < NB_IOT_UART1.rx_head) {
+//         rxdata_size = NB_IOT_UART_RXBUFFER_SIZE - NB_IOT_UART1.rx_head + NB_IOT_UART1.rx_tail;
+// 
+//         for (i = NB_IOT_UART1.rx_head, j = 0; i < NB_IOT_UART_RXBUFFER_SIZE; i++, j++)
+//             rxdata_tmp[j] = NB_IOT_UART1.rx_buffer[i];
+// 
+//         for (i = 0; i < NB_IOT_UART1.rx_tail; i++, j++)
+//             rxdata_tmp[j] = NB_IOT_UART1.rx_buffer[i];
+// 
+//         memset(&NB_IOT_UART1.rx_buffer[NB_IOT_UART1.rx_head], 0xFF, (NB_IOT_UART_RXBUFFER_SIZE - NB_IOT_UART1.rx_head) * sizeof(NB_IOT_UART_RXBUFFER_TYPE));
+//         memset(&NB_IOT_UART1.rx_buffer[0], 0xFF, NB_IOT_UART1.rx_tail * sizeof(NB_IOT_UART_RXBUFFER_TYPE));
+//     } else
+//         rxdata_size = 0;
+// 
+//     if (rxdata_size != 0) {
+//         NB_IOT_UART_RxBuffer_Process(rxdata_tmp, rxdata_size);
+// 
+//         NB_IOT_UART1.rx_head = NB_IOT_UART1.rx_tail;
+//     }
 }

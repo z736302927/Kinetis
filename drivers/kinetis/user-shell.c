@@ -37,11 +37,8 @@ void *pthread_shell_input(void *para)
 
 				// Remove trailing newline and carriage return if present
 				if (user_input_length > 0) {
-					if (user_input_buffer[user_input_length - 1] == '\n') {
-						user_input_buffer[user_input_length - 1] = '\0';
-						user_input_length--;
-					}
-					if (user_input_length > 0 && user_input_buffer[user_input_length - 1] == '\r') {
+					if (user_input_buffer[user_input_length - 1] == '\n' ||
+					    user_input_buffer[user_input_length - 1] == '\r') {
 						user_input_buffer[user_input_length - 1] = '\0';
 						user_input_length--;
 					}
@@ -84,7 +81,7 @@ int get_user_input_string(char *buffer, int max_len)
 	bool has_input = false;
 
 	if (buffer == NULL || max_len <= 0) {
-		return -ENOMEM;
+		return -EINVAL;
 	}
 
 	// Check if there's any input ready

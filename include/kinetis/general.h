@@ -40,7 +40,6 @@ struct general_cmd {
 
 void general_process_cmd(struct general_cmd *cmd);
 
-
 #ifdef __cplusplus
 }
 #endif

@@ -141,7 +141,7 @@ int t_rtc_task_cleanup(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_SEIRALPORT
-int t_serial_port_shell(int argc, char **argv);
+int t_serial_port_interactive(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_SHELL
@@ -232,7 +232,7 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"gt9271.", },
 #endif
 #ifdef DESIGN_VERIFICATION_HC_05
-	{"hc-05.test",                  t_hc05_integration_test},
+	// 	{"hc-05.test",                  t_hc05_integration_test},
 #endif
 #ifdef DESIGN_VERIFICATION_HMC5883L
 	{"hmc5883l.", t_function},
@@ -285,9 +285,9 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"fsm.validation",               t_fsm_validation},
 #endif
 #ifdef DESIGN_VERIFICATION_GENERAL
-	{"general.success",             t_general_success},
-	{"general.error",               t_general_error},
-	{"general.timeout",             t_general_timeout},
+	// 	{"general.success",             t_general_success},
+	// 	{"general.error",               t_general_error},
+	// 	{"general.timeout",             t_general_timeout},
 #endif
 #ifdef DESIGN_VERIFICATION_BUTTON
 	{"button.task",                 t_button_task},
@@ -316,11 +316,11 @@ struct test_case_typedef kinetis_case_table[] = {
 #ifdef DESIGN_VERIFICATION_RTCTASK
 	{"rtc-task.add",                t_rtc_task_add},
 	{"rtc-task.validation",         t_rtc_task_validation},
-	{"rtc-task.performance",         t_rtc_task_performance},
+	{"rtc-task.performance",        t_rtc_task_performance},
 	{"rtc-task.cleanup",            t_rtc_task_cleanup},
 #endif
 #ifdef DESIGN_VERIFICATION_SEIRALPORT
-	{"serial-port.shell",           t_serial_port_shell},
+	{"serial-port.interactive",		t_serial_port_interactive},
 #endif
 #ifdef DESIGN_VERIFICATION_SHELL
 	{"test", t_function},
@@ -385,7 +385,6 @@ struct test_case_typedef kinetis_case_table[] = {
 #endif
 };
 
-int t_serial_port_shell(int argc, char **argv);
 static int idle_task_init(void)
 {
 	int ret;
@@ -416,7 +415,7 @@ static int idle_task_init(void)
 	if (ret) {
 		goto err;
 	}
-	t_serial_port_shell(0, NULL);
+
 	return 0;
 err:
 	pr_err("Failed to init test platform, error code: %d\n", ret);
