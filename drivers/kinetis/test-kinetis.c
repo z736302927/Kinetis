@@ -105,7 +105,15 @@ int t_general_timeout(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_HC_05
-int t_hc05_integration_test(int argc, char **argv);
+int t_hc_05_test_cmd(int argc, char **argv);
+int t_hc_05_setup(int argc, char **argv);
+int t_hc_05_slave_mode(int argc, char **argv);
+int t_hc_05_master_mode(int argc, char **argv);
+int t_hc_05_data_transfer(int argc, char **argv);
+int t_hc_05_device_info(int argc, char **argv);
+int t_hc_05_diagnostics(int argc, char **argv);
+int t_hc_05_factory_reset(int argc, char **argv);
+int t_hc_05_full_test(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_HYDROLOGY
@@ -232,7 +240,15 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"gt9271.", },
 #endif
 #ifdef DESIGN_VERIFICATION_HC_05
-	// 	{"hc-05.test",                  t_hc05_integration_test},
+	{"hc-05.test",                  t_hc_05_test_cmd},
+	{"hc-05.setup",                 t_hc_05_setup},
+	{"hc-05.slave",                 t_hc_05_slave_mode},
+	{"hc-05.master",                t_hc_05_master_mode},
+	{"hc-05.data-transfer",         t_hc_05_data_transfer},
+	{"hc-05.device-info",           t_hc_05_device_info},
+	{"hc-05.diagnostics",           t_hc_05_diagnostics},
+	{"hc-05.factory-reset",         t_hc_05_factory_reset},
+	{"hc-05.full",                  t_hc_05_full_test},
 #endif
 #ifdef DESIGN_VERIFICATION_HMC5883L
 	{"hmc5883l.", t_function},

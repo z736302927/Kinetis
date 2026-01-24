@@ -15,25 +15,12 @@ extern "C" {
 
 #include <pthread.h>
 
-typedef enum {
-	AT_CMD_TYPE_TEST,            /* Test command (AT+XXX?) - Query current value */
-	AT_CMD_TYPE_READ,            /* Read command (AT+XXX?) - Read parameter */
-	AT_CMD_TYPE_WRITE,           /* Write command (AT+XXX=param) - Set parameter */
-	AT_CMD_TYPE_EXECUTE,         /* Execute command (AT+XXX) - Execute action */
-	AT_CMD_TYPE_BASIC            /* Basic command (AT) - Simple operation */
-} at_cmd_type_t;
-
-struct at_command {
-	const char *command;         /* Command string */
-	at_cmd_type_t type;        /* Command type */
-	const char *description;     /* Command description */
-	const char *params;          /* Parameters description */
-	const char *default_value;   /* Default value */
-	const char *response;        /* Expected response */
-	const char *error_response;  /* Error response if any */
-};
-
 #define SERIAL_PORT_BUFFER_SIZE 256
+
+struct virtual_at_command {
+	const char *request;
+	const char *response;
+};
 
 struct serial_port {
 	u8 rx_buffer[SERIAL_PORT_BUFFER_SIZE];
@@ -51,14 +38,13 @@ struct serial_port {
 	int (*transmit_bytes)(const u8 *data, u16 size);
 
 	pthread_t thread;
+	u8 thread_switch;
 
-	struct at_command *at_cmd_set;
+	struct virtual_at_command *at_cmd_set;
 };
 
-const struct at_command *at_command_find(struct at_command *array, const char *command_name);
-
-void serial_port_init(struct serial_port *serial, struct at_command *at_cmd_set);
-void serial_port_deinit(struct serial_port *serial);
+struct serial_port *serial_port_alloc(struct virtual_at_command *cmd);
+void serial_port_free(struct serial_port *serial);
 int serial_port_get_data(struct serial_port *serial_port, char *buffer, int size, u32 timeout_ms);
 int serial_port_transmit_bytes(struct serial_port *serial, const u8 *data, u16 size);
 
