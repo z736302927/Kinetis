@@ -19,128 +19,145 @@
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-/* HC-05 Virtual AT Commands for Simulation */
-static const struct virtual_at_command hc_05_at_commands[] = {
-	/* Basic Commands */
-	{ .request = "AT", .response = "OK" },
-	{ .request = "AT+RESET", .response = "OK" },
-	{ .request = "AT+ORGL", .response = "OK" },
-	{ .request = "AT+VERSION?", .response = "+VERSION:2.0-20100601\r\nOK" },
-	{ .request = "AT+NAME?", .response = "+NAME:HC-05-Default\r\nOK" },
-	{ .request = "AT+NAME", .response = "OK" },
+/* Parse AT command and update HC-05 state, return response */
 
-	/* UART Configuration */
-	{ .request = "AT+UART?", .response = "+UART:9600,0,0\r\nOK" },
-	{ .request = "AT+UART=9600,0,0", .response = "OK" },
-	{ .request = "AT+UART=115200,0,0", .response = "OK" },
-	{ .request = "AT+UART=38400,0,0", .response = "OK" },
-	{ .request = "AT+UART=57600,0,0", .response = "OK" },
+static void hc_05_parse_command(char *request, char *response, void *context)
+{
+	struct hc_05_device *device = (struct hc_05_device *)context;
 
-	/* Role Configuration */
-	{ .request = "AT+ROLE?", .response = "+ROLE:0\r\nOK" },
-	{ .request = "AT+ROLE=0", .response = "OK" },
-	{ .request = "AT+ROLE=1", .response = "OK" },
-	{ .request = "AT+ROLE=2", .response = "OK" },
-
-	/* Connection Mode */
-	{ .request = "AT+CMODE?", .response = "+CMODE:1\r\nOK" },
-	{ .request = "AT+CMODE=0", .response = "OK" },
-	{ .request = "AT+CMODE=1", .response = "OK" },
-
-	/* Device Address */
-	{ .request = "AT+ADDR?", .response = "+ADDR:98d3:32:70a0b8\r\nOK" },
-
-	/* Password/PIN */
-	{ .request = "AT+PSWD?", .response = "+PSWD:1234\r\nOK" },
-	{ .request = "AT+PSWD=1234", .response = "OK" },
-
-	/* Pairing/Binding */
-	{ .request = "AT+BIND?", .response = "+BIND:98d3:32:70a0b8\r\nOK" },
-	{ .request = "AT+BIND", .response = "OK" },
-
-	/* Connection State */
-	{ .request = "AT+STATE?", .response = "+STATE:INITIALIZED\r\nOK" },
-	{ .request = "AT+STATE?", .response = "+STATE:CONNECTED\r\nOK" },
-	{ .request = "AT+STATE?", .response = "+STATE:DISCONNECTED\r\nOK" },
-
-	/* Paired Device Count */
-	{ .request = "AT+ADCN?", .response = "+ADCN:1\r\nOK" },
-	{ .request = "AT+ADCN?", .response = "+ADCN:3\r\nOK" },
-
-	/* Link Mode */
-	{ .request = "AT+LINK?", .response = "+LINK:98d3:32:70a0b8\r\nOK" },
-
-	/* Inquire/Scan */
-	{ .request = "AT+INQ", .response = "OK" },
-	{ .request = "AT+INQC", .response = "OK" },
-
-	/* Connect */
-	{ .request = "AT+CONNECT", .response = "OK" },
-
-	/* RMAAD - Remove All Authenticated Devices */
-	{ .request = "AT+RMAAD", .response = "OK" },
-
-	/* RNAD - Remove Authenticated Device */
-	{ .request = "AT+RNAD", .response = "OK" },
-
-	/* FSAD - Find Authenticated Device */
-	{ .request = "AT+FSAD", .response = "OK" },
-
-	/* MRAD - Multi-point Role Authenticated Device */
-	{ .request = "AT+MRAD", .response = "OK" },
-
-	/* IPSCAN */
-	{ .request = "AT+IPSCAN?", .response = "+IPSCAN:1024,512,48,18\r\nOK" },
-	{ .request = "AT+IPSCAN=1024,512,48,18", .response = "OK" },
-
-	/* SENI */
-	{ .request = "AT+SENI?", .response = "+SENI:0\r\nOK" },
-	{ .request = "AT+SENI=0", .response = "OK" },
-
-	/* SENA */
-	{ .request = "AT+SENA?", .response = "+SENA:0\r\nOK" },
-	{ .request = "AT+SENA=0", .response = "OK" },
-
-	/* IAC */
-	{ .request = "AT+IAC?", .response = "+IAC:9e8b33\r\nOK" },
-	{ .request = "AT+IAC=9e8b33", .response = "OK" },
-
-	/* CLASS */
-	{ .request = "AT+CLASS?", .response = "+CLASS:1f00\r\nOK" },
-	{ .request = "AT+CLASS=1f00", .response = "OK" },
-
-	/* IACM */
-	{ .request = "AT+IACM?", .response = "+IACM:1\r\nOK" },
-	{ .request = "AT+IACM=1", .response = "OK" },
-
-	/* PNM - Pair Name */
-	{ .request = "AT+PNM?", .response = "+PNM:1\r\nOK" },
-	{ .request = "AT+PNM=1", .response = "OK" },
-
-	/* TIAM - Timer Inquiry Access Mode */
-	{ .request = "AT+TIAM?", .response = "+TIAM:0\r\nOK" },
-	{ .request = "AT+TIAM=0", .response = "OK" },
-
-	/* PIO - PIO Status */
-	{ .request = "AT+PIO?", .response = "+PIO:0\r\nOK" },
-
-	/* MPIO - Multi PIO */
-	{ .request = "AT+MPIO?", .response = "+MPIO:0\r\nOK" },
-
-	/* MPSWITCH */
-	{ .request = "AT+MPSWITCH?", .response = "+MPSWITCH:0\r\nOK" },
-
-	/* UARTMODE */
-	{ .request = "AT+UARTMODE?", .response = "+UARTMODE:0\r\nOK" },
-	{ .request = "AT+UARTMODE=0", .response = "OK" },
-
-	/* ENAPWD - Enable Password */
-	{ .request = "AT+ENAPWD?", .response = "+ENAPWD:0\r\nOK" },
-	{ .request = "AT+ENAPWD=0", .response = "OK" },
-
-	/* DEFAULT */
-	{ .request = NULL, .response = NULL }
-};
+	if (strncmp(request, "AT", 2) != 0) {
+		strcpy(response, "ERROR");
+	} else if (strcmp(request, "AT") == 0) {
+		/* AT - Test */
+		strcpy(response, "OK");
+	} else if (strcmp(request, "AT+RESET") == 0) {
+		/* AT+RESET - Reset */
+		strcpy(response, "OK");
+	} else if (strcmp(request, "AT+ORGL") == 0) {
+		/* AT+ORGL - Restore Factory */
+		strcpy(device->name, "HC-05-Default");
+		strcpy(device->password, "1234");
+		device->baudrate = 9600;
+		device->role = 0;
+		device->cmode = 1;
+		strcpy(response, "OK");
+	} else if (strcmp(request, "AT+VERSION?") == 0) {
+		/* AT+VERSION? */
+		snprintf(response, 256, "+VERSION:%s\r\nOK", device->version);
+	} else if (strcmp(request, "AT+NAME?") == 0) {
+		/* AT+NAME? */
+		snprintf(response, 256, "+NAME:%s\r\nOK", device->name);
+	} else if (strncmp(request, "AT+NAME=", 8) == 0) {
+		/* AT+NAME= */
+		strncpy(device->name, request + 8, sizeof(device->name) - 1);
+		device->name[sizeof(device->name) - 1] = '\0';
+		strcpy(response, "OK");
+	} else if (strcmp(request, "AT+PSWD?") == 0) {
+		/* AT+PSWD? */
+		snprintf(response, 256, "+PSWD:%s\r\nOK", device->password);
+	} else if (strncmp(request, "AT+PSWD=", 8) == 0) {
+		/* AT+PSWD= */
+		strncpy(device->password, request + 8, sizeof(device->password) - 1);
+		device->password[sizeof(device->password) - 1] = '\0';
+		strcpy(response, "OK");
+	} else if (strcmp(request, "AT+UART?") == 0) {
+		/* AT+UART? */
+		snprintf(response, 256, "+UART:%d,%d,%d\r\nOK",
+			device->baudrate, device->stopbit, device->parity);
+	} else if (strncmp(request, "AT+UART=", 8) == 0) {
+		/* AT+UART= */
+		sscanf(request + 8, "%d,%d,%d", &device->baudrate,
+			&device->stopbit, &device->parity);
+		strcpy(response, "OK");
+	} else if (strcmp(request, "AT+ROLE?") == 0) {
+		/* AT+ROLE? */
+		snprintf(response, 256, "+ROLE:%d\r\nOK", device->role);
+	} else if (strncmp(request, "AT+ROLE=", 8) == 0) {
+		/* AT+ROLE= */
+		sscanf(request + 8, "%d", &device->role);
+		strcpy(response, "OK");
+	} else if (strcmp(request, "AT+CMODE?") == 0) {
+		/* AT+CMODE? */
+		snprintf(response, 256, "+CMODE:%d\r\nOK", device->cmode);
+	} else if (strncmp(request, "AT+CMODE=", 9) == 0) {
+		/* AT+CMODE= */
+		sscanf(request + 9, "%d", &device->cmode);
+		strcpy(response, "OK");
+	} else if (strcmp(request, "AT+ADDR?") == 0) {
+		/* AT+ADDR? */
+		snprintf(response, 256, "+ADDR:%s\r\nOK", device->addr);
+	} else if (strcmp(request, "AT+BIND?") == 0) {
+		/* AT+BIND? */
+		snprintf(response, 256, "+BIND:%s\r\nOK", device->bind_addr);
+	} else if (strcmp(request, "AT+STATE?") == 0) {
+		/* AT+STATE? */
+		const char *state_str[] = {"INITIALIZED", "CONNECTED", "DISCONNECTED"};
+		snprintf(response, 256, "+STATE:%s\r\nOK",
+			(device->state >= 0 && device->state <= 2) ?
+			state_str[device->state] : "UNKNOWN");
+	} else if (strcmp(request, "AT+ADCN?") == 0) {
+		/* AT+ADCN? */
+		snprintf(response, 256, "+ADCN:%d\r\nOK", device->paired_count);
+	} else if (strcmp(request, "AT+PIO?") == 0) {
+		/* AT+PIO? */
+		snprintf(response, 256, "+PIO:%d\r\nOK", device->pio);
+	} else if (strncmp(request, "AT+PIO=", 8) == 0) {
+		/* AT+PIO= */
+		sscanf(request + 8, "%d", &device->pio);
+		strcpy(response, "OK");
+	} else if (strcmp(request, "AT+MPIO?") == 0) {
+		/* AT+MPIO? */
+		snprintf(response, 256, "+MPIO:%d\r\nOK", device->mpio);
+	} else if (strncmp(request, "AT+MPIO=", 8) == 0) {
+		/* AT+MPIO= */
+		sscanf(request + 8, "%d", &device->mpio);
+		strcpy(response, "OK");
+	} else if (strcmp(request, "AT+IPSCAN?") == 0) {
+		/* AT+IPSCAN? */
+		strcpy(response, "+IPSCAN:1024,512,48,18\r\nOK");
+	} else if (strncmp(request, "AT+IPSCAN=", 9) == 0) {
+		/* AT+IPSCAN= */
+		strcpy(response, "OK");
+	} else if (strcmp(request, "AT+UARTMODE?") == 0) {
+		/* AT+UARTMODE? */
+		snprintf(response, 256, "+UARTMODE:%d\r\nOK", device->uartmode);
+	} else if (strncmp(request, "AT+UARTMODE=", 12) == 0) {
+		/* AT+UARTMODE= */
+		sscanf(request + 12, "%d", &device->uartmode);
+		strcpy(response, "OK");
+	} else if (strcmp(request, "AT+ENAPWD?") == 0) {
+		/* AT+ENAPWD? */
+		snprintf(response, 256, "+ENAPWD:%d\r\nOK", device->enapwd);
+	} else if (strncmp(request, "AT+ENAPWD=", 10) == 0) {
+		/* AT+ENAPWD= */
+		sscanf(request + 10, "%d", &device->enapwd);
+		strcpy(response, "OK");
+	} else if (strcmp(request, "AT+INQ") == 0) {
+		/* AT+INQ */
+		strcpy(response, "OK");
+	} else if (strcmp(request, "AT+INQC") == 0) {
+		/* AT+INQC */
+		strcpy(response, "OK");
+	} else if (strncmp(request, "AT+LINK=", 8) == 0) {
+		/* AT+LINK= */
+		device->state = 1; /* CONNECTED */
+		strcpy(response, "OK");
+	} else if (strcmp(request, "AT+DISC") == 0) {
+		/* AT+DISC */
+		device->state = 2; /* DISCONNECTED */
+		strcpy(response, "OK");
+	} else if (strcmp(request, "AT+RMAAD") == 0) {
+		/* AT+RMAAD */
+		device->paired_count = 0;
+		strcpy(response, "OK");
+	} else if (strncmp(request, "AT+PAIR=", 8) == 0) {
+		/* AT+PAIR= */
+		device->paired_count++;
+		strcpy(response, "OK");
+	} else {
+		strcpy(response, "ERROR");
+	}
+}
 
 static int hc_05_detect_device(struct hc_05_device *device)
 {
@@ -155,7 +172,7 @@ static int hc_05_detect_device(struct hc_05_device *device)
 	}
 
 	if (strncmp(at_ack, "OK", 2) != 0) {
-		pr_err("HC-05 not responding correctly, received: %.*s", ret, at_ack);
+		pr_err("hc-05 not responding correctly, received: %.*s", ret, at_ack);
 		return -ENODEV;
 	}
 
@@ -974,33 +991,33 @@ int hc_05_quick_setup(struct hc_05_device *device, const char *name, const char 
 {
 	int ret;
 
-	pr_info("HC-05 Quick Setup - Name: %s, Password: %s, Baudrate: %d\n", name, password, baudrate);
+	pr_info("hc-05 quick setup - name: %s, password: %s, baudrate: %d\n", name, password, baudrate);
 
 	ret = hc_05_set_name(device, name);
 	if (ret) {
-		pr_err("Failed to set name: %s\n", name);
+		pr_err("failed to set name: %s\n", name);
 		return ret;
 	}
 
 	ret = hc_05_set_password(device, password);
 	if (ret) {
-		pr_err("Failed to set password: %s\n", password);
+		pr_err("failed to set password: %s\n", password);
 		return ret;
 	}
 
 	ret = hc_05_set_uart(device, baudrate, 0, 0);
 	if (ret) {
-		pr_err("Failed to set uart: %d\n", baudrate);
+		pr_err("failed to set uart: %d\n", baudrate);
 		return ret;
 	}
 
 	ret = hc_05_reset(device);
 	if (ret) {
-		pr_err("Failed to reset device\n");
+		pr_err("failed to reset device\n");
 		return ret;
 	}
 
-	pr_info("HC-05 Quick Setup completed successfully\n");
+	pr_info("hc-05 quick setup completed successfully\n");
 	return 0;
 }
 
@@ -1008,7 +1025,7 @@ int hc_05_setup_master(struct hc_05_device *device, const char *name, const char
 {
 	int ret;
 
-	pr_info("HC-05 Master Setup - Name: %s\n", name);
+	pr_info("hc-05 master setup - name: %s\n", name);
 
 	ret = hc_05_quick_setup(device, name, password, baudrate);
 	if (ret) {
@@ -1017,17 +1034,17 @@ int hc_05_setup_master(struct hc_05_device *device, const char *name, const char
 
 	ret = hc_05_set_role(device, 1);
 	if (ret) {
-		pr_err("Failed to set master role\n");
+		pr_err("failed to set master role\n");
 		return ret;
 	}
 
 	ret = hc_05_set_cmode(device, 0);
 	if (ret) {
-		pr_err("Failed to set connection mode\n");
+		pr_err("failed to set connection mode\n");
 		return ret;
 	}
 
-	pr_info("HC-05 Master Setup completed successfully\n");
+	pr_info("hc-05 master setup completed successfully\n");
 	return 0;
 }
 
@@ -1035,7 +1052,7 @@ int hc_05_setup_slave(struct hc_05_device *device, const char *name, const char 
 {
 	int ret;
 
-	pr_info("HC-05 Slave Setup - Name: %s\n", name);
+	pr_info("hc-05 slave setup - name: %s\n", name);
 
 	ret = hc_05_quick_setup(device, name, password, baudrate);
 	if (ret) {
@@ -1044,17 +1061,17 @@ int hc_05_setup_slave(struct hc_05_device *device, const char *name, const char 
 
 	ret = hc_05_set_role(device, 0);
 	if (ret) {
-		pr_err("Failed to set slave role\n");
+		pr_err("failed to set slave role\n");
 		return ret;
 	}
 
 	ret = hc_05_set_cmode(device, 1);
 	if (ret) {
-		pr_err("Failed to set connection mode\n");
+		pr_err("failed to set connection mode\n");
 		return ret;
 	}
 
-	pr_info("HC-05 Slave Setup completed successfully\n");
+	pr_info("hc-05 slave setup completed successfully\n");
 	return 0;
 }
 
@@ -1062,27 +1079,27 @@ int hc_05_auto_connect(struct hc_05_device *device, const char *target_addr, int
 {
 	int ret;
 
-	pr_info("HC-05 Auto Connect to: %s\n", target_addr);
+	pr_info("hc-05 auto connect to: %s\n", target_addr);
 
 	ret = hc_05_init_spp(device);
 	if (ret) {
-		pr_err("Failed to initialize SPP\n");
+		pr_err("failed to initialize spp\n");
 		return ret;
 	}
 
 	ret = hc_05_pair(device, target_addr, timeout);
 	if (ret) {
-		pr_err("Failed to pair with device: %s\n", target_addr);
+		pr_err("failed to pair with device: %s\n", target_addr);
 		return ret;
 	}
 
 	ret = hc_05_connect(device, target_addr);
 	if (ret) {
-		pr_err("Failed to connect to device: %s\n", target_addr);
+		pr_err("failed to connect to device: %s\n", target_addr);
 		return ret;
 	}
 
-	pr_info("HC-05 Connected to: %s successfully\n", target_addr);
+	pr_info("hc-05 connected to: %s successfully\n", target_addr);
 	return 0;
 }
 
@@ -1092,49 +1109,49 @@ int hc_05_scan_and_connect(struct hc_05_device *device, const char *target_name,
 	char scan_cmd[64];
 	int ret;
 
-	pr_info("HC-05 Scan and Connect - Target: %s, Max devices: %d\n", target_name, max_devices);
+	pr_info("hc-05 scan and connect - target: %s, max devices: %d\n", target_name, max_devices);
 
 	ret = hc_05_init_spp(device);
 	if (ret) {
-		pr_err("Failed to initialize SPP\n");
+		pr_err("failed to initialize spp\n");
 		return ret;
 	}
 
 	ret = hc_05_set_inqm(device, 0, max_devices, timeout);
 	if (ret) {
-		pr_err("Failed to set inquiry mode\n");
+		pr_err("failed to set inquiry mode\n");
 		return ret;
 	}
 
 	ret = hc_05_inquiry(device);
 	if (ret) {
-		pr_err("Failed to start inquiry\n");
+		pr_err("failed to start inquiry\n");
 		return ret;
 	}
 
 	ret = serial_port_get_data(device->serial, buffer, sizeof(buffer), (timeout + 2) * 1000);
 	if (ret < 0) {
-		pr_warn("No devices found or timeout\n");
+		pr_warn("no devices found or timeout\n");
 		return ret;
 	}
 
-	pr_info("Found devices:\n%.*s\n", ret, buffer);
+	pr_info("found devices:\n%.*s\n", ret, buffer);
 
 	snprintf(scan_cmd, sizeof(scan_cmd), "AT+RNAME?%s", target_name);
 	serial_port_transmit_bytes(device->serial, scan_cmd, strlen(scan_cmd));
 
 	ret = serial_port_get_data(device->serial, buffer, sizeof(buffer), 5000);
 	if (ret < 0) {
-		pr_err("Failed to get device name\n");
+		pr_err("failed to get device name\n");
 		return ret;
 	}
 
 	if (strstr(buffer, target_name) == NULL) {
-		pr_err("Target device not found\n");
+		pr_err("target device not found\n");
 		return -ENODEV;
 	}
 
-	pr_info("Target device found\n");
+	pr_info("target device found\n");
 	return 0;
 }
 
@@ -1142,11 +1159,11 @@ int hc_05_factory_reset_and_setup(struct hc_05_device *device, const char *name,
 {
 	int ret;
 
-	pr_info("HC-05 Factory Reset and Setup\n");
+	pr_info("hc-05 factory reset and setup\n");
 
 	ret = hc_05_restore_factory(device);
 	if (ret) {
-		pr_err("Failed to restore factory settings\n");
+		pr_err("failed to restore factory settings\n");
 		return ret;
 	}
 
@@ -1154,11 +1171,11 @@ int hc_05_factory_reset_and_setup(struct hc_05_device *device, const char *name,
 
 	ret = hc_05_quick_setup(device, name, password, baudrate);
 	if (ret) {
-		pr_err("Failed to setup after factory reset\n");
+		pr_err("failed to setup after factory reset\n");
 		return ret;
 	}
 
-	pr_info("HC-05 Factory Reset and Setup completed successfully\n");
+	pr_info("hc-05 factory reset and setup completed successfully\n");
 	return 0;
 }
 
@@ -1171,9 +1188,9 @@ int hc_05_get_device_info(struct hc_05_device *device, char *buffer, int size)
 	int mode;
 	int ret;
 
-	pr_info("Getting HC-05 device information\n");
+	pr_info("getting hc-05 device information\n");
 
-	ret = snprintf(buffer + pos, size - pos, "=== HC-05 Device Information ===\n");
+	ret = snprintf(buffer + pos, size - pos, "=== hc-05 device information ===\n");
 	pos += ret;
 
 	ret = hc_05_get_version(device, temp, sizeof(temp));
@@ -1232,7 +1249,7 @@ int hc_05_get_device_info(struct hc_05_device *device, char *buffer, int size)
 
 	snprintf(buffer + pos, size - pos, "================================\n");
 
-	pr_info("Device information retrieved\n");
+	pr_info("device information retrieved\n");
 	return pos;
 }
 
@@ -1243,85 +1260,85 @@ int hc_05_diagnostics(struct hc_05_device *device, char *buffer, int size)
 	int ret;
 	int role, pio, mpio;
 
-	pr_info("Running HC-05 diagnostics\n");
+	pr_info("running hc-05 diagnostics\n");
 
-	ret = snprintf(buffer + pos, size - pos, "=== HC-05 Diagnostics ===\n");
+	ret = snprintf(buffer + pos, size - pos, "=== hc-05 diagnostics ===\n");
 	pos += ret;
 
 	if (hc_05_test(device) == 0) {
-		ret = snprintf(buffer + pos, size - pos, "[OK] Device responds to AT command\n");
+		ret = snprintf(buffer + pos, size - pos, "[OK] device responds to at command\n");
 	} else {
-		ret = snprintf(buffer + pos, size - pos, "[FAIL] Device does not respond\n");
+		ret = snprintf(buffer + pos, size - pos, "[FAIL] device does not respond\n");
 	}
 	pos += ret;
 
 	ret = hc_05_get_version(device, temp, sizeof(temp));
 	if (ret >= 0) {
-		ret = snprintf(buffer + pos, size - pos, "[OK] Version: %.*s\n", ret, temp);
+		ret = snprintf(buffer + pos, size - pos, "[OK] version: %.*s\n", ret, temp);
 	} else {
-		ret = snprintf(buffer + pos, size - pos, "[FAIL] Cannot read version\n");
+		ret = snprintf(buffer + pos, size - pos, "[FAIL] cannot read version\n");
 	}
 	pos += ret;
 
 	ret = hc_05_get_state(device, temp, sizeof(temp));
 	if (ret >= 0) {
-		ret = snprintf(buffer + pos, size - pos, "[OK] State: %.*s\n", ret, temp);
+		ret = snprintf(buffer + pos, size - pos, "[OK] state: %.*s\n", ret, temp);
 	} else {
-		ret = snprintf(buffer + pos, size - pos, "[FAIL] Cannot read state\n");
+		ret = snprintf(buffer + pos, size - pos, "[FAIL] cannot read state\n");
 	}
 	pos += ret;
 
 	ret = hc_05_get_role(device, &role);
 	if (ret == 0) {
-		ret = snprintf(buffer + pos, size - pos, "[OK] Role: %d\n", role);
+		ret = snprintf(buffer + pos, size - pos, "[OK] role: %d\n", role);
 	} else {
-		ret = snprintf(buffer + pos, size - pos, "[FAIL] Cannot read role\n");
+		ret = snprintf(buffer + pos, size - pos, "[FAIL] cannot read role\n");
 	}
 	pos += ret;
 
 	ret = hc_05_get_pio(device, &pio);
 	if (ret == 0) {
-		ret = snprintf(buffer + pos, size - pos, "[OK] PIO: %d\n", pio);
+		ret = snprintf(buffer + pos, size - pos, "[OK] pio: %d\n", pio);
 	} else {
-		ret = snprintf(buffer + pos, size - pos, "[FAIL] Cannot read PIO\n");
+		ret = snprintf(buffer + pos, size - pos, "[FAIL] cannot read pio\n");
 	}
 	pos += ret;
 
 	ret = hc_05_get_mpio(device, &mpio);
 	if (ret == 0) {
-		ret = snprintf(buffer + pos, size - pos, "[OK] MPIO: %d\n", mpio);
+		ret = snprintf(buffer + pos, size - pos, "[OK] mpio: %d\n", mpio);
 	} else {
-		ret = snprintf(buffer + pos, size - pos, "[FAIL] Cannot read MPIO\n");
+		ret = snprintf(buffer + pos, size - pos, "[FAIL] cannot read mpio\n");
 	}
 	pos += ret;
 
 	ret = hc_05_get_addr(device, temp, sizeof(temp));
 	if (ret >= 0) {
-		ret = snprintf(buffer + pos, size - pos, "[OK] Address: %.*s\n", ret, temp);
+		ret = snprintf(buffer + pos, size - pos, "[OK] address: %.*s\n", ret, temp);
 	} else {
-		ret = snprintf(buffer + pos, size - pos, "[FAIL] Cannot read address\n");
+		ret = snprintf(buffer + pos, size - pos, "[FAIL] cannot read address\n");
 	}
 	pos += ret;
 
 	ret = hc_05_get_uart(device, temp, sizeof(temp));
 	if (ret >= 0) {
-		ret = snprintf(buffer + pos, size - pos, "[OK] UART: %.*s\n", ret, temp);
+		ret = snprintf(buffer + pos, size - pos, "[OK] uart: %.*s\n", ret, temp);
 	} else {
-		ret = snprintf(buffer + pos, size - pos, "[FAIL] Cannot read UART config\n");
+		ret = snprintf(buffer + pos, size - pos, "[FAIL] cannot read uart config\n");
 	}
 	pos += ret;
 
 	ret = hc_05_get_bind(device, temp, sizeof(temp));
 	if (ret >= 0) {
-		ret = snprintf(buffer + pos, size - pos, "[OK] Bind address: %.*s\n", ret, temp);
+		ret = snprintf(buffer + pos, size - pos, "[OK] bind address: %.*s\n", ret, temp);
 	} else {
-		ret = snprintf(buffer + pos, size - pos, "[WARN] Cannot read bind address\n");
+		ret = snprintf(buffer + pos, size - pos, "[WARN] cannot read bind address\n");
 	}
 	pos += ret;
 
 	snprintf(buffer + pos, size - pos, "=========================\n");
 
-	pr_info("Diagnostics completed\n");
+	pr_info("diagnostics completed\n");
 	return pos;
 }
 
@@ -1515,7 +1532,6 @@ int hc_05_clear_buffers(struct hc_05_device *device)
 struct hc_05_device *hc_05_alloc()
 {
 	struct hc_05_device *device;
-	char at_ack[SERIAL_PORT_BUFFER_SIZE];
 	int ret;
 
 	device = kzalloc(sizeof(struct hc_05_device), GFP_KERNEL);
@@ -1523,22 +1539,56 @@ struct hc_05_device *hc_05_alloc()
 		return ERR_PTR(-ENOMEM);
 	}
 
-	device->serial = serial_port_alloc(hc_05_at_commands);
+	strcpy(device->name, "HC-05-Default");
+	strcpy(device->password, "1234");
+	device->baudrate = 9600;
+	device->stopbit = 0;
+	device->parity = 0;
+	device->role = 0;
+	device->cmode = 1;
+	strcpy(device->addr, "98d3:32:70a0b8");
+	strcpy(device->bind_addr, "98d3:32:70a0b8");
+	strcpy(device->version, "2.0-20100601");
+	device->state = 0;
+	device->paired_count = 0;
+	device->pio = 0;
+	device->mpio = 0;
+	device->uartmode = 0;
+	device->enapwd = 0;
+	device->initialized = true;
 
-	serial_port_transmit_bytes(device->serial, "AT", strlen("AT"));
-
-	ret = hc_05_detect_device(device);
-	if (ret) {
+	device->serial = serial_port_alloc(hc_05_parse_command, device);
+	if (IS_ERR(device->serial)) {
+		ret = PTR_ERR(device->serial);
+		kfree(device);
 		return ERR_PTR(ret);
 	}
 
+	ret = hc_05_detect_device(device);
+	if (ret) {
+		serial_port_free(device->serial);
+		kfree(device);
+		return ERR_PTR(ret);
+	}
+
+	pr_info("hc-05 device allocated and initialized\n");
 	return device;
 }
 
 void hc_05_exit(struct hc_05_device *device)
 {
-	serial_port_free(device->serial);
+	if (device == NULL) {
+		pr_warn("device pointer is null in hc_05_exit\n");
+		return;
+	}
+
+	if (device->serial != NULL) {
+		serial_port_free(device->serial);
+		device->serial = NULL;
+	}
+
 	kfree(device);
+	pr_info("hc-05 device freed\n");
 }
 
 // void hc_05_test_cmd(void)
@@ -1572,38 +1622,38 @@ int t_hc_05_test_cmd(int argc, char **argv)
 	struct hc_05_device *device;
 	int ret;
 
-	pr_info("=== HC-05 AT Command Test ===\n");
+	pr_info("=== hc-05 at command test ===\n");
 
 	device = hc_05_alloc();
 	if (device == NULL) {
-		pr_err("Failed to allocate HC-05 device\n");
+		pr_err("failed to allocate hc-05 device\n");
 		return FAIL;
 	}
 
 	ret = hc_05_test(device);
 	if (ret) {
-		pr_err("AT test failed\n");
+		pr_err("at test failed\n");
 		hc_05_exit(device);
 		return FAIL;
 	}
 
 	ret = hc_05_get_version(device, (char *)argv[1], 32);
 	if (ret < 0) {
-		pr_err("Get version failed\n");
+		pr_err("get version failed\n");
 		hc_05_exit(device);
 		return FAIL;
 	}
 
 	ret = hc_05_reset(device);
 	if (ret) {
-		pr_err("Reset failed\n");
+		pr_err("reset failed\n");
 		hc_05_exit(device);
 		return FAIL;
 	}
 
 	hc_05_exit(device);
 
-	pr_info("=== HC-05 AT Command Test PASSED ===\n");
+	pr_info("=== hc-05 at command test passed ===\n");
 	return PASS;
 }
 
@@ -1612,24 +1662,24 @@ int t_hc_05_setup(int argc, char **argv)
 	struct hc_05_device *device;
 	int ret;
 
-	pr_info("=== HC-05 Setup Test ===\n");
+	pr_info("=== hc-05 setup test ===\n");
 
 	device = hc_05_alloc();
 	if (device == NULL) {
-		pr_err("Failed to allocate HC-05 device\n");
+		pr_err("failed to allocate hc-05 device\n");
 		return FAIL;
 	}
 
 	ret = hc_05_quick_setup(device, "TestDevice", "1234", 9600);
 	if (ret) {
-		pr_err("Quick setup failed\n");
+		pr_err("quick setup failed\n");
 		hc_05_exit(device);
 		return FAIL;
 	}
 
 	hc_05_exit(device);
 
-	pr_info("=== HC-05 Setup Test PASSED ===\n");
+	pr_info("=== hc-05 setup test passed ===\n");
 	return PASS;
 }
 
@@ -1638,24 +1688,24 @@ int t_hc_05_slave_mode(int argc, char **argv)
 	struct hc_05_device *device;
 	int ret;
 
-	pr_info("=== HC-05 Slave Mode Test ===\n");
+	pr_info("=== hc-05 slave mode test ===\n");
 
 	device = hc_05_alloc();
 	if (device == NULL) {
-		pr_err("Failed to allocate HC-05 device\n");
+		pr_err("failed to allocate hc-05 device\n");
 		return FAIL;
 	}
 
 	ret = hc_05_setup_slave(device, "HC05-Slave", "1234", 115200);
 	if (ret) {
-		pr_err("Slave setup failed\n");
+		pr_err("slave setup failed\n");
 		hc_05_exit(device);
 		return FAIL;
 	}
 
 	hc_05_exit(device);
 
-	pr_info("=== HC-05 Slave Mode Test PASSED ===\n");
+	pr_info("=== hc-05 slave mode test passed ===\n");
 	return PASS;
 }
 
@@ -1664,24 +1714,24 @@ int t_hc_05_master_mode(int argc, char **argv)
 	struct hc_05_device *device;
 	int ret;
 
-	pr_info("=== HC-05 Master Mode Test ===\n");
+	pr_info("=== hc-05 master mode test ===\n");
 
 	device = hc_05_alloc();
 	if (device == NULL) {
-		pr_err("Failed to allocate HC-05 device\n");
+		pr_err("failed to allocate hc-05 device\n");
 		return FAIL;
 	}
 
 	ret = hc_05_setup_master(device, "HC05-Master", "1234", 115200);
 	if (ret) {
-		pr_err("Master setup failed\n");
+		pr_err("master setup failed\n");
 		hc_05_exit(device);
 		return FAIL;
 	}
 
 	hc_05_exit(device);
 
-	pr_info("=== HC-05 Master Mode Test PASSED ===\n");
+	pr_info("=== hc-05 master mode test passed ===\n");
 	return PASS;
 }
 
@@ -1693,17 +1743,17 @@ int t_hc_05_data_transfer(int argc, char **argv)
 	int ret;
 	int i;
 
-	pr_info("=== HC-05 Data Transfer Test ===\n");
+	pr_info("=== hc-05 data transfer test ===\n");
 
 	device = hc_05_alloc();
 	if (device == NULL) {
-		pr_err("Failed to allocate HC-05 device\n");
+		pr_err("failed to allocate hc-05 device\n");
 		return FAIL;
 	}
 
 	ret = hc_05_quick_setup(device, "DataTest", "1234", 9600);
 	if (ret) {
-		pr_err("Setup failed\n");
+		pr_err("setup failed\n");
 		hc_05_exit(device);
 		return FAIL;
 	}
@@ -1714,21 +1764,21 @@ int t_hc_05_data_transfer(int argc, char **argv)
 
 	ret = hc_05_send_data(device, tx_data, 128, 64, 10);
 	if (ret < 0) {
-		pr_err("Send data failed\n");
+		pr_err("send data failed\n");
 		hc_05_exit(device);
 		return FAIL;
 	}
 
 	ret = hc_05_send_string(device, "Hello, HC-05!", 0, 0);
 	if (ret < 0) {
-		pr_err("Send string failed\n");
+		pr_err("send string failed\n");
 		hc_05_exit(device);
 		return FAIL;
 	}
 
 	hc_05_exit(device);
 
-	pr_info("=== HC-05 Data Transfer Test PASSED ===\n");
+	pr_info("=== hc-05 data transfer test passed ===\n");
 	return PASS;
 }
 
@@ -1738,33 +1788,33 @@ int t_hc_05_device_info(int argc, char **argv)
 	char info_buffer[512];
 	int ret;
 
-	pr_info("=== HC-05 Device Info Test ===\n");
+	pr_info("=== hc-05 device info test ===\n");
 
 	device = hc_05_alloc();
 	if (device == NULL) {
-		pr_err("Failed to allocate HC-05 device\n");
+		pr_err("failed to allocate hc-05 device\n");
 		return FAIL;
 	}
 
 	ret = hc_05_quick_setup(device, "InfoTest", "1234", 9600);
 	if (ret) {
-		pr_err("Setup failed\n");
+		pr_err("setup failed\n");
 		hc_05_exit(device);
 		return FAIL;
 	}
 
 	ret = hc_05_get_device_info(device, info_buffer, sizeof(info_buffer));
 	if (ret < 0) {
-		pr_err("Get device info failed\n");
+		pr_err("get device info failed\n");
 		hc_05_exit(device);
 		return FAIL;
 	}
 
-	pr_info("Device Info:\n%s\n", info_buffer);
+	pr_info("device info:\n%s\n", info_buffer);
 
 	hc_05_exit(device);
 
-	pr_info("=== HC-05 Device Info Test PASSED ===\n");
+	pr_info("=== hc-05 device info test passed ===\n");
 	return PASS;
 }
 
@@ -1774,26 +1824,26 @@ int t_hc_05_diagnostics(int argc, char **argv)
 	char diag_buffer[512];
 	int ret;
 
-	pr_info("=== HC-05 Diagnostics Test ===\n");
+	pr_info("=== hc-05 diagnostics test ===\n");
 
 	device = hc_05_alloc();
 	if (device == NULL) {
-		pr_err("Failed to allocate HC-05 device\n");
+		pr_err("failed to allocate hc-05 device\n");
 		return FAIL;
 	}
 
 	ret = hc_05_diagnostics(device, diag_buffer, sizeof(diag_buffer));
 	if (ret < 0) {
-		pr_err("Diagnostics failed\n");
+		pr_err("diagnostics failed\n");
 		hc_05_exit(device);
 		return FAIL;
 	}
 
-	pr_info("Diagnostics:\n%s\n", diag_buffer);
+	pr_info("diagnostics:\n%s\n", diag_buffer);
 
 	hc_05_exit(device);
 
-	pr_info("=== HC-05 Diagnostics Test PASSED ===\n");
+	pr_info("=== hc-05 diagnostics test passed ===\n");
 	return PASS;
 }
 
@@ -1802,24 +1852,24 @@ int t_hc_05_factory_reset(int argc, char **argv)
 	struct hc_05_device *device;
 	int ret;
 
-	pr_info("=== HC-05 Factory Reset Test ===\n");
+	pr_info("=== hc-05 factory reset test ===\n");
 
 	device = hc_05_alloc();
 	if (device == NULL) {
-		pr_err("Failed to allocate HC-05 device\n");
+		pr_err("failed to allocate hc-05 device\n");
 		return FAIL;
 	}
 
 	ret = hc_05_factory_reset_and_setup(device, "NewDevice", "5678", 9600);
 	if (ret) {
-		pr_err("Factory reset and setup failed\n");
+		pr_err("factory reset and setup failed\n");
 		hc_05_exit(device);
 		return FAIL;
 	}
 
 	hc_05_exit(device);
 
-	pr_info("=== HC-05 Factory Reset Test PASSED ===\n");
+	pr_info("=== hc-05 factory reset test passed ===\n");
 	return PASS;
 }
 
@@ -1829,64 +1879,64 @@ int t_hc_05_full_test(int argc, char **argv)
 	char buffer[512];
 	int ret;
 
-	pr_info("=== HC-05 Full Test ===\n");
+	pr_info("=== hc-05 full test ===\n");
 
 	device = hc_05_alloc();
 	if (device == NULL) {
-		pr_err("Failed to allocate HC-05 device\n");
+		pr_err("failed to allocate hc-05 device\n");
 		return FAIL;
 	}
 
-	pr_info("Test 1: Factory Reset and Setup\n");
+	pr_info("test 1: factory reset and setup\n");
 	ret = hc_05_factory_reset_and_setup(device, "FullTest", "1234", 115200);
 	if (ret) {
-		pr_err("Factory reset test failed\n");
+		pr_err("factory reset test failed\n");
 		goto fail;
 	}
 
-	pr_info("Test 2: Get Device Info\n");
+	pr_info("test 2: get device info\n");
 	ret = hc_05_get_device_info(device, buffer, sizeof(buffer));
 	if (ret < 0) {
-		pr_err("Get device info test failed\n");
+		pr_err("get device info test failed\n");
 		goto fail;
 	}
 
-	pr_info("Test 3: Run Diagnostics\n");
+	pr_info("test 3: run diagnostics\n");
 	ret = hc_05_diagnostics(device, buffer, sizeof(buffer));
 	if (ret < 0) {
-		pr_err("Diagnostics test failed\n");
+		pr_err("diagnostics test failed\n");
 		goto fail;
 	}
 
-	pr_info("Test 4: Slave Mode Setup\n");
+	pr_info("test 4: slave mode setup\n");
 	ret = hc_05_setup_slave(device, "SlaveTest", "1234", 9600);
 	if (ret) {
-		pr_err("Slave mode test failed\n");
+		pr_err("slave mode test failed\n");
 		goto fail;
 	}
 
-	pr_info("Test 5: Master Mode Setup\n");
+	pr_info("test 5: master mode setup\n");
 	ret = hc_05_setup_master(device, "MasterTest", "1234", 9600);
 	if (ret) {
-		pr_err("Master mode test failed\n");
+		pr_err("master mode test failed\n");
 		goto fail;
 	}
 
-	pr_info("Test 6: Reset Device\n");
+	pr_info("test 6: reset device\n");
 	ret = hc_05_reset(device);
 	if (ret) {
-		pr_err("Reset test failed\n");
+		pr_err("reset test failed\n");
 		goto fail;
 	}
 
 	hc_05_exit(device);
 
-	pr_info("=== HC-05 Full Test PASSED ===\n");
+	pr_info("=== hc-05 full test passed ===\n");
 	return PASS;
 
 fail:
 	hc_05_exit(device);
-	pr_info("=== HC-05 Full Test FAILED ===\n");
+	pr_info("=== hc-05 full test failed ===\n");
 	return FAIL;
 }
 

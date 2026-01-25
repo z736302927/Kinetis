@@ -14,6 +14,8 @@
 
 #include <unistd.h>
 
+#define pr_fmt(fmt) "serial-port: " fmt
+
 #define CONFIG_SERIAL_PORT_RING_BUFFER	1
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
@@ -33,66 +35,20 @@
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-static const struct virtual_at_command fake_at_commands[] = {
-	{
-		.request = "AT",
-		.response = "OK",
-	},
-	{
-		.request = "AT+VERSION?",
-		.response = "HC-05 V2.0-20100601",
-	},
-	{
-		.request = "AT+NAME?",
-		.response = "MyBluetoothDevice",
-	},
-	{
-		.request = "AT+BAUD?",
-		.response = "115200",
-	}
-};
-
-const struct virtual_at_command *serial_port_find_at_cmd(struct virtual_at_command *array, const char *request)
-{
-	int i;
-
-	if (request == NULL) {
-		return NULL;
-	}
-
-	for (i = 0; array[i].request != NULL; i++) {
-		if (strcmp(array[i].request, request) == 0) {
-			return &array[i];
-		}
-	}
-
-	return NULL;
-}
-
 void *serial_port_monitor(void *para)
 {
 	struct serial_port *serial = (struct serial_port *)para;
-	struct virtual_at_command *at_cmd;
-	char error_response[] = "ERROR";
+	char response[SERIAL_PORT_BUFFER_SIZE];
+	int i, index;
 
 	while (serial->thread_switch) {
 		if (serial->tx_buffer[0] != '\0') {
 			pr_info("AT CMD: %s", serial->tx_buffer);
-			at_cmd = serial_port_find_at_cmd(serial->at_cmd_set, serial->tx_buffer);
-			if (at_cmd != NULL)	{
-				if (get_random_int() % 10 < 2) {
-					for (int i = 0; i < strlen(error_response); i++) {
-						serial->rx_buffer[serial->producer] = error_response[i];
-						serial->producer = (serial->producer + 1) % SERIAL_PORT_BUFFER_SIZE;
-					}
-				} else {
-					for (int i = 0; i < strlen(at_cmd->response); i++) {
-						serial->rx_buffer[serial->producer] = at_cmd->response[i];
-						serial->producer = (serial->producer + 1) % SERIAL_PORT_BUFFER_SIZE;
-					}
-				}
-			} else {
-				pr_err("Unknown AT command: %s\n", serial->tx_buffer);
+			serial->sim_callback(serial->tx_buffer, response, serial->private);
+			index = serial->producer;
+			for (i = 0; i < strlen(response); i++) {
+				serial->rx_buffer[index] = response[i];
+				index = (index + 1) % SERIAL_PORT_BUFFER_SIZE;
 			}
 			memset(serial->tx_buffer, 0, serial->transmited_size);
 		}
@@ -103,7 +59,8 @@ void *serial_port_monitor(void *para)
 	return NULL;
 }
 
-struct serial_port *serial_port_alloc(struct virtual_at_command *cmd)
+struct serial_port *serial_port_alloc(void (*sim_callback)(char *request, char *response, void *context),
+	void *private)
 {
 	struct serial_port *serial;
 
@@ -114,8 +71,9 @@ struct serial_port *serial_port_alloc(struct virtual_at_command *cmd)
 
 	serial->rx_complete = false;
 
-	if (cmd != NULL) {
-		serial->at_cmd_set = cmd;
+	if (sim_callback != NULL) {
+		serial->sim_callback = sim_callback;
+		serial->private = private;
 		serial->thread_switch = 1;
 		pthread_create(&serial->thread, NULL, serial_port_monitor, serial);
 	}
@@ -125,7 +83,7 @@ struct serial_port *serial_port_alloc(struct virtual_at_command *cmd)
 
 void serial_port_free(struct serial_port *serial)
 {
-	if (serial->at_cmd_set && serial->thread) {
+	if (serial->sim_callback && serial->thread) {
 		serial->thread_switch = 0;
 		pthread_join(serial->thread, NULL);
 		serial->thread = 0;
@@ -219,13 +177,66 @@ int serial_port_transmit_bytes(struct serial_port *serial, const u8 *data, u16 s
 #ifdef DESIGN_VERIFICATION_SEIRALPORT
 #include "kinetis/test-kinetis.h"
 
+static const struct virtual_at_command fake_at_commands[] = {
+	{
+		.request = "AT",
+		.response = "OK",
+	},
+	{
+		.request = "AT+VERSION?",
+		.response = "HC-05 V2.0-20100601",
+	},
+	{
+		.request = "AT+NAME?",
+		.response = "MyBluetoothDevice",
+	},
+	{
+		.request = "AT+BAUD?",
+		.response = "115200",
+	}
+};
+
+void serial_port_callback(char *request, char *response, void *context)
+{
+	struct virtual_at_command *array = context;
+	struct virtual_at_command *at_cmd;
+	const char error_response[] = "ERROR";
+	int i;
+
+	at_cmd = NULL;
+	for (i = 0; array[i].request != NULL; i++) {
+		if (strcmp(array[i].request, request) == 0) {
+			at_cmd = &array[i];
+			break;
+		}
+	}
+
+	if (at_cmd != NULL)	{
+		if (get_random_int() % 10 < 2) {
+			for (i = 0; i < strlen(error_response); i++) {
+				response[i] = error_response[i];
+			}
+		} else {
+			for (i = 0; i < strlen(at_cmd->response); i++) {
+				response[i] = at_cmd->response[i];
+			}
+		}
+	} else {
+		pr_err("Unknown AT command: %s\n", request);
+		for (i = 0; i < strlen(error_response); i++) {
+			response[i] = error_response[i];
+		}
+	}
+	response[i] = '\0';
+}
+
 int t_serial_port_interactive(int argc, char **argv)
 {
 	struct serial_port *serial;
 	char at_ack[SERIAL_PORT_BUFFER_SIZE];
 	int ret;
 
-	serial = serial_port_alloc(fake_at_commands);
+	serial = serial_port_alloc(serial_port_callback, fake_at_commands);
 
 	for (int i = 0; i < ARRAY_SIZE(fake_at_commands); i++) {
 		serial_port_transmit_bytes(serial, fake_at_commands[i].request, strlen(fake_at_commands[i].request));

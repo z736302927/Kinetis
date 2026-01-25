@@ -15,6 +15,23 @@ extern "C" {
 
 struct hc_05_device {
 	struct serial_port *serial;
+	char name[32];
+	char password[32];
+	int baudrate;
+	int stopbit;
+	int parity;
+	int role;
+	int cmode;
+	char addr[32];
+	char bind_addr[32];
+	char version[32];
+	int state;
+	int paired_count;
+	int pio;
+	int mpio;
+	int uartmode;
+	int enapwd;
+	bool initialized;
 };
 
 /* Device Management */

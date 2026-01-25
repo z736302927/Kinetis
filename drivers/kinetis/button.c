@@ -174,17 +174,18 @@ static void button_handler(struct button *button)
 			bitmap_clear(button->button_level, 0, 1);
 		}
 
+		for (i = 0; i < DEBOUNCE_CNT; i++) {
+			bitmap_str[i] = test_bit(i, button->button_level) ? '1' : '0';
+		}
+		bitmap_str[DEBOUNCE_CNT] = '\0';
+		pr_debug("button_handler: button %u button_level %s\n",
+			button->unique_id, bitmap_str);
+
 		if (bitmap_equal(target_level, button->button_level, DEBOUNCE_CNT)) {
 			bitmap_clear(button->button_level, 0, DEBOUNCE_CNT);
 			button->valid_ticks = basic_timer_get_ms();
 			button->state = PRESS_DOWN;
 		}
-		for (i = 0; i < DEBOUNCE_CNT; i++) {
-			bitmap_str[i] = test_bit(i, button->button_level) ? '1' : '0';
-		}
-		bitmap_str[DEBOUNCE_CNT] = '\0';
-		pr_debug("button_handler: Button %u button_level %s, time %llu\n",
-			button->unique_id, bitmap_str, button->valid_ticks);
 		break;
 
 	case PRESS_DOWN:
@@ -210,16 +211,20 @@ static void button_handler(struct button *button)
 			bitmap_clear(button->button_level, 0, 1);
 		}
 
-		if (bitmap_equal(target_level, button->button_level, DEBOUNCE_CNT)) {
-			bitmap_clear(button->button_level, 0, DEBOUNCE_CNT);
-			button->state = PRESS_UP;
-		}
 		for (i = 0; i < DEBOUNCE_CNT; i++) {
 			bitmap_str[i] = test_bit(i, button->button_level) ? '1' : '0';
 		}
 		bitmap_str[DEBOUNCE_CNT] = '\0';
-		pr_debug("button_handler: Button %u button_level %s, time %llu\n",
-			button->unique_id, bitmap_str, button->valid_ticks);
+		pr_debug("button_handler: button %u button_level %s\n",
+			button->unique_id, bitmap_str);
+
+		if (bitmap_equal(target_level, button->button_level, DEBOUNCE_CNT)) {
+			bitmap_clear(button->button_level, 0, DEBOUNCE_CNT);
+			button->valid_ticks = basic_timer_get_ms() - button->valid_ticks;
+			pr_debug("button_handler: button %u effective pressing time %llu\n",
+				button->unique_id, button->valid_ticks);
+			button->state = PRESS_UP;
+		}
 		break;
 
 	case PRESS_UP:
@@ -249,7 +254,7 @@ static void button_handler(struct button *button)
 
 	if (button->state != old_state) {
 		// Debug: log state transitions
-		pr_debug("button_handler, Button %u state %s\n",
+		pr_debug("button_handler, button %u state %s\n",
 			button->unique_id, button_state_to_string((enum button_state_machine)button->state));
 	}
 }
@@ -283,7 +288,7 @@ void button_polling(void)
 #endif
 
 #ifdef KINETIS_FAKE_SIM
-/* Button simulation state for fake mode */
+/* button simulation state for fake mode */
 struct button_sim_state {
 	u32 unique_id;
 	u64 press_time;    /* When button was pressed */
@@ -330,7 +335,7 @@ static u8 button_sim_read_with_debounce(struct button_sim_state *sim)
 			if (sim->next_event != NONE_PRESS) {
 				sim->click_count = 0;
 				sim->next_state = PRESS_FIRST_EDGE;
-				pr_debug("button_sim, Button %u event->%s\n",
+				pr_debug("button_sim, button %u event->%s\n",
 					sim->unique_id,
 					button_event_to_string(sim->next_event));
 			}
@@ -418,7 +423,7 @@ static u8 button_sim_read_with_debounce(struct button_sim_state *sim)
 	}
 
 	if (sim->next_state != old_state) {
-		pr_debug("button_sim, Button %u state->%s",
+		pr_debug("button_sim, button %u state->%s",
 			sim->unique_id, button_state_to_string(sim->next_state));
 	}
 
@@ -469,22 +474,22 @@ static void button_test_callback(struct button *button)
 
 	switch (btn_event_val) {
 	case SINGLE_CLICK:
-		pr_debug("Button[%d] single click\n",
+		pr_debug("button[%d] single click\n",
 			button->unique_id);
 		break;
 
 	case DOUBLE_CLICK:
-		pr_debug("Button[%d] double click\n",
+		pr_debug("button[%d] double click\n",
 			button->unique_id);
 		break;
 
 	case LONG_PRESS:
-		pr_debug("Button[%d] long press\n",
+		pr_debug("button[%d] long press\n",
 			button->unique_id);
 		break;
 
 	case REPEAT_PRESS:
-		pr_debug("Button[%d] press repeat\n",
+		pr_debug("button[%d] press repeat\n",
 			button->unique_id);
 		break;
 	}
@@ -520,7 +525,7 @@ int t_button_add(int argc, char **argv)
 	// button_add(2, button_read_pin, 0, button_test_callback);
 	// button_add(3, button_read_pin, 0, button_test_callback);
 
-	pr_debug("Button test is running, please push the button.\n");
+	pr_debug("button test is running, please push the button.\n");
 
 	return PASS;
 }
@@ -531,7 +536,7 @@ int t_button_drop(int argc, char **argv)
 	// button_drop(2);
 	// button_drop(3);
 
-	pr_debug("Button test is over\n");
+	pr_debug("button test is over\n");
 
 	return PASS;
 }

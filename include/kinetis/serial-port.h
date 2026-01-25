@@ -37,13 +37,15 @@ struct serial_port {
 
 	int (*transmit_bytes)(const u8 *data, u16 size);
 
-	pthread_t thread;
-	u8 thread_switch;
+	void (*sim_callback)(char *request, char *response, void *context);
+	void *private;
 
-	struct virtual_at_command *at_cmd_set;
+	u8 thread_switch;
+	pthread_t thread;
 };
 
-struct serial_port *serial_port_alloc(struct virtual_at_command *cmd);
+struct serial_port *serial_port_alloc(void (*sim_callback)(char *request, char *response, void *context),
+	void *private);
 void serial_port_free(struct serial_port *serial);
 int serial_port_get_data(struct serial_port *serial_port, char *buffer, int size, u32 timeout_ms);
 int serial_port_transmit_bytes(struct serial_port *serial, const u8 *data, u16 size);
