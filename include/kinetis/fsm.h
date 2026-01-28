@@ -60,7 +60,7 @@ enum CCondition {
 
 void fsm_init(void);
 fsm_state fsm_step(struct state_machine *machine, struct sm_var *sm_var,
-	struct transition **table);
+	struct transition *table[FSM_CONDITIONS]);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

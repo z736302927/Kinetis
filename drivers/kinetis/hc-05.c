@@ -157,6 +157,9 @@ static void hc_05_parse_command(char *request, char *response, void *context)
 	} else {
 		strcpy(response, "ERROR");
 	}
+
+	pr_info("request: %s", request);
+	pr_info("response: %s", response);
 }
 
 static int hc_05_detect_device(struct hc_05_device *device)

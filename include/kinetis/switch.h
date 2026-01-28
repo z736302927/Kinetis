@@ -22,7 +22,7 @@ enum switch_event {
     NONE_SWITCH
 };
 
-struct _switch {
+struct switch_device {
     u32 unique_id;
     u8  event : 4;
     u8  state : 3;

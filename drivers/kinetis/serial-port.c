@@ -43,7 +43,6 @@ void *serial_port_monitor(void *para)
 
 	while (serial->thread_switch) {
 		if (serial->tx_buffer[0] != '\0') {
-			pr_info("AT CMD: %s", serial->tx_buffer);
 			serial->sim_callback(serial->tx_buffer, response, serial->private);
 			index = serial->producer;
 			for (i = 0; i < strlen(response); i++) {
