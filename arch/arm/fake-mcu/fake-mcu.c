@@ -24,6 +24,22 @@
 #include <unistd.h>
 #include <time.h>
 
+#ifdef _WIN32
+/* Windows API function declarations to avoid header conflicts */
+typedef struct {
+    long long QuadPart;
+} LARGE_INTEGER;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+int QueryPerformanceCounter(LARGE_INTEGER *lpPerformanceCount);
+int QueryPerformanceFrequency(LARGE_INTEGER *lpFrequency);
+#ifdef __cplusplus
+}
+#endif
+#endif
+
 #ifdef CONFIG_FAKE_LIB
 #include <fake-mcu/print.h>
 #endif
@@ -64,7 +80,18 @@ DEFINE_PER_CPU(struct pt_regs *, __irq_regs);
 
 unsigned long read_chip_timer(void)
 {
-	return 0;
+#ifdef _WIN32
+	LARGE_INTEGER frequency, counter;
+	QueryPerformanceFrequency(&frequency);
+	QueryPerformanceCounter(&counter);
+	/* Convert to microseconds (1 second = 1000000 microseconds) */
+	return (unsigned long)((counter.QuadPart * 1000000ULL) / frequency.QuadPart);
+#else
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	/* Convert to microseconds (1 second = 1000000 microseconds) */
+	return (unsigned long)(ts.tv_sec * 1000000ULL + ts.tv_nsec / 1000);
+#endif
 }
 struct delay_timer fake_delay_timer = {
 	.freq = 1000000,
@@ -222,9 +249,31 @@ void *pthread_rtc_time_update(void *para)
 
 void *pthread_xtime_update(void *para)
 {
+	unsigned long last_time;
+	unsigned long current_time, target_time;
+	unsigned long elapsed_ticks;
+	unsigned long tick_interval = USEC_PER_SEC / HZ;
+	unsigned long sleep_time = tick_interval * 80 / 100;
+
 	while (1) {
-		usleep(USEC_PER_SEC / HZ);
-		xtime_update(1);
+		last_time = read_chip_timer();
+
+// 		/* Sleep for 80% of tick interval to save CPU */
+// 		if (sleep_time > 0) {
+// 			usleep(sleep_time);
+// 		}
+
+		/* Use high-precision timer for accurate timing */
+		target_time = last_time + tick_interval;
+		do {
+			current_time = read_chip_timer();
+		} while (current_time < target_time);
+
+		/* Calculate elapsed ticks based on actual elapsed time */
+		elapsed_ticks = (current_time - last_time) / tick_interval;
+		if (elapsed_ticks > 0) {
+			xtime_update(elapsed_ticks);
+		}
 	}
 }
 

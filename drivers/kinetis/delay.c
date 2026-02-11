@@ -24,22 +24,31 @@
 
 int t_delay(int argc, char **argv)
 {
-	u32 time_stamp = 0;
+	u32 time_stamp = 0, i, delay_us, delay_ms, delay_s;
 
-	time_stamp = basic_timer_get_us();
-	udelay(1000);
-	time_stamp = basic_timer_get_us() - time_stamp;
-	pr_debug("Delay 1000 us, The result = %u us.\n", time_stamp);
+	for (i = 0; i < 10; i++) {
+		delay_us = get_random_range(500, 1500);
+		time_stamp = basic_timer_get_us();
+		udelay(delay_us);
+		time_stamp = basic_timer_get_us() - time_stamp;
+		pr_debug("Delay %u us, The result = %u us.\n", delay_us, time_stamp);
+	}
 
-	time_stamp = basic_timer_get_ms();
-	mdelay(1000);
-	time_stamp = basic_timer_get_ms() - time_stamp;
-	pr_debug("Delay 1000 ms, The result = %u ms.\n", time_stamp);
+	for (i = 0; i < 10; i++) {
+		delay_ms = get_random_range(500, 1500);
+		time_stamp = basic_timer_get_ms();
+		mdelay(delay_ms);
+		time_stamp = basic_timer_get_ms() - time_stamp;
+		pr_debug("Delay %u ms, The result = %u ms.\n", delay_ms, time_stamp);
+	}
 
-	time_stamp = basic_timer_get_ss();
-	ssleep(3);
-	time_stamp = basic_timer_get_ss() - time_stamp;
-	pr_debug("Delay 3 s, The result = %u s.\n", time_stamp);
+	for (i = 0; i < 10; i++) {
+		delay_s = get_random_range(1, 10);
+		time_stamp = basic_timer_get_ss();
+		ssleep(delay_s);
+		time_stamp = basic_timer_get_ss() - time_stamp;
+		pr_debug("Delay %u s, The result = %u s.\n", delay_s, time_stamp);
+	}
 
 	return PASS;
 }

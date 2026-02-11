@@ -59,6 +59,28 @@ static int fatfs_error_to_linux_error(FRESULT fr)
 	}
 }
 
+static int fatfs_build_path(char *buffer, size_t buffer_size,
+	const char *file_path, const char *file_name)
+{
+	int written;
+	size_t path_len;
+	bool need_sep;
+
+	if (!buffer || !file_path || !file_name) {
+		return -EINVAL;
+	}
+
+	path_len = strlen(file_path);
+	need_sep = (path_len > 0 && file_path[path_len - 1] != '/' && file_path[path_len - 1] != '\\');
+
+	written = snprintf(buffer, buffer_size, "%s%s%s", file_path, need_sep ? "/" : "", file_name);
+	if (written < 0 || written >= (int)buffer_size) {
+		return -ENAMETOOLONG;
+	}
+
+	return 0;
+}
+
 u32 fatfs_get_flash_size(void)
 {
 	FATFS *pfs;
@@ -67,7 +89,6 @@ u32 fatfs_get_flash_size(void)
 
 	/* Gets device information and empty cluster size. */
 	res = f_getfree("0:", &fre_clust, &pfs);
-
 	if (res != FR_OK) {
 		pr_err("Failed to get free space: %d\n", res);
 		return 0;
@@ -88,7 +109,6 @@ int fatfs_find_file(char *file_path, char *file_name)
 {
 	/* Search a directory for objects and display it */
 	FIL file;
-	FILINFO fno;
 	DIR dir;
 	FRESULT res;
 	char buffer[FATFS_BUFFER_SIZE];
@@ -99,8 +119,10 @@ int fatfs_find_file(char *file_path, char *file_name)
 		return -EINVAL;
 	}
 
-	memset(buffer, 0, sizeof(buffer));
-	snprintf(buffer, sizeof(buffer), "%s", file_path);
+	if (snprintf(buffer, sizeof(buffer), "%s", file_path) >= sizeof(buffer)) {
+		pr_err("Directory path too long: %s\n", file_path);
+		return -ENAMETOOLONG;
+	}
 
 	/* Start to search for photo files */
 	// 	fr = f_findfirst(&dir, &fno, file_path, file_name);
@@ -115,6 +137,12 @@ int fatfs_find_file(char *file_path, char *file_name)
 		return fatfs_error_to_linux_error(res);
 	}
 
+	ret = fatfs_build_path(buffer, sizeof(buffer), file_path, file_name);
+	if (ret < 0) {
+		pr_err("File path too long: %s%s\n", file_path, file_name);
+		goto out;
+	}
+
 	res = f_open(&file, buffer, FA_READ);
 	if (res == FR_OK) {
 		ret = 0;
@@ -124,9 +152,10 @@ int fatfs_find_file(char *file_path, char *file_name)
 		ret = fatfs_error_to_linux_error(res);
 	}
 
+out:
 	res = f_closedir(&dir);
 	if (res != FR_OK) {
-		pr_err("Failed to close directory %s: %d\n", buffer, res);
+		pr_err("Failed to close directory %s: %d\n", file_path, res);
 	}
 
 	return ret;
@@ -146,8 +175,10 @@ int fatfs_create_file(char *file_path, char *file_name)
 		return -EINVAL;
 	}
 
-	memset(buffer, 0, sizeof(buffer));
-	snprintf(buffer, sizeof(buffer), "%s", file_path);
+	if (snprintf(buffer, sizeof(buffer), "%s", file_path) >= sizeof(buffer)) {
+		pr_err("Directory path too long: %s\n", file_path);
+		return -ENAMETOOLONG;
+	}
 
 	/* Try opening a directory. */
 	res = f_opendir(&dir, buffer);
@@ -175,8 +206,12 @@ int fatfs_create_file(char *file_path, char *file_name)
 		goto out;
 	}
 
-	memset(buffer, 0, sizeof(buffer));
-	snprintf(buffer, sizeof(buffer), "%s%s", file_path, file_name);
+	ret = fatfs_build_path(buffer, sizeof(buffer), file_path, file_name);
+	if (ret < 0) {
+		pr_err("File path too long: %s%s\n", file_path, file_name);
+		goto out;
+	}
+
 	res = f_open(&file, buffer, FA_CREATE_NEW | FA_WRITE);
 	if (res != FR_OK) {
 		pr_err("Failed to create file %s: %d\n", buffer, res);
@@ -207,19 +242,25 @@ int fatfs_delete_file(char *file_path, char *file_name)
 {
 	FRESULT res;
 	char buffer[FATFS_BUFFER_SIZE];
-	int ret = 0;
+	int ret;
 
 	if (!file_path || !file_name) {
 		pr_err("Invalid parameters: file_path or file_name is NULL\n");
 		return -EINVAL;
 	}
 
-	memset(buffer, 0, sizeof(buffer));
-	snprintf(buffer, sizeof(buffer), "%s%s", file_path, file_name);
+	ret = fatfs_build_path(buffer, sizeof(buffer), file_path, file_name);
+	if (ret < 0) {
+		pr_err("File path too long: %s%s\n", file_path, file_name);
+		return ret;
+	}
+
 	res = f_unlink(buffer);
 	if (res != FR_OK) {
 		pr_err("Failed to delete file %s: %d\n", buffer, res);
 		ret = fatfs_error_to_linux_error(res);
+	} else {
+		ret = 0;
 	}
 
 	return ret;
@@ -238,12 +279,20 @@ int fatfs_read_file_size(char *file_path, char *file_name,
 		return -EINVAL;
 	}
 
-	snprintf(buffer, sizeof(buffer), "%s%s", file_path, file_name);
+	ret = fatfs_build_path(buffer, sizeof(buffer), file_path, file_name);
+	if (ret < 0) {
+		pr_err("File path too long: %s%s\n", file_path, file_name);
+		return ret;
+	}
 
 	res = f_open(&file, buffer, FA_OPEN_EXISTING | FA_READ);
 	if (res == FR_OK) {
 		*size = file.obj.objsize;
-		f_close(&file);
+		res = f_close(&file);
+		if (res != FR_OK) {
+			pr_err("Failed to close file %s: %d\n", buffer, res);
+			ret = fatfs_error_to_linux_error(res);
+		}
 	} else {
 		pr_err("Read the size of %s failed. fs ret code(%d)\n", file_name, res);
 		ret = fatfs_error_to_linux_error(res);
@@ -266,29 +315,45 @@ int fatfs_read_store_info(char *file_path, char *file_name,
 		return -EINVAL;
 	}
 
-	snprintf(buffer, sizeof(buffer), "%s%s", file_path, file_name);
+	ret = fatfs_build_path(buffer, sizeof(buffer), file_path, file_name);
+	if (ret < 0) {
+		pr_err("File path too long: %s%s\n", file_path, file_name);
+		return ret;
+	}
 
 	res = f_open(&file, buffer, FA_OPEN_EXISTING | FA_READ);
 	if (res == FR_OK) {
-		f_lseek(&file, offset);
+		res = f_lseek(&file, offset);
+		if (res != FR_OK) {
+			pr_err("Seek %s failed. fs ret code(%d)\n", file_name, res);
+			ret = fatfs_error_to_linux_error(res);
+			goto out_close;
+		}
+
 		res = f_read(&file, pdata, len, (void *)&bytes_read);
-		f_close(&file);
 		if (res != FR_OK) {
 			pr_err("Read %s failed. fs ret code(%d)\n", file_name, res);
 			ret = fatfs_error_to_linux_error(res);
-			goto out;
+			goto out_close;
 		}
 		if (bytes_read != len) {
 			pr_err("Partial read: requested %d bytes, got %d bytes\n", len, bytes_read);
 			ret = -EIO;
-			goto out;
+			goto out_close;
+		}
+
+out_close:
+		res = f_close(&file);
+		if (res != FR_OK) {
+			pr_err("Failed to close file %s: %d\n", buffer, res);
+			if (ret == 0) {
+				ret = fatfs_error_to_linux_error(res);
+			}
 		}
 	} else {
 		pr_err("Read %s failed. fs ret code(%d)\n", file_name, res);
 		ret = fatfs_error_to_linux_error(res);
 	}
-
-out:
 
 	return ret;
 }
@@ -307,38 +372,45 @@ int fatfs_write_store_info(char *file_path, char *file_name,
 		return -EINVAL;
 	}
 
-	snprintf(buffer, sizeof(buffer), "%s%s", file_path, file_name);
+	ret = fatfs_build_path(buffer, sizeof(buffer), file_path, file_name);
+	if (ret < 0) {
+		pr_err("File path too long: %s%s\n", file_path, file_name);
+		return ret;
+	}
 
 	res = f_open(&file, buffer, FA_OPEN_EXISTING | FA_WRITE);
 	if (res == FR_OK) {
-		f_lseek(&file, offset);
+		res = f_lseek(&file, offset);
+		if (res != FR_OK) {
+			pr_err("Seek %s failed. fs ret code(%d)\n", file_name, res);
+			ret = fatfs_error_to_linux_error(res);
+			goto out_close;
+		}
+
 		res = f_write(&file, pdata, len, (void *)&bytes_written);
 		if (res != FR_OK) {
 			pr_err("Write %s failed. fs ret code(%d)\n", file_name, res);
-			f_close(&file);
 			ret = fatfs_error_to_linux_error(res);
-			goto out;
+			goto out_close;
 		}
 
 		if (bytes_written != len) {
 			pr_err("Partial write: requested %d bytes, wrote %d bytes\n", len, bytes_written);
-			f_close(&file);
 			ret = -EIO;
-			goto out;
 		}
 
+out_close:
 		res = f_close(&file);
 		if (res != FR_OK) {
 			pr_err("Close file %s failed. fs ret code(%d)\n", file_name, res);
-			ret = fatfs_error_to_linux_error(res);
-			goto out;
+			if (ret == 0) {
+				ret = fatfs_error_to_linux_error(res);
+			}
 		}
 	} else {
 		pr_err("Open file %s for write failed. fs ret code(%d)\n", file_name, res);
 		ret = fatfs_error_to_linux_error(res);
 	}
-
-out:
 
 	return ret;
 }

@@ -621,6 +621,8 @@ static int hydrology_host_make_down_header(enum hydrology_mode mode, enum hydrol
 		header->len += 1;
 		break;
 	}
+
+	return 0;
 }
 
 static int hydrology_host_make_down_body(struct hydrology_element_info *element_table,
@@ -862,6 +864,7 @@ static int hydrology_host_make_down_tail_and_send(enum hydrology_mode mode,
 	u16 i;
 	u16 buffer_size;
 	u16 pointer;
+	u16 header_len;
 	u8 stime[6] = {0, 0, 0, 0, 0, 0};
 	u8 ctime[6] = {0, 0, 0, 0, 0, 0};
 	struct hydrology_down_header *header = (struct hydrology_down_header *)g_hydrology.down_packet->header;
@@ -878,8 +881,16 @@ static int hydrology_host_make_down_tail_and_send(enum hydrology_mode mode,
 
 	header->dir_len[0] |= (down_body->len) >> 8;
 	header->dir_len[1] |= (down_body->len) & 0xFF;
-	memcpy(buffer, header, sizeof(struct hydrology_down_header) - 4);
-	pointer = sizeof(struct hydrology_down_header) - 4;
+
+	if (header->paket_start == SYN) {
+		hydrology_host_set_down_header_sequence(1, 1);
+		header_len = sizeof(struct hydrology_down_header) - 1;
+	} else {
+		header_len = sizeof(struct hydrology_down_header) - 4;
+	}
+
+	memcpy(buffer, header, header_len);
+	pointer = header_len;
 
 	switch (funcode) {
 	case LINK_REPORT:
@@ -1001,6 +1012,7 @@ static int hydrology_host_make_err_down_tail_and_send(enum hydrology_mode mode,
 	u16 i;
 	u16 buffer_size;
 	u16 pointer;
+	u16 header_len;
 	u8 stime[6] = {0, 0, 0, 0, 0, 0};
 	u8 ctime[6] = {0, 0, 0, 0, 0, 0};
 	struct hydrology_down_header *header = (struct hydrology_down_header *)g_hydrology.down_packet->header;
@@ -1019,8 +1031,15 @@ static int hydrology_host_make_err_down_tail_and_send(enum hydrology_mode mode,
 
 	header->dir_len[0] |= (down_body->len) >> 8;
 	header->dir_len[1] |= (down_body->len) & 0xFF;
-	memcpy(buffer, header, sizeof(struct hydrology_down_header) - 1);
-	pointer = sizeof(struct hydrology_down_header) - 1;
+
+	if (header->paket_start == SYN) {
+		header_len = sizeof(struct hydrology_down_header) - 1;
+	} else {
+		header_len = sizeof(struct hydrology_down_header) - 4;
+	}
+
+	memcpy(buffer, header, header_len);
+	pointer = header_len;
 
 	switch (funcode) {
 	case LINK_REPORT:
@@ -1167,6 +1186,7 @@ static int hydrology_host_check_up_packet(u8 *input, int inputlen)
 	u16 crcRet = 0;
 	u16 inputCrc = 0;
 	u16 bodylen = 0;
+	int expected_len;
 
 	crcRet = hydrology_calculate_crc16(input, inputlen - 2);
 
@@ -1188,9 +1208,19 @@ static int hydrology_host_check_up_packet(u8 *input, int inputlen)
 
 	bodylen = (input[11] & 0x0F) * 256 + input[12];
 
-	if (bodylen != (inputlen - 17)) {
+	if (inputlen < 17) {
+		pr_err("Hydrolog length check failed !\n");
+		return -EPIPE;
+	}
+
+	expected_len = inputlen - 17;
+	if (input[13] == SYN) {
+		expected_len -= 3;
+	}
+
+	if (expected_len < 0 || bodylen != (u16)expected_len) {
 		pr_err("Device length(0x%x) != Host length(0x%x)\n",
-			bodylen, inputlen - 17);
+			bodylen, expected_len);
 		pr_err("Hydrolog length check failed !\n");
 		return -EPIPE;
 	}
@@ -1468,7 +1498,7 @@ static int hydrology_host_make_up_body(u8 *input, int len, int position,
 			}
 
 			if (i == 0) {
-				memcpy(upbody->element[i]->guide, &input[position],
+				memcpy(upbody->element[i]->value, &input[position],
 					upbody->element[i]->num);
 				position += upbody->element[i]->num;
 				len -= upbody->element[i]->num;
@@ -1761,7 +1791,7 @@ int hydrology_host_print_up_packet(void)
 
 			pr_info("element[%u].value: \n", i);
 
-			for (j = 0; j < 12; ++j, k += 2) {
+			for (j = 0, k = 0; j < 12; ++j, k += 2) {
 				if (upbody->element[i]->num == 12) {
 					pr_info("[%u]%02X\n", j, upbody->element[i]->value[j]);
 				} else
@@ -1788,7 +1818,7 @@ int hydrology_host_print_up_packet(void)
 
 		pr_info("element[1].value: \n");
 
-		for (j = 0; j < 12; ++j, k += 2) {
+		for (j = 0, k = 0; j < 12; ++j, k += 2) {
 			if (upbody->element[1]->num == 12) {
 				pr_info("[%u]%02X\n", j, upbody->element[1]->value[j]);
 			} else
@@ -2122,7 +2152,7 @@ void hydrology_host_process_end_identifier(u8 End)
 int hydrology_host_process_m3_err_packet(struct hydrology_element_info *element_table, u8 cnt,
 	enum hydrology_body_type funcode, u8 cerr, u16 Err_Packet)
 {
-	u8 **ppdata;
+	u8 *pdata = NULL;
 	u16 length;
 	int ret;
 
@@ -2147,7 +2177,7 @@ int hydrology_host_process_m3_err_packet(struct hydrology_element_info *element_
 
 	cerr++;
 
-	ret = hydrology_port_receive(ppdata, &length, HYDROLOGY_D_PORT_TIMEOUT);
+	ret = hydrology_port_receive(&pdata, &length, HYDROLOGY_D_PORT_TIMEOUT);
 	if (ret) {
 		pr_err("Receive data timeout, retry times %d.\n",
 			cerr);
@@ -2159,11 +2189,11 @@ int hydrology_host_process_m3_err_packet(struct hydrology_element_info *element_
 
 		return hydrology_host_process_m3_err_packet(element_table, cnt, funcode, cerr, Err_Packet);
 	}
-	ret = hydrology_host_process_receieve(*ppdata, length, HYDROLOGY_M3);
+	ret = hydrology_host_process_receieve(pdata, length, HYDROLOGY_M3);
 	if (ret) {
 		return ret;
 	}
-	switch (ppdata[0][length - 3]) {
+	switch (pdata[length - 3]) {
 	case EOT:
 		pr_err("[EOT]Link is disconnecting\n");
 		hydrology_disconnect_link();
@@ -2184,17 +2214,17 @@ int hydrology_host_process_m3_err_packet(struct hydrology_element_info *element_
 
 int hydrology_host_process_m1m2(enum hydrology_mode mode)
 {
-	u8 **ppdata;
+	u8 *pdata = NULL;
 	u16 length;
 	int ret;
 
 	for (;;) {
-		ret = hydrology_port_receive(ppdata, &length, HYDROLOGY_H_PORT_TIMEOUT);
+		ret = hydrology_port_receive(&pdata, &length, HYDROLOGY_H_PORT_TIMEOUT);
 		if (ret) {
 			pr_err("[Warning]Port is going to be closed.\n");
 			return ret;
 		}
-		ret = hydrology_host_process_receieve(*ppdata, length, mode);
+		ret = hydrology_host_process_receieve(pdata, length, mode);
 		if (ret) {
 			return ret;
 		}
@@ -2204,34 +2234,34 @@ int hydrology_host_process_m1m2(enum hydrology_mode mode)
 int hydrology_host_process_m3(void)
 {
 	u8 cerr = 0;
-	u8 **ppdata;
+	u8 *pdata = NULL;
 	u16 length;
-	u16 i, packet_cnt;
+	u16 i, packet_cnt = 0;
 	u32 bit_map[128];
 	int ret;
 
 	memset(bit_map, 0, sizeof(bit_map));
 
 	do {
-		ret = hydrology_port_receive(ppdata, &length, HYDROLOGY_H_PORT_TIMEOUT);
+		ret = hydrology_port_receive(&pdata, &length, HYDROLOGY_H_PORT_TIMEOUT);
 		if (ret) {
 			pr_err("Receive data timeout.\n");
 			return ret;
 		}
-		ret = hydrology_host_process_receieve(*ppdata, length, HYDROLOGY_M3);
+		ret = hydrology_host_process_receieve(pdata, length, HYDROLOGY_M3);
 		if (ret) {
 			bit_map[packet_cnt / 32] = 1 << (packet_cnt % 32);
 			return ret;
 		}
-		hydrology_host_process_end_identifier(ppdata[0][length - 3]);
+		hydrology_host_process_end_identifier(pdata[length - 3]);
 
 		packet_cnt++;
-	} while (ppdata[0][length - 3] == ETB);
+	} while (pdata[length - 3] == ETB);
 
 	for (i = 0; i < packet_cnt; i++) {
 		if (bit_map[i / 32] & (1 << (i % 32))) {
 			pr_err("Packet %u error, request device to resend\n", i);
-			hydrology_host_process_m3_err_packet(NULL, 0, (enum hydrology_body_type)ppdata[0][10], cerr, i + 1);
+			hydrology_host_process_m3_err_packet(NULL, 0, (enum hydrology_body_type)pdata[10], cerr, i + 1);
 		}
 	}
 
@@ -2241,7 +2271,7 @@ int hydrology_host_process_m3(void)
 int hydrology_host_process_m4(struct hydrology_element_info *element_table, u8 cnt,
 	enum hydrology_body_type funcode)
 {
-	u8 **ppdata;
+	u8 *pdata = NULL;
 	u16 length;
 	int ret;
 
@@ -2251,17 +2281,17 @@ int hydrology_host_process_m4(struct hydrology_element_info *element_table, u8 c
 	}
 
 	do {
-		ret = hydrology_port_receive(ppdata, &length, HYDROLOGY_H_PORT_TIMEOUT);
+		ret = hydrology_port_receive(&pdata, &length, HYDROLOGY_H_PORT_TIMEOUT);
 		if (ret) {
 			pr_err("Receive data timeout.\n");
 			return ret;
 		}
-		ret = hydrology_host_process_receieve(*ppdata, length, HYDROLOGY_M4);
+		ret = hydrology_host_process_receieve(pdata, length, HYDROLOGY_M4);
 		if (ret) {
 			return ret;
 		}
-		hydrology_host_process_end_identifier(ppdata[0][length - 3]);
-	} while (ppdata[0][length - 3] == ETB);
+		hydrology_host_process_end_identifier(pdata[length - 3]);
+	} while (pdata[length - 3] == ETB);
 
 	return 0;
 }

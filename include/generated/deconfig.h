@@ -39,6 +39,6 @@
 #define DEBUG 1
 #define VERBOSE_DEBUG 1
 
-#define CONFIG_JIFFIES_DELAY 1
+// #define CONFIG_JIFFIES_DELAY 1
 
 #endif /* __KINETIS_DECONFIG_H */

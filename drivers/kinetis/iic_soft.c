@@ -45,7 +45,7 @@
 
 /* I2C Speed Mode Selection */
 #define IIC_SPEED_STANDARD    1  /* 100kHz Standard Mode */
-#define IIC_SPEED_FAST        1  /* 400kHz Fast Mode */
+#define IIC_SPEED_FAST        2  /* 400kHz Fast Mode */
 
 /* Select I2C speed mode */
 #define IIC_SPEED_MODE        IIC_SPEED_FAST
@@ -174,6 +174,10 @@ int iic_master_soft_send_byte(struct iic_master *master, u8 tmp)
 	u8 i = 8;
 	int ret;
 
+	if (!master) {
+		return -EINVAL;
+	}
+
 	master->sda_out();
 
 	while (i--) {
@@ -199,6 +203,8 @@ int iic_master_soft_send_byte(struct iic_master *master, u8 tmp)
 		iic_master_soft_stop(master);
 		return ret;
 	}
+
+	return 0;
 }
 
 u8 iic_master_soft_read_byte(struct iic_master *master, u8 ack)
@@ -240,6 +246,10 @@ static int iic_master_soft_write_bytes_with_addr(struct iic_master *master, u8 s
 {
 	int ret;
 
+	if (!master || !pdata || length == 0) {
+		return -EINVAL;
+	}
+
 	if (iic_master_soft_start(master) != 0) {
 		pr_err("Arbitration failed ! Device(addr = 0x%X) cannot obtain the bus.",
 			slave_addr);
@@ -280,6 +290,10 @@ static int iic_master_soft_read_bytes_with_addr(struct iic_master *master, u8 sl
 	u8 *pdata, u8 length)
 {
 	int ret;
+
+	if (!master || !pdata || length == 0) {
+		return -EINVAL;
+	}
 
 	if (iic_master_soft_start(master) != 0) {
 		pr_err("Arbitration failed ! Device(addr = 0x%X) cannot obtain the bus.",
@@ -788,11 +802,20 @@ struct iic_slave *iic_slave_soft_init(char *name, u8 slave_addr, u8 *buffer, u32
 
 int iic_master_soft_init(struct iic_master *master)
 {
+	if (!master || !master->init) {
+		return -EINVAL;
+	}
+
 	master->init();
+	return 0;
 }
 
 int iic_master_port_transmit(struct iic_master *master, u8 slave_addr, u16 reg, u8 tmp)
 {
+	if (!master) {
+		return -EINVAL;
+	}
+
 	if (master->write_bytes) {
 		return master->write_bytes(slave_addr, reg, &tmp, 1);
 	} else {
@@ -802,6 +825,10 @@ int iic_master_port_transmit(struct iic_master *master, u8 slave_addr, u16 reg, 
 
 int iic_master_port_receive(struct iic_master *master, u8 slave_addr, u16 reg, u8 *tmp)
 {
+	if (!master || !tmp) {
+		return -EINVAL;
+	}
+
 	if (master->read_bytes) {
 		return master->read_bytes(slave_addr, reg, tmp, 1);
 	} else {
@@ -812,6 +839,14 @@ int iic_master_port_receive(struct iic_master *master, u8 slave_addr, u16 reg, u
 int iic_master_port_multi_transmit(struct iic_master *master, u8 slave_addr, u16 reg,
 	u8 *pdata, u8 length)
 {
+	if (!master || !pdata) {
+		return -EINVAL;
+	}
+
+	if (length == 0) {
+		return 0;
+	}
+
 	if (master->write_bytes) {
 		return master->write_bytes(slave_addr, reg, pdata, length);
 	} else {
@@ -822,6 +857,14 @@ int iic_master_port_multi_transmit(struct iic_master *master, u8 slave_addr, u16
 int iic_master_port_multi_receive(struct iic_master *master, u8 slave_addr, u16 reg,
 	u8 *pdata, u8 length)
 {
+	if (!master || !pdata) {
+		return -EINVAL;
+	}
+
+	if (length == 0) {
+		return 0;
+	}
+
 	if (master->read_bytes) {
 		return master->read_bytes(slave_addr, reg, pdata, length);
 	} else {

@@ -44,6 +44,11 @@ int t_at24cxx_current_random_read(int argc, char **argv);
 int t_at24cxx_sequential_read(int argc, char **argv);
 int t_at24cxx_loopback_speed(int argc, char **argv);
 int t_at24cxx_program_thread(int argc, char **argv);
+int t_at24cxx_device_detect(int argc, char **argv);
+int t_at24cxx_edge_cases(int argc, char **argv);
+int t_at24cxx_wear_leveling_info(int argc, char **argv);
+int t_at24cxx_write_protection_check(int argc, char **argv);
+int t_at24cxx_write_with_retry(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_DS3231
@@ -54,6 +59,9 @@ int t_ds3231_set_alarm2(int argc, char **argv);
 int t_ds3231_square_wave(int argc, char **argv);
 int t_ds3231_32khz_wave(int argc, char **argv);
 int t_ds3231_get_temprature(int argc, char **argv);
+int t_ds3231_comprehensive_test(int argc, char **argv);
+int t_ds3231_program_thread(int argc, char **argv);
+int t_ds3231_stress_test(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_BASICTIMER
@@ -139,6 +147,10 @@ int t_random_statistics(int argc, char **argv);
 #ifdef DESIGN_VERIFICATION_RTC
 int t_rtc_set_clock(int argc, char **argv);
 int t_rtc_get_clock(int argc, char **argv);
+int t_rtc_validation(int argc, char **argv);
+int t_rtc_performance(int argc, char **argv);
+int t_rtc_backup(int argc, char **argv);
+int t_rtc_cleanup(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_RTCTASK
@@ -214,6 +226,11 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"at24cxx.seq-read",            t_at24cxx_sequential_read},
 	{"at24cxx.lb-speed",            t_at24cxx_loopback_speed},
 	{"at24cxx.thread",            	t_at24cxx_program_thread},
+	{"at24cxx.device-detect",      t_at24cxx_device_detect},
+	{"at24cxx.edge-cases",         t_at24cxx_edge_cases},
+	{"at24cxx.wear-leveling",      t_at24cxx_wear_leveling_info},
+	{"at24cxx.write-protect",      t_at24cxx_write_protection_check},
+	{"at24cxx.write-retry",        t_at24cxx_write_with_retry},
 #endif
 #ifdef DESIGN_VERIFICATION_BMI160
 	{"bmi160.", t_function},
@@ -226,6 +243,9 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"ds3231.square-wave",          t_ds3231_square_wave},
 	{"ds3231.32khz-wave",           t_ds3231_32khz_wave},
 	{"ds3231.get-temprature",       t_ds3231_get_temprature},
+	{"ds3231.comprehensive",         t_ds3231_comprehensive_test},
+	{"ds3231.thread",               t_ds3231_program_thread},
+	{"ds3231.stress",               t_ds3231_stress_test},
 #endif
 #ifdef DESIGN_VERIFICATION_ESP32
 	{"esp32.", t_function},
@@ -328,6 +348,10 @@ struct test_case_typedef kinetis_case_table[] = {
 #ifdef DESIGN_VERIFICATION_RTC
 	{"rtc.set-clock",               t_rtc_set_clock},
 	{"rtc.get-clock",               t_rtc_get_clock},
+	{"rtc.validation",              t_rtc_validation},
+	{"rtc.performance",             t_rtc_performance},
+	{"rtc.backup",                 t_rtc_backup},
+	{"rtc.cleanup",                t_rtc_cleanup},
 #endif
 #ifdef DESIGN_VERIFICATION_RTCTASK
 	{"rtc-task.add",                t_rtc_task_add},

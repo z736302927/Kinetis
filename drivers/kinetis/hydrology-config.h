@@ -13,6 +13,7 @@ extern "C" {
 #define HYDROLOGY_D_PORT_TIMEOUT        10
 #define HYDROLOGY_BODY_MAX_LEN          128
 #define HYDROLOGY_FF_USE_LFN            0
+#define HYDROLOGY_ENABLE_ESCAPE         1
 
 #if HYDROLOGY_FF_USE_LFN
 #define HYDROLOGY_FILE_PATH             "0:/Hydrology/"

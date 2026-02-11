@@ -742,15 +742,22 @@ static int hydrology_device_split_transfer(u8 *body_buffer, u8 *buffer,
 	struct hydrology_up_header *header, struct hydrology_up_body *upbody, u16 i,  u16 total)
 {
 	u16 pointer;
+	u16 last_len;
 
 	hydrology_device_set_up_header_sequence(i, total);
 
 	header->dir_len[0] = 0;
 	header->dir_len[1] = 0;
 
+	last_len = upbody->len % HYDROLOGY_BODY_MAX_LEN;
+	if (last_len == 0) {
+		last_len = HYDROLOGY_BODY_MAX_LEN;
+		pr_alert("The body length is an exact multiple of HYDROLOGY_BODY_MAX_LEN, setting last_len to %d\n", last_len);
+	}
+
 	if (i == total) {
-		header->dir_len[0] |= (upbody->len % HYDROLOGY_BODY_MAX_LEN) >> 8;
-		header->dir_len[1] |= (upbody->len % HYDROLOGY_BODY_MAX_LEN) & 0xFF;
+		header->dir_len[0] |= last_len >> 8;
+		header->dir_len[1] |= last_len & 0xFF;
 	} else {
 		header->dir_len[0] |= HYDROLOGY_BODY_MAX_LEN >> 8;
 		header->dir_len[1] |= HYDROLOGY_BODY_MAX_LEN & 0xFF;
@@ -761,8 +768,8 @@ static int hydrology_device_split_transfer(u8 *body_buffer, u8 *buffer,
 
 	if (i == total) {
 		memcpy(&buffer[pointer], &body_buffer[(i - 1) * HYDROLOGY_BODY_MAX_LEN],
-			upbody->len % HYDROLOGY_BODY_MAX_LEN);
-		pointer += upbody->len % HYDROLOGY_BODY_MAX_LEN;
+			last_len);
+		pointer += last_len;
 		g_hydrology.up_packet->end = ETX;
 	} else {
 		memcpy(&buffer[pointer], &body_buffer[(i - 1) * HYDROLOGY_BODY_MAX_LEN],
@@ -792,6 +799,9 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 	u16 buffer_size;
 	u16 pointer, body_pointer;
 	u16 total;
+	u16 header_len;
+	u16 last_len;
+
 	struct hydrology_up_header *header = g_hydrology.up_packet->header;
 	struct hydrology_up_body *upbody = (struct hydrology_up_body *)g_hydrology.up_packet->body;
 	int ret;
@@ -808,14 +818,22 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 
 		header->dir_len[0] |= (upbody->len) >> 8;
 		header->dir_len[1] |= (upbody->len) & 0xFF;
-		memcpy(buffer, header, sizeof(struct hydrology_up_header));
-		pointer = sizeof(struct hydrology_up_header) - 4;
+
+		if (header->paket_start == SYN) {
+			hydrology_device_set_up_header_sequence(1, 1);
+			header_len = sizeof(struct hydrology_up_header) - 1;
+		} else {
+			header_len = sizeof(struct hydrology_up_header) - 4;
+		}
+
+		memcpy(buffer, header, header_len);
+		pointer = header_len;
 
 		switch (funcode) {
 		case LINK_REPORT:
-			/* SL651-2014: 链路维持报文仅包含8字节报文头和2字节报文流水号 */
-			memcpy(&buffer[pointer], upbody->stream_id, 2);  /* 仅复制报文流水号 */
-			pointer += 2;
+			/* SL651-2014: 链路维持报文包含报文流水号与发送时间 */
+			memcpy(&buffer[pointer], upbody, 8);
+			pointer += 8;
 			break;
 
 		case EVEN_PERIOD_INFO_REPORT:
@@ -877,12 +895,12 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 			memcpy(&buffer[pointer], upbody->element[0]->guide, 2);
 			pointer += 2;
 			ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS,
-					0, &buffer[pointer],  upbody->element[i]->num);
+					0, &buffer[pointer],  upbody->element[0]->num);
 			if (ret) {
 				pr_err("Failed to read artificial num data, error code: %d", ret);
 				/* Continue with operation, data may be incomplete */
 			}
-			pointer += upbody->element[i]->num;
+			pointer += upbody->element[0]->num;
 			break;
 
 		case PICTURE_REPORT:
@@ -891,12 +909,12 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 			memcpy(&buffer[pointer], upbody->element[0]->guide, 2);
 			pointer += 2;
 			ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE,
-					0, &buffer[pointer],  upbody->element[i]->num);
+					0, &buffer[pointer],  upbody->element[0]->num);
 			if (ret) {
 				pr_err("Failed to read picture data, error code: %d", ret);
 				/* Continue with operation, data may be incomplete */
 			}
-			pointer += upbody->element[i]->num;
+			pointer += upbody->element[0]->num;
 			break;
 
 		case CONFIG_WRITE_REPORT:
@@ -1005,6 +1023,10 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 
 		header->paket_start = SYN;
 		body_pointer = 0;
+
+		if (header->len == (sizeof(struct hydrology_up_header) - 4)) {
+			header->len += 3;
+		}
 
 		switch (funcode) {
 		case LINK_REPORT:
@@ -1177,9 +1199,14 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 				header->dir_len[0] = 0;
 				header->dir_len[1] = 0;
 
+				last_len = upbody->len % HYDROLOGY_BODY_MAX_LEN;
+				if (last_len == 0) {
+					last_len = HYDROLOGY_BODY_MAX_LEN;
+				}
+
 				if (i == total) {
-					header->dir_len[0] |= (upbody->len % HYDROLOGY_BODY_MAX_LEN) >> 8;
-					header->dir_len[1] |= (upbody->len % HYDROLOGY_BODY_MAX_LEN) & 0xFF;
+					header->dir_len[0] |= last_len >> 8;
+					header->dir_len[1] |= last_len & 0xFF;
 				} else {
 					header->dir_len[0] |= HYDROLOGY_BODY_MAX_LEN >> 8;
 					header->dir_len[1] |= HYDROLOGY_BODY_MAX_LEN & 0xFF;
@@ -1189,11 +1216,15 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 				pointer = sizeof(struct hydrology_up_header) - 1;
 
 				if (i == total) {
+					last_len = (upbody->element[0]->num - (HYDROLOGY_BODY_MAX_LEN - 10)) % HYDROLOGY_BODY_MAX_LEN;
+					if (last_len == 0) {
+						last_len = HYDROLOGY_BODY_MAX_LEN;
+					}
 					fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS,
 						HYDROLOGY_BODY_MAX_LEN - 10 + (i - 2) * HYDROLOGY_BODY_MAX_LEN,
 						&buffer[pointer],
-						(upbody->element[0]->num - (HYDROLOGY_BODY_MAX_LEN - 10)) % HYDROLOGY_BODY_MAX_LEN);
-					pointer += (upbody->element[0]->num - (HYDROLOGY_BODY_MAX_LEN - 10)) % HYDROLOGY_BODY_MAX_LEN;
+						last_len);
+					pointer += last_len;
 					g_hydrology.up_packet->end = ETX;
 				} else if (i == 1) {
 					memcpy(&buffer[pointer], upbody, 8);
@@ -1237,9 +1268,14 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 				header->dir_len[0] = 0;
 				header->dir_len[1] = 0;
 
+				last_len = upbody->len % HYDROLOGY_BODY_MAX_LEN;
+				if (last_len == 0) {
+					last_len = HYDROLOGY_BODY_MAX_LEN;
+				}
+
 				if (i == total) {
-					header->dir_len[0] |= (upbody->len % HYDROLOGY_BODY_MAX_LEN) >> 8;
-					header->dir_len[1] |= (upbody->len % HYDROLOGY_BODY_MAX_LEN) & 0xFF;
+					header->dir_len[0] |= last_len >> 8;
+					header->dir_len[1] |= last_len & 0xFF;
 				} else {
 					header->dir_len[0] |= HYDROLOGY_BODY_MAX_LEN >> 8;
 					header->dir_len[1] |= HYDROLOGY_BODY_MAX_LEN & 0xFF;
@@ -1249,11 +1285,15 @@ static int hydrology_device_make_up_tail_and_send(enum hydrology_body_type funco
 				pointer = sizeof(struct hydrology_up_header) - 1;
 
 				if (i == total) {
+					last_len = (upbody->element[0]->num - (HYDROLOGY_BODY_MAX_LEN - 25)) % HYDROLOGY_BODY_MAX_LEN;
+					if (last_len == 0) {
+						last_len = HYDROLOGY_BODY_MAX_LEN;
+					}
 					fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE,
 						HYDROLOGY_BODY_MAX_LEN - 25 + (i - 2) * HYDROLOGY_BODY_MAX_LEN,
 						&buffer[pointer],
-						(upbody->element[0]->num - (HYDROLOGY_BODY_MAX_LEN - 25)) % HYDROLOGY_BODY_MAX_LEN);
-					pointer += (upbody->element[0]->num - (HYDROLOGY_BODY_MAX_LEN - 25)) % HYDROLOGY_BODY_MAX_LEN;
+						last_len);
+					pointer += last_len;
 					g_hydrology.up_packet->end = ETX;
 				} else if (i == 1) {
 					memcpy(&buffer[pointer], upbody, 23);
@@ -1306,6 +1346,8 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 	u16 buffer_size;
 	u16 pointer, body_pointer;
 	u16 total;
+	u16 last_len;
+
 	struct hydrology_up_header *upheader = g_hydrology.up_packet->header;
 	struct hydrology_down_header *downheader = g_hydrology.down_packet->header;
 	struct hydrology_up_body *upbody = (struct hydrology_up_body *)g_hydrology.up_packet->body;
@@ -1338,11 +1380,15 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 	upheader->paket_start = SYN;
 	body_pointer = 0;
 
+	if (upheader->len == (sizeof(struct hydrology_up_header) - 4)) {
+		upheader->len += 3;
+	}
+
 	switch (funcode) {
 	case LINK_REPORT:
-		/* SL651-2014: 链路维持报文仅包含8字节报文头和2字节报文流水号 */
-		memcpy(&body_buffer[body_pointer], upbody->stream_id, 2);  /* 仅复制报文流水号 */
-		body_pointer += 2;
+		/* SL651-2014: 链路维持报文包含报文流水号与发送时间 */
+		memcpy(&body_buffer[body_pointer], upbody, 8);
+		body_pointer += 8;
 		hydrology_device_split_transfer(body_buffer, buffer, upheader, upbody, seq, total);
 		break;
 
@@ -1476,9 +1522,14 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 		upheader->dir_len[0] = 0;
 		upheader->dir_len[1] = 0;
 
+		last_len = upbody->len % HYDROLOGY_BODY_MAX_LEN;
+		if (last_len == 0) {
+			last_len = HYDROLOGY_BODY_MAX_LEN;
+		}
+
 		if (seq == total) {
-			upheader->dir_len[0] |= (upbody->len % HYDROLOGY_BODY_MAX_LEN) >> 8;
-			upheader->dir_len[1] |= (upbody->len % HYDROLOGY_BODY_MAX_LEN) & 0xFF;
+			upheader->dir_len[0] |= last_len >> 8;
+			upheader->dir_len[1] |= last_len & 0xFF;
 		} else {
 			upheader->dir_len[0] |= HYDROLOGY_BODY_MAX_LEN >> 8;
 			upheader->dir_len[1] |= HYDROLOGY_BODY_MAX_LEN & 0xFF;
@@ -1488,12 +1539,15 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 		pointer = sizeof(struct hydrology_up_header) - 1;
 
 		if (seq == total) {
+			last_len = (upbody->element[0]->num - (HYDROLOGY_BODY_MAX_LEN - 10)) % HYDROLOGY_BODY_MAX_LEN;
+			if (last_len == 0) {
+				last_len = HYDROLOGY_BODY_MAX_LEN;
+			}
 			fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS,
 				HYDROLOGY_BODY_MAX_LEN - 10 + (seq - 2) * HYDROLOGY_BODY_MAX_LEN,
 				&buffer[pointer],
-				(upbody->element[0]->num - (HYDROLOGY_BODY_MAX_LEN - 10)) % HYDROLOGY_BODY_MAX_LEN);
-			pointer += (upbody->element[0]->num - (HYDROLOGY_BODY_MAX_LEN - 10)) % HYDROLOGY_BODY_MAX_LEN;
-			g_hydrology.up_packet->end = ETX;
+				last_len);
+			pointer += last_len;
 		} else if (seq == 1) {
 			memcpy(&buffer[pointer], upbody, 8);
 			pointer += 8;
@@ -1502,14 +1556,13 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 			fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS,
 				0, &buffer[pointer],  HYDROLOGY_BODY_MAX_LEN - 10);
 			pointer += HYDROLOGY_BODY_MAX_LEN - 10;
-			g_hydrology.up_packet->end = ETX;
 		} else {
 			fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_RGZS,
 				HYDROLOGY_BODY_MAX_LEN - 10 + (seq - 2) * HYDROLOGY_BODY_MAX_LEN,
 				&buffer[pointer], HYDROLOGY_BODY_MAX_LEN);
 			pointer += HYDROLOGY_BODY_MAX_LEN;
-			g_hydrology.up_packet->end = ETX;
 		}
+		g_hydrology.up_packet->end = (seq == total) ? ETX : ETB;
 
 		buffer[pointer] = g_hydrology.up_packet->end;
 		pointer += 1;
@@ -1536,9 +1589,14 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 		upheader->dir_len[0] = 0;
 		upheader->dir_len[1] = 0;
 
+		last_len = upbody->len % HYDROLOGY_BODY_MAX_LEN;
+		if (last_len == 0) {
+			last_len = HYDROLOGY_BODY_MAX_LEN;
+		}
+
 		if (seq == total) {
-			upheader->dir_len[0] |= (upbody->len % HYDROLOGY_BODY_MAX_LEN) >> 8;
-			upheader->dir_len[1] |= (upbody->len % HYDROLOGY_BODY_MAX_LEN) & 0xFF;
+			upheader->dir_len[0] |= last_len >> 8;
+			upheader->dir_len[1] |= last_len & 0xFF;
 		} else {
 			upheader->dir_len[0] |= HYDROLOGY_BODY_MAX_LEN >> 8;
 			upheader->dir_len[1] |= HYDROLOGY_BODY_MAX_LEN & 0xFF;
@@ -1548,12 +1606,15 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 		pointer = sizeof(struct hydrology_up_header) - 1;
 
 		if (seq == total) {
+			last_len = (upbody->element[0]->num - (HYDROLOGY_BODY_MAX_LEN - 25)) % HYDROLOGY_BODY_MAX_LEN;
+			if (last_len == 0) {
+				last_len = HYDROLOGY_BODY_MAX_LEN;
+			}
 			fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE,
 				HYDROLOGY_BODY_MAX_LEN - 25 + (seq - 2) * HYDROLOGY_BODY_MAX_LEN,
 				&buffer[pointer],
-				(upbody->element[0]->num - (HYDROLOGY_BODY_MAX_LEN - 25)) % HYDROLOGY_BODY_MAX_LEN);
-			pointer += (upbody->element[0]->num - (HYDROLOGY_BODY_MAX_LEN - 25)) % HYDROLOGY_BODY_MAX_LEN;
-			g_hydrology.up_packet->end = ETX;
+				last_len);
+			pointer += last_len;
 		} else if (seq == 1) {
 			memcpy(&buffer[pointer], upbody, 23);
 			pointer += 23;
@@ -1562,14 +1623,13 @@ static int hydrology_device_make_err_up_tail_and_send(enum hydrology_body_type f
 			fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE,
 				0, &buffer[pointer],  HYDROLOGY_BODY_MAX_LEN - 25);
 			pointer += HYDROLOGY_BODY_MAX_LEN - 25;
-			g_hydrology.up_packet->end = ETX;
 		} else {
 			fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_PICTURE,
 				HYDROLOGY_BODY_MAX_LEN - 25 + (seq - 2) * HYDROLOGY_BODY_MAX_LEN,
 				&buffer[pointer], HYDROLOGY_BODY_MAX_LEN);
 			pointer += HYDROLOGY_BODY_MAX_LEN;
-			g_hydrology.up_packet->end = ETX;
 		}
+		g_hydrology.up_packet->end = (seq == total) ? ETX : ETB;
 
 		buffer[pointer] = g_hydrology.up_packet->end;
 		pointer += 1;
@@ -1633,6 +1693,7 @@ static int hydrology_device_check_down_packet(u8 *input, int inputlen)
 	u16 crcRet = 0;
 	u16 inputCrc = 0;
 	u16 bodylen = 0;
+	int expected_len;
 
 	crcRet = hydrology_calculate_crc16(input, inputlen - 2);
 
@@ -1654,9 +1715,19 @@ static int hydrology_device_check_down_packet(u8 *input, int inputlen)
 
 	bodylen = (input[11] & 0x0F) * 256 + input[12];
 
-	if (bodylen != (inputlen - 17)) {
+	if (inputlen < 17) {
+		pr_err("Hydrolog length check failed !\n");
+		return -EPIPE;
+	}
+
+	expected_len = inputlen - 17;
+	if (input[13] == SYN) {
+		expected_len -= 3;
+	}
+
+	if (expected_len < 0 || bodylen != (u16)expected_len) {
 		pr_err("Device length(0x%x) != Host length(0x%x)\n",
-			bodylen, inputlen - 17);
+			bodylen, expected_len);
 		pr_err("Hydrolog length check failed !\n");
 		return -EPIPE;
 	}
@@ -2033,7 +2104,7 @@ int hydrology_device_process_receieve(u8 *input, int inputlen, enum hydrology_mo
 int hydrology_device_process_m3_err_packet(struct hydrology_element_info *element_table,
 	u8 cnt, enum hydrology_mode mode, enum hydrology_body_type funcode, u8 cerr)
 {
-	u8 **ppdata;
+	u8 *pdata = NULL;
 	u16 length;
 	int ret;
 
@@ -2057,7 +2128,7 @@ int hydrology_device_process_m3_err_packet(struct hydrology_element_info *elemen
 
 	cerr++;
 
-	ret = hydrology_port_receive(ppdata, &length, HYDROLOGY_D_PORT_TIMEOUT);
+	ret = hydrology_port_receive(&pdata, &length, HYDROLOGY_D_PORT_TIMEOUT);
 	if (ret) {
 		pr_err("Receive data timeout, retry times %d.\n",
 			cerr);
@@ -2072,11 +2143,11 @@ int hydrology_device_process_m3_err_packet(struct hydrology_element_info *elemen
 			return ret;
 		}
 	}
-	ret = hydrology_device_process_receieve(*ppdata, length, HYDROLOGY_M3);
+	ret = hydrology_device_process_receieve(pdata, length, HYDROLOGY_M3);
 	if (ret) {
 		return ret;
 	}
-	switch (ppdata[0][length - 3]) {
+	switch (pdata[length - 3]) {
 	case EOT:
 		pr_err("[EOT]Link is disconnecting\n");
 		hydrology_disconnect_link();
@@ -2158,7 +2229,7 @@ int hydrology_device_process_m1(struct hydrology_element_info *element_table, u8
 int hydrology_device_process_m2(struct hydrology_element_info *element_table, u8 cnt,
 	enum hydrology_body_type funcode, u8 cerr)
 {
-	u8 **ppdata;
+	u8 *pdata = NULL;
 	u16 length;
 	int ret;
 
@@ -2169,7 +2240,7 @@ int hydrology_device_process_m2(struct hydrology_element_info *element_table, u8
 
 	cerr++;
 
-	ret = hydrology_port_receive(ppdata, &length, HYDROLOGY_D_PORT_TIMEOUT);
+	ret = hydrology_port_receive(&pdata, &length, HYDROLOGY_D_PORT_TIMEOUT);
 	if (ret) {
 		pr_err("Receive data timeout, retry times %d.\n",
 			cerr);
@@ -2182,17 +2253,17 @@ int hydrology_device_process_m2(struct hydrology_element_info *element_table, u8
 		hydrology_device_process_m2(element_table, cnt, funcode, cerr);
 		return ret;
 	}
-	ret = hydrology_device_process_receieve(*ppdata, length, HYDROLOGY_M2);
+	ret = hydrology_device_process_receieve(pdata, length, HYDROLOGY_M2);
 	if (ret) {
 		return ret;
 	}
-	return hydrology_device_process_end_identifier(element_table, cnt, funcode, ppdata[0][length - 3]);
+	return hydrology_device_process_end_identifier(element_table, cnt, funcode, pdata[length - 3]);
 }
 
 int hydrology_device_process_m3(struct hydrology_element_info *element_table, u8 cnt,
 	enum hydrology_body_type funcode)
 {
-	u8 **ppdata;
+	u8 *pdata = NULL;
 	u16 length;
 	int ret;
 
@@ -2201,31 +2272,31 @@ int hydrology_device_process_m3(struct hydrology_element_info *element_table, u8
 		return ret;
 	}
 
-	ret = hydrology_port_receive(ppdata, &length, HYDROLOGY_D_PORT_TIMEOUT);
+	ret = hydrology_port_receive(&pdata, &length, HYDROLOGY_D_PORT_TIMEOUT);
 	if (ret) {
 		pr_err("Receive data timeout.\n");
 		return ret;
 	}
-	ret = hydrology_device_process_receieve(*ppdata, length, HYDROLOGY_M3);
+	ret = hydrology_device_process_receieve(pdata, length, HYDROLOGY_M3);
 	if (ret) {
 		return ret;
 	}
-	return hydrology_device_process_end_identifier(element_table, cnt, funcode, ppdata[0][length - 3]);
+	return hydrology_device_process_end_identifier(element_table, cnt, funcode, pdata[length - 3]);
 }
 
 int hydrology_device_process_m4(void)
 {
-	u8 **ppdata;
+	u8 *pdata = NULL;
 	u16 length;
 	int ret;
 
 	for (;;) {
-		ret = hydrology_port_receive(ppdata, &length, HYDROLOGY_D_PORT_TIMEOUT);
+		ret = hydrology_port_receive(&pdata, &length, HYDROLOGY_D_PORT_TIMEOUT);
 		if (ret) {
 			pr_err("[Warning]Device Port is going to be closed.\n");
 			return ret;
 		}
-		ret = hydrology_device_process_receieve(*ppdata, length, HYDROLOGY_M4);
+		ret = hydrology_device_process_receieve(pdata, length, HYDROLOGY_M4);
 		if (ret) {
 			return ret;
 		}

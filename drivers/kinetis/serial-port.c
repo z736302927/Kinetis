@@ -43,12 +43,19 @@ void *serial_port_monitor(void *para)
 
 	while (serial->thread_switch) {
 		if (serial->tx_buffer[0] != '\0') {
+			size_t resp_len;
+
+			response[0] = '\0';
 			serial->sim_callback(serial->tx_buffer, response, serial->private);
+
+			resp_len = strnlen(response, SERIAL_PORT_BUFFER_SIZE - 1);
 			index = serial->producer;
-			for (i = 0; i < strlen(response); i++) {
+			for (i = 0; i < resp_len; i++) {
 				serial->rx_buffer[index] = response[i];
 				index = (index + 1) % SERIAL_PORT_BUFFER_SIZE;
 			}
+			serial->rx_buffer[index] = '\0';
+
 			memset(serial->tx_buffer, 0, serial->transmited_size);
 		}
 
@@ -162,12 +169,17 @@ int serial_port_get_data(struct serial_port *serial_port, char *buffer, int size
 
 int serial_port_transmit_bytes(struct serial_port *serial, const u8 *data, u16 size)
 {
-	if (size > SERIAL_PORT_BUFFER_SIZE) {
-		size = SERIAL_PORT_BUFFER_SIZE;
-		pr_warn("Transmit size(%u) too large, truncating to %d bytes", size, SERIAL_PORT_BUFFER_SIZE);
+	if (!serial || !data || size == 0) {
+		return -EINVAL;
+	}
+
+	if (size >= SERIAL_PORT_BUFFER_SIZE) {
+		size = SERIAL_PORT_BUFFER_SIZE - 1;
+		pr_warn("Transmit size(%u) too large, truncating to %d bytes", size, SERIAL_PORT_BUFFER_SIZE - 1);
 	}
 
 	memcpy(serial->tx_buffer, data, size);
+	serial->tx_buffer[size] = '\0';
 	serial->transmited_size = size;
 
 	return 0;

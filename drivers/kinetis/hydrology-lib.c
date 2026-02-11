@@ -130,7 +130,7 @@ int hydrology_port_receive(u8 **ppdata, u16 *plength, u32 Timeout)
 	//	struct serial_port hydrology_port;
 	u32 Refer = 0;
 	u32 Delta = 0;
-	int ret;
+	int ret = -ENOSYS;
 
 	switch (g_hydrology.source) {
 	case MSG_FORM_SERVER:
@@ -781,7 +781,7 @@ bool hydrology_verify_crc16(const u8 *data, u16 length)
 	u16 received_crc;
 
 	if (data == NULL || length < 3) {
-		return -1;
+		return false;
 	}
 
 	/* 计算除CRC外的数据的CRC */

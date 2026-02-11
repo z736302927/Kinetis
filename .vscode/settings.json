@@ -90,7 +90,6 @@
     }
   ],
   "makefile.configureOnOpen": false,
-
   "multiCommand.commands": [
     {
       "command": "multiCommand.commentAtFirstColumn",
@@ -108,7 +107,9 @@
       ]
     }
   ],
+  "key": "alt+/",
+  "command": "multiCommand.commentAtFirstColumn",
+  "when": "editorTextFocus && editorHasSelection",
   "C_Cpp.default.compilerPath": "E:/Plugin/mingw64/bin/gcc.exe",
   "codingcopilot.enableCompletionLanguage": {}
-
 }

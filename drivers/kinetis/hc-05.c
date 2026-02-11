@@ -1,9 +1,9 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
+#include <linux/kernel.h>
 
 #include "kinetis/hc-05.h"
-#include "kinetis/general.h"
 #include "kinetis/idebug.h"
 #include "kinetis/design_verification.h"
 
@@ -21,141 +21,231 @@
 
 /* Parse AT command and update HC-05 state, return response */
 
+static void hc_05_set_response(char *response, const char *text)
+{
+	if (!response || !text) {
+		return;
+	}
+
+	snprintf(response, SERIAL_PORT_BUFFER_SIZE, "%s", text);
+}
+
+static int hc_05_query(struct hc_05_device *device, const char *cmd,
+	char *buffer, int size, u32 timeout_ms)
+{
+	int ret;
+
+	if (!device || !device->serial || !cmd || !buffer || size <= 0) {
+		return -EINVAL;
+	}
+
+	ret = serial_port_transmit_bytes(device->serial, cmd, strlen(cmd));
+	if (ret < 0) {
+		return ret;
+	}
+
+	ret = serial_port_get_data(device->serial, buffer, size, timeout_ms);
+	if (ret < 0) {
+		return ret;
+	}
+
+	if (ret < size) {
+		buffer[ret] = '\0';
+	} else {
+		buffer[size - 1] = '\0';
+	}
+
+	return ret;
+}
+
+static int hc_05_buf_append(char *buffer, int size, int *pos, const char *fmt, ...)
+{
+	int written;
+	va_list args;
+
+	if (!buffer || !pos || !fmt || size <= 0) {
+		return -EINVAL;
+	}
+
+	if (*pos >= size) {
+		return -ENOSPC;
+	}
+
+	va_start(args, fmt);
+	written = vsnprintf(buffer + *pos, size - *pos, fmt, args);
+	va_end(args);
+
+	if (written < 0) {
+		return written;
+	}
+
+	if (written >= size - *pos) {
+		*pos = size - 1;
+		return -ENOSPC;
+	}
+
+	*pos += written;
+	return 0;
+}
+
 static void hc_05_parse_command(char *request, char *response, void *context)
 {
 	struct hc_05_device *device = (struct hc_05_device *)context;
 
 	if (strncmp(request, "AT", 2) != 0) {
-		strcpy(response, "ERROR");
+		hc_05_set_response(response, "ERROR");
 	} else if (strcmp(request, "AT") == 0) {
 		/* AT - Test */
-		strcpy(response, "OK");
+		hc_05_set_response(response, "OK");
 	} else if (strcmp(request, "AT+RESET") == 0) {
 		/* AT+RESET - Reset */
-		strcpy(response, "OK");
+		hc_05_set_response(response, "OK");
 	} else if (strcmp(request, "AT+ORGL") == 0) {
 		/* AT+ORGL - Restore Factory */
-		strcpy(device->name, "HC-05-Default");
-		strcpy(device->password, "1234");
+		strncpy(device->name, "HC-05-Default", sizeof(device->name) - 1);
+		device->name[sizeof(device->name) - 1] = '\0';
+		strncpy(device->password, "1234", sizeof(device->password) - 1);
+		device->password[sizeof(device->password) - 1] = '\0';
 		device->baudrate = 9600;
 		device->role = 0;
 		device->cmode = 1;
-		strcpy(response, "OK");
+		hc_05_set_response(response, "OK");
 	} else if (strcmp(request, "AT+VERSION?") == 0) {
 		/* AT+VERSION? */
-		snprintf(response, 256, "+VERSION:%s\r\nOK", device->version);
+		snprintf(response, SERIAL_PORT_BUFFER_SIZE, "+VERSION:%s\r\nOK", device->version);
 	} else if (strcmp(request, "AT+NAME?") == 0) {
 		/* AT+NAME? */
-		snprintf(response, 256, "+NAME:%s\r\nOK", device->name);
+		snprintf(response, SERIAL_PORT_BUFFER_SIZE, "+NAME:%s\r\nOK", device->name);
 	} else if (strncmp(request, "AT+NAME=", 8) == 0) {
 		/* AT+NAME= */
 		strncpy(device->name, request + 8, sizeof(device->name) - 1);
 		device->name[sizeof(device->name) - 1] = '\0';
-		strcpy(response, "OK");
+		hc_05_set_response(response, "OK");
 	} else if (strcmp(request, "AT+PSWD?") == 0) {
 		/* AT+PSWD? */
-		snprintf(response, 256, "+PSWD:%s\r\nOK", device->password);
+		snprintf(response, SERIAL_PORT_BUFFER_SIZE, "+PSWD:%s\r\nOK", device->password);
 	} else if (strncmp(request, "AT+PSWD=", 8) == 0) {
 		/* AT+PSWD= */
 		strncpy(device->password, request + 8, sizeof(device->password) - 1);
 		device->password[sizeof(device->password) - 1] = '\0';
-		strcpy(response, "OK");
+		hc_05_set_response(response, "OK");
 	} else if (strcmp(request, "AT+UART?") == 0) {
 		/* AT+UART? */
-		snprintf(response, 256, "+UART:%d,%d,%d\r\nOK",
+		snprintf(response, SERIAL_PORT_BUFFER_SIZE, "+UART:%d,%d,%d\r\nOK",
 			device->baudrate, device->stopbit, device->parity);
 	} else if (strncmp(request, "AT+UART=", 8) == 0) {
 		/* AT+UART= */
-		sscanf(request + 8, "%d,%d,%d", &device->baudrate,
-			&device->stopbit, &device->parity);
-		strcpy(response, "OK");
+		if (sscanf(request + 8, "%d,%d,%d", &device->baudrate,
+			&device->stopbit, &device->parity) == 3) {
+			hc_05_set_response(response, "OK");
+		} else {
+			hc_05_set_response(response, "ERROR");
+		}
 	} else if (strcmp(request, "AT+ROLE?") == 0) {
 		/* AT+ROLE? */
-		snprintf(response, 256, "+ROLE:%d\r\nOK", device->role);
+		snprintf(response, SERIAL_PORT_BUFFER_SIZE, "+ROLE:%d\r\nOK", device->role);
 	} else if (strncmp(request, "AT+ROLE=", 8) == 0) {
 		/* AT+ROLE= */
-		sscanf(request + 8, "%d", &device->role);
-		strcpy(response, "OK");
+		if (sscanf(request + 8, "%d", &device->role) == 1) {
+			hc_05_set_response(response, "OK");
+		} else {
+			hc_05_set_response(response, "ERROR");
+		}
 	} else if (strcmp(request, "AT+CMODE?") == 0) {
 		/* AT+CMODE? */
-		snprintf(response, 256, "+CMODE:%d\r\nOK", device->cmode);
+		snprintf(response, SERIAL_PORT_BUFFER_SIZE, "+CMODE:%d\r\nOK", device->cmode);
 	} else if (strncmp(request, "AT+CMODE=", 9) == 0) {
 		/* AT+CMODE= */
-		sscanf(request + 9, "%d", &device->cmode);
-		strcpy(response, "OK");
+		if (sscanf(request + 9, "%d", &device->cmode) == 1) {
+			hc_05_set_response(response, "OK");
+		} else {
+			hc_05_set_response(response, "ERROR");
+		}
 	} else if (strcmp(request, "AT+ADDR?") == 0) {
 		/* AT+ADDR? */
-		snprintf(response, 256, "+ADDR:%s\r\nOK", device->addr);
+		snprintf(response, SERIAL_PORT_BUFFER_SIZE, "+ADDR:%s\r\nOK", device->addr);
 	} else if (strcmp(request, "AT+BIND?") == 0) {
 		/* AT+BIND? */
-		snprintf(response, 256, "+BIND:%s\r\nOK", device->bind_addr);
+		snprintf(response, SERIAL_PORT_BUFFER_SIZE, "+BIND:%s\r\nOK", device->bind_addr);
 	} else if (strcmp(request, "AT+STATE?") == 0) {
 		/* AT+STATE? */
 		const char *state_str[] = {"INITIALIZED", "CONNECTED", "DISCONNECTED"};
-		snprintf(response, 256, "+STATE:%s\r\nOK",
+		snprintf(response, SERIAL_PORT_BUFFER_SIZE, "+STATE:%s\r\nOK",
 			(device->state >= 0 && device->state <= 2) ?
 			state_str[device->state] : "UNKNOWN");
 	} else if (strcmp(request, "AT+ADCN?") == 0) {
 		/* AT+ADCN? */
-		snprintf(response, 256, "+ADCN:%d\r\nOK", device->paired_count);
+		snprintf(response, SERIAL_PORT_BUFFER_SIZE, "+ADCN:%d\r\nOK", device->paired_count);
 	} else if (strcmp(request, "AT+PIO?") == 0) {
 		/* AT+PIO? */
-		snprintf(response, 256, "+PIO:%d\r\nOK", device->pio);
+		snprintf(response, SERIAL_PORT_BUFFER_SIZE, "+PIO:%d\r\nOK", device->pio);
 	} else if (strncmp(request, "AT+PIO=", 8) == 0) {
 		/* AT+PIO= */
-		sscanf(request + 8, "%d", &device->pio);
-		strcpy(response, "OK");
+		if (sscanf(request + 8, "%d", &device->pio) == 1) {
+			hc_05_set_response(response, "OK");
+		} else {
+			hc_05_set_response(response, "ERROR");
+		}
 	} else if (strcmp(request, "AT+MPIO?") == 0) {
 		/* AT+MPIO? */
-		snprintf(response, 256, "+MPIO:%d\r\nOK", device->mpio);
+		snprintf(response, SERIAL_PORT_BUFFER_SIZE, "+MPIO:%d\r\nOK", device->mpio);
 	} else if (strncmp(request, "AT+MPIO=", 8) == 0) {
 		/* AT+MPIO= */
-		sscanf(request + 8, "%d", &device->mpio);
-		strcpy(response, "OK");
+		if (sscanf(request + 8, "%d", &device->mpio) == 1) {
+			hc_05_set_response(response, "OK");
+		} else {
+			hc_05_set_response(response, "ERROR");
+		}
 	} else if (strcmp(request, "AT+IPSCAN?") == 0) {
 		/* AT+IPSCAN? */
-		strcpy(response, "+IPSCAN:1024,512,48,18\r\nOK");
+		hc_05_set_response(response, "+IPSCAN:1024,512,48,18\r\nOK");
 	} else if (strncmp(request, "AT+IPSCAN=", 9) == 0) {
 		/* AT+IPSCAN= */
-		strcpy(response, "OK");
+		hc_05_set_response(response, "OK");
 	} else if (strcmp(request, "AT+UARTMODE?") == 0) {
 		/* AT+UARTMODE? */
-		snprintf(response, 256, "+UARTMODE:%d\r\nOK", device->uartmode);
+		snprintf(response, SERIAL_PORT_BUFFER_SIZE, "+UARTMODE:%d\r\nOK", device->uartmode);
 	} else if (strncmp(request, "AT+UARTMODE=", 12) == 0) {
 		/* AT+UARTMODE= */
-		sscanf(request + 12, "%d", &device->uartmode);
-		strcpy(response, "OK");
+		if (sscanf(request + 12, "%d", &device->uartmode) == 1) {
+			hc_05_set_response(response, "OK");
+		} else {
+			hc_05_set_response(response, "ERROR");
+		}
 	} else if (strcmp(request, "AT+ENAPWD?") == 0) {
 		/* AT+ENAPWD? */
-		snprintf(response, 256, "+ENAPWD:%d\r\nOK", device->enapwd);
+		snprintf(response, SERIAL_PORT_BUFFER_SIZE, "+ENAPWD:%d\r\nOK", device->enapwd);
 	} else if (strncmp(request, "AT+ENAPWD=", 10) == 0) {
 		/* AT+ENAPWD= */
-		sscanf(request + 10, "%d", &device->enapwd);
-		strcpy(response, "OK");
+		if (sscanf(request + 10, "%d", &device->enapwd) == 1) {
+			hc_05_set_response(response, "OK");
+		} else {
+			hc_05_set_response(response, "ERROR");
+		}
 	} else if (strcmp(request, "AT+INQ") == 0) {
 		/* AT+INQ */
-		strcpy(response, "OK");
+		hc_05_set_response(response, "OK");
 	} else if (strcmp(request, "AT+INQC") == 0) {
 		/* AT+INQC */
-		strcpy(response, "OK");
+		hc_05_set_response(response, "OK");
 	} else if (strncmp(request, "AT+LINK=", 8) == 0) {
 		/* AT+LINK= */
 		device->state = 1; /* CONNECTED */
-		strcpy(response, "OK");
+		hc_05_set_response(response, "OK");
 	} else if (strcmp(request, "AT+DISC") == 0) {
 		/* AT+DISC */
 		device->state = 2; /* DISCONNECTED */
-		strcpy(response, "OK");
+		hc_05_set_response(response, "OK");
 	} else if (strcmp(request, "AT+RMAAD") == 0) {
 		/* AT+RMAAD */
 		device->paired_count = 0;
-		strcpy(response, "OK");
+		hc_05_set_response(response, "OK");
 	} else if (strncmp(request, "AT+PAIR=", 8) == 0) {
 		/* AT+PAIR= */
 		device->paired_count++;
-		strcpy(response, "OK");
+		hc_05_set_response(response, "OK");
 	} else {
-		strcpy(response, "ERROR");
+		hc_05_set_response(response, "ERROR");
 	}
 
 	pr_info("request: %s", request);
@@ -212,9 +302,7 @@ static int hc_05_get_version(struct hc_05_device *device, char *buffer, int size
 {
 	int ret;
 
-	serial_port_transmit_bytes(device->serial, "AT+VERSION?", strlen("AT+VERSION?"));
-
-	ret = serial_port_get_data(device->serial, buffer, size, 1000);
+	ret = hc_05_query(device, "AT+VERSION?", buffer, size, 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -269,9 +357,7 @@ static int hc_05_get_name(struct hc_05_device *device, char *buffer, int size)
 {
 	int ret;
 
-	serial_port_transmit_bytes(device->serial, "AT+NAME?", strlen("AT+NAME?"));
-
-	ret = serial_port_get_data(device->serial, buffer, size, 1000);
+	ret = hc_05_query(device, "AT+NAME?", buffer, size, 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -305,9 +391,7 @@ static int hc_05_get_password(struct hc_05_device *device, char *buffer, int siz
 {
 	int ret;
 
-	serial_port_transmit_bytes(device->serial, "AT+PSWD?", strlen("AT+PSWD?"));
-
-	ret = serial_port_get_data(device->serial, buffer, size, 1000);
+	ret = hc_05_query(device, "AT+PSWD?", buffer, size, 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -341,9 +425,7 @@ static int hc_05_get_uart(struct hc_05_device *device, char *buffer, int size)
 {
 	int ret;
 
-	serial_port_transmit_bytes(device->serial, "AT+UART?", strlen("AT+UART?"));
-
-	ret = serial_port_get_data(device->serial, buffer, size, 1000);
+	ret = hc_05_query(device, "AT+UART?", buffer, size, 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -378,9 +460,7 @@ static int hc_05_get_role(struct hc_05_device *device, int *role)
 	char buffer[SERIAL_PORT_BUFFER_SIZE];
 	int ret;
 
-	serial_port_transmit_bytes(device->serial, "AT+ROLE?", strlen("AT+ROLE?"));
-
-	ret = serial_port_get_data(device->serial, buffer, sizeof(buffer), 1000);
+	ret = hc_05_query(device, "AT+ROLE?", buffer, sizeof(buffer), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -419,9 +499,7 @@ static int hc_05_get_cmode(struct hc_05_device *device, int *mode)
 	char buffer[SERIAL_PORT_BUFFER_SIZE];
 	int ret;
 
-	serial_port_transmit_bytes(device->serial, "AT+CMODE?", strlen("AT+CMODE?"));
-
-	ret = serial_port_get_data(device->serial, buffer, sizeof(buffer), 1000);
+	ret = hc_05_query(device, "AT+CMODE?", buffer, sizeof(buffer), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -459,9 +537,7 @@ static int hc_05_get_bind(struct hc_05_device *device, char *buffer, int size)
 {
 	int ret;
 
-	serial_port_transmit_bytes(device->serial, "AT+BIND?", strlen("AT+BIND?"));
-
-	ret = serial_port_get_data(device->serial, buffer, size, 1000);
+	ret = hc_05_query(device, "AT+BIND?", buffer, size, 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -495,9 +571,7 @@ static int hc_05_get_iac(struct hc_05_device *device, char *buffer, int size)
 {
 	int ret;
 
-	serial_port_transmit_bytes(device->serial, "AT+IAC?", strlen("AT+IAC?"));
-
-	ret = serial_port_get_data(device->serial, buffer, size, 1000);
+	ret = hc_05_query(device, "AT+IAC?", buffer, size, 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -531,9 +605,7 @@ static int hc_05_get_class(struct hc_05_device *device, char *buffer, int size)
 {
 	int ret;
 
-	serial_port_transmit_bytes(device->serial, "AT+CLASS?", strlen("AT+CLASS?"));
-
-	ret = serial_port_get_data(device->serial, buffer, size, 1000);
+	ret = hc_05_query(device, "AT+CLASS?", buffer, size, 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -567,9 +639,7 @@ static int hc_05_get_inqm(struct hc_05_device *device, char *buffer, int size)
 {
 	int ret;
 
-	serial_port_transmit_bytes(device->serial, "AT+INQM?", strlen("AT+INQM?"));
-
-	ret = serial_port_get_data(device->serial, buffer, size, 1000);
+	ret = hc_05_query(device, "AT+INQM?", buffer, size, 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -603,9 +673,7 @@ static int hc_05_get_ipscan(struct hc_05_device *device, char *buffer, int size)
 {
 	int ret;
 
-	serial_port_transmit_bytes(device->serial, "AT+IPSCAN?", strlen("AT+IPSCAN?"));
-
-	ret = serial_port_get_data(device->serial, buffer, size, 1000);
+	ret = hc_05_query(device, "AT+IPSCAN?", buffer, size, 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -639,9 +707,7 @@ static int hc_05_get_sniff(struct hc_05_device *device, char *buffer, int size)
 {
 	int ret;
 
-	serial_port_transmit_bytes(device->serial, "AT+SNIFF?", strlen("AT+SNIFF?"));
-
-	ret = serial_port_get_data(device->serial, buffer, size, 1000);
+	ret = hc_05_query(device, "AT+SNIFF?", buffer, size, 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -676,9 +742,7 @@ static int hc_05_get_pio(struct hc_05_device *device, int *pio)
 	char buffer[SERIAL_PORT_BUFFER_SIZE];
 	int ret;
 
-	serial_port_transmit_bytes(device->serial, "AT+PIO?", strlen("AT+PIO?"));
-
-	ret = serial_port_get_data(device->serial, buffer, sizeof(buffer), 1000);
+	ret = hc_05_query(device, "AT+PIO?", buffer, sizeof(buffer), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -717,9 +781,7 @@ static int hc_05_get_mpio(struct hc_05_device *device, int *mpio)
 	char buffer[SERIAL_PORT_BUFFER_SIZE];
 	int ret;
 
-	serial_port_transmit_bytes(device->serial, "AT+MPIO?", strlen("AT+MPIO?"));
-
-	ret = serial_port_get_data(device->serial, buffer, sizeof(buffer), 1000);
+	ret = hc_05_query(device, "AT+MPIO?", buffer, sizeof(buffer), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -737,9 +799,7 @@ static int hc_05_get_state(struct hc_05_device *device, char *buffer, int size)
 {
 	int ret;
 
-	serial_port_transmit_bytes(device->serial, "AT+STATE?", strlen("AT+STATE?"));
-
-	ret = serial_port_get_data(device->serial, buffer, size, 1000);
+	ret = hc_05_query(device, "AT+STATE?", buffer, size, 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -751,9 +811,7 @@ static int hc_05_get_addr(struct hc_05_device *device, char *buffer, int size)
 {
 	int ret;
 
-	serial_port_transmit_bytes(device->serial, "AT+ADDR?", strlen("AT+ADDR?"));
-
-	ret = serial_port_get_data(device->serial, buffer, size, 1000);
+	ret = hc_05_query(device, "AT+ADDR?", buffer, size, 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -766,9 +824,7 @@ static int hc_05_get_adcn(struct hc_05_device *device, int *count)
 	char buffer[SERIAL_PORT_BUFFER_SIZE];
 	int ret;
 
-	serial_port_transmit_bytes(device->serial, "AT+ADCN?", strlen("AT+ADCN?"));
-
-	ret = serial_port_get_data(device->serial, buffer, sizeof(buffer), 1000);
+	ret = hc_05_query(device, "AT+ADCN?", buffer, sizeof(buffer), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -787,9 +843,7 @@ static int hc_05_get_rname(struct hc_05_device *device, const char *addr, char *
 
 	snprintf(cmd, sizeof(cmd), "AT+RNAME?%s", addr);
 
-	serial_port_transmit_bytes(device->serial, cmd, strlen(cmd));
-
-	ret = serial_port_get_data(device->serial, buffer, size, 1000);
+	ret = hc_05_query(device, cmd, buffer, size, 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -801,9 +855,7 @@ static int hc_05_get_rssi(struct hc_05_device *device, char *buffer, int size)
 {
 	int ret;
 
-	serial_port_transmit_bytes(device->serial, "AT+RSSI?", strlen("AT+RSSI?"));
-
-	ret = serial_port_get_data(device->serial, buffer, size, 1000);
+	ret = hc_05_query(device, "AT+RSSI?", buffer, size, 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -978,9 +1030,7 @@ static int hc_05_get_mraddr(struct hc_05_device *device, char *buffer, int size)
 {
 	int ret;
 
-	serial_port_transmit_bytes(device->serial, "AT+MRAD", strlen("AT+MRAD"));
-
-	ret = serial_port_get_data(device->serial, buffer, size, 1000);
+	ret = hc_05_query(device, "AT+MRAD", buffer, size, 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -1138,12 +1188,20 @@ int hc_05_scan_and_connect(struct hc_05_device *device, const char *target_name,
 		return ret;
 	}
 
+	if (ret < (int)sizeof(buffer)) {
+		buffer[ret] = '\0';
+	} else {
+		buffer[sizeof(buffer) - 1] = '\0';
+	}
+
 	pr_info("found devices:\n%.*s\n", ret, buffer);
 
-	snprintf(scan_cmd, sizeof(scan_cmd), "AT+RNAME?%s", target_name);
-	serial_port_transmit_bytes(device->serial, scan_cmd, strlen(scan_cmd));
+	if (snprintf(scan_cmd, sizeof(scan_cmd), "AT+RNAME?%s", target_name) >= sizeof(scan_cmd)) {
+		pr_err("target name too long\n");
+		return -ENAMETOOLONG;
+	}
 
-	ret = serial_port_get_data(device->serial, buffer, sizeof(buffer), 5000);
+	ret = hc_05_query(device, scan_cmd, buffer, sizeof(buffer), 5000);
 	if (ret < 0) {
 		pr_err("failed to get device name\n");
 		return ret;
@@ -1193,64 +1251,77 @@ int hc_05_get_device_info(struct hc_05_device *device, char *buffer, int size)
 
 	pr_info("getting hc-05 device information\n");
 
-	ret = snprintf(buffer + pos, size - pos, "=== hc-05 device information ===\n");
-	pos += ret;
+	ret = hc_05_buf_append(buffer, size, &pos, "=== hc-05 device information ===\n");
+	if (ret < 0) {
+		return ret;
+	}
 
 	ret = hc_05_get_version(device, temp, sizeof(temp));
 	if (ret >= 0) {
-		ret = snprintf(buffer + pos, size - pos, "Version: %.*s\n", ret, temp);
-		pos += ret;
+		if (hc_05_buf_append(buffer, size, &pos, "Version: %.*s\n", ret, temp) < 0) {
+			return -ENOSPC;
+		}
 	}
 
 	ret = hc_05_get_name(device, temp, sizeof(temp));
 	if (ret >= 0) {
-		ret = snprintf(buffer + pos, size - pos, "Name: %.*s\n", ret, temp);
-		pos += ret;
+		if (hc_05_buf_append(buffer, size, &pos, "Name: %.*s\n", ret, temp) < 0) {
+			return -ENOSPC;
+		}
 	}
 
 	ret = hc_05_get_addr(device, temp, sizeof(temp));
 	if (ret >= 0) {
-		ret = snprintf(buffer + pos, size - pos, "Address: %.*s\n", ret, temp);
-		pos += ret;
+		if (hc_05_buf_append(buffer, size, &pos, "Address: %.*s\n", ret, temp) < 0) {
+			return -ENOSPC;
+		}
 	}
 
 	ret = hc_05_get_password(device, temp, sizeof(temp));
 	if (ret >= 0) {
-		ret = snprintf(buffer + pos, size - pos, "Password: %.*s\n", ret, temp);
-		pos += ret;
+		if (hc_05_buf_append(buffer, size, &pos, "Password: %.*s\n", ret, temp) < 0) {
+			return -ENOSPC;
+		}
 	}
 
 	ret = hc_05_get_uart(device, temp, sizeof(temp));
 	if (ret >= 0) {
-		ret = snprintf(buffer + pos, size - pos, "UART: %.*s\n", ret, temp);
-		pos += ret;
+		if (hc_05_buf_append(buffer, size, &pos, "UART: %.*s\n", ret, temp) < 0) {
+			return -ENOSPC;
+		}
 	}
 
 	ret = hc_05_get_role(device, &role);
 	if (ret == 0) {
-		ret = snprintf(buffer + pos, size - pos, "Role: %d\n", role);
-		pos += ret;
+		if (hc_05_buf_append(buffer, size, &pos, "Role: %d\n", role) < 0) {
+			return -ENOSPC;
+		}
 	}
 
 	ret = hc_05_get_cmode(device, &mode);
 	if (ret == 0) {
-		ret = snprintf(buffer + pos, size - pos, "Connection Mode: %d\n", mode);
-		pos += ret;
+		if (hc_05_buf_append(buffer, size, &pos, "Connection Mode: %d\n", mode) < 0) {
+			return -ENOSPC;
+		}
 	}
 
 	ret = hc_05_get_state(device, temp, sizeof(temp));
 	if (ret >= 0) {
-		ret = snprintf(buffer + pos, size - pos, "State: %.*s\n", ret, temp);
-		pos += ret;
+		if (hc_05_buf_append(buffer, size, &pos, "State: %.*s\n", ret, temp) < 0) {
+			return -ENOSPC;
+		}
 	}
 
 	ret = hc_05_get_adcn(device, &count);
 	if (ret == 0) {
-		ret = snprintf(buffer + pos, size - pos, "Paired Devices: %d\n", count);
-		pos += ret;
+		if (hc_05_buf_append(buffer, size, &pos, "Paired Devices: %d\n", count) < 0) {
+			return -ENOSPC;
+		}
 	}
 
-	snprintf(buffer + pos, size - pos, "================================\n");
+	if (hc_05_buf_append(buffer, size, &pos, "================================\n") < 0) {
+		return -ENOSPC;
+	}
 
 	pr_info("device information retrieved\n");
 	return pos;
@@ -1265,81 +1336,102 @@ int hc_05_diagnostics(struct hc_05_device *device, char *buffer, int size)
 
 	pr_info("running hc-05 diagnostics\n");
 
-	ret = snprintf(buffer + pos, size - pos, "=== hc-05 diagnostics ===\n");
-	pos += ret;
+	if (hc_05_buf_append(buffer, size, &pos, "=== hc-05 diagnostics ===\n") < 0) {
+		return -ENOSPC;
+	}
 
 	if (hc_05_test(device) == 0) {
-		ret = snprintf(buffer + pos, size - pos, "[OK] device responds to at command\n");
+		ret = hc_05_buf_append(buffer, size, &pos, "[OK] device responds to at command\n");
 	} else {
-		ret = snprintf(buffer + pos, size - pos, "[FAIL] device does not respond\n");
+		ret = hc_05_buf_append(buffer, size, &pos, "[FAIL] device does not respond\n");
 	}
-	pos += ret;
+	if (ret < 0) {
+		return -ENOSPC;
+	}
 
 	ret = hc_05_get_version(device, temp, sizeof(temp));
 	if (ret >= 0) {
-		ret = snprintf(buffer + pos, size - pos, "[OK] version: %.*s\n", ret, temp);
+		ret = hc_05_buf_append(buffer, size, &pos, "[OK] version: %.*s\n", ret, temp);
 	} else {
-		ret = snprintf(buffer + pos, size - pos, "[FAIL] cannot read version\n");
+		ret = hc_05_buf_append(buffer, size, &pos, "[FAIL] cannot read version\n");
 	}
-	pos += ret;
+	if (ret < 0) {
+		return -ENOSPC;
+	}
 
 	ret = hc_05_get_state(device, temp, sizeof(temp));
 	if (ret >= 0) {
-		ret = snprintf(buffer + pos, size - pos, "[OK] state: %.*s\n", ret, temp);
+		ret = hc_05_buf_append(buffer, size, &pos, "[OK] state: %.*s\n", ret, temp);
 	} else {
-		ret = snprintf(buffer + pos, size - pos, "[FAIL] cannot read state\n");
+		ret = hc_05_buf_append(buffer, size, &pos, "[FAIL] cannot read state\n");
 	}
-	pos += ret;
+	if (ret < 0) {
+		return -ENOSPC;
+	}
 
 	ret = hc_05_get_role(device, &role);
 	if (ret == 0) {
-		ret = snprintf(buffer + pos, size - pos, "[OK] role: %d\n", role);
+		ret = hc_05_buf_append(buffer, size, &pos, "[OK] role: %d\n", role);
 	} else {
-		ret = snprintf(buffer + pos, size - pos, "[FAIL] cannot read role\n");
+		ret = hc_05_buf_append(buffer, size, &pos, "[FAIL] cannot read role\n");
 	}
-	pos += ret;
+	if (ret < 0) {
+		return -ENOSPC;
+	}
 
 	ret = hc_05_get_pio(device, &pio);
 	if (ret == 0) {
-		ret = snprintf(buffer + pos, size - pos, "[OK] pio: %d\n", pio);
+		ret = hc_05_buf_append(buffer, size, &pos, "[OK] pio: %d\n", pio);
 	} else {
-		ret = snprintf(buffer + pos, size - pos, "[FAIL] cannot read pio\n");
+		ret = hc_05_buf_append(buffer, size, &pos, "[FAIL] cannot read pio\n");
 	}
-	pos += ret;
+	if (ret < 0) {
+		return -ENOSPC;
+	}
 
 	ret = hc_05_get_mpio(device, &mpio);
 	if (ret == 0) {
-		ret = snprintf(buffer + pos, size - pos, "[OK] mpio: %d\n", mpio);
+		ret = hc_05_buf_append(buffer, size, &pos, "[OK] mpio: %d\n", mpio);
 	} else {
-		ret = snprintf(buffer + pos, size - pos, "[FAIL] cannot read mpio\n");
+		ret = hc_05_buf_append(buffer, size, &pos, "[FAIL] cannot read mpio\n");
 	}
-	pos += ret;
+	if (ret < 0) {
+		return -ENOSPC;
+	}
 
 	ret = hc_05_get_addr(device, temp, sizeof(temp));
 	if (ret >= 0) {
-		ret = snprintf(buffer + pos, size - pos, "[OK] address: %.*s\n", ret, temp);
+		ret = hc_05_buf_append(buffer, size, &pos, "[OK] address: %.*s\n", ret, temp);
 	} else {
-		ret = snprintf(buffer + pos, size - pos, "[FAIL] cannot read address\n");
+		ret = hc_05_buf_append(buffer, size, &pos, "[FAIL] cannot read address\n");
 	}
-	pos += ret;
+	if (ret < 0) {
+		return -ENOSPC;
+	}
 
 	ret = hc_05_get_uart(device, temp, sizeof(temp));
 	if (ret >= 0) {
-		ret = snprintf(buffer + pos, size - pos, "[OK] uart: %.*s\n", ret, temp);
+		ret = hc_05_buf_append(buffer, size, &pos, "[OK] uart: %.*s\n", ret, temp);
 	} else {
-		ret = snprintf(buffer + pos, size - pos, "[FAIL] cannot read uart config\n");
+		ret = hc_05_buf_append(buffer, size, &pos, "[FAIL] cannot read uart config\n");
 	}
-	pos += ret;
+	if (ret < 0) {
+		return -ENOSPC;
+	}
 
 	ret = hc_05_get_bind(device, temp, sizeof(temp));
 	if (ret >= 0) {
-		ret = snprintf(buffer + pos, size - pos, "[OK] bind address: %.*s\n", ret, temp);
+		ret = hc_05_buf_append(buffer, size, &pos, "[OK] bind address: %.*s\n", ret, temp);
 	} else {
-		ret = snprintf(buffer + pos, size - pos, "[WARN] cannot read bind address\n");
+		ret = hc_05_buf_append(buffer, size, &pos, "[WARN] cannot read bind address\n");
 	}
-	pos += ret;
+	if (ret < 0) {
+		return -ENOSPC;
+	}
 
-	snprintf(buffer + pos, size - pos, "=========================\n");
+	if (hc_05_buf_append(buffer, size, &pos, "=========================\n") < 0) {
+		return -ENOSPC;
+	}
 
 	pr_info("diagnostics completed\n");
 	return pos;

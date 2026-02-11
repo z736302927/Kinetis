@@ -1,7 +1,9 @@
 #include <linux/slab.h>
 #include <linux/errno.h>
+#include <stdbool.h>
 
 #include "kinetis/switch.h"
+
 #include "kinetis/tim-task.h"
 #include "kinetis/design_verification.h"
 
@@ -15,6 +17,7 @@
   */
 
 static struct tim_task switch_task;
+static bool switch_task_running;
 
 static void switch_task_callback(struct tim_task *task)
 {
@@ -23,13 +26,29 @@ static void switch_task_callback(struct tim_task *task)
 
 int switch_task_init(void)
 {
-	return tim_task_add(&switch_task, "switch task",
+	int ret;
+
+	if (switch_task_running) {
+		return 0;
+	}
+
+	ret = tim_task_add(&switch_task, "switch task",
 			5, true, false, switch_task_callback);
+	if (ret == 0) {
+		switch_task_running = true;
+	}
+
+	return ret;
 }
 
 void switch_task_exit(void)
 {
+	if (!switch_task_running) {
+		return;
+	}
+
 	tim_task_drop(&switch_task);
+	switch_task_running = false;
 }
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
@@ -55,8 +74,17 @@ int switch_add(u32 unique_id, u8(*pin_level)(void), u8 active_level,
 	struct switch_device *_switch;
 	u32 i;
 
-	_switch = kzalloc(sizeof(*_switch), GFP_KERNEL);
+	if (!pin_level) {
+		return -EINVAL;
+	}
 
+	list_for_each_entry(_switch, &switch_head, list) {
+		if (_switch->unique_id == unique_id) {
+			return -EINVAL;
+		}
+	}
+
+	_switch = kzalloc(sizeof(*_switch), GFP_KERNEL);
 	if (!_switch) {
 		return -ENOMEM;
 	}
@@ -65,7 +93,7 @@ int switch_add(u32 unique_id, u8(*pin_level)(void), u8 active_level,
 	_switch->event = (u8)NONE_SWITCH;
 	_switch->hal_switch_level = pin_level;
 	_switch->switch_level = _switch->hal_switch_level();
-	_switch->active_level = active_level;
+	_switch->active_level = !!active_level;
 
 	for (i = 0; i < SWITCHEVENT_NBR; i++) {
 		_switch->callback[i] = callback;

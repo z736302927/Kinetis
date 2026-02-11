@@ -428,7 +428,13 @@ void mem_free(void *ptr)
 	for (i = 0; i < block_count; i++) {
 		if (blocks[i].start == ptr && blocks[i].status == BLOCK_USED) {
 			freed_actual_size = blocks[i].actual_size;  // Free the actual allocated size
-			memory_used -= freed_actual_size;
+			if (memory_used < freed_actual_size) {
+				pr_warn("memory_used underflow on free (used=%u, free=%u)",
+					memory_used, freed_actual_size);
+				memory_used = 0;
+			} else {
+				memory_used -= freed_actual_size;
+			}
 
 			mem_format_size(freed_actual_size, freed_size_str, sizeof(freed_size_str));
 			mem_format_size(blocks[i].size, user_size_str, sizeof(user_size_str));
@@ -649,7 +655,16 @@ int mem_get_used_blocks_count(void)
 // Get number of free block descriptors
 int mem_get_free_blocks_count(void)
 {
-	return MAX_BLOCKS - block_count;
+	int count = 0;
+	int i;
+
+	for (i = 0; i < MAX_BLOCKS; i++) {
+		if (blocks[i].status == BLOCK_FREE) {
+			count++;
+		}
+	}
+
+	return count;
 }
 
 // Get largest free block size
@@ -661,9 +676,9 @@ u32 mem_get_largest_free_block(void)
 	int prev_used;
 	u32 first_space;
 	void *next_start;
-	void *prev_end;
+	char *prev_end;
 	u32 space;
-	void *last_end;
+	char *last_end;
 	u32 last_space;
 
 	if (block_count == 0) {
@@ -698,8 +713,8 @@ u32 mem_get_largest_free_block(void)
 	for (i = first_used + 1; i < block_count; i++) {
 		if (blocks[i].status == BLOCK_USED) {
 			next_start = blocks[i].start;
-			prev_end = blocks[prev_used].start + blocks[prev_used].actual_size;
-			space = (u32)((char *)next_start - (char *)prev_end);
+			prev_end = (char *)blocks[prev_used].start + blocks[prev_used].actual_size;
+			space = (u32)((char *)next_start - prev_end);
 			if (space > largest) {
 				largest = space;
 			}
@@ -708,8 +723,8 @@ u32 mem_get_largest_free_block(void)
 	}
 
 	// Check space after last used block
-	last_end = blocks[prev_used].start + blocks[prev_used].actual_size;
-	last_space = (u32)((u64)(memory_pool + STATIC_POOL_SIZE) - (u64)last_end);
+	last_end = (char *)blocks[prev_used].start + blocks[prev_used].actual_size;
+	last_space = (u32)((char *)memory_pool + STATIC_POOL_SIZE - last_end);
 	if (last_space > largest) {
 		largest = last_space;
 	}

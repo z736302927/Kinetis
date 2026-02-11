@@ -24,12 +24,23 @@ int led_add(u32 unique_id, void (*config_color)(u8 red, u8 green, u8 blue), void
 {
 	struct led_device *led;
 
-	led = kmalloc(sizeof(*led), GFP_KERNEL);
+	if (!config_color) {
+		return -EINVAL;
+	}
+
+	list_for_each_entry(led, &led_head, list) {
+		if (led->unique_id == unique_id) {
+			return -EINVAL;
+		}
+	}
+
+	led = kzalloc(sizeof(*led), GFP_KERNEL);
 	if (!led) {
 		return -ENOMEM;
 	}
 
 	led->unique_id = unique_id;
+	led->color = LED_COLOR_NONE;
 	led->rgb.red = 0;
 	led->rgb.green = 0;
 	led->rgb.blue = 0;
@@ -60,6 +71,11 @@ int led_config_color(u32 unique_id, enum led_color color)
 	u8 red, green, blue;
 
 	switch (color) {
+	case LED_COLOR_NONE:
+		red = 0;
+		green = 0;
+		blue = 0;
+		break;
 	case LED_COLOR_RED:
 		red = 255;
 		green = 0;
@@ -81,15 +97,19 @@ int led_config_color(u32 unique_id, enum led_color color)
 
 	list_for_each_entry(led, &led_head, list) {
 		if (led->unique_id == unique_id) {
+			if (!led->config_color) {
+				return -EINVAL;
+			}
+			led->color = color;
 			led->rgb.red = red;
 			led->rgb.green = green;
 			led->rgb.blue = blue;
 			led->config_color(red, green, blue);
-			break;
+			return 0;
 		}
 	}
 
-	return 0;
+	return -ENODEV;
 }
 
 #ifdef DESIGN_VERIFICATION_LED

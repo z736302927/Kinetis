@@ -87,11 +87,9 @@ int tim_task_add(struct tim_task *tim_task,
 		tim_task_init = true;
 	}
 
-	if (tim_task->name != NULL) {
-		tim_task->name = kstrdup_const(name, GFP_KERNEL);
-		if (!tim_task->name) {
-			return -ENOMEM;
-		}
+	tim_task->name = kstrdup_const(name, GFP_KERNEL);
+	if (!tim_task->name) {
+		return -ENOMEM;
 	}
 
 	tim_task->callback = callback;
@@ -159,7 +157,7 @@ void tim_task_drop(struct tim_task *tim_task)
 	//if (tim_task->sched)
 	//	fmu_sch_drop_task(tim_task);
 
-	kfree(tim_task->name);
+	kfree_const(tim_task->name);
 	kfree(tim_task);
 }
 
@@ -180,7 +178,11 @@ void tim_task_suspend(struct tim_task *tim_task)
   */
 void tim_task_resume(struct tim_task *tim_task)
 {
-	list_move_tail(&tim_task->list, &tim_task_head);
+	if (!tim_task || tim_task->priority >= MAX_PRIORITY_LEVELS) {
+		return;
+	}
+
+	list_move_tail(&tim_task->list, &priority_heads[tim_task->priority]);
 }
 
 /**
@@ -193,6 +195,10 @@ void tim_task_loop(void)
 	struct tim_task *tim_task, *tmp;
 	ktime_t loop_start_time;
 	u64 current_time_ms;
+
+	if (tim_task_init == false) {
+		return;
+	}
 
 	if (performance_profiling_enabled) {
 		loop_start_time = ktime_get();
@@ -422,7 +428,7 @@ void tim_task_cleanup_all(void)
 		list_for_each_entry_safe(tim_task, tmp, &priority_heads[i], list) {
 			list_del(&tim_task->list);
 			list_del(&tim_task->main_list);
-			kfree(tim_task->name);
+			kfree_const(tim_task->name);
 			kfree(tim_task);
 		}
 	}
@@ -431,7 +437,7 @@ void tim_task_cleanup_all(void)
 	list_for_each_entry_safe(tim_task, tmp, &tim_task_head, main_list) {
 		list_del(&tim_task->list);
 		list_del(&tim_task->main_list);
-		kfree(tim_task->name);
+		kfree_const(tim_task->name);
 		kfree(tim_task);
 	}
 

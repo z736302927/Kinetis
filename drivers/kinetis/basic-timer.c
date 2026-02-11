@@ -52,7 +52,7 @@ void basic_timer_isr(u32 period)
 __weak u32 basic_timer_get_counter(void)
 {
 #if MCU_PLATFORM_STM32
-    return (u32)htim2.Instance->CNT;
+	return (u32)htim2.Instance->CNT;
 #else
 	return 0;
 #endif
@@ -138,17 +138,40 @@ void basic_timer_resume(void)
 static pthread_t p_thread;
 static volatile bool p_thread_running = false;
 
+unsigned long read_chip_timer(void);
+
 /**
  * @brief Timer thread function - increments tick every 1ms
  */
 static void *timer_thread_func(void *arg)
 {
+	unsigned long last_time;
+	unsigned long current_time, target_time;
+	unsigned long elapsed_ticks;
+	unsigned long tick_interval = TIMER_INTERRUPT_PERIOD;
+	unsigned long sleep_time = tick_interval * 80 / 100;
+
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
 
 	while (p_thread_running) {
-		usleep(TIMER_INTERRUPT_PERIOD);
-		basic_timer_isr(TIMER_INTERRUPT_PERIOD);
+		last_time = read_chip_timer();
+
+// 		if (sleep_time > 0) {
+// 			usleep(sleep_time);
+// 		}
+
+		/* Use high-precision timer for accurate timing */
+		target_time = last_time + tick_interval;
+		do {
+			current_time = read_chip_timer();
+		} while (current_time < target_time);
+
+		/* Calculate elapsed ticks based on actual elapsed time */
+		elapsed_ticks = (current_time - last_time) / tick_interval;
+		if (elapsed_ticks > 0) {
+			basic_timer_isr(elapsed_ticks * tick_interval);
+		}
 	}
 
 	return NULL;
@@ -217,12 +240,14 @@ int t_basic_timer_thread_op(int argc, char **argv)
 
 	if (on_off) {
 		ret = basic_timer_thread_start();
-		if (ret)
+		if (ret) {
 			return ret;
+		}
 	} else {
 		ret = basic_timer_thread_stop();
-		if (ret)
+		if (ret) {
 			return ret;
+		}
 	}
 
 	return PASS;

@@ -239,13 +239,10 @@ static void rtc_task_time_add_hours(struct tm *date_time, u8 hours)
 
 static void rtc_task_time_add_days(struct tm *date_time, u8 days)
 {
-	//Make sure january doesn't jump to march
-	if (days > 28) {
-		return;
+	while (days-- > 0) {
+		++date_time->tm_mday;
+		rtc_task_special_add_days(date_time);
 	}
-
-	date_time->tm_mday += days;
-	rtc_task_special_add_days(date_time);
 }
 
 static void rtc_task_time_add_months(struct tm *date_time, u8 months)
@@ -301,7 +298,7 @@ static void rtc_task_update_time(struct rtc_task *rtc_task)
 		rtc_task->expired.tm_mday = 0;
 		rtc_task->expired.tm_mon -=
 			rtc_task->expired.tm_mon % rtc_task->interval.tm_mon;
-		rtc_task_time_add_days(&(rtc_task->expired), rtc_task->interval.tm_mon);
+		rtc_task_time_add_months(&(rtc_task->expired), rtc_task->interval.tm_mon);
 	}
 
 	if (rtc_task->interval.tm_mday != 0) {
@@ -310,7 +307,7 @@ static void rtc_task_update_time(struct rtc_task *rtc_task)
 		rtc_task->expired.tm_hour = 0;
 		rtc_task->expired.tm_mday -=
 			rtc_task->expired.tm_mday % rtc_task->interval.tm_mday;
-		rtc_task_time_add_hours(&(rtc_task->expired), rtc_task->interval.tm_mday);
+		rtc_task_time_add_days(&(rtc_task->expired), rtc_task->interval.tm_mday);
 	}
 
 	if (rtc_task->interval.tm_hour != 0) {
@@ -318,7 +315,7 @@ static void rtc_task_update_time(struct rtc_task *rtc_task)
 		rtc_task->expired.tm_min = 0;
 		rtc_task->expired.tm_hour -=
 			rtc_task->expired.tm_hour % rtc_task->interval.tm_hour;
-		rtc_task_time_add_months(&(rtc_task->expired), rtc_task->interval.tm_hour);
+		rtc_task_time_add_hours(&(rtc_task->expired), rtc_task->interval.tm_hour);
 	}
 
 	if (rtc_task->interval.tm_min != 0) {
@@ -345,7 +342,6 @@ int rtc_task_add(u16 add_year, u8 add_month, u8 add_date,
 	bool auto_load, void(*callback)())
 {
 	struct rtc_task *rtc_task;
-	int ret, val;
 
 	// Enhanced validation
 	if (add_year > 9999 || add_month > 12 || add_date > 31 ||
@@ -354,9 +350,7 @@ int rtc_task_add(u16 add_year, u8 add_month, u8 add_date,
 		return -EINVAL;
 	}
 
-	ret = readl_poll_timeout_atomic(&current_time.tm_year, val, val, 1, 3000000);
-
-	if (ret) {
+	if (current_time.tm_year == 0) {
 		pr_err("Native time has not been updated.\n");
 		return -ETIMEDOUT;
 	}
@@ -407,7 +401,9 @@ int rtc_task_drop(void(*callback)())
 	list_for_each_entry_safe(rtc_task, tmp, &rtc_task_head, list) {
 		if (rtc_task->callback == callback) {
 			list_del(&rtc_task->list);
-			kfree(rtc_task);
+			if (rtc_task->self_alloc) {
+				kfree(rtc_task);
+			}
 			return 0;
 		}
 	}
@@ -428,11 +424,7 @@ int rtc_task_enqueue(struct rtc_task *rtc_task,
 	u8 add_hours, u8 add_minutes, u8 add_seconds,
 	void(*callback)(struct rtc_task *))
 {
-	int ret, val;
-
-	ret = readl_poll_timeout_atomic(&current_time.tm_year, val, val, 1, 3000000);
-
-	if (ret) {
+	if (current_time.tm_year == 0) {
 		pr_err("Native time has not been updated.\n");
 		return -ETIMEDOUT;
 	}

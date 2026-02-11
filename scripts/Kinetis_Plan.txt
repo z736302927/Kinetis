@@ -1,38 +1,102 @@
 
-/*ak8975测试*/
-ak8975.thread on
+/*============================================================================*
+ * Kinetis 测试计划文件
+ * 说明：
+ * 1. 所有带线程控制的模块，thread on 必须先执行开启线程
+ * 2. 测试完成后执行 thread off 关闭线程
+ * 3. 带参数的命令会使用指定参数进行测试
+ * 4. 多个参数组合表示需要分别测试不同场景
+ *============================================================================*/
+
+/*基础系统测试 - 验证延时、CRC和定时器等基础功能*/
+delay.test
+crc.test
+basic-timer.get-tick
+
+/*按键测试 - 需要先开启任务，然后添加按键，测试完成后删除按键并关闭任务*/
+button.task on
+button.add
+button.drop
+button.task off
+
+/*LED测试 - 测试LED添加和删除功能*/
+led.add
+led.drop
+
+/*开关测试 - 测试开关添加和删除功能*/
+switch.add
+switch.drop
+
+/*AK8975磁力计测试 - 需要先开启线程，进行基本信息、自检、磁场测量、ROM访问测试*/
 ak8975.basic-info
-ak8975.magnetic
+ak8975.thread on
 ak8975.selftest
+ak8975.magnetic 128
+ak8975.magnetic 256
 ak8975.fuse-rom-access
 ak8975.thread off
 
-/*at24cxx测试*/
+/*AT24CXX EEPROM测试 - 需要先开启线程，进行设备检测、读写、边角、磨损均衡等测试*/
 at24cxx.thread on
+at24cxx.device-detect
 at24cxx.loopback
 at24cxx.current-addr-read
-at24cxx.random-read1
-at24cxx.seq-read
-at24cxx.lb-speed
+at24cxx.current-random-read
+at24cxx.sequential-read
+at24cxx.edge-cases
+at24cxx.loopback-speed
+at24cxx.wear-leveling
+at24cxx.write-protect
+at24cxx.write-retry
 at24cxx.thread off
 
-/*ds3231测试*/
+/*DS3231实时时钟测试 - 需要先开启线程，进行时钟设置、读取、闹钟、方波、温度、综合和压力测试*/
+ds3231.thread on
 ds3231.set-clock
 ds3231.get-clock
+ds3231.get-clock 10
+ds3231.get-temprature
 ds3231.set-alarm1
 ds3231.set-alarm2
-ds3231.square-wave
+ds3231.square-wave 0 0
+ds3231.square-wave 0 1
+ds3231.square-wave 1 0
+ds3231.square-wave 1 1
 ds3231.32khz-wave
-ds3231.get-temprature"
+ds3231.comprehensive
+ds3231.stress
+ds3231.thread off
 
-/*w25qxxx测试*/
-w25qxxx.loopback w25q1281
+/*RTC测试 - 测试RTC时钟设置、读取、验证、性能、备份和清理功能*/
+rtc.set-clock
+rtc.get-clock
+rtc.validation
+rtc.performance
+rtc.backup
+rtc.cleanup
+
+/*RTC任务测试 - 测试RTC任务的添加、验证、性能和清理功能*/
+rtc-task.add
+rtc-task.validation
+rtc-task.performance
+rtc-task.cleanup
+
+/*定时任务测试 - 测试定时任务的添加、验证、优先级、性能和清理功能*/
+tim-task.add
+tim-task.validation
+tim-task.priority
+tim-task.performance
+tim-task.cleanup
+
+/*W25QXXX Flash测试 - 测试W25Q128和W25Q256两种芯片的回环、信息读取和擦除功能*/
+w25qxxx.loopback w25q128
+w25qxxx.loopback w25q256
 w25qxxx.info w25q128
+w25qxxx.info w25q256
 w25qxxx.erase w25q128
+w25qxxx.erase w25q256
 
-/*文件系统测试*/
-fatfs.operatemount
-fatfs.operatemkfs
+/*文件系统测试 - 测试FATFS文件系统的操作、回环、文件检查、扫描等功能*/
 fatfs.operate
 fatfs.loopback
 fatfs.miscellaneous
@@ -42,38 +106,47 @@ fatfs.append
 fatfs.delete-node
 fatfs.expend
 fatfs.diskio
-fatfs.contiguous-file"
+fatfs.contiguous-file
 fatfs.raw-speed
 
-/*绝对时钟测试*/
-basic-timer.get-tick
+/*随机数测试 - 测试随机数生成、数组生成和统计功能，使用不同长度和位数参数*/
+random.number
+random.array 10 32
+random.array 100 16
+random.array 100 8
+random.statistics 1000 10
+random.statistics 5000 20
 
-/*按键测试*/
-button.task on
-button.add
-button.drop
-button.task off
+/*HC-05蓝牙测试 - 测试蓝牙模块的设置、从机模式、主机模式、数据传输、诊断、恢复出厂等功能*/
+hc-05.setup
+hc-05.test
+hc-05.slave
+hc-05.master
+hc-05.data-transfer
+hc-05.device-info
+hc-05.diagnostics
+hc-05.factory-reset
+hc-05.full
 
-/*led测试*/
-led.add
-led.drop
-
-/*测试Device端M1模式下一些自报报文*/
+/*水文设备测试 - 测试水文设备在M1/M2/M3/M4四种模式下的功能*/
 hydrology.init
 hydrology.test device m1
+hydrology.test device m2
+hydrology.test device m3
+hydrology.test device m4
 
-/*绝对时钟测试*/
-basic-timer.get-tick
+/*有限状态机测试 - 测试状态机的示例、基本功能、状态转换、错误处理、性能和验证功能*/
+fsm.example
+fsm.basic
+fsm.state-transitions
+fsm.error-handling
+fsm.performance
+fsm.validation
 
-/*延时函数测试*/
-delay.test
+/*串口测试 - 测试串口的交互式功能*/
+serial-port.interactive
 
-/*随机数测试*/
-random.number
-random.array
-random.statistics
-
-/*获取时钟*/
-rtc.set-clock
-rtc.get-clock
+/*LED驱动测试 - 测试MY9221和TLC5971 LED驱动芯片的数据发送功能*/
+my9221.send
+tlc5971.send
 

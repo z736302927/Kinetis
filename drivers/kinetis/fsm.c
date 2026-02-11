@@ -44,7 +44,7 @@ static const char *fsm_condition_names[FSM_CONDITIONS] = {
   */
 
 fsm_state fsm_step(struct state_machine *machine, struct sm_var *sm_var,
-	struct transition *table[FSM_CONDITIONS])
+	struct transition table[FSM_STATES][FSM_CONDITIONS])
 {
 	ktime_t start_time;
 	fsm_state previous_state;

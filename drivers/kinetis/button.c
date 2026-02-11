@@ -69,17 +69,29 @@ int button_add(u32 unique_id, u8(*pin_level)(struct button *), u8 active_level,
 	button_callback callback)
 {
 	struct button *button;
-	u32 i;
-	int ret;
+
+	if (!pin_level) {
+		return -EINVAL;
+	}
+
+	list_for_each_entry(button, &button_head, list) {
+		if (button->unique_id == unique_id) {
+			pr_warn("button %u already registered\n", unique_id);
+			return -EINVAL;
+		}
+	}
 
 	button = kzalloc(sizeof(*button), GFP_KERNEL);
-
 	if (!button) {
 		return -ENOMEM;
 	}
 
 	button->unique_id = unique_id;
 	button->event = NONE_PRESS;
+	button->state = PRESS_IDLE;
+	button->valid_ticks = 0;
+	button->cnt = 0;
+	button->debounce_cnt = 0;
 	button->hal_button_level = pin_level;
 
 	if (active_level) {
@@ -88,7 +100,7 @@ int button_add(u32 unique_id, u8(*pin_level)(struct button *), u8 active_level,
 		bitmap_clear(button->button_level, 0, DEBOUNCE_CNT);
 	}
 
-	button->active_level = active_level;
+	button->active_level = !!active_level;
 	button->callback = callback;
 
 	list_add_tail(&button->list, &button_head);
@@ -150,11 +162,13 @@ static void click(struct tim_task *tim_task)
 static void button_handler(struct button *button)
 {
 	u8 gpio_level = button->hal_button_level(button);
-	static DECLARE_BITMAP(target_level, DEBOUNCE_CNT) = {~0};
+	static DECLARE_BITMAP(target_level, DEBOUNCE_CNT);
 	u64 current_time;
 	u8 old_state = button->state;
 	char bitmap_str[16];
 	int i;
+
+	bitmap_fill(target_level, DEBOUNCE_CNT);
 
 	/* State machine */
 	switch (button->state) {
@@ -181,7 +195,7 @@ static void button_handler(struct button *button)
 		pr_debug("button_handler: button %u button_level %s\n",
 			button->unique_id, bitmap_str);
 
-		if (bitmap_equal(target_level, button->button_level, DEBOUNCE_CNT)) {
+		if (bitmap_full(button->button_level, DEBOUNCE_CNT)) {
 			bitmap_clear(button->button_level, 0, DEBOUNCE_CNT);
 			button->valid_ticks = basic_timer_get_ms();
 			button->state = PRESS_DOWN;
@@ -218,7 +232,7 @@ static void button_handler(struct button *button)
 		pr_debug("button_handler: button %u button_level %s\n",
 			button->unique_id, bitmap_str);
 
-		if (bitmap_equal(target_level, button->button_level, DEBOUNCE_CNT)) {
+		if (bitmap_full(button->button_level, DEBOUNCE_CNT)) {
 			bitmap_clear(button->button_level, 0, DEBOUNCE_CNT);
 			button->valid_ticks = basic_timer_get_ms() - button->valid_ticks;
 			pr_debug("button_handler: button %u effective pressing time %llu\n",
@@ -231,10 +245,10 @@ static void button_handler(struct button *button)
 		if (button->valid_ticks >= 0 && button->valid_ticks <= 1500) {
 			button->cnt++;
 
-// 			if (button->cnt == 1) {
-// 				tim_task_add(&button->task, NULL,
-// 					300, false, false, click);
-// 			}
+			// 			if (button->cnt == 1) {
+			// 				tim_task_add(&button->task, NULL,
+			// 					300, false, false, click);
+			// 			}
 			button->event = SINGLE_CLICK;
 			if (button->callback) {
 				button->callback(button);
@@ -253,7 +267,6 @@ static void button_handler(struct button *button)
 	}
 
 	if (button->state != old_state) {
-		// Debug: log state transitions
 		pr_debug("button_handler, button %u state %s\n",
 			button->unique_id, button_state_to_string((enum button_state_machine)button->state));
 	}
