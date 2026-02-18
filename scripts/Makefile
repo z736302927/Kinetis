@@ -304,6 +304,10 @@ all: $(TARGET)
 	@$(ECHO) "Auto-running the program..."
 	@$(MAKE) run
 
+# Compile only - build .exe without running
+compile: $(TARGET)
+	@$(ECHO) "Compilation completed: $(TARGET)"
+
 # Create necessary directories
 $(BUILD_DIR):
 	@$(ECHO) "Creating directory: $(BUILD_DIR)"
@@ -524,4 +528,4 @@ print-cmd:
 # The - before include prevents make from failing if the files don't exist yet
 -include $(C_OBJS:.o=.d)
 
-.PHONY: all clean run debug print-sources print-objects print-os print-vars check-sources test-dirs create-dirs test-cmd print-cmd print-headers check-deps analyze-deps
+.PHONY: all compile clean run debug print-sources print-objects print-os print-vars check-sources test-dirs create-dirs test-cmd print-cmd print-headers check-deps analyze-deps

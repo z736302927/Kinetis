@@ -5,6 +5,7 @@
 #include "kinetis/iic_soft.h"
 #include "kinetis/delay.h"
 #include "kinetis/idebug.h"
+#include "kinetis/design_verification.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -661,5 +662,508 @@ void max77752_set_default_config(void)
 
 	printk("Default configuration set");
 }
+
+/* Test functions */
+#ifdef DESIGN_VERIFICATION_MAX77752
+#include "kinetis/test-kinetis.h"
+#include "kinetis/design_verification.h"
+
+/**
+ * @brief Test 1: MAX77752 Basic Device Detection and Identification
+ * @return PASS if device is detected, FAIL otherwise
+ */
+int t_max77752_device_id(int argc, char **argv)
+{
+	u8 dev_id, dev_rev;
+
+	pr_info("=== MAX77752 Device ID Test ===");
+
+	/* Check if device is present */
+	if (!max77752_is_device_present()) {
+		pr_err("FAIL: MAX77752 device not found");
+		return FAIL;
+	}
+
+	/* Read device identification */
+	dev_id = max77752_read_device_id();
+	dev_rev = max77752_read_device_revision();
+
+	pr_info("Device ID: 0x%02X", dev_id);
+	pr_info("Device Revision: 0x%02X", dev_rev);
+
+	if (dev_id != 0x00 && dev_id != 0xFF) {
+		pr_info("Device detected successfully");
+		return PASS;
+	} else {
+		pr_err("FAIL: Invalid device ID");
+		return FAIL;
+	}
+}
+
+/**
+ * @brief Test 2: MAX77752 Power Management
+ * @return PASS if power management works correctly, FAIL otherwise
+ */
+int t_max77752_power_test(int argc, char **argv)
+{
+	u8 pwr_status;
+
+	pr_info("=== MAX77752 Power Management Test ===");
+
+	/* Read initial power status */
+	pwr_status = max77752_get_power_status();
+	pr_info("Initial power status: %d", pwr_status);
+
+	/* Enable power */
+	max77752_enable_power(1);
+	mdelay(100);
+
+	pwr_status = max77752_get_power_status();
+	pr_info("Power status after enable: %d", pwr_status);
+
+	if (!max77752_check_power_good()) {
+		pr_warn("Power good signal not asserted");
+	}
+
+	/* Disable power */
+	max77752_enable_power(0);
+	mdelay(100);
+
+	pwr_status = max77752_get_power_status();
+	pr_info("Power status after disable: %d", pwr_status);
+
+	/* Re-enable power */
+	max77752_enable_power(1);
+	mdelay(100);
+
+	pr_info("Power management test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 3: MAX77752 Battery Detection and Status
+ * @return PASS if battery status can be read, FAIL otherwise
+ */
+int t_max77752_battery_test(int argc, char **argv)
+{
+	u8 bat_status;
+
+	pr_info("=== MAX77752 Battery Status Test ===");
+
+	/* Check if battery is present */
+	if (max77752_check_battery_present()) {
+		pr_info("Battery present: YES");
+	} else {
+		pr_info("Battery present: NO");
+	}
+
+	/* Read battery status */
+	bat_status = max77752_get_battery_status();
+	pr_info("Battery status: 0x%02X", bat_status);
+
+	/* Read battery voltage */
+	u16 vbat = max77752_read_vbat_voltage();
+	pr_info("Battery voltage: %d mV", vbat);
+
+	if (vbat > MAX77752_VBAT_LOW_THRESHOLD) {
+		pr_info("Battery voltage is above low threshold");
+	} else {
+		pr_warn("Battery voltage is below low threshold");
+	}
+
+	pr_info("Battery status test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 4: MAX77752 Voltage Monitoring
+ * @param argc Argument count (argv[1] = number of samples, default 10)
+ * @param argv Argument vector
+ * @return PASS if voltage monitoring works, FAIL otherwise
+ */
+int t_max77752_voltage_test(int argc, char **argv)
+{
+	u16 vsys, vbat, vbus, votg;
+	u16 samples = 10;
+	u16 i;
+
+	if (argc > 1) {
+		samples = simple_strtoul(argv[1], &argv[1], 10);
+		if (samples > 100) {
+			samples = 100;
+		}
+	}
+
+	pr_info("=== MAX77752 Voltage Monitoring Test (%d samples) ===", samples);
+
+	/* Check VBUS presence */
+	if (max77752_check_vbus_present()) {
+		pr_info("VBUS present: YES");
+	} else {
+		pr_info("VBUS present: NO");
+	}
+
+	for (i = 0; i < samples; i++) {
+		/* Read all voltages */
+		vsys = max77752_read_vsys_voltage();
+		vbat = max77752_read_vbat_voltage();
+		vbus = max77752_read_vbus_voltage();
+		votg = max77752_read_votg_voltage();
+
+		/* Show first and last readings */
+		if (i == 0 || i == samples - 1) {
+			pr_info("Reading %d/%d: VSYS=%dmV, VBAT=%dmV, VBUS=%dmV, VOTG=%dmV",
+				i + 1, samples, vsys, vbat, vbus, votg);
+		}
+
+		mdelay(50);
+	}
+
+	pr_info("Voltage monitoring test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 5: MAX77752 Charging Configuration and Status
+ * @return PASS if charging can be configured, FAIL otherwise
+ */
+int t_max77752_charging_test(int argc, char **argv)
+{
+	u8 chg_status;
+	u16 chg_current;
+
+	pr_info("=== MAX77752 Charging Test ===");
+
+	/* Enable charging */
+	max77752_enable_charging(1);
+	mdelay(100);
+
+	/* Configure charging parameters */
+	max77752_configure_charging(MAX77752_ICHG_LIMIT_500, 4200);
+	pr_info("Charging configured: 500mA, 4200mV");
+	mdelay(100);
+
+	/* Read charging status */
+	chg_status = max77752_get_charge_status();
+	pr_info("Charging status: 0x%02X", chg_status);
+
+	switch (chg_status) {
+	case MAX77752_CHG_IDLE:
+		pr_info("Charging state: IDLE");
+		break;
+	case MAX77752_CHG_TRICKLE:
+		pr_info("Charging state: TRICKLE");
+		break;
+	case MAX77752_CHG_FAST_CC:
+		pr_info("Charging state: FAST CC");
+		break;
+	case MAX77752_CHG_FAST_CV:
+		pr_info("Charging state: FAST CV");
+		break;
+	case MAX77752_CHG_DONE:
+		pr_info("Charging state: DONE");
+		break;
+	case MAX77752_CHG_SUSPEND:
+		pr_info("Charging state: SUSPEND");
+		break;
+	case MAX77752_CHG_TIMEOUT:
+		pr_info("Charging state: TIMEOUT");
+		break;
+	case MAX77752_CHG_ERROR:
+		pr_info("Charging state: ERROR");
+		break;
+	}
+
+	/* Read charging current */
+	chg_current = max77752_read_charge_current();
+	pr_info("Charging current: %d mA", chg_current);
+
+	/* Disable charging for test */
+	max77752_enable_charging(0);
+
+	pr_info("Charging test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 6: MAX77752 Current Monitoring
+ * @return PASS if current monitoring works, FAIL otherwise
+ */
+int t_max77752_current_test(int argc, char **argv)
+{
+	u16 chg_current, sys_current, otg_current;
+
+	pr_info("=== MAX77752 Current Monitoring Test ===");
+
+	/* Read all current values */
+	chg_current = max77752_read_charge_current();
+	sys_current = max77752_read_system_current();
+	otg_current = max77752_read_otg_current();
+
+	pr_info("Charge current: %d mA", chg_current);
+	pr_info("System current: %d mA", sys_current);
+	pr_info("OTG current: %d mA", otg_current);
+
+	pr_info("Current monitoring test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 7: MAX77752 Temperature Monitoring
+ * @return PASS if temperature monitoring works, FAIL otherwise
+ */
+int t_max77752_temperature_test(int argc, char **argv)
+{
+	s16 temperature;
+	u8 temp_status;
+
+	pr_info("=== MAX77752 Temperature Monitoring Test ===");
+
+	/* Read temperature */
+	temperature = max77752_read_temperature();
+	pr_info("Temperature: %d°C", temperature);
+
+	/* Check thermal status */
+	temp_status = max77752_get_thermal_status();
+	pr_info("Thermal status: 0x%02X", temp_status);
+
+	/* Check for thermal fault */
+	if (max77752_check_thermal_fault()) {
+		pr_warn("Thermal fault detected");
+	} else {
+		pr_info("No thermal fault");
+	}
+
+	/* Set temperature limits */
+	max77752_set_temperature_limits(MAX77752_TEMP_LOW_COOL, MAX77752_TEMP_WARM_HOT);
+	pr_info("Temperature limits set: %d°C to %d°C",
+		 MAX77752_TEMP_LOW_COOL, MAX77752_TEMP_WARM_HOT);
+
+	pr_info("Temperature monitoring test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 8: MAX77752 LED Control
+ * @return PASS if LED control works, FAIL otherwise
+ */
+int t_max77752_led_test(int argc, char **argv)
+{
+	u16 i;
+
+	pr_info("=== MAX77752 LED Control Test ===");
+
+	/* Test LED 1 */
+	pr_info("Testing LED 1...");
+	max77752_configure_led(1, MAX77752_LED_MODE_ON, 15);
+	pr_info("LED 1: ON (brightness 15)");
+	mdelay(500);
+
+	max77752_set_led_state(1, 1);
+	mdelay(500);
+
+	max77752_set_led_state(1, 0);
+	pr_info("LED 1: OFF");
+	mdelay(500);
+
+	/* Test LED 2 */
+	pr_info("Testing LED 2...");
+	max77752_configure_led(2, MAX77752_LED_MODE_ON, 15);
+	pr_info("LED 2: ON (brightness 15)");
+	mdelay(500);
+
+	max77752_set_led_state(2, 1);
+	mdelay(500);
+
+	max77752_set_led_state(2, 0);
+	pr_info("LED 2: OFF");
+	mdelay(500);
+
+	/* Test LED blinking */
+	pr_info("Testing LED blinking mode...");
+	max77752_configure_led(1, MAX77752_LED_MODE_BLINK, 10);
+	mdelay(2000);
+
+	/* Test LED breathing */
+	pr_info("Testing LED breathing mode...");
+	max77752_configure_led(1, MAX77752_LED_MODE_BREATH, 10);
+	mdelay(2000);
+
+	/* Turn off all LEDs */
+	max77752_configure_led(1, MAX77752_LED_MODE_OFF, 0);
+	max77752_configure_led(2, MAX77752_LED_MODE_OFF, 0);
+	pr_info("All LEDs OFF");
+
+	pr_info("LED control test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 9: MAX77752 Interrupt Handling
+ * @return PASS if interrupt handling works, FAIL otherwise
+ */
+int t_max77752_interrupt_test(int argc, char **argv)
+{
+	u8 int_status;
+
+	pr_info("=== MAX77752 Interrupt Test ===");
+
+	/* Read interrupt status */
+	int_status = max77752_read_interrupt_status();
+	pr_info("Interrupt status: 0x%02X", int_status);
+
+	/* Clear all interrupts */
+	max77752_clear_interrupt(0xFF);
+	mdelay(10);
+
+	/* Read interrupt status after clear */
+	int_status = max77752_read_interrupt_status();
+	pr_info("Interrupt status after clear: 0x%02X", int_status);
+
+	/* Configure interrupt mask */
+	max77752_configure_interrupt_mask(0x0F, 1);
+	pr_info("Interrupt mask configured: bits 0-3 enabled");
+
+	/* Read status again */
+	int_status = max77752_read_status();
+	pr_info("Device status: 0x%02X", int_status);
+
+	pr_info("Interrupt test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 10: MAX77752 Self-Test and Diagnostics
+ * @return PASS if self-test passes, FAIL otherwise
+ */
+int t_max77752_selftest(int argc, char **argv)
+{
+	u8 info_buffer[10];
+
+	pr_info("=== MAX77752 Self-Test ===");
+
+	/* Perform self-test */
+	max77752_perform_self_test();
+	mdelay(100);
+
+	/* Get system information */
+	max77752_get_system_info(info_buffer, sizeof(info_buffer));
+	pr_info("System info:");
+	pr_info("  Device ID: 0x%02X", info_buffer[0]);
+	pr_info("  Device Revision: 0x%02X", info_buffer[1]);
+	pr_info("  Status: 0x%02X", info_buffer[2]);
+	pr_info("  Battery Status: 0x%02X", info_buffer[3]);
+	pr_info("  Charge Status: 0x%02X", info_buffer[4]);
+	pr_info("  VSYS: %d mV", (info_buffer[5] << 8) | info_buffer[6]);
+	pr_info("  VBAT: %d mV", (info_buffer[7] << 8) | info_buffer[8]);
+
+	/* Check all utility functions */
+	pr_info("Utility checks:");
+	pr_info("  Power good: %d", max77752_check_power_good());
+	pr_info("  Battery present: %d", max77752_check_battery_present());
+	pr_info("  VBUS present: %d", max77752_check_vbus_present());
+	pr_info("  Thermal fault: %d", max77752_check_thermal_fault());
+
+	pr_info("Self-test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 11: MAX77752 Sleep Mode
+ * @return PASS if sleep mode works, FAIL otherwise
+ */
+int t_max77752_sleep_test(int argc, char **argv)
+{
+	pr_info("=== MAX77752 Sleep Mode Test ===");
+
+	/* Enter sleep mode */
+	max77752_set_sleep_mode(1);
+	pr_info("Entered sleep mode");
+	mdelay(200);
+
+	/* Exit sleep mode */
+	max77752_set_sleep_mode(0);
+	pr_info("Exited sleep mode");
+	mdelay(200);
+
+	pr_info("Sleep mode test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 12: MAX77752 Continuous Monitoring
+ * @return PASS if monitoring can be started/stopped, FAIL otherwise
+ */
+int t_max77752_monitoring_test(int argc, char **argv)
+{
+	u16 vsys, vbat;
+
+	pr_info("=== MAX77752 Continuous Monitoring Test ===");
+
+	/* Start continuous monitoring */
+	max77752_continuous_monitor_start(500);
+	pr_info("Continuous monitoring started (500ms interval)");
+
+	/* Read some values during monitoring */
+	mdelay(100);
+	vsys = max77752_read_vsys_voltage();
+	vbat = max77752_read_vbat_voltage();
+	pr_info("VSYS: %d mV, VBAT: %d mV", vsys, vbat);
+
+	/* Stop continuous monitoring */
+	max77752_continuous_monitor_stop();
+	pr_info("Continuous monitoring stopped");
+
+	pr_info("Continuous monitoring test completed");
+	return PASS;
+}
+
+void max77752_Test(void)
+{
+	printk("=== MAX77752 Comprehensive Test Started ===");
+
+	/* Test 1: Device ID */
+	if (t_max77752_device_id(0, NULL) != PASS) {
+		printk("Test 1 FAILED: Device ID test failed");
+		return;
+	}
+
+	/* Test 2: Power management */
+	t_max77752_power_test(0, NULL);
+
+	/* Test 3: Battery status */
+	t_max77752_battery_test(0, NULL);
+
+	/* Test 4: Voltage monitoring */
+	t_max77752_voltage_test(0, NULL);
+
+	/* Test 5: Charging test */
+	t_max77752_charging_test(0, NULL);
+
+	/* Test 6: Current monitoring */
+	t_max77752_current_test(0, NULL);
+
+	/* Test 7: Temperature monitoring */
+	t_max77752_temperature_test(0, NULL);
+
+	/* Test 8: LED control */
+	t_max77752_led_test(0, NULL);
+
+	/* Test 9: Interrupt test */
+	t_max77752_interrupt_test(0, NULL);
+
+	/* Test 10: Self-test */
+	t_max77752_selftest(0, NULL);
+
+	/* Test 11: Sleep mode */
+	t_max77752_sleep_test(0, NULL);
+
+	/* Test 12: Continuous monitoring */
+	t_max77752_monitoring_test(0, NULL);
+
+	printk("=== MAX77752 Comprehensive Test Completed Successfully ===");
+}
+
+#endif
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */

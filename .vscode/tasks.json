@@ -364,8 +364,6 @@
                 "-g",
                 "drivers\\kinetis\\fsm.c",
                 "-g",
-                "drivers\\kinetis\\general.c",
-                "-g",
                 "drivers\\kinetis\\gprs.c",
                 "-g",
                 "drivers\\kinetis\\gsm.c",

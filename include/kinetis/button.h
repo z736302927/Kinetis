@@ -13,6 +13,7 @@ extern "C" {
 
 #include "kinetis/core_common.h"
 #include "kinetis/tim-task.h"
+#include "kinetis/design_verification.h"
 
 struct button;
 
@@ -77,6 +78,22 @@ static inline const char *button_event_to_string(enum button_event event)
 	}
 }
 
+#ifdef KINETIS_FAKE_SIM
+/* button simulation state for fake mode */
+struct button_sim_state {
+	u32 unique_id;
+	u64 press_time;    /* When button was pressed */
+	u64 release_time;        /* When button was released */
+	u8 current_level;        /* Current GPIO level (0=low, 1=high) */
+	u8 active_level;         /* Active level (0=low, 1=high) */
+	u8 debounce_counter;      /* Debounce counter */
+	u8 click_count;
+	bool start;
+	enum button_state_machine next_state;
+	enum button_event next_event;
+};
+#endif
+
 /* According to your need to modify the constants. */
 #define TICKS_INTERVAL    5 //ms
 #define DEBOUNCE_CNT      3 //MAX 8
@@ -97,6 +114,10 @@ struct button {
 	struct tim_task task;
 	button_callback callback;
 	struct list_head list;
+
+#ifdef KINETIS_FAKE_SIM
+	struct button_sim_state sim_state;
+#endif
 };
 
 int button_task_init(void);

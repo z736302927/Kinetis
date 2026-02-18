@@ -22,9 +22,11 @@ typedef struct {
 
 #else
 
-typedef struct { } arch_spinlock_t;
+typedef struct {
+	volatile unsigned int slock;  /* 1 = unlocked, 0 = locked */
+} arch_spinlock_t;
 
-#define __ARCH_SPIN_LOCK_UNLOCKED { }
+#define __ARCH_SPIN_LOCK_UNLOCKED { 1 }
 
 #endif
 

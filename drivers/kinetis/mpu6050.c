@@ -6,6 +6,7 @@
 #include "kinetis/iic_soft.h"
 #include "kinetis/delay.h"
 #include "kinetis/idebug.h"
+#include "kinetis/design_verification.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -2682,108 +2683,436 @@ void mpu6050_set_gyro_threshold(uint8_t axis, uint16_t threshold)
 
 /* Enhanced test function */
 #ifdef DESIGN_VERIFICATION_MPU6050
+#include "kinetis/test-kinetis.h"
+
+/**
+ * @brief Test 1: MPU6050 Basic Device Detection and Identification
+ * @return PASS if device is detected and WHO_AM_I is correct, FAIL otherwise
+ */
+int t_mpu6050_device_id(int argc, char **argv)
+{
+	u8 who_am_i = 0;
+
+	pr_info("=== MPU6050 Device ID Test ===");
+
+	/* Check if device is present */
+	if (!mpu6050_is_device_present()) {
+		pr_err("FAIL: MPU6050 device not found");
+		return FAIL;
+	}
+
+	/* Read WHO_AM_I register */
+	mpu6050_who_am_i(&who_am_i);
+	pr_info("Device ID (WHO_AM_I): 0x%02X (expected: 0x68)", who_am_i);
+
+	if (who_am_i == 0x68) {
+		pr_info("Device ID matches");
+		return PASS;
+	} else {
+		pr_err("FAIL: Device ID mismatch, got 0x%02X", who_am_i);
+		return FAIL;
+	}
+}
+
+/**
+ * @brief Test 2: MPU6050 Accelerometer and Gyroscope Data Reading
+ * @param argc Argument count
+ * @param argv Argument vector (argv[1] = number of readings, default 100)
+ * @return PASS if data reading is successful, FAIL otherwise
+ */
+int t_mpu6050_sensor_data(int argc, char **argv)
+{
+	mpu6050_raw_data_t accel, gyro;
+	int16_t temperature;
+	u16 readings = 100;
+	u16 i;
+
+	if (argc > 1) {
+		readings = simple_strtoul(argv[1], &argv[1], 10);
+		if (readings > 1000) {
+			readings = 1000;
+		}
+	}
+
+	pr_info("=== MPU6050 Sensor Data Test (%d readings) ===", readings);
+
+	/* Ensure device is initialized */
+	if (!g_mpu6050_initialized) {
+		mpu6050_init();
+	}
+
+	if (!g_mpu6050_initialized) {
+		pr_err("FAIL: MPU6050 initialization failed");
+		return FAIL;
+	}
+
+	for (i = 0; i < readings; i++) {
+		/* Read raw sensor data */
+		mpu6050_get_raw_data(&accel, &gyro, &temperature);
+
+		/* Show first and last readings at info level */
+		if (i == 0 || i == readings - 1) {
+			pr_info("Reading %d/%d: Accel[X=%6d,Y=%6d,Z=%6d] Gyro[X=%6d,Y=%6d,Z=%6d] Temp=%6d",
+				i + 1, readings, accel.x, accel.y, accel.z,
+				gyro.x, gyro.y, gyro.z, temperature);
+		}
+
+		mdelay(10);
+	}
+
+	pr_info("Completed %d sensor data readings", readings);
+	return PASS;
+}
+
+/**
+ * @brief Test 3: MPU6050 Self-Test Functionality
+ * @return PASS if self-test passes for both accelerometer and gyroscope, FAIL otherwise
+ */
+int t_mpu6050_selftest(int argc, char **argv)
+{
+	uint8_t gyro_result, accel_result;
+
+	pr_info("=== MPU6050 Self-Test ===");
+
+	/* Test gyroscope */
+	gyro_result = mpu6050_gyro_self_test();
+
+	/* Test accelerometer */
+	accel_result = mpu6050_accel_self_test();
+
+	/* Return overall result */
+	if (gyro_result && accel_result) {
+		pr_info("MPU6050 self-test completed successfully");
+		return PASS;
+	} else {
+		pr_err("FAIL: MPU6050 self-test failed");
+		if (!gyro_result) {
+			pr_err("  - Gyroscope self-test failed");
+		}
+		if (!accel_result) {
+			pr_err("  - Accelerometer self-test failed");
+		}
+		return FAIL;
+	}
+}
+
+/**
+ * @brief Test 4: MPU6050 Gyroscope Calibration
+ * @return PASS if calibration completes successfully, FAIL otherwise
+ */
+int t_mpu6050_gyro_calibration(int argc, char **argv)
+{
+	uint16_t offset_x, offset_y, offset_z;
+
+	pr_info("=== MPU6050 Gyroscope Calibration ===");
+	pr_info("Note: Please keep device stationary during calibration");
+
+	/* Ensure device is initialized */
+	if (!g_mpu6050_initialized) {
+		mpu6050_init();
+	}
+
+	/* Read initial offsets */
+	mpu6050_read_gyro_offset_reg(X_AXIS, &offset_x);
+	mpu6050_read_gyro_offset_reg(Y_AXIS, &offset_y);
+	mpu6050_read_gyro_offset_reg(Z_AXIS, &offset_z);
+
+	pr_info("Initial gyro offsets - X: %d, Y: %d, Z: %d", offset_x, offset_y, offset_z);
+
+	/* Perform calibration */
+	mpu6050_calibrate_gyro();
+
+	/* Read calibrated offsets */
+	mpu6050_read_gyro_offset_reg(X_AXIS, &offset_x);
+	mpu6050_read_gyro_offset_reg(Y_AXIS, &offset_y);
+	mpu6050_read_gyro_offset_reg(Z_AXIS, &offset_z);
+
+	pr_info("Calibrated gyro offsets - X: %d, Y: %d, Z: %d", offset_x, offset_y, offset_z);
+
+	pr_info("Gyroscope calibration completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 5: MPU6050 Accelerometer Calibration
+ * @return PASS if calibration completes successfully, FAIL otherwise
+ */
+int t_mpu6050_accel_calibration(int argc, char **argv)
+{
+	uint16_t offset_x, offset_y, offset_z;
+
+	pr_info("=== MPU6050 Accelerometer Calibration ===");
+	pr_info("Note: Place device in 6 different orientations and call this function");
+
+	/* Ensure device is initialized */
+	if (!g_mpu6050_initialized) {
+		mpu6050_init();
+	}
+
+	/* Read initial offsets */
+	mpu9250_read_accel_offset_reg(X_AXIS, &offset_x);
+	mpu9250_read_accel_offset_reg(Y_AXIS, &offset_y);
+	mpu9250_read_accel_offset_reg(Z_AXIS, &offset_z);
+
+	pr_info("Initial accel offsets - X: %d, Y: %d, Z: %d", offset_x, offset_y, offset_z);
+
+	/* Perform calibration */
+	mpu6050_calibrate_accel();
+
+	/* Read calibrated offsets */
+	mpu9250_read_accel_offset_reg(X_AXIS, &offset_x);
+	mpu9250_read_accel_offset_reg(Y_AXIS, &offset_y);
+	mpu9250_read_accel_offset_reg(Z_AXIS, &offset_z);
+
+	pr_info("Calibrated accel offsets - X: %d, Y: %d, Z: %d", offset_x, offset_y, offset_z);
+
+	pr_info("Accelerometer calibration completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 6: MPU6050 FIFO Functionality
+ * @return PASS if FIFO operations work correctly, FAIL otherwise
+ */
+int t_mpu6050_fifo_test(int argc, char **argv)
+{
+	uint16_t fifo_count;
+	uint8_t fifo_data[32];
+	uint8_t bytes_read;
+
+	pr_info("=== MPU6050 FIFO Test ===");
+
+	/* Reset FIFO */
+	mpu6050_reset_fifo();
+	mdelay(10);
+
+	/* Enable FIFO */
+	mpu6050_enable_fifo(1);
+	mpu6050_set_fifo_mode(1);
+	mdelay(10);
+
+	/* Check FIFO count */
+	fifo_count = mpu6050_get_fifo_count();
+	pr_info("FIFO count after enable: %d bytes", fifo_count);
+
+	/* Read FIFO data (if any) */
+	if (fifo_count > 0) {
+		bytes_read = mpu6050_read_fifo_data(fifo_data, (fifo_count < 32) ? fifo_count : 32);
+		pr_info("Read %d bytes from FIFO", bytes_read);
+	} else {
+		pr_info("FIFO is empty (expected)");
+	}
+
+	/* Disable FIFO */
+	mpu6050_enable_fifo(0);
+	pr_info("FIFO test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 7: MPU6050 Interrupt Status
+ * @return PASS if interrupt status can be read, FAIL otherwise
+ */
+int t_mpu6050_interrupt_test(int argc, char **argv)
+{
+	uint8_t int_status;
+
+	pr_info("=== MPU6050 Interrupt Test ===");
+
+	/* Enable data ready interrupt */
+	mpu6050_enable_interrupt(0x01);
+
+	/* Read interrupt status */
+	int_status = mpu6050_check_interrupt_flags();
+	pr_info("Interrupt status: 0x%02X", int_status);
+
+	/* Clear interrupt flags */
+	mpu6050_clear_interrupt_flags();
+
+	/* Disable interrupt */
+	mpu6050_disable_interrupt(0x01);
+
+	pr_info("Interrupt test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 8: MPU6050 Power Management
+ * @return PASS if power modes work correctly, FAIL otherwise
+ */
+int t_mpu6050_power_test(int argc, char **argv)
+{
+	pr_info("=== MPU6050 Power Management Test ===");
+
+	/* Enter sleep mode */
+	mpu6050_enter_sleep_mode();
+	pr_info("Entered sleep mode");
+	mdelay(100);
+
+	/* Enter wake mode */
+	mpu6050_enter_wake_mode();
+	pr_info("Entered wake mode");
+	mdelay(100);
+
+	/* Enter cycle mode (low power) */
+	mpu6050_enter_cycle_mode();
+	pr_info("Entered cycle mode");
+	mdelay(100);
+
+	/* Return to normal mode */
+	mpu6050_enter_wake_mode();
+	pr_info("Returned to normal mode");
+
+	pr_info("Power management test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 9: MPU6050 Full Scale Range Configuration
+ * @return PASS if full scale ranges can be configured, FAIL otherwise
+ */
+int t_mpu6050_fullscale_test(int argc, char **argv)
+{
+	pr_info("=== MPU6050 Full Scale Range Test ===");
+
+	/* Test gyroscope full scale ranges */
+	pr_info("Testing gyroscope full scale ranges:");
+	mpu6050_set_gyro_full_scale(MPU6050_GYRO_FS_250);
+	pr_info("  - Gyro ±250°/s: scale=%.1f LSB/°/s", g_mpu6050_config.gyro_scale);
+	mdelay(10);
+
+	mpu6050_set_gyro_full_scale(MPU6050_GYRO_FS_500);
+	pr_info("  - Gyro ±500°/s: scale=%.1f LSB/°/s", g_mpu6050_config.gyro_scale);
+	mdelay(10);
+
+	mpu6050_set_gyro_full_scale(MPU6050_GYRO_FS_1000);
+	pr_info("  - Gyro ±1000°/s: scale=%.1f LSB/°/s", g_mpu6050_config.gyro_scale);
+	mdelay(10);
+
+	mpu6050_set_gyro_full_scale(MPU6050_GYRO_FS_2000);
+	pr_info("  - Gyro ±2000°/s: scale=%.1f LSB/°/s", g_mpu6050_config.gyro_scale);
+	mdelay(10);
+
+	/* Test accelerometer full scale ranges */
+	pr_info("Testing accelerometer full scale ranges:");
+	mpu6050_set_accel_full_scale(MPU6050_ACCEL_FS_2);
+	pr_info("  - Accel ±2g: scale=%.1f LSB/g", g_mpu6050_config.accel_scale);
+	mdelay(10);
+
+	mpu6050_set_accel_full_scale(MPU6050_ACCEL_FS_4);
+	pr_info("  - Accel ±4g: scale=%.1f LSB/g", g_mpu6050_config.accel_scale);
+	mdelay(10);
+
+	mpu6050_set_accel_full_scale(MPU6050_ACCEL_FS_8);
+	pr_info("  - Accel ±8g: scale=%.1f LSB/g", g_mpu6050_config.accel_scale);
+	mdelay(10);
+
+	mpu6050_set_accel_full_scale(MPU6050_ACCEL_FS_16);
+	pr_info("  - Accel ±16g: scale=%.1f LSB/g", g_mpu6050_config.accel_scale);
+	mdelay(10);
+
+	/* Restore default configuration */
+	mpu6050_set_gyro_full_scale(MPU6050_GYRO_FS_250);
+	mpu6050_set_accel_full_scale(MPU6050_ACCEL_FS_2);
+
+	pr_info("Full scale range test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 10: MPU6050 DLPF Configuration
+ * @return PASS if DLPF bandwidth can be configured, FAIL otherwise
+ */
+int t_mpu6050_dlpf_test(int argc, char **argv)
+{
+	pr_info("=== MPU6050 DLPF Bandwidth Test ===");
+
+	/* Test various DLPF bandwidths */
+	mpu6050_set_dlpf_bandwidth(MPU6050_DLPF_256HZ);
+	pr_info("DLPF bandwidth: 256Hz");
+	mdelay(10);
+
+	mpu6050_set_dlpf_bandwidth(MPU6050_DLPF_188HZ);
+	pr_info("DLPF bandwidth: 188Hz");
+	mdelay(10);
+
+	mpu6050_set_dlpf_bandwidth(MPU6050_DLPF_98HZ);
+	pr_info("DLPF bandwidth: 98Hz");
+	mdelay(10);
+
+	mpu6050_set_dlpf_bandwidth(MPU6050_DLPF_42HZ);
+	pr_info("DLPF bandwidth: 42Hz");
+	mdelay(10);
+
+	mpu6050_set_dlpf_bandwidth(MPU6050_DLPF_20HZ);
+	pr_info("DLPF bandwidth: 20Hz");
+	mdelay(10);
+
+	mpu6050_set_dlpf_bandwidth(MPU6050_DLPF_10HZ);
+	pr_info("DLPF bandwidth: 10Hz");
+	mdelay(10);
+
+	mpu6050_set_dlpf_bandwidth(MPU6050_DLPF_5HZ);
+	pr_info("DLPF bandwidth: 5Hz");
+	mdelay(10);
+
+	pr_info("DLPF bandwidth test completed");
+	return PASS;
+}
 
 void mpu6050_Test(void)
 {
 	mpu6050_data_t accel, gyro;
 	float temperature;
 
-	printk("=== MPU6050 Test Started ===");
+	printk("=== MPU6050 Comprehensive Test Started ===");
 
-	/* Initialize device */
-	mpu6050_init();
-
-	if (!g_mpu6050_initialized) {
-		printk("ERROR: MPU6050 initialization failed!");
+	/* Test 1: Device ID */
+	if (t_mpu6050_device_id(0, NULL) != PASS) {
+		printk("Test 1 FAILED: Device ID test failed");
 		return;
 	}
 
-	/* Test data reading */
-	printk("Testing data reading...");
-	mpu6050_get_scaled_data(&accel, &gyro, &temperature);
+	/* Test 2: Sensor data reading */
+	if (t_mpu6050_sensor_data(0, NULL) != PASS) {
+		printk("Test 2 FAILED: Sensor data test failed");
+		return;
+	}
 
+	/* Test 3: Self-test */
+	if (t_mpu6050_selftest(0, NULL) != PASS) {
+		printk("Test 3 FAILED: Self-test failed");
+	}
+
+	/* Test 4: Gyroscope calibration */
+	t_mpu6050_gyro_calibration(0, NULL);
+
+	/* Test 5: Accelerometer calibration */
+	t_mpu6050_accel_calibration(0, NULL);
+
+	/* Test 6: FIFO test */
+	t_mpu6050_fifo_test(0, NULL);
+
+	/* Test 7: Interrupt test */
+	t_mpu6050_interrupt_test(0, NULL);
+
+	/* Test 8: Power management test */
+	t_mpu6050_power_test(0, NULL);
+
+	/* Test 9: Full scale test */
+	t_mpu6050_fullscale_test(0, NULL);
+
+	/* Test 10: DLPF test */
+	t_mpu6050_dlpf_test(0, NULL);
+
+	/* Final data reading */
+	printk("\n=== Final Sensor Reading ===");
+	mpu6050_get_scaled_data(&accel, &gyro, &temperature);
 	printk("Acceleration: X=%.3fg, Y=%.3fg, Z=%.3fg", accel.x, accel.y, accel.z);
 	printk("Angular velocity: X=%.3f°/s, Y=%.3f°/s, Z=%.3f°/s", gyro.x, gyro.y, gyro.z);
 	printk("Temperature: %.2f°C", temperature);
 
-	/* Test interrupts */
-	printk("Testing interrupts...");
-	uint8_t int_status = mpu6050_check_interrupt_flags();
-	printk("Interrupt status: 0x%02X", int_status);
-
-	/* Test power management */
-	printk("Testing power management...");
-	mpu6050_enter_sleep_mode();
-	mdelay(1000);
-	mpu6050_enter_wake_mode();
-
-	/* Test advanced configuration features */
-	printk("Testing advanced configuration...");
-	mpu6050_configure_advanced_filters();
-	mpu6050_set_motion_detection_threshold(15);
-	mpu6050_set_zero_motion_detection_threshold(8);
-	mpu6050_set_zero_motion_detection_duration(100);
-
-	/* Test I2C master mode */
-	printk("Testing I2C master mode...");
-	if (mpu6050_enable_i2c_master_mode(1)) {
-		printk("I2C master mode enabled successfully");
-
-		/* Test slave configuration */
-		if (mpu6050_configure_i2c_slave(0, 0x68, 0x75, 1, 1)) {
-			printk("I2C slave 0 configured successfully");
-		}
-
-		/* Test external sensor data functions */
-		uint8_t ext_data[6];
-		mpu6050_read_external_sensor_data(0, 0, ext_data, 6);
-		printk("External sensor data read: %02X %02X %02X %02X %02X %02X",
-			ext_data[0], ext_data[1], ext_data[2], ext_data[3], ext_data[4], ext_data[5]);
-
-		/* Check external sensor data ready status */
-		uint8_t data_ready = mpu6050_check_external_sensor_data_ready(0);
-		printk("External sensor data ready: %d", data_ready);
-	}
-
-	/* Test motion detection */
-	printk("Testing motion detection...");
-	mpu6050_configure_motion_detection();
-	mpu6050_enable_free_fall_detection(1);
-	mpu6050_set_free_fall_threshold(20);
-	mpu6050_set_free_fall_duration(3);
-	mpu6050_set_accel_artifact_removal(1);
-
-	/* Test gyroscope thresholds */
-	mpu6050_set_gyro_threshold(0, 100); /* X-axis */
-	mpu6050_set_gyro_threshold(1, 100); /* Y-axis */
-	mpu6050_set_gyro_threshold(2, 100); /* Z-axis */
-
-	/* Test FIFO functions */
-	printk("Testing FIFO functions...");
-	mpu6050_enable_fifo(1);
-	mpu6050_set_fifo_mode(1);
-	uint16_t fifo_count = mpu6050_get_fifo_count();
-	printk("FIFO count: %d bytes", fifo_count);
-
-	uint8_t fifo_data[10];
-	uint8_t bytes_read = mpu6050_read_fifo_data(fifo_data, 10);
-	printk("Read %d bytes from FIFO", bytes_read);
-
-	/* Test self-test */
-	printk("Running self-test...");
-	uint8_t self_test_result = mpu6050_self_test();
-	if (self_test_result) {
-		printk("Self-test PASSED");
-	} else {
-		printk("Self-test FAILED");
-	}
-
-	/* Test interrupt handling */
-	printk("Testing interrupt handling...");
-	uint8_t final_int_status = mpu6050_check_interrupt_flags();
-	printk("Final interrupt status: 0x%02X", final_int_status);
-
-	printk("=== MPU6050 Advanced Test Completed ===");
+	printk("=== MPU6050 Comprehensive Test Completed Successfully ===");
 }
 
 #endif

@@ -1,6 +1,6 @@
 
-// #undef DEBUG
-// #undef VERBOSE_DEBUG
+#undef DEBUG
+#undef VERBOSE_DEBUG
 
 #include <linux/printk.h>
 #include <linux/delay.h>
@@ -86,7 +86,7 @@ void iic_master_soft_delay(u32 ticks)
 #ifdef KINETIS_FAKE_SIM
 	// 	pr_debug("iic_master: delay %d us", ticks);
 #endif
-	udelay(ticks);
+	mdelay(ticks);
 }
 
 int iic_master_soft_start(struct iic_master *master)
@@ -671,7 +671,7 @@ static void *iic_slave_state_machine_thread(void *data)
 			device->current_state = IIC_SLAVE_STATE_IDLE;
 			pr_warn("iic_slave(%s): Unknown state, resetting to IDLE", device->name);
 			break;
-		}  /* End of switch */
+		}
 
 		/* Enable debug logging for address matching only */
 		if (device->current_state != device->last_state) {
@@ -873,37 +873,38 @@ int iic_master_port_multi_receive(struct iic_master *master, u8 slave_addr, u16 
 }
 
 #ifdef DESIGN_VERIFICATION_IIC
+#include "kinetis/test-kinetis.h"
 
 #ifdef KINETIS_FAKE_SIM
 void fake_scl_low()
 {
-	pr_debug("iic_master: scl pulled low");
+	pr_debug("iic_master: scl low");
 	i2c_bus_simulation.scl_line = 0;
 }
 
 void fake_scl_high()
 {
-	pr_debug("iic_master: scl pulled high");
+	pr_debug("iic_master: scl high");
 	i2c_bus_simulation.scl_line = 1;
 }
 
 void fake_sda_low()
 {
-	pr_debug("iic_master: sda pulled low");
+	pr_debug("iic_master: sda low");
 	i2c_bus_simulation.sda_line = 0;
 	i2c_bus_simulation.master_sda_direction = 1;
 }
 
 void fake_sda_high()
 {
-	pr_debug("iic_master: sda pulled high");
+	pr_debug("iic_master: sda high");
 	i2c_bus_simulation.sda_line = 1;
 	i2c_bus_simulation.master_sda_direction = 1;
 }
 
 void fake_sda_in()
 {
-	pr_debug("iic_master: sda set to input");
+	pr_debug("iic_master: sda dir input");
 	/* Set SDA direction to input for master (will be controlled by slave) */
 	i2c_bus_simulation.master_sda_direction = 0;
 	/* When in input mode, let slave control the line if it's driving */
@@ -916,7 +917,7 @@ void fake_sda_in()
 
 void fake_sda_out()
 {
-	pr_debug("iic_master: sda set to output");
+	pr_debug("iic_master: sda dir output");
 	/* Set SDA direction to output for master */
 	i2c_bus_simulation.master_sda_direction = 1;
 	i2c_bus_simulation.slave_sda_direction = 0;
@@ -1120,46 +1121,401 @@ struct iic_master fake_master = {
 	.read_bytes = NULL,
 };
 
-int iic_slave_test(void)
+int t_iic_slave_basic(int argc, char **argv)
 {
 	struct iic_slave *device;
 	u8 test_buffer[100] = {1, 2, 3, 4, 5, 6, 7, 8};
 	u8 write_test_data[] = {0x55, 0xAA, 0x12, 0x34, 0x78, 0x9C};
 	u8 read_test_data[8] = {1, 2, 3, 4, 5, 6, 7, 8};
 	int ret;
+	int i;
 
-	pr_info("=== I2C Slave State Machine Test Started ===");
+	pr_info("=== i2c slave basic test ===\n");
 
 	iic_master_soft_init(&fake_master);
 
 	device = iic_slave_soft_init("iic_test", 0x48, test_buffer, ARRAY_SIZE(test_buffer));
 	if (IS_ERR(device)) {
-		return PTR_ERR(device);
+		pr_err("i2c slave init failed\n");
+		return FAIL;
 	}
 
 	ret = iic_master_port_multi_transmit(&fake_master, 0x48, 0, write_test_data, 3);
 	if (ret) {
-		pr_err("Master write operation failed");
-		return ret;
+		pr_err("master write operation failed: %d\n", ret);
+		iic_slave_soft_exit(device);
+		return FAIL;
 	}
 
 	ret = iic_master_port_multi_receive(&fake_master, 0x48, 0, read_test_data, 3);
 	if (ret) {
-		pr_err("Master read operation failed");
-		return ret;
+		pr_err("master read operation failed: %d\n", ret);
+		iic_slave_soft_exit(device);
+		return FAIL;
 	}
 
-	for (int i = 0; i < 3; i++) {
+	for (i = 0; i < 3; i++) {
 		if (write_test_data[i] != read_test_data[i]) {
-			pr_err("Mismatch at buffer[%d]: expected %02X, got %02X",
+			pr_err("mismatch at buffer[%d]: expected %02X, got %02X\n",
 				i, write_test_data[i], read_test_data[i]);
-			return -EIO;
+			iic_slave_soft_exit(device);
+			return FAIL;
 		}
 	}
 
+	pr_info("i2c slave basic test passed\n");
+
 	iic_slave_soft_exit(device);
 
-	return 0;
+	return PASS;
+}
+
+int t_iic_transfer_byte(int argc, char **argv)
+{
+	u8 test_values[] = {0x00, 0x01, 0x7F, 0x80, 0xFF, 0xAA, 0x55};
+	u8 received;
+	int ret, i;
+
+	pr_info("=== i2c transfer byte test ===\n");
+
+	iic_master_soft_init(&fake_master);
+
+	for (i = 0; i < ARRAY_SIZE(test_values); i++) {
+		ret = iic_master_port_transmit(&fake_master, 0x48, 0, test_values[i]);
+		if (ret) {
+			pr_err("transmit failed for 0x%02X: %d\n", test_values[i], ret);
+			return FAIL;
+		}
+
+		pr_info("sent: 0x%02X\n", test_values[i]);
+	}
+
+	pr_info("i2c transfer byte test completed\n");
+
+	return PASS;
+}
+
+int t_iic_transfer_bytes(int argc, char **argv)
+{
+	u8 write_buffer[256];
+	u8 read_buffer[256];
+	int ret, i;
+	int test_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128, 255};
+
+	pr_info("=== i2c transfer bytes test ===\n");
+
+	iic_master_soft_init(&fake_master);
+
+	/* Test different buffer sizes */
+	for (i = 0; i < ARRAY_SIZE(test_sizes); i++) {
+		int size = test_sizes[i];
+		int j;
+
+		/* Prepare test data */
+		for (j = 0; j < size; j++) {
+			write_buffer[j] = (u8)(j & 0xFF);
+		}
+
+		/* Transmit data */
+		ret = iic_master_port_multi_transmit(&fake_master, 0x48, 0, write_buffer, size);
+		if (ret) {
+			pr_err("transmit failed for size %d: %d\n", size, ret);
+			return FAIL;
+		}
+
+		/* Receive data */
+		ret = iic_master_port_multi_receive(&fake_master, 0x48, 0, read_buffer, size);
+		if (ret) {
+			pr_err("receive failed for size %d: %d\n", size, ret);
+			return FAIL;
+		}
+
+		pr_info("transferred %d bytes successfully\n", size);
+	}
+
+	pr_info("i2c transfer bytes test passed\n");
+
+	return PASS;
+}
+
+int t_iic_edge_cases(int argc, char **argv)
+{
+	u8 write_buffer[4];
+	u8 read_buffer[4];
+	int ret;
+
+	pr_info("=== i2c edge cases test ===\n");
+
+	iic_master_soft_init(&fake_master);
+
+	/* Test 1: Single byte */
+	write_buffer[0] = 0xAA;
+	ret = iic_master_port_multi_transmit(&fake_master, 0x48, 0, write_buffer, 1);
+	if (ret) {
+		pr_err("single byte transmit failed: %d\n", ret);
+		return FAIL;
+	}
+	pr_info("single byte test passed\n");
+
+	/* Test 2: Zero length (should succeed) */
+	ret = iic_master_port_multi_transmit(&fake_master, 0x48, 0, write_buffer, 0);
+	if (ret != 0) {
+		pr_err("zero length should succeed\n");
+		return FAIL;
+	}
+	pr_info("zero length test passed\n");
+
+	/* Test 3: NULL buffer (should fail) */
+	ret = iic_master_port_multi_transmit(&fake_master, 0x48, 0, NULL, 4);
+	if (ret != -EINVAL) {
+		pr_err("null buffer should fail\n");
+		return FAIL;
+	}
+	pr_info("null buffer test passed\n");
+
+	/* Test 4: NULL master (should fail) */
+	ret = iic_master_port_multi_transmit(NULL, 0x48, 0, write_buffer, 4);
+	if (ret != -EINVAL) {
+		pr_err("null master should fail\n");
+		return FAIL;
+	}
+	pr_info("null master test passed\n");
+
+	/* Test 5: Boundary values */
+	write_buffer[0] = 0x00;
+	write_buffer[1] = 0xFF;
+	write_buffer[2] = 0x55;
+	write_buffer[3] = 0xAA;
+	ret = iic_master_port_multi_transmit(&fake_master, 0x48, 0, write_buffer, 4);
+	if (ret) {
+		pr_err("boundary values test failed: %d\n", ret);
+		return FAIL;
+	}
+	pr_info("boundary values test passed\n");
+
+	pr_info("i2c edge cases test passed\n");
+
+	return PASS;
+}
+
+int t_iic_performance(int argc, char **argv)
+{
+	u8 write_buffer[256];
+	u8 read_buffer[256];
+	int ret, i;
+	int iterations = 50;
+	int success_count = 0;
+
+	pr_info("=== i2c performance test ===\n");
+
+	iic_master_soft_init(&fake_master);
+
+	/* Prepare test data */
+	for (i = 0; i < ARRAY_SIZE(write_buffer); i++) {
+		write_buffer[i] = (u8)(i & 0xFF);
+	}
+
+	/* Perform multiple iterations */
+	for (i = 0; i < iterations; i++) {
+		ret = iic_master_port_multi_transmit(&fake_master, 0x48, 0, write_buffer, 32);
+		if (ret == 0) {
+			success_count++;
+		}
+	}
+
+	pr_info("performance test: %d/%d transfers succeeded\n", success_count, iterations);
+
+	if (success_count == iterations) {
+		pr_info("i2c performance test passed\n");
+		return PASS;
+	} else {
+		pr_err("i2c performance test failed: only %d/%d succeeded\n", success_count, iterations);
+		return FAIL;
+	}
+}
+
+int t_iic_stress(int argc, char **argv)
+{
+	u8 write_buffer[128];
+	u8 read_buffer[128];
+	int ret, i, j;
+
+	pr_info("=== i2c stress test ===\n");
+
+	iic_master_soft_init(&fake_master);
+
+	/* Test rapid data transfer */
+	for (i = 0; i < 30; i++) {
+		int size = 1 + (i % 127);  /* Vary size from 1 to 127 */
+
+		for (j = 0; j < size; j++) {
+			write_buffer[j] = (u8)((i + j) & 0xFF);
+		}
+
+		ret = iic_master_port_multi_transmit(&fake_master, 0x48, 0, write_buffer, size);
+		if (ret) {
+			pr_err("stress test iteration %d failed: %d\n", i, ret);
+			return FAIL;
+		}
+
+		/* Small delay to allow slave to process */
+		mdelay(1);
+	}
+
+	pr_info("i2c stress test passed\n");
+
+	return PASS;
+}
+
+int t_iic_read_write_reg(int argc, char **argv)
+{
+	u8 test_data[] = {0x12, 0x34, 0x56, 0x78};
+	u8 read_data[4];
+	u8 reg_addr;
+	int ret, i;
+
+	pr_info("=== i2c read write reg test ===\n");
+
+	iic_master_soft_init(&fake_master);
+
+	/* Test write to register */
+	for (i = 0; i < ARRAY_SIZE(test_data); i++) {
+		reg_addr = i;
+		ret = iic_master_port_transmit(&fake_master, 0x48, reg_addr, test_data[i]);
+		if (ret) {
+			pr_err("register 0x%02X write failed: %d\n", reg_addr, ret);
+			return FAIL;
+		}
+	}
+	pr_info("register write succeeded\n");
+
+	/* Test read from register */
+	for (i = 0; i < ARRAY_SIZE(test_data); i++) {
+		reg_addr = i;
+		ret = iic_master_port_receive(&fake_master, 0x48, reg_addr, &read_data[i]);
+		if (ret) {
+			pr_err("register 0x%02X read failed: %d\n", reg_addr, ret);
+			return FAIL;
+		}
+	}
+	pr_info("register read succeeded\n");
+
+	/* Test with different register addresses */
+	for (reg_addr = 0x00; reg_addr < 0x10; reg_addr++) {
+		ret = iic_master_port_transmit(&fake_master, 0x48, reg_addr, 0x55);
+		if (ret) {
+			pr_err("register 0x%02X write failed: %d\n", reg_addr, ret);
+			return FAIL;
+		}
+	}
+
+	pr_info("i2c read write reg test passed\n");
+
+	return PASS;
+}
+
+int t_iic_boundary_large(int argc, char **argv)
+{
+	u8 large_buffer[200];
+	u8 read_buffer[200];
+	int ret, i;
+	int large_sizes[] = {100, 150, 190, 199};
+
+	pr_info("=== i2c boundary large test ===\n");
+
+	iic_master_soft_init(&fake_master);
+
+	/* Prepare test data */
+	for (i = 0; i < ARRAY_SIZE(large_buffer); i++) {
+		large_buffer[i] = (u8)(i & 0xFF);
+	}
+
+	/* Test various large buffer sizes */
+	for (i = 0; i < ARRAY_SIZE(large_sizes); i++) {
+		int size = large_sizes[i];
+
+		ret = iic_master_port_multi_transmit(&fake_master, 0x48, 0, large_buffer, size);
+		if (ret) {
+			pr_err("large buffer %d bytes failed: %d\n", size, ret);
+			return FAIL;
+		}
+
+		ret = iic_master_port_multi_receive(&fake_master, 0x48, 0, read_buffer, size);
+		if (ret) {
+			pr_err("large buffer %d bytes receive failed: %d\n", size, ret);
+			return FAIL;
+		}
+
+		pr_info("large buffer %d bytes test passed\n", size);
+	}
+
+	pr_info("i2c boundary large test passed\n");
+
+	return PASS;
+}
+
+int t_iic_address_modes(int argc, char **argv)
+{
+	u8 write_buffer[10];
+	u8 read_buffer[10];
+	int ret, i;
+
+	pr_info("=== i2c address modes test ===\n");
+
+	iic_master_soft_init(&fake_master);
+
+	/* Test 8-bit addressing mode */
+	for (i = 0; i < ARRAY_SIZE(write_buffer); i++) {
+		write_buffer[i] = (u8)(i & 0xFF);
+	}
+
+	ret = iic_master_port_multi_transmit(&fake_master, 0x48, 0, write_buffer, 5);
+	if (ret) {
+		pr_err("8-bit addressing failed: %d\n", ret);
+		return FAIL;
+	}
+	pr_info("8-bit addressing test passed\n");
+
+	/* Test with different addresses */
+	for (i = 0; i < 5; i++) {
+		ret = iic_master_port_transmit(&fake_master, 0x48 + i, 0, write_buffer[i]);
+		if (ret) {
+			pr_err("address 0x%02X failed: %d\n", 0x48 + i, ret);
+			return FAIL;
+		}
+	}
+
+	pr_info("i2c address modes test passed\n");
+
+	return PASS;
+}
+
+int t_iic_start_stop(int argc, char **argv)
+{
+	u8 write_buffer[5];
+	int ret, i;
+
+	pr_info("=== i2c start stop test ===\n");
+
+	iic_master_soft_init(&fake_master);
+
+	/* Test repeated start/stop conditions */
+	for (i = 0; i < 10; i++) {
+		write_buffer[0] = (u8)(i & 0xFF);
+
+		ret = iic_master_port_multi_transmit(&fake_master, 0x48, 0, write_buffer, 1);
+		if (ret) {
+			pr_err("iteration %d failed: %d\n", i, ret);
+			return FAIL;
+		}
+
+		/* Small delay between transactions */
+		mdelay(1);
+	}
+
+	pr_info("i2c start stop test passed\n");
+
+	return PASS;
 }
 
 #endif /* DESIGN_VERIFICATION_IIC */

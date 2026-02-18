@@ -1369,9 +1369,9 @@ int ds3231_slave_test(void)
 	ds3231_get_time(time, DS3231_FORMAT_BIN);
 
 	if (time[2] == 14 && time[1] == 45 && time[0] == 30) {
-		pr_info("Test 2 - PASS: Time write successful");
+		pr_info("Test 2 - Time write successful");
 	} else {
-		pr_err("Test 2 - FAIL: Time write verification failed");
+		pr_err("Test 2 - Time write verification failed");
 		ret = FAIL;
 	}
 

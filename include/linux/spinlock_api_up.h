@@ -25,34 +25,47 @@
  * variables, and to add the proper checker annotations:
  */
 #define ___LOCK(lock) \
-  do { (void)(lock); } while (0)
+  do { \
+	__acquire(lock); \
+	while (((raw_spinlock_t *)lock)->raw_lock.slock == 0) { \
+		barrier(); \
+		cpu_relax(); \
+	} \
+	((raw_spinlock_t *)lock)->raw_lock.slock = 0; \
+	barrier(); \
+  } while (0)
 
 #define __LOCK(lock) \
-  do { (void)(lock); } while (0)
+  do { preempt_disable(); ___LOCK(lock); } while (0)
 
 #define __LOCK_BH(lock) \
-  do { (void)(lock); } while (0)
+  do { ___LOCK(lock); } while (0)
 
 #define __LOCK_IRQ(lock) \
-  do { (void)(lock); } while (0)
+  do { local_irq_disable(); __LOCK(lock); } while (0)
 
 #define __LOCK_IRQSAVE(lock, flags) \
-  do { (void)(lock); (void)(flags); } while (0)
+  do { local_irq_save(flags); __LOCK(lock); } while (0)
 
 #define ___UNLOCK(lock) \
-  do { (void)(lock); } while (0)
+  do { \
+	barrier(); \
+	((raw_spinlock_t *)lock)->raw_lock.slock = 1; \
+	barrier(); \
+	__release(lock); \
+  } while (0)
 
 #define __UNLOCK(lock) \
-  do { (void)(lock); } while (0)
+  do { preempt_enable(); ___UNLOCK(lock); } while (0)
 
 #define __UNLOCK_BH(lock) \
-  do { (void)(lock); } while (0)
+  do { ___UNLOCK(lock); } while (0)
 
 #define __UNLOCK_IRQ(lock) \
-  do { (void)(lock); } while (0)
+  do { local_irq_enable(); __UNLOCK(lock); } while (0)
 
 #define __UNLOCK_IRQRESTORE(lock, flags) \
-  do { (void)(lock); (void)(flags); } while (0)
+  do { local_irq_restore(flags); __UNLOCK(lock); } while (0)
 
 #define _raw_spin_lock(lock)			__LOCK(lock)
 #define _raw_spin_lock_nested(lock, subclass)	__LOCK(lock)
@@ -67,7 +80,17 @@
 #define _raw_spin_lock_irqsave(lock, flags)	__LOCK_IRQSAVE(lock, flags)
 #define _raw_read_lock_irqsave(lock, flags)	__LOCK_IRQSAVE(lock, flags)
 #define _raw_write_lock_irqsave(lock, flags)	__LOCK_IRQSAVE(lock, flags)
-#define _raw_spin_trylock(lock)			({ __LOCK(lock); 1; })
+#define _raw_spin_trylock(lock) \
+	({ \
+		int __ret = 0; \
+		if (((raw_spinlock_t *)lock)->raw_lock.slock != 0) { \
+			((raw_spinlock_t *)lock)->raw_lock.slock = 0; \
+			barrier(); \
+			__ret = 1; \
+		} \
+		__ret; \
+	})
+
 #define _raw_read_trylock(lock)			({ __LOCK(lock); 1; })
 #define _raw_write_trylock(lock)			({ __LOCK(lock); 1; })
 #define _raw_spin_trylock_bh(lock)		({ __LOCK_BH(lock); 1; })

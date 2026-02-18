@@ -16,6 +16,11 @@
 #include "kinetis/iic_soft.h"
 #include "kinetis/ak8975.h"
 #include "kinetis/switch.h"
+#include "kinetis/mpu6050.h"
+#include "kinetis/max77752.h"
+#include "kinetis/max30205.h"
+#include "kinetis/spi_soft.h"
+#include "w25qxxx.h"
 
 #include "hydrology.h"
 
@@ -35,6 +40,47 @@ int t_ak8975_magnetic(int argc, char **argv);
 int t_ak8975_selftest(int argc, char **argv);
 int t_ak8975_fuse_rom_access(int argc, char **argv);
 int t_ak8975_program_thread(int argc, char **argv);
+#endif
+
+#ifdef DESIGN_VERIFICATION_MPU6050
+int t_mpu6050_device_id(int argc, char **argv);
+int t_mpu6050_sensor_data(int argc, char **argv);
+int t_mpu6050_selftest(int argc, char **argv);
+int t_mpu6050_gyro_calibration(int argc, char **argv);
+int t_mpu6050_accel_calibration(int argc, char **argv);
+int t_mpu6050_fifo_test(int argc, char **argv);
+int t_mpu6050_interrupt_test(int argc, char **argv);
+int t_mpu6050_power_test(int argc, char **argv);
+int t_mpu6050_fullscale_test(int argc, char **argv);
+int t_mpu6050_dlpf_test(int argc, char **argv);
+#endif
+
+#ifdef DESIGN_VERIFICATION_MAX77752
+int t_max77752_device_id(int argc, char **argv);
+int t_max77752_power_test(int argc, char **argv);
+int t_max77752_battery_test(int argc, char **argv);
+int t_max77752_voltage_test(int argc, char **argv);
+int t_max77752_charging_test(int argc, char **argv);
+int t_max77752_current_test(int argc, char **argv);
+int t_max77752_temperature_test(int argc, char **argv);
+int t_max77752_led_test(int argc, char **argv);
+int t_max77752_interrupt_test(int argc, char **argv);
+int t_max77752_selftest(int argc, char **argv);
+int t_max77752_sleep_test(int argc, char **argv);
+int t_max77752_monitoring_test(int argc, char **argv);
+#endif
+
+#ifdef DESIGN_VERIFICATION_MAX30205
+int t_max30205_device_id(int argc, char **argv);
+int t_max30205_temperature_single(int argc, char **argv);
+int t_max30205_temperature_continuous(int argc, char **argv);
+int t_max30205_threshold_test(int argc, char **argv);
+int t_max30205_config_test(int argc, char **argv);
+int t_max30205_os_flag_test(int argc, char **argv);
+int t_max30205_timeout_test(int argc, char **argv);
+int t_max30205_oneshot_test(int argc, char **argv);
+int t_max30205_calibration_test(int argc, char **argv);
+int t_max30205_range_test(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_AT24CXX
@@ -66,7 +112,6 @@ int t_ds3231_stress_test(int argc, char **argv);
 
 #ifdef DESIGN_VERIFICATION_BASICTIMER
 int t_basic_timer_get_tick(int argc, char **argv);
-int t_basic_timer_thread_op(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_CRC
@@ -136,8 +181,12 @@ int t_led_drop(int argc, char **argv);
 
 #ifdef DESIGN_VERIFICATION_RNG
 int t_random_number(int argc, char **argv);
+int t_random_range(int argc, char **argv);
 int t_random_array(int argc, char **argv);
 int t_random_statistics(int argc, char **argv);
+int t_random_uniqueness(int argc, char **argv);
+int t_random_bits(int argc, char **argv);
+int t_random_array_multi(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_RS485
@@ -158,10 +207,24 @@ int t_rtc_task_add(int argc, char **argv);
 int t_rtc_task_validation(int argc, char **argv);
 int t_rtc_task_performance(int argc, char **argv);
 int t_rtc_task_cleanup(int argc, char **argv);
+int t_rtc_task_interval(int argc, char **argv);
+int t_rtc_task_boundary(int argc, char **argv);
+int t_rtc_task_suspend_resume(int argc, char **argv);
+int t_rtc_task_concurrent(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_SEIRALPORT
 int t_serial_port_interactive(int argc, char **argv);
+int t_serial_port_basic(int argc, char **argv);
+int t_serial_port_boundary(int argc, char **argv);
+int t_serial_port_performance(int argc, char **argv);
+int t_serial_port_stress(int argc, char **argv);
+int t_serial_port_timeout(int argc, char **argv);
+int t_serial_port_null_checks(int argc, char **argv);
+int t_serial_port_zero_timeout(int argc, char **argv);
+int t_serial_port_ring_buffer(int argc, char **argv);
+int t_serial_port_error_injection(int argc, char **argv);
+int t_serial_port_special_characters(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_SHELL
@@ -183,6 +246,10 @@ int t_tim_task_validation(int argc, char **argv);
 int t_tim_task_priority(int argc, char **argv);
 int t_tim_task_performance(int argc, char **argv);
 int t_tim_task_cleanup(int argc, char **argv);
+int t_tim_task_boundary(int argc, char **argv);
+int t_tim_task_concurrent(int argc, char **argv);
+int t_tim_task_short_interval(int argc, char **argv);
+int t_tim_task_suspend_resume(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_MY9221
@@ -194,9 +261,56 @@ int t_tlc5971_send_packet(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_W25QXXX
-int t_w25qxxx_chip_erase(int argc, char **argv);
+int t_w25qxxx_device_init(int argc, char **argv);
 int t_w25qxxx_read_info(int argc, char **argv);
 int t_w25qxxx_loopback(int argc, char **argv);
+int t_w25qxxx_chip_erase(int argc, char **argv);
+int t_w25qxxx_sector_erase(int argc, char **argv);
+int t_w25qxxx_block_erase_32kb(int argc, char **argv);
+int t_w25qxxx_block_erase_64kb(int argc, char **argv);
+int t_w25qxxx_page_program(int argc, char **argv);
+int t_w25qxxx_status_register(int argc, char **argv);
+int t_w25qxxx_power_test(int argc, char **argv);
+int t_w25qxxx_reset_test(int argc, char **argv);
+int t_w25qxxx_fast_read(int argc, char **argv);
+int t_w25qxxx_block_protection(int argc, char **argv);
+int t_w25qxxx_suspend_resume(int argc, char **argv);
+int t_w25qxxx_multi_sector_program(int argc, char **argv);
+int t_w25qxxx_comprehensive(int argc, char **argv);
+int t_w25qxxx_boundary(int argc, char **argv);
+int t_w25qxxx_performance(int argc, char **argv);
+int t_w25qxxx_stress(int argc, char **argv);
+int t_w25qxxx_address_mode(int argc, char **argv);
+int t_w25qxxx_write_protect(int argc, char **argv);
+int t_w25qxxx_security_registers(int argc, char **argv);
+int t_w25qxxx_large_transfer(int argc, char **argv);
+int t_w25qxxx_unique_id(int argc, char **argv);
+int t_w25qxxx_sfdp(int argc, char **argv);
+#endif
+#ifdef DESIGN_VERIFICATION_SPI
+int t_spi_slave_basic(int argc, char **argv);
+int t_spi_transfer_byte(int argc, char **argv);
+int t_spi_transfer_bytes(int argc, char **argv);
+int t_spi_mode_test(int argc, char **argv);
+int t_spi_bit_order_test(int argc, char **argv);
+int t_spi_speed_test(int argc, char **argv);
+int t_spi_edge_cases(int argc, char **argv);
+int t_spi_performance(int argc, char **argv);
+int t_spi_stress(int argc, char **argv);
+int t_spi_read_write_reg(int argc, char **argv);
+int t_spi_boundary_large(int argc, char **argv);
+#endif
+#ifdef DESIGN_VERIFICATION_IIC
+int t_iic_slave_basic(int argc, char **argv);
+int t_iic_transfer_byte(int argc, char **argv);
+int t_iic_transfer_bytes(int argc, char **argv);
+int t_iic_edge_cases(int argc, char **argv);
+int t_iic_performance(int argc, char **argv);
+int t_iic_stress(int argc, char **argv);
+int t_iic_read_write_reg(int argc, char **argv);
+int t_iic_boundary_large(int argc, char **argv);
+int t_iic_address_modes(int argc, char **argv);
+int t_iic_start_stop(int argc, char **argv);
 #endif
 
 static int t_function(int argc, char **argv)
@@ -218,6 +332,44 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"ak8975.selftest",             t_ak8975_selftest},
 	{"ak8975.fuse-rom-access",      t_ak8975_fuse_rom_access},
 	{"ak8975.thread",      			t_ak8975_program_thread},
+#endif
+#ifdef DESIGN_VERIFICATION_MPU6050
+	{"mpu6050.device-id",           t_mpu6050_device_id},
+	{"mpu6050.sensor-data",          t_mpu6050_sensor_data},
+	{"mpu6050.selftest",             t_mpu6050_selftest},
+	{"mpu6050.gyro-calibration",     t_mpu6050_gyro_calibration},
+	{"mpu6050.accel-calibration",    t_mpu6050_accel_calibration},
+	{"mpu6050.fifo-test",            t_mpu6050_fifo_test},
+	{"mpu6050.interrupt-test",      t_mpu6050_interrupt_test},
+	{"mpu6050.power-test",          t_mpu6050_power_test},
+	{"mpu6050.fullscale-test",       t_mpu6050_fullscale_test},
+	{"mpu6050.dlpf-test",            t_mpu6050_dlpf_test},
+#endif
+#ifdef DESIGN_VERIFICATION_MAX77752
+	{"max77752.device-id",          t_max77752_device_id},
+	{"max77752.power-test",         t_max77752_power_test},
+	{"max77752.battery-test",       t_max77752_battery_test},
+	{"max77752.voltage-test",       t_max77752_voltage_test},
+	{"max77752.charging-test",      t_max77752_charging_test},
+	{"max77752.current-test",       t_max77752_current_test},
+	{"max77752.temperature-test",   t_max77752_temperature_test},
+	{"max77752.led-test",           t_max77752_led_test},
+	{"max77752.interrupt-test",     t_max77752_interrupt_test},
+	{"max77752.selftest",           t_max77752_selftest},
+	{"max77752.sleep-test",         t_max77752_sleep_test},
+	{"max77752.monitoring-test",    t_max77752_monitoring_test},
+#endif
+#ifdef DESIGN_VERIFICATION_MAX30205
+	{"max30205.device-id",          t_max30205_device_id},
+	{"max30205.temp-single",        t_max30205_temperature_single},
+	{"max30205.temp-continuous",    t_max30205_temperature_continuous},
+	{"max30205.threshold-test",     t_max30205_threshold_test},
+	{"max30205.config-test",        t_max30205_config_test},
+	{"max30205.os-flag-test",       t_max30205_os_flag_test},
+	{"max30205.timeout-test",       t_max30205_timeout_test},
+	{"max30205.oneshot-test",       t_max30205_oneshot_test},
+	{"max30205.calibration-test",   t_max30205_calibration_test},
+	{"max30205.range-test",         t_max30205_range_test},
 #endif
 #ifdef DESIGN_VERIFICATION_AT24CXX
 	{"at24cxx.loopback",            t_at24cxx_loopback},
@@ -270,6 +422,18 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"hc-05.factory-reset",         t_hc_05_factory_reset},
 	{"hc-05.full",                  t_hc_05_full_test},
 #endif
+#ifdef DESIGN_VERIFICATION_IIC
+	{"iic.slave-basic",             t_iic_slave_basic},
+	{"iic.transfer-byte",            t_iic_transfer_byte},
+	{"iic.transfer-bytes",           t_iic_transfer_bytes},
+	{"iic.edge-cases",              t_iic_edge_cases},
+	{"iic.performance",              t_iic_performance},
+	{"iic.stress",                  t_iic_stress},
+	{"iic.read-write-reg",           t_iic_read_write_reg},
+	{"iic.boundary-large",           t_iic_boundary_large},
+	{"iic.address-modes",           t_iic_address_modes},
+	{"iic.start-stop",              t_iic_start_stop},
+#endif
 #ifdef DESIGN_VERIFICATION_HMC5883L
 	{"hmc5883l.", t_function},
 #endif
@@ -288,7 +452,6 @@ struct test_case_typedef kinetis_case_table[] = {
 #endif
 #ifdef DESIGN_VERIFICATION_BASICTIMER
 	{"basic-timer.get-tick",        t_basic_timer_get_tick},
-	{"basic-timer.thread",			t_basic_timer_thread_op},
 #endif
 #ifdef DESIGN_VERIFICATION_CHINESE
 	{"chinese.", t_function},
@@ -339,8 +502,12 @@ struct test_case_typedef kinetis_case_table[] = {
 #endif
 #ifdef DESIGN_VERIFICATION_RNG
 	{"random.number",               t_random_number},
+	{"random.range",                t_random_range},
 	{"random.array",                t_random_array},
 	{"random.statistics",           t_random_statistics},
+	{"random.uniqueness",           t_random_uniqueness},
+	{"random.bits",                 t_random_bits},
+	{"random.array-multi",          t_random_array_multi},
 #endif
 #ifdef DESIGN_VERIFICATION_RS485
 	{"test", t_function},
@@ -358,9 +525,23 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"rtc-task.validation",         t_rtc_task_validation},
 	{"rtc-task.performance",        t_rtc_task_performance},
 	{"rtc-task.cleanup",            t_rtc_task_cleanup},
+	{"rtc-task.interval",           t_rtc_task_interval},
+	{"rtc-task.boundary",           t_rtc_task_boundary},
+	{"rtc-task.suspend-resume",     t_rtc_task_suspend_resume},
+	{"rtc-task.concurrent",         t_rtc_task_concurrent},
 #endif
 #ifdef DESIGN_VERIFICATION_SEIRALPORT
-	{"serial-port.interactive",		t_serial_port_interactive},
+	{"serial-port.interactive",          t_serial_port_interactive},
+	{"serial-port.basic",                t_serial_port_basic},
+	{"serial-port.boundary",             t_serial_port_boundary},
+	{"serial-port.performance",          t_serial_port_performance},
+	{"serial-port.stress",               t_serial_port_stress},
+	{"serial-port.timeout",              t_serial_port_timeout},
+	{"serial-port.null-checks",          t_serial_port_null_checks},
+	{"serial-port.zero-timeout",         t_serial_port_zero_timeout},
+	{"serial-port.ring-buffer",          t_serial_port_ring_buffer},
+	{"serial-port.error-injection",      t_serial_port_error_injection},
+	{"serial-port.special-characters",   t_serial_port_special_characters},
 #endif
 #ifdef DESIGN_VERIFICATION_SHELL
 	{"test", t_function},
@@ -378,18 +559,54 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"tim-task.priority",            t_tim_task_priority},
 	{"tim-task.performance",         t_tim_task_performance},
 	{"tim-task.cleanup",             t_tim_task_cleanup},
+	{"tim-task.boundary",            t_tim_task_boundary},
+	{"tim-task.concurrent",          t_tim_task_concurrent},
+	{"tim-task.short-interval",      t_tim_task_short_interval},
+	{"tim-task.suspend-resume",      t_tim_task_suspend_resume},
 #endif
 #ifdef DESIGN_VERIFICATION_TOUCHSCREEN
 	{"test", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_MAX30205
-	{"test", t_function},
+	{"max30205.device-id",          t_max30205_device_id},
+	{"max30205.temp-single",        t_max30205_temperature_single},
+	{"max30205.temp-continuous",    t_max30205_temperature_continuous},
+	{"max30205.threshold-test",     t_max30205_threshold_test},
+	{"max30205.config-test",        t_max30205_config_test},
+	{"max30205.os-flag-test",       t_max30205_os_flag_test},
+	{"max30205.timeout-test",       t_max30205_timeout_test},
+	{"max30205.oneshot-test",       t_max30205_oneshot_test},
+	{"max30205.calibration-test",   t_max30205_calibration_test},
+	{"max30205.range-test",         t_max30205_range_test},
 #endif
-#ifdef DESIGN_VERIFICATION_MPU6050
-	{"test", t_function},
+#ifdef DESIGN_VERIFICATION_MAX77752
+	{"mpu6050.device-id",           t_mpu6050_device_id},
+	{"mpu6050.sensor-data",          t_mpu6050_sensor_data},
+	{"mpu6050.selftest",             t_mpu6050_selftest},
+	{"mpu6050.gyro-calibration",     t_mpu6050_gyro_calibration},
+	{"mpu6050.accel-calibration",    t_mpu6050_accel_calibration},
+	{"mpu6050.fifo-test",            t_mpu6050_fifo_test},
+	{"mpu6050.interrupt-test",      t_mpu6050_interrupt_test},
+	{"mpu6050.power-test",          t_mpu6050_power_test},
+	{"mpu6050.fullscale-test",       t_mpu6050_fullscale_test},
+	{"mpu6050.dlpf-test",            t_mpu6050_dlpf_test},
 #endif
 #ifdef DESIGN_VERIFICATION_MT29F4G08
 	{"test", t_function},
+#endif
+#ifdef DESIGN_VERIFICATION_MAX77752
+	{"max77752.device-id",          t_max77752_device_id},
+	{"max77752.power-test",         t_max77752_power_test},
+	{"max77752.battery-test",       t_max77752_battery_test},
+	{"max77752.voltage-test",       t_max77752_voltage_test},
+	{"max77752.charging-test",      t_max77752_charging_test},
+	{"max77752.current-test",       t_max77752_current_test},
+	{"max77752.temperature-test",   t_max77752_temperature_test},
+	{"max77752.led-test",           t_max77752_led_test},
+	{"max77752.interrupt-test",     t_max77752_interrupt_test},
+	{"max77752.selftest",           t_max77752_selftest},
+	{"max77752.sleep-test",         t_max77752_sleep_test},
+	{"max77752.monitoring-test",    t_max77752_monitoring_test},
 #endif
 #ifdef DESIGN_VERIFICATION_MY9221
 	{"my9221.send",                 t_my9221_send_packet},
@@ -416,9 +633,44 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"tlc5971.send",                t_tlc5971_send_packet},
 #endif
 #ifdef DESIGN_VERIFICATION_W25QXXX
+	{"w25qxxx.device-init",         t_w25qxxx_device_init},
+	{"w25qxxx.read-info",           t_w25qxxx_read_info},
 	{"w25qxxx.loopback",            t_w25qxxx_loopback},
-	{"w25qxxx.info",                t_w25qxxx_read_info},
 	{"w25qxxx.erase",               t_w25qxxx_chip_erase},
+	{"w25qxxx.sector-erase",        t_w25qxxx_sector_erase},
+	{"w25qxxx.block-erase-32kb",    t_w25qxxx_block_erase_32kb},
+	{"w25qxxx.block-erase-64kb",    t_w25qxxx_block_erase_64kb},
+	{"w25qxxx.page-program",        t_w25qxxx_page_program},
+	{"w25qxxx.status-register",     t_w25qxxx_status_register},
+	{"w25qxxx.power-test",          t_w25qxxx_power_test},
+	{"w25qxxx.reset-test",          t_w25qxxx_reset_test},
+	{"w25qxxx.fast-read",           t_w25qxxx_fast_read},
+	{"w25qxxx.block-protection",    t_w25qxxx_block_protection},
+	{"w25qxxx.suspend-resume",      t_w25qxxx_suspend_resume},
+	{"w25qxxx.multi-sector-program", t_w25qxxx_multi_sector_program},
+	{"w25qxxx.comprehensive",        t_w25qxxx_comprehensive},
+	{"w25qxxx.boundary",            t_w25qxxx_boundary},
+	{"w25qxxx.performance",         t_w25qxxx_performance},
+	{"w25qxxx.stress",              t_w25qxxx_stress},
+	{"w25qxxx.address-mode",        t_w25qxxx_address_mode},
+	{"w25qxxx.write-protect",      t_w25qxxx_write_protect},
+	{"w25qxxx.security-registers",  t_w25qxxx_security_registers},
+	{"w25qxxx.large-transfer",      t_w25qxxx_large_transfer},
+	{"w25qxxx.unique-id",           t_w25qxxx_unique_id},
+	{"w25qxxx.sfdp",                t_w25qxxx_sfdp},
+#endif
+#ifdef DESIGN_VERIFICATION_SPI
+	{"spi.slave-basic",              t_spi_slave_basic},
+	{"spi.transfer-byte",            t_spi_transfer_byte},
+	{"spi.transfer-bytes",           t_spi_transfer_bytes},
+	{"spi.mode",                     t_spi_mode_test},
+	{"spi.bit-order",                t_spi_bit_order_test},
+	{"spi.speed",                    t_spi_speed_test},
+	{"spi.edge-cases",               t_spi_edge_cases},
+	{"spi.performance",              t_spi_performance},
+	{"spi.stress",                   t_spi_stress},
+	{"spi.read-write-reg",           t_spi_read_write_reg},
+	{"spi.boundary-large",           t_spi_boundary_large},
 #endif
 #ifdef DESIGN_VERIFICATION_XMODEM
 	{"test", t_function},
@@ -428,11 +680,6 @@ struct test_case_typedef kinetis_case_table[] = {
 static int idle_task_init(void)
 {
 	int ret;
-
-	ret = basic_timer_thread_start();
-	if (ret) {
-		goto err;
-	}
 
 	ret = fatfs_init();
 	if (ret) {
@@ -513,19 +760,6 @@ int k_test_case_schedule(void)
 		goto err;
 	}
 
-	// 		ret = iic_slave_test();
-	// 		if (ret) {
-	// 			goto err;
-	// 		}
-
-	// 	ak8975_slave_start();
-	// 	u8 tmp = 0;
-	// 	pr_info("=== AK8975 Basic Info Test ===");
-	// 	ak8975_who_am_i(&tmp);
-	// 	pr_info("Device ID of AKM8975 is 0x%02X", tmp);
-	// 	ak8975_slave_stop();
-	// 	return -EIO;
-
 	pr_info("/----------Test platform has been activated.----------/");
 
 	buffer = kmalloc(256, __GFP_ZERO);
@@ -536,7 +770,7 @@ int k_test_case_schedule(void)
 	}
 
 	// Force log flush
-	pr_info("");
+	pr_info("/ # \n");
 
 	while (1) {
 		ret = get_user_input_string(buffer, 256);
@@ -556,7 +790,7 @@ int k_test_case_schedule(void)
 				} else if (ret == FAIL) {
 					pr_info("TEST FAIL\n");
 				} else {
-					pr_info("TEST NOT EXSIST\n");
+					pr_info("TEST NOT EXIST\n");
 				}
 				printf("/ # ");
 				continue;  // Skip to next iteration

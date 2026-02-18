@@ -722,9 +722,9 @@ int ak8975_slave_test()
 		 device_id, AKM_DEVID);
 
 	if (device_id == AKM_DEVID) {
-		pr_info("  PASS: Device ID matches");
+		pr_info("Device ID matches");
 	} else {
-		pr_err("  FAIL: Device ID mismatch");
+		pr_err("Device ID mismatch");
 		return FAIL;
 	}
 
@@ -766,9 +766,9 @@ int ak8975_slave_test()
 	pr_info("Test 6 - Power state after power down: %d (0=power down)", temp_reg);
 
 	if (temp_reg == 0) {
-		pr_info("  PASS: Successfully entered power down mode");
+		pr_info("Successfully entered power down mode");
 	} else {
-		pr_err("  FAIL: Failed to enter power down mode");
+		pr_err("Failed to enter power down mode");
 		ret = FAIL;
 	}
 
@@ -861,7 +861,7 @@ int t_ak8975_magnetic(int argc, char **argv)
 	}
 
 	ak8975_enter_power_down_mode();
-	pr_info("  PASS: Completed %d magnetic readings", times);
+	pr_info("Completed %d magnetic readings", times);
 	return PASS;
 }
 
@@ -903,11 +903,11 @@ int t_ak8975_selftest(int argc, char **argv)
 	if ((magnetic[0] >= 30 && magnetic[0] <= 5000) &&
 		(magnetic[1] >= 30 && magnetic[1] <= 5000) &&
 		(magnetic[2] >= 30 && magnetic[2] <= 5000)) {
-		pr_info("  PASS: Self-test completed successfully");
+		pr_info("Self-test completed successfully");
 		ak8975_enter_power_down_mode();
 		return PASS;
 	} else {
-		pr_err("  FAIL: Self-test data out of range");
+		pr_err("Self-test data out of range");
 		pr_info("  Expected range: 30-5000 for all axes");
 		pr_info("  Actual: X=%d, Y=%d, Z=%d",
 			magnetic[0], magnetic[1], magnetic[2]);
@@ -933,9 +933,9 @@ int t_ak8975_fuse_rom_access(int argc, char **argv)
 
 	/* Verify ASA values are in valid range (0-255) */
 	if (asa_values[0] <= 255 && asa_values[1] <= 255 && asa_values[2] <= 255) {
-		pr_info("  PASS: Sensitivity adjustment values read successfully");
+		pr_info("Sensitivity adjustment values read successfully");
 	} else {
-		pr_warn("  WARN: Some ASA values appear out of range");
+		pr_warn("Some ASA values appear out of range");
 	}
 
 	ak8975_enter_power_down_mode();

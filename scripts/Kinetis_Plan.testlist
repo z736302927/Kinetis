@@ -16,25 +16,66 @@ basic-timer.get-tick
 /*按键测试 - 需要先开启任务，然后添加按键，测试完成后删除按键并关闭任务*/
 button.task on
 button.add
+dsim_delay second 60
 button.drop
 button.task off
 
 /*LED测试 - 测试LED添加和删除功能*/
 led.add
+dsim_delay second 60
 led.drop
 
 /*开关测试 - 测试开关添加和删除功能*/
 switch.add
+dsim_delay second 60
 switch.drop
 
 /*AK8975磁力计测试 - 需要先开启线程，进行基本信息、自检、磁场测量、ROM访问测试*/
-ak8975.basic-info
 ak8975.thread on
+ak8975.basic-info
 ak8975.selftest
 ak8975.magnetic 128
 ak8975.magnetic 256
 ak8975.fuse-rom-access
 ak8975.thread off
+
+/*MPU6050六轴IMU测试 - 进行设备ID检测、传感器数据读取、自检、校准、FIFO、中断、电源、量程和DLPF配置测试*/
+mpu6050.device-id
+mpu6050.sensor-data
+mpu6050.selftest
+mpu6050.gyro-calibration
+mpu6050.accel-calibration
+mpu6050.fifo-test
+mpu6050.interrupt-test
+mpu6050.power-test
+mpu6050.fullscale-test
+mpu6050.dlpf-test
+
+/*MAX77752电源管理芯片测试 - 进行设备ID检测、电源管理、电池状态、电压监测、充电、电流监测、温度、LED控制、中断、自检、睡眠和连续监控测试*/
+max77752.device-id
+max77752.power-test
+max77752.battery-test
+max77752.voltage-test
+max77752.charging-test
+max77752.current-test
+max77752.temperature-test
+max77752.led-test
+max77752.interrupt-test
+max77752.selftest
+max77752.sleep-test
+max77752.monitoring-test
+
+/*MAX30205温度传感器测试 - 进行设备检测、单次和连续温度读取、阈值测试、配置、OS标志、超时、单次模式、校准和范围测试*/
+max30205.device-id
+max30205.temp-single
+max30205.temp-continuous 10
+max30205.threshold-test
+max30205.config-test
+max30205.os-flag-test
+max30205.timeout-test
+max30205.oneshot-test
+max30205.calibration-test
+max30205.range-test
 
 /*AT24CXX EEPROM测试 - 需要先开启线程，进行设备检测、读写、边角、磨损均衡等测试*/
 at24cxx.thread on
@@ -75,26 +116,84 @@ rtc.performance
 rtc.backup
 rtc.cleanup
 
-/*RTC任务测试 - 测试RTC任务的添加、验证、性能和清理功能*/
+/*RTC任务测试 - 测试RTC任务的添加、验证、性能、清理、间隔、边界、挂起恢复和并发功能*/
 rtc-task.add
 rtc-task.validation
 rtc-task.performance
 rtc-task.cleanup
+rtc-task.interval
+rtc-task.boundary
+rtc-task.suspend-resume
+rtc-task.concurrent
 
-/*定时任务测试 - 测试定时任务的添加、验证、优先级、性能和清理功能*/
+/*定时任务测试 - 测试定时任务的添加、验证、优先级、性能、清理、边界、并发、短间隔和挂起恢复功能*/
 tim-task.add
 tim-task.validation
 tim-task.priority
 tim-task.performance
 tim-task.cleanup
+tim-task.boundary
+tim-task.concurrent
+tim-task.short-interval
+tim-task.suspend-resume
 
-/*W25QXXX Flash测试 - 测试W25Q128和W25Q256两种芯片的回环、信息读取和擦除功能*/
-w25qxxx.loopback w25q128
-w25qxxx.loopback w25q256
-w25qxxx.info w25q128
-w25qxxx.info w25q256
-w25qxxx.erase w25q128
-w25qxxx.erase w25q256
+/*SPI软模拟测试 - 测试SPI的基本功能、字节传输、模式、位序、速度、边界、性能、压力、读写寄存器和大数据测试*/
+spi.slave-basic
+spi.transfer-byte
+spi.transfer-bytes
+spi.mode
+spi.bit-order
+spi.speed
+spi.edge-cases
+spi.performance
+spi.stress
+spi.read-write-reg
+spi.boundary-large
+
+/*I2C软模拟测试 - 测试I2C的基本功能、字节传输、边界、性能、压力、读写寄存器、大数据、地址模式和起停条件测试*/
+iic.slave-basic
+iic.transfer-byte
+iic.transfer-bytes
+iic.edge-cases
+iic.performance
+iic.stress
+iic.read-write-reg
+iic.boundary-large
+iic.address-modes
+iic.start-stop
+
+/*W25QXXX Flash测试 - 测试W25Q128和W25Q256两种芯片的初始化、回环、信息读取、擦除、页编程、状态寄存器、电源、复位、快读、块保护、挂起恢复和多扇区编程功能*/
+w25qxxx.device-init w25q128
+w25qxxx.read-info w25q128
+w25qxxx.loopback w25q128 4
+w25qxxx.page-program w25q128
+w25qxxx.sector-erase w25q128
+w25qxxx.block-erase-32kb w25q128
+w25qxxx.block-erase-64kb w25q128
+w25qxxx.status-register w25q128
+w25qxxx.power-test w25q128
+w25qxxx.reset-test w25q128
+w25qxxx.fast-read w25q128
+w25qxxx.block-protection w25q128
+w25qxxx.suspend-resume w25q128
+w25qxxx.multi-sector-program w25q128
+w25qxxx.comprehensive w25q128
+
+w25qxxx.device-init w25q256
+w25qxxx.read-info w25q256
+w25qxxx.loopback w25q256 4
+w25qxxx.page-program w25q256
+w25qxxx.sector-erase w25q256
+w25qxxx.block-erase-32kb w25q256
+w25qxxx.block-erase-64kb w25q256
+w25qxxx.status-register w25q256
+w25qxxx.power-test w25q256
+w25qxxx.reset-test w25q256
+w25qxxx.fast-read w25q256
+w25qxxx.block-protection w25q256
+w25qxxx.suspend-resume w25q256
+w25qxxx.multi-sector-program w25q256
+w25qxxx.comprehensive w25q256
 
 /*文件系统测试 - 测试FATFS文件系统的操作、回环、文件检查、扫描等功能*/
 fatfs.operate
@@ -111,11 +210,16 @@ fatfs.raw-speed
 
 /*随机数测试 - 测试随机数生成、数组生成和统计功能，使用不同长度和位数参数*/
 random.number
+random.range 0 100
+random.range 100 200
 random.array 10 32
 random.array 100 16
 random.array 100 8
 random.statistics 1000 10
 random.statistics 5000 20
+random.uniqueness 1000
+random.bits
+random.array-multi 20
 
 /*HC-05蓝牙测试 - 测试蓝牙模块的设置、从机模式、主机模式、数据传输、诊断、恢复出厂等功能*/
 hc-05.setup

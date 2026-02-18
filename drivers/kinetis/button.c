@@ -8,7 +8,6 @@
 #include "kinetis/button.h"
 #include "kinetis/tim-task.h"
 #include "kinetis/basic-timer.h"
-#include "kinetis/design_verification.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -105,6 +104,17 @@ int button_add(u32 unique_id, u8(*pin_level)(struct button *), u8 active_level,
 
 	list_add_tail(&button->list, &button_head);
 
+	button->sim_state.unique_id = unique_id;
+	button->sim_state.press_time = 0;
+	button->sim_state.release_time = 0;
+	button->sim_state.active_level = active_level;
+	button->sim_state.current_level = !active_level;
+	button->sim_state.debounce_counter = 0;
+	button->sim_state.click_count = 0;
+	button->sim_state.start = true;
+	button->sim_state.next_event = NONE_PRESS;
+	button->sim_state.next_state = PRESS_IDLE;
+
 	return 0;
 }
 
@@ -116,9 +126,24 @@ int button_add(u32 unique_id, u8(*pin_level)(struct button *), u8 active_level,
 void button_drop(u32 unique_id)
 {
 	struct button *button, *tmp;
+	u64 current_time = basic_timer_get_ms();
 
 	list_for_each_entry_safe(button, tmp, &button_head, list) {
 		if (button->unique_id == unique_id) {
+			button->sim_state.start = false;
+			while (1) {
+				tim_task_loop();
+
+				if (button->state == PRESS_IDLE && button->sim_state.next_state == PRESS_IDLE) {
+					break;
+				}
+
+				if (basic_timer_get_ms() - current_time >= 10000) {
+					pr_warn("button %u timeout waiting for IDLE state\n", unique_id);
+					return;
+				}
+			}
+
 			list_del(&button->list);
 			kfree(button);
 			break;
@@ -292,45 +317,12 @@ void button_polling(void)
 
 #ifdef DESIGN_VERIFICATION_BUTTON
 #include "kinetis/test-kinetis.h"
-#include "kinetis/idebug.h"
-
-#include "hydrology.h"
 
 #if MCU_PLATFORM_STM32
 #include "stm32f4xx_hal.h"
 #endif
 
 #ifdef KINETIS_FAKE_SIM
-/* button simulation state for fake mode */
-struct button_sim_state {
-	u32 unique_id;
-	u64 press_time;    /* When button was pressed */
-	u64 release_time;        /* When button was released */
-	u8 current_level;        /* Current GPIO level (0=low, 1=high) */
-	u8 active_level;         /* Active level (0=low, 1=high) */
-	u8 debounce_counter;      /* Debounce counter */
-	u8 click_count;
-	enum button_state_machine next_state;
-	enum button_event next_event;
-};
-
-static struct button_sim_state button_sim[4] = {0};
-
-/* Initialize button simulation state */
-static void button_sim_init(u32 unique_id, u8 active_level)
-{
-	if (unique_id < 4) {
-		button_sim[unique_id].unique_id = unique_id;
-		button_sim[unique_id].press_time = 0;
-		button_sim[unique_id].release_time = 0;
-		button_sim[unique_id].active_level = active_level;
-		button_sim[unique_id].current_level = !active_level;
-		button_sim[unique_id].debounce_counter = 0;
-		button_sim[unique_id].click_count = 0;
-		button_sim[unique_id].next_event = NONE_PRESS;
-		button_sim[unique_id].next_state = PRESS_IDLE;
-	}
-}
 
 /* Simulate button reading with debounce behavior */
 static u8 button_sim_read_with_debounce(struct button_sim_state *sim)
@@ -342,8 +334,7 @@ static u8 button_sim_read_with_debounce(struct button_sim_state *sim)
 	/* Handle button state based on next event */
 	switch (sim->next_state) {
 	case PRESS_IDLE:
-		if ((get_random_int() % 100) < 50) {
-			// sim->next_event = get_random_int() % PRESS_EVENT_NBR;
+		if ((get_random_int() % 100) < 50 && sim->start == true) {
 			sim->next_event = get_random_int() % PRESS_EVENT_NBR;
 			if (sim->next_event != NONE_PRESS) {
 				sim->click_count = 0;
@@ -446,12 +437,14 @@ static u8 button_sim_read_with_debounce(struct button_sim_state *sim)
 
 static u8 button_read_pin(struct button *button)
 {
+#if KINETIS_FAKE_SIM
+	return button_sim_read_with_debounce(&button->sim_state);
+#endif
+
 	switch (button->unique_id) {
 	case 1:
 #if MCU_PLATFORM_STM32
 		return HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_2);
-#elif KINETIS_FAKE_SIM
-		return button_sim_read_with_debounce(&button_sim[1]);
 #else
 		return 0;
 #endif
@@ -459,8 +452,6 @@ static u8 button_read_pin(struct button *button)
 	case 2:
 #if MCU_PLATFORM_STM32
 		return HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_3);
-#elif KINETIS_FAKE_SIM
-		return button_sim_read_with_debounce(&button_sim[2]);
 #else
 		return 0;
 #endif
@@ -468,8 +459,6 @@ static u8 button_read_pin(struct button *button)
 	case 3:
 #if MCU_PLATFORM_STM32
 		return HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_4);
-#elif KINETIS_FAKE_SIM
-		return button_sim_read_with_debounce(&button_sim[3]);
 #else
 		return 0;
 #endif
@@ -521,22 +510,15 @@ int t_button_task(int argc, char **argv)
 		return 0;
 	}
 
-	pr_debug("Usage: t_button_task <on|off>\n");
+	pr_debug("usage: t_button_task <on|off>\n");
 	return -EINVAL;
 }
 
 int t_button_add(int argc, char **argv)
 {
-#ifdef KINETIS_FAKE_SIM
-	/* Initialize button simulation states */
-	button_sim_init(1, 0);
-	button_sim_init(2, 0);
-	button_sim_init(3, 0);
-#endif
-
 	button_add(1, button_read_pin, 0, button_test_callback);
-	// button_add(2, button_read_pin, 0, button_test_callback);
-	// button_add(3, button_read_pin, 0, button_test_callback);
+	button_add(2, button_read_pin, 0, button_test_callback);
+	button_add(3, button_read_pin, 0, button_test_callback);
 
 	pr_debug("button test is running, please push the button.\n");
 
@@ -546,8 +528,8 @@ int t_button_add(int argc, char **argv)
 int t_button_drop(int argc, char **argv)
 {
 	button_drop(1);
-	// button_drop(2);
-	// button_drop(3);
+	button_drop(2);
+	button_drop(3);
 
 	pr_debug("button test is over\n");
 

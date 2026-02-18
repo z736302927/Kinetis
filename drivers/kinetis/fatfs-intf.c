@@ -1,5 +1,4 @@
 
-#include <generated/deconfig.h>
 #include <linux/printk.h>
 #include <linux/errno.h>
 #include <linux/string.h>

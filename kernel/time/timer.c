@@ -1866,16 +1866,18 @@ signed long __sched schedule_timeout(signed long timeout)
 
 	expire = timeout + jiffies;
 
-	timer.task = current;
-	timer_setup_on_stack(&timer.timer, process_timeout, 0);
-	__mod_timer(&timer.timer, expire, MOD_TIMER_NOTPENDING);
-	schedule();
-	del_singleshot_timer_sync(&timer.timer);
+// 	timer.task = current;
+// 	timer_setup_on_stack(&timer.timer, process_timeout, 0);
+// 	__mod_timer(&timer.timer, expire, MOD_TIMER_NOTPENDING);
+// 	schedule();
+// 	del_singleshot_timer_sync(&timer.timer);
+//
+// 	/* Remove the timer from the object tracker */
+// 	destroy_timer_on_stack(&timer.timer);
 
-	/* Remove the timer from the object tracker */
-	destroy_timer_on_stack(&timer.timer);
-
-	timeout = expire - jiffies;
+	do {
+		timeout = expire - jiffies;
+	} while (timeout > 0);
 
  out:
 	return timeout < 0 ? 0 : timeout;
@@ -1984,35 +1986,35 @@ int timers_dead_cpu(unsigned int cpu)
 
 #endif /* CONFIG_HOTPLUG_CPU */
 
-//static void __init init_timer_cpu(int cpu)
-//{
-//	struct timer_base *base;
-//	int i;
+static void __init init_timer_cpu(int cpu)
+{
+	struct timer_base *base;
+	int i;
 
-//	for (i = 0; i < NR_BASES; i++) {
-//		base = per_cpu_ptr(&timer_bases[i], cpu);
-//		base->cpu = cpu;
-//		raw_spin_lock_init(&base->lock);
-//		base->clk = jiffies;
-//		base->next_expiry = base->clk + NEXT_TIMER_MAX_DELTA;
-//		timer_base_init_expiry_lock(base);
-//	}
-//}
+	for (i = 0; i < NR_BASES; i++) {
+		base = per_cpu_ptr(&timer_bases[i], cpu);
+		base->cpu = cpu;
+		raw_spin_lock_init(&base->lock);
+		base->clk = jiffies;
+		base->next_expiry = base->clk + NEXT_TIMER_MAX_DELTA;
+		timer_base_init_expiry_lock(base);
+	}
+}
 
-//static void __init init_timer_cpus(void)
-//{
-//	int cpu;
+static void __init init_timer_cpus(void)
+{
+	int cpu;
 
-//	for_each_possible_cpu(cpu)
-//		init_timer_cpu(cpu);
-//}
+	for_each_possible_cpu(cpu)
+		init_timer_cpu(cpu);
+}
 
-//void __init init_timers(void)
-//{
-//	init_timer_cpus();
-//	posix_cputimers_init_work();
-//	open_softirq(TIMER_SOFTIRQ, run_timer_softirq);
-//}
+void __init init_timers(void)
+{
+	init_timer_cpus();
+	posix_cputimers_init_work();
+// 	open_softirq(TIMER_SOFTIRQ, run_timer_softirq);
+}
 
 /**
  * msleep - sleep safely even with waitqueue interruptions

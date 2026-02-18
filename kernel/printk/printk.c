@@ -2018,7 +2018,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 {
 	int printed_len;
 	bool in_sched = false;
-//	unsigned long flags;
+	unsigned long flags;
 
 //	/* Suppress unimportant messages after panic happens */
 //	if (unlikely(suppress_printk))
@@ -2093,24 +2093,19 @@ EXPORT_SYMBOL_GPL(vprintk_default);
  *
  * See the vsnprintf() documentation for format string extensions over C99.
  */
-// static volatile atomic_t semaphore = ATOMIC_INIT(1);
 asmlinkage __visible int printk(const char *fmt, ...)
 {
 	va_list args;
 	int r;
-// 	int old_val;
-// 
-// 	while (!atomic_try_cmpxchg(&semaphore, &old_val, 0)) {
-// 		if (old_val != 1) {
-// 			old_val = 1;
-// 		}
-// 	}
+	unsigned long flags;
+
+	logbuf_lock_irqsave(flags);
 
 	va_start(args, fmt);
 	r = vprintk_func(fmt, args);
 	va_end(args);
 
-// 	atomic_set(&semaphore, 1);
+	logbuf_unlock_irqrestore(flags);
 
 	return r;
 }

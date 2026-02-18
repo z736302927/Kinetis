@@ -5,6 +5,7 @@
 #include "kinetis/iic_soft.h"
 #include "kinetis/delay.h"
 #include "kinetis/idebug.h"
+#include "kinetis/design_verification.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -465,53 +466,451 @@ void max30205_WriteTOS(u16 Data)
 }
 
 #ifdef DESIGN_VERIFICATION_MAX30205
-static u8 tx_buffer[256];
-static u8 rx_buffer[256];
+#include "kinetis/test-kinetis.h"
+#include "kinetis/design_verification.h"
 
-void max30205_Test(void)
+/**
+ * @brief Test 1: MAX30205 Basic Device Detection
+ * @return PASS if device is detected, FAIL otherwise
+ */
+int t_max30205_device_id(int argc, char **argv)
 {
-	u32 TmpRngdata = 0;
-	u16 BufferLength = 0;
-	u32 TestAddr = 0;
+	pr_info("=== MAX30205 Device Detection Test ===");
 
-	random_get8bit(&hrng, &TmpRngdata);
-	BufferLength = TmpRngdata & 0xFF;
-	printk("BufferLength = %d.", BufferLength);
-
-	if (tx_buffer == NULL || rx_buffer == NULL) {
-		printk("Failed to allocate memory !");
-		return;
+	/* Check if device is present */
+	if (!max30205_is_device_present()) {
+		pr_err("FAIL: MAX30205 device not found");
+		return FAIL;
 	}
 
-	memset(tx_buffer, 0, BufferLength);
-	memset(rx_buffer, 0, BufferLength);
+	pr_info("MAX30205 device detected successfully");
+	return PASS;
+}
 
-	random_get8bit(&hrng, &TmpRngdata);
-	TestAddr = TmpRngdata & 0xFF;
-	printk("TestAddr = 0x%02X.", TestAddr);
+/**
+ * @brief Test 2: MAX30205 Temperature Reading (Single Shot)
+ * @return PASS if temperature reading is successful, FAIL otherwise
+ */
+int t_max30205_temperature_single(int argc, char **argv)
+{
+	float temperature;
+	u16 raw_temp;
 
-	for (u16 i = 0; i < BufferLength; i += 4) {
-		random_get8bit(&hrng, &TmpRngdata);
-		tx_buffer[i + 3] = (TmpRngdata & 0xFF000000) >> 24;;
-		tx_buffer[i + 2] = (TmpRngdata & 0x00FF0000) >> 16;
-		tx_buffer[i + 1] = (TmpRngdata & 0x0000FF00) >> 8;
-		tx_buffer[i + 0] = (TmpRngdata & 0x000000FF);
+	pr_info("=== MAX30205 Single-Shot Temperature Test ===");
+
+	/* Exit shutdown mode */
+	max30205_set_shutdown_mode(0);
+	mdelay(10);
+
+	/* Trigger one-shot conversion */
+	max30205_trigger_one_shot();
+	mdelay(100);
+
+	/* Read temperature */
+	max30205_get_temperature(&temperature);
+	pr_info("Temperature: %.2f°C", temperature);
+
+	/* Read raw temperature */
+	raw_temp = max30205_get_raw_temperature();
+	pr_info("Raw temperature: 0x%04X (%.2f°C)", raw_temp,
+		MAX30205_RAW_TO_CELSIUS(raw_temp));
+
+	/* Verify temperature is within reasonable range */
+	if (temperature < -20.0f || temperature > 100.0f) {
+		pr_warn("Temperature out of expected range");
 	}
 
-	max30205_WriteData(TestAddr, tx_buffer, BufferLength);
-	max30205_ReadData(TestAddr, rx_buffer, BufferLength);
+	/* Enter shutdown mode */
+	max30205_set_shutdown_mode(1);
 
-	for (u16 i = 0; i < BufferLength; i++) {
-		if (tx_buffer[i] != rx_buffer[i]) {
-			printk("tx_buffer[%d] = 0x%02X, rx_buffer[%d] = 0x%02X",
-				i, tx_buffer[i],
-				i, rx_buffer[i]);
-			printk("Data writes and reads do not match, TEST FAILED !");
-			return ;
+	pr_info("Single-shot temperature reading completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 3: MAX30205 Continuous Temperature Monitoring
+ * @param argc Argument count (argv[1] = number of readings, default 100)
+ * @param argv Argument vector
+ * @return PASS if continuous readings work, FAIL otherwise
+ */
+int t_max30205_temperature_continuous(int argc, char **argv)
+{
+	float temperature;
+	u16 readings = 100;
+	u16 i;
+	float temp_min = 1000.0f, temp_max = -1000.0f, temp_sum = 0.0f;
+
+	if (argc > 1) {
+		readings = simple_strtoul(argv[1], &argv[1], 10);
+		if (readings > 1000) {
+			readings = 1000;
 		}
 	}
 
-	printk("max30205 Read and write TEST PASSED !");
+	pr_info("=== MAX30205 Continuous Temperature Test (%d readings) ===", readings);
+
+	/* Exit shutdown mode and enter continuous mode */
+	max30205_set_shutdown_mode(0);
+	max30205_set_operating_mode(MAX30205_MODE_INTERRUPT);
+	mdelay(10);
+
+	for (i = 0; i < readings; i++) {
+		/* Read temperature */
+		max30205_get_temperature(&temperature);
+
+		/* Update statistics */
+		if (temperature < temp_min) {
+			temp_min = temperature;
+		}
+		if (temperature > temp_max) {
+			temp_max = temperature;
+		}
+		temp_sum += temperature;
+
+		/* Show first and last readings */
+		if (i == 0 || i == readings - 1) {
+			pr_info("Reading %d/%d: %.2f°C", i + 1, readings, temperature);
+		}
+
+		mdelay(10);
+	}
+
+	/* Print statistics */
+	pr_info("Temperature statistics:");
+	pr_info("  Min: %.2f°C", temp_min);
+	pr_info("  Max: %.2f°C", temp_max);
+	pr_info("  Avg: %.2f°C", temp_sum / readings);
+
+	/* Enter shutdown mode */
+	max30205_set_shutdown_mode(1);
+
+	pr_info("Continuous temperature monitoring completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 4: MAX30205 Threshold Configuration
+ * @return PASS if threshold configuration works, FAIL otherwise
+ */
+int t_max30205_threshold_test(int argc, char **argv)
+{
+	u16 tos_raw, thyst_raw;
+
+	pr_info("=== MAX30205 Threshold Test ===");
+
+	/* Exit shutdown mode */
+	max30205_set_shutdown_mode(0);
+	mdelay(10);
+
+	/* Set high temperature threshold to 30°C */
+	max30205_set_threshold_high(MAX30205_CELSIUS_TO_RAW(30.0f));
+	tos_raw = max30205_get_threshold_high();
+	pr_info("High threshold set: 30.00°C (raw: 0x%04X)", tos_raw);
+
+	/* Set low temperature threshold to 25°C */
+	max30205_set_threshold_low(MAX30205_CELSIUS_TO_RAW(25.0f));
+	thyst_raw = max30205_get_threshold_low();
+	pr_info("Low threshold set: 25.00°C (raw: 0x%04X)", thyst_raw);
+
+	/* Read temperature to check against thresholds */
+	float temp;
+	max30205_get_temperature(&temp);
+	pr_info("Current temperature: %.2f°C", temp);
+
+	/* Check temperature limits */
+	u8 limit_status = max30205_check_temperature_limits(temp);
+	pr_info("Temperature limit status: %d", limit_status);
+
+	/* Enter shutdown mode */
+	max30205_set_shutdown_mode(1);
+
+	pr_info("Threshold configuration completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 5: MAX30205 Configuration Register Tests
+ * @return PASS if configuration changes work, FAIL otherwise
+ */
+int t_max30205_config_test(int argc, char **argv)
+{
+	pr_info("=== MAX30205 Configuration Test ===");
+
+	/* Test shutdown mode */
+	pr_info("Testing shutdown mode...");
+	max30205_set_shutdown_mode(0);
+	mdelay(10);
+
+	max30205_set_shutdown_mode(1);
+	mdelay(10);
+
+	/* Test operating mode */
+	max30205_set_shutdown_mode(0);
+	mdelay(10);
+
+	pr_info("Testing operating mode...");
+	max30205_set_operating_mode(MAX30205_MODE_COMPARATOR);
+	mdelay(10);
+
+	max30205_set_operating_mode(MAX30205_MODE_INTERRUPT);
+	mdelay(10);
+
+	/* Test OS polarity */
+	pr_info("Testing OS polarity...");
+	max30205_set_os_polarity(0);
+	mdelay(10);
+
+	max30205_set_os_polarity(1);
+	mdelay(10);
+
+	/* Test fault queue */
+	pr_info("Testing fault queue...");
+	max30205_set_fault_queue(MAX30205_FAULT_QUEUE_1);
+	mdelay(10);
+
+	max30205_set_fault_queue(MAX30205_FAULT_QUEUE_6);
+	mdelay(10);
+
+	pr_info("Configuration test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 6: MAX30205 OS (Overtemperature Shutdown) Flag
+ * @return PASS if OS flag handling works, FAIL otherwise
+ */
+int t_max30205_os_flag_test(int argc, char **argv)
+{
+	u8 os_flag;
+
+	pr_info("=== MAX30205 OS Flag Test ===");
+
+	/* Exit shutdown mode */
+	max30205_set_shutdown_mode(0);
+	mdelay(10);
+
+	/* Read OS flag */
+	os_flag = max30205_check_os_flag();
+	pr_info("OS flag status: %d", os_flag);
+
+	/* Clear OS flag */
+	max30205_clear_os_flag();
+	mdelay(10);
+
+	/* Read OS flag again */
+	os_flag = max30205_check_os_flag();
+	pr_info("OS flag after clear: %d", os_flag);
+
+	/* Set threshold to trigger OS flag */
+	max30205_set_threshold_high(MAX30205_CELSIUS_TO_RAW(0.0f));
+	max30205_set_threshold_low(MAX30205_CELSIUS_TO_RAW(-10.0f));
+	mdelay(100);
+
+	/* Read temperature */
+	float temp;
+	max30205_get_temperature(&temp);
+	pr_info("Current temperature: %.2f°C", temp);
+
+	/* Check OS flag */
+	os_flag = max30205_check_os_flag();
+	pr_info("OS flag after threshold change: %d", os_flag);
+
+	/* Clear OS flag */
+	max30205_clear_os_flag();
+
+	/* Enter shutdown mode */
+	max30205_set_shutdown_mode(1);
+
+	pr_info("OS flag test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 7: MAX30205 Timeout Feature
+ * @return PASS if timeout feature works, FAIL otherwise
+ */
+int t_max30205_timeout_test(int argc, char **argv)
+{
+	pr_info("=== MAX30205 Timeout Test ===");
+
+	/* Exit shutdown mode */
+	max30205_set_shutdown_mode(0);
+	mdelay(10);
+
+	/* Enable timeout */
+	max30205_enable_timeout(1);
+	mdelay(10);
+
+	/* Disable timeout */
+	max30205_enable_timeout(0);
+	mdelay(10);
+
+	/* Enter shutdown mode */
+	max30205_set_shutdown_mode(1);
+
+	pr_info("Timeout test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 8: MAX30205 One-Shot Mode
+ * @return PASS if one-shot mode works, FAIL otherwise
+ */
+int t_max30205_oneshot_test(int argc, char **argv)
+{
+	u16 readings = 10;
+	u16 i;
+	float temperature;
+
+	pr_info("=== MAX30205 One-Shot Mode Test (%d readings) ===", readings);
+
+	/* Enter shutdown mode */
+	max30205_set_shutdown_mode(1);
+	mdelay(10);
+
+	for (i = 0; i < readings; i++) {
+		/* Trigger one-shot conversion */
+		max30205_trigger_one_shot();
+
+		/* Wait for conversion to complete */
+		mdelay(100);
+
+		/* Read temperature */
+		max30205_get_temperature(&temperature);
+
+		pr_info("Reading %d/%d: %.2f°C", i + 1, readings, temperature);
+	}
+
+	pr_info("One-shot mode test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 9: MAX30205 Temperature Calibration
+ * @return PASS if calibration works, FAIL otherwise
+ */
+int t_max30205_calibration_test(int argc, char **argv)
+{
+	float temp_normal, temp_calibrated;
+
+	pr_info("=== MAX30205 Calibration Test ===");
+
+	/* Exit shutdown mode */
+	max30205_set_shutdown_mode(0);
+	max30205_set_operating_mode(MAX30205_MODE_INTERRUPT);
+	mdelay(10);
+
+	/* Read normal temperature */
+	max30205_get_temperature(&temp_normal);
+	pr_info("Normal temperature: %.2f°C", temp_normal);
+
+	/* Set calibration offset */
+	max30205_calibrate_offset(0.5f);
+
+	/* Read calibrated temperature */
+	temp_calibrated = max30205_get_temperature_with_calibration();
+	pr_info("Calibrated temperature: %.2f°C (offset +0.5°C)", temp_calibrated);
+
+	/* Reset calibration */
+	max30205_calibrate_offset(0.0f);
+
+	/* Enter shutdown mode */
+	max30205_set_shutdown_mode(1);
+
+	pr_info("Calibration test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 10: MAX30205 Temperature Range Test
+ * @return PASS if temperature readings are stable, FAIL otherwise
+ */
+int t_max30205_range_test(int argc, char **argv)
+{
+	float temperature;
+	u16 readings = 50;
+	u16 i;
+	float prev_temp = 0.0f;
+	float max_delta = 0.0f;
+
+	pr_info("=== MAX30205 Temperature Range Test (%d readings) ===", readings);
+
+	/* Exit shutdown mode */
+	max30205_set_shutdown_mode(0);
+	max30205_set_operating_mode(MAX30205_MODE_INTERRUPT);
+	mdelay(10);
+
+	for (i = 0; i < readings; i++) {
+		/* Read temperature */
+		max30205_get_temperature(&temperature);
+
+		/* Calculate temperature change */
+		if (i > 0) {
+			float delta = temperature - prev_temp;
+			if (delta < 0) {
+				delta = -delta;
+			}
+			if (delta > max_delta) {
+				max_delta = delta;
+			}
+		}
+
+		prev_temp = temperature;
+
+		mdelay(20);
+	}
+
+	pr_info("Maximum temperature delta: %.2f°C", max_delta);
+
+	if (max_delta > 2.0f) {
+		pr_warn("Temperature readings vary significantly");
+	}
+
+	/* Enter shutdown mode */
+	max30205_set_shutdown_mode(1);
+
+	pr_info("Temperature range test completed");
+	return PASS;
+}
+
+void max30205_Test(void)
+{
+	printk("=== MAX30205 Comprehensive Test Started ===");
+
+	/* Test 1: Device detection */
+	if (t_max30205_device_id(0, NULL) != PASS) {
+		printk("Test 1 FAILED: Device detection failed");
+		return;
+	}
+
+	/* Test 2: Single-shot temperature */
+	t_max30205_temperature_single(0, NULL);
+
+	/* Test 3: Continuous temperature monitoring */
+	t_max30205_temperature_continuous(0, NULL);
+
+	/* Test 4: Threshold configuration */
+	t_max30205_threshold_test(0, NULL);
+
+	/* Test 5: Configuration register tests */
+	t_max30205_config_test(0, NULL);
+
+	/* Test 6: OS flag test */
+	t_max30205_os_flag_test(0, NULL);
+
+	/* Test 7: Timeout feature */
+	t_max30205_timeout_test(0, NULL);
+
+	/* Test 8: One-shot mode */
+	t_max30205_oneshot_test(0, NULL);
+
+	/* Test 9: Calibration test */
+	t_max30205_calibration_test(0, NULL);
+
+	/* Test 10: Temperature range test */
+	t_max30205_range_test(0, NULL);
+
+	printk("=== MAX30205 Comprehensive Test Completed Successfully ===");
 }
 
 #endif

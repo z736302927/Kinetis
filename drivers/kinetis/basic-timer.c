@@ -49,18 +49,20 @@ void basic_timer_isr(u32 period)
 	}
 }
 
+unsigned long read_chip_timer(void);
+
 __weak u32 basic_timer_get_counter(void)
 {
 #if MCU_PLATFORM_STM32
 	return (u32)htim2.Instance->CNT;
 #else
-	return 0;
+	return read_chip_timer();
 #endif
 }
 
 static u64 _basic_timer_get_us(void)
 {
-	u32 ss, us, counter;
+	u64 ss, us, counter;
 
 	do {
 		ss = timer_tick_ss;
@@ -69,12 +71,12 @@ static u64 _basic_timer_get_us(void)
 
 	} while (ss != timer_tick_ss);
 
-	return (u64)ss * TIMER_US_PER_SEC + (u64)us + (u64)counter;
+	return ss * TIMER_US_PER_SEC + us + counter;
 }
 
 u32 basic_timer_get_ss(void)
 {
-	return timer_tick_ss;
+	return _basic_timer_get_us() / 1000000;
 }
 
 u64 basic_timer_get_ms(void)
@@ -127,160 +129,208 @@ void basic_timer_resume(void)
 #ifdef DESIGN_VERIFICATION_BASICTIMER
 #include <linux/printk.h>
 #include <linux/kernel.h>
+#include <linux/delay.h>
+#include <linux/random.h>
 
 #include "kinetis/test-kinetis.h"
 #include "kinetis/idebug.h"
-
-#include <unistd.h>
-#include <pthread.h>
-
-/* Timer thread control */
-static pthread_t p_thread;
-static volatile bool p_thread_running = false;
-
-unsigned long read_chip_timer(void);
-
-/**
- * @brief Timer thread function - increments tick every 1ms
- */
-static void *timer_thread_func(void *arg)
-{
-	unsigned long last_time;
-	unsigned long current_time, target_time;
-	unsigned long elapsed_ticks;
-	unsigned long tick_interval = TIMER_INTERRUPT_PERIOD;
-	unsigned long sleep_time = tick_interval * 80 / 100;
-
-	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
-	pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
-
-	while (p_thread_running) {
-		last_time = read_chip_timer();
-
-// 		if (sleep_time > 0) {
-// 			usleep(sleep_time);
-// 		}
-
-		/* Use high-precision timer for accurate timing */
-		target_time = last_time + tick_interval;
-		do {
-			current_time = read_chip_timer();
-		} while (current_time < target_time);
-
-		/* Calculate elapsed ticks based on actual elapsed time */
-		elapsed_ticks = (current_time - last_time) / tick_interval;
-		if (elapsed_ticks > 0) {
-			basic_timer_isr(elapsed_ticks * tick_interval);
-		}
-	}
-
-	return NULL;
-}
-
-int basic_timer_thread_start(void)
-{
-	int ret;
-
-	if (p_thread_running) {
-		pr_info("Timer thread is already running\n");
-		return 0;
-	}
-
-	p_thread_running = true;
-
-	ret = pthread_create(&p_thread, NULL, timer_thread_func, NULL);
-	if (ret != 0) {
-		p_thread_running = false;
-		pr_err("Failed to create timer thread: %d\n", ret);
-		return -ret;
-	}
-
-	pr_info("Timer thread started successfully\n");
-	return 0;
-}
-
-int basic_timer_thread_stop(void)
-{
-	void *thread_ret;
-
-	if (!p_thread_running) {
-		pr_info("Timer thread is not running\n");
-		return 0;
-	}
-
-	p_thread_running = false;
-
-	if (pthread_join(p_thread, &thread_ret) == 0) {
-		pr_info("Timer thread stopped successfully\n");
-	} else {
-		pr_warn("Timer thread stop had issues, but continuing\n");
-	}
-
-	return 0;
-}
-
-/**
- * @brief Start timer thread
- */
-int t_basic_timer_thread_op(int argc, char **argv)
-{
-	bool on_off = true;
-	void *thread_ret;
-	int ret;
-
-	if (argc > 1) {
-		if (!strcmp(argv[1], "on")) {
-			on_off = true;
-		} else if (!strcmp(argv[1], "off")) {
-			on_off = false;
-		} else {
-			return -EINVAL;
-		}
-	}
-
-	if (on_off) {
-		ret = basic_timer_thread_start();
-		if (ret) {
-			return ret;
-		}
-	} else {
-		ret = basic_timer_thread_stop();
-		if (ret) {
-			return ret;
-		}
-	}
-
-	return PASS;
-}
+#include "kinetis/random-gene.h"
 
 int t_basic_timer_get_tick(int argc, char **argv)
 {
-	u16 times1 = 3, times2 = 10, times3 = 10;
-	u16 i = 0;
+	u64 time1, time2, time3;
+	u32 i;
+	s64 delta;
 
-	if (argc > 1) {
-		times1 = simple_strtoul(argv[1], &argv[1], 10);
+	pr_debug("===== basic timer test started =====\n");
+
+	/* ===== 秒级计时器测试 ===== */
+	pr_debug("[second timer test]\n");
+
+	time1 = basic_timer_get_ss();
+	pr_debug("start time (ss): %llu\n", time1);
+
+	ssleep(1);
+	time2 = basic_timer_get_ss();
+	delta = (s64)time2 - (s64)time1;
+
+	if (delta == 1) {
+		pr_debug("after 1s: %llu, delta = %lld s (ok)\n", time2, delta);
+	} else {
+		pr_err("after 1s: %llu, delta = %lld s (expected 1s)\n", time2, delta);
+		return FAIL;
 	}
 
-	if (argc > 2) {
-		times2 = simple_strtoul(argv[2], &argv[2], 10);
+	ssleep(2);
+	time3 = basic_timer_get_ss();
+	delta = (s64)time3 - (s64)time2;
+
+	if (delta == 2) {
+		pr_debug("after 2s: %llu, delta = %lld s (ok)\n", time3, delta);
+	} else {
+		pr_err("after 2s: %llu, delta = %lld s (expected 2s)\n", time3, delta);
+		return FAIL;
 	}
 
-	if (argc > 3) {
-		times3 = simple_strtoul(argv[3], &argv[3], 10);
+	/* ===== 毫秒级计时器测试 ===== */
+	pr_debug("[millisecond timer test]\n");
+
+	time1 = basic_timer_get_ms();
+	pr_debug("start time (ms): %llu\n", time1);
+
+	mdelay(100);
+	time2 = basic_timer_get_ms();
+	delta = (s64)time2 - (s64)time1;
+
+	if (delta >= 98 && delta <= 102) {
+		pr_debug("after 100ms: %llu, delta = %lld ms (ok)\n", time2, delta);
+	} else {
+		pr_err("after 100ms: %llu, delta = %lld ms (expected 100ms)\n", time2, delta);
+		return FAIL;
 	}
 
-	for (i = 0; i < times1; i++) {
-		pr_debug("Current absolute second = %u\n", basic_timer_get_ss());
+	mdelay(500);
+	time3 = basic_timer_get_ms();
+	delta = (s64)time3 - (s64)time2;
+
+	if (delta >= 498 && delta <= 502) {
+		pr_debug("after 500ms: %llu, delta = %lld ms (ok)\n", time3, delta);
+	} else {
+		pr_err("after 500ms: %llu, delta = %lld ms (expected 500ms)\n", time3, delta);
+		return FAIL;
 	}
 
-	for (i = 0; i < times2; i++) {
-		pr_debug("Current absolute millisecond = %llu\n", basic_timer_get_ms());
+	/* ===== 微秒级计时器测试 ===== */
+	pr_debug("[microsecond timer test]\n");
+
+	time1 = basic_timer_get_us();
+	pr_debug("start time (us): %llu\n", time1);
+
+	udelay(1000);
+	time2 = basic_timer_get_us();
+	delta = (s64)time2 - (s64)time1;
+
+	if (delta >= 998 && delta <= 1002) {
+		pr_debug("after 1000us: %llu, delta = %lld us (ok)\n", time2, delta);
+	} else {
+		pr_err("after 1000us: %llu, delta = %lld us (expected 1000us)\n", time2, delta);
+		return FAIL;
 	}
 
-	for (i = 0; i < times3; i++) {
-		pr_debug("Current absolute microsecond = %llu\n", basic_timer_get_us());
+	mdelay(1000);
+	time3 = basic_timer_get_us();
+	delta = (s64)time3 - (s64)time2;
+
+	if (delta >= 9998 && delta <= 10002) {
+		pr_debug("after 10000us: %llu, delta = %lld us (ok)\n", time3, delta);
+	} else {
+		pr_err("after 10000us: %llu, delta = %lld us (expected 10000us)\n", time3, delta);
+		return FAIL;
 	}
+
+	/* ===== 纳秒级计时器测试 ===== */
+	pr_debug("[nanosecond timer test]\n");
+
+	time1 = basic_timer_get_ns();
+	pr_debug("start time (ns): %llu\n", time1);
+
+	udelay(1000);
+	time2 = basic_timer_get_ns();
+	delta = (s64)time2 - (s64)time1;
+
+	if (delta >= 998000 && delta <= 1002000) {
+		pr_debug("after 1000us: %llu, delta = %lld ns (ok)\n", time2, delta);
+	} else {
+		pr_err("after 1000us: %llu, delta = %lld ns (expected ~1000000ns)\n", time2, delta);
+		return FAIL;
+	}
+
+	/* ===== 连续读取测试（检查稳定性） ===== */
+	pr_debug("[continuous read test]\n");
+
+	for (i = 0; i < 10; i++) {
+		time1 = basic_timer_get_us();
+		udelay(1);
+		time2 = basic_timer_get_us();
+
+		if (time2 < time1) {
+			pr_err("time not monotonic: %llu -> %llu\n", time1, time2);
+			return FAIL;
+		}
+	}
+	pr_debug("continuous read test: 10 reads ok\n");
+
+	/* ===== 不同精度转换测试 ===== */
+	pr_debug("[precision conversion test]\n");
+
+	time1 = basic_timer_get_us();
+	time2 = basic_timer_get_ms();
+	time3 = basic_timer_get_ss();
+
+	pr_debug("us = %llu, ms = %llu, ss = %llu\n", time1, time2, time3);
+
+	/* 检查转换关系是否合理 */
+	if (time2 * 1000 > time1 || time2 * 1000 + 1000 < time1) {
+		pr_err("ms to us conversion error: %llu ms != %llu us\n", time2, time1);
+		return FAIL;
+	}
+
+	if (time3 * 1000000 > time1 || time3 * 1000000 + 1000000 < time1) {
+		pr_err("ss to us conversion error: %llu ss != %llu us\n", time3, time1);
+		return FAIL;
+	}
+
+	pr_debug("precision conversion test: ok\n");
+
+	/* ===== 随机延时测试 ===== */
+	pr_debug("[random delay test]\n");
+
+	for (i = 0; i < 5; i++) {
+		u32 delay_ms = get_random_range(100, 0);
+
+		time1 = basic_timer_get_ms();
+		mdelay(delay_ms);
+		time2 = basic_timer_get_ms();
+		delta = (s64)time2 - (s64)time1;
+
+		if (delta >= (s64)delay_ms - 2 && delta <= (s64)delay_ms + 2) {
+			pr_debug("delay %u ms: actual %lld ms (ok)\n", delay_ms, delta);
+		} else {
+			pr_err("delay %u ms: actual %lld ms (out of range!)\n", delay_ms, delta);
+			return FAIL;
+		}
+	}
+
+	/* ===== 长时间计时测试 ===== */
+	pr_debug("[long duration test]\n");
+
+	time1 = basic_timer_get_ss();
+	ssleep(3);
+	time2 = basic_timer_get_ss();
+	delta = (s64)time2 - (s64)time1;
+
+	if (delta == 3) {
+		pr_debug("long duration: %lld s (ok)\n", delta);
+	} else {
+		pr_err("long duration: %lld s (expected 3s)\n", delta);
+		return FAIL;
+	}
+
+	/* ===== 边界测试（最小值） ===== */
+	pr_debug("[boundary test - minimum values]\n");
+
+	time1 = basic_timer_get_us();
+	udelay(0);
+	time2 = basic_timer_get_us();
+
+	if (time2 >= time1) {
+		pr_debug("udelay(0): delta = %lld us (ok)\n", (s64)time2 - (s64)time1);
+	} else {
+		pr_err("udelay(0): time went backwards!\n");
+		return FAIL;
+	}
+
+	pr_debug("===== basic timer test passed =====\n");
 
 	return PASS;
 }

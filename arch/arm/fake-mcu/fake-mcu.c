@@ -9,6 +9,7 @@
 #include <linux/i2c.h>
 #include <linux/errname.h>
 #include <linux/random.h>
+#include <linux/prandom.h>
 #include <linux/utsname.h>
 
 #include <kinetis/ano_protocol.h>
@@ -44,6 +45,9 @@ int QueryPerformanceFrequency(LARGE_INTEGER *lpFrequency);
 #include <fake-mcu/print.h>
 #endif
 
+DEFINE_RWLOCK(tasklist_lock);
+DEFINE_SPINLOCK(mmlist_lock);
+
 struct uts_namespace init_uts_ns = {
 	.kref = {
 		.refcount = ATOMIC_INIT(1),
@@ -78,14 +82,26 @@ enum system_states system_state = SYSTEM_BOOTING;
 /* Fake interrupt registers for entropy collection */
 DEFINE_PER_CPU(struct pt_regs *, __irq_regs);
 
+/* Fake CPU masks for uniprocessor system */
+struct cpumask __cpu_possible_mask;
+struct cpumask __cpu_online_mask;
+struct cpumask __cpu_present_mask;
+struct cpumask __cpu_active_mask;
+atomic_t __num_online_cpus = ATOMIC_INIT(1);
+
 unsigned long read_chip_timer(void)
 {
 #ifdef _WIN32
 	LARGE_INTEGER frequency, counter;
+	static LARGE_INTEGER start_counter = {0};
+	if (start_counter.QuadPart == 0) {
+		QueryPerformanceCounter(&start_counter);
+	}
+
 	QueryPerformanceFrequency(&frequency);
 	QueryPerformanceCounter(&counter);
 	/* Convert to microseconds (1 second = 1000000 microseconds) */
-	return (unsigned long)((counter.QuadPart * 1000000ULL) / frequency.QuadPart);
+	return (unsigned long)(((counter.QuadPart - start_counter.QuadPart) * 1000000ULL) / frequency.QuadPart);
 #else
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -251,17 +267,10 @@ void *pthread_xtime_update(void *para)
 {
 	unsigned long last_time;
 	unsigned long current_time, target_time;
-	unsigned long elapsed_ticks;
 	unsigned long tick_interval = USEC_PER_SEC / HZ;
-	unsigned long sleep_time = tick_interval * 80 / 100;
 
 	while (1) {
 		last_time = read_chip_timer();
-
-// 		/* Sleep for 80% of tick interval to save CPU */
-// 		if (sleep_time > 0) {
-// 			usleep(sleep_time);
-// 		}
 
 		/* Use high-precision timer for accurate timing */
 		target_time = last_time + tick_interval;
@@ -269,11 +278,7 @@ void *pthread_xtime_update(void *para)
 			current_time = read_chip_timer();
 		} while (current_time < target_time);
 
-		/* Calculate elapsed ticks based on actual elapsed time */
-		elapsed_ticks = (current_time - last_time) / tick_interval;
-		if (elapsed_ticks > 0) {
-			xtime_update(elapsed_ticks);
-		}
+		xtime_update(1);
 	}
 }
 
@@ -287,11 +292,21 @@ int fake_mcu_glue_func(void)
 
 //	cm_backtrace_init("CmBacktrace", "V1.0.0", "V0.1.0");
 
+	/* Initialize CPU masks for uniprocessor system */
+	cpumask_set_cpu(0, &__cpu_possible_mask);
+	cpumask_set_cpu(0, &__cpu_online_mask);
+	cpumask_set_cpu(0, &__cpu_present_mask);
+	cpumask_set_cpu(0, &__cpu_active_mask);
+
 	register_current_timer_delay(&fake_delay_timer);
+
+	prandom_init_early();
 
 	ret = initialize_ptr_random();
 	if (ret)
 		return ret;
+
+	init_timers();
 
 	timekeeping_init();
 	ret = pthread_create(&timer_thread, NULL, pthread_xtime_update, NULL);
@@ -312,6 +327,12 @@ int fake_mcu_glue_func(void)
 	for (int i = 0; i < 16; i++)
 		entropy[i] = 0x1234567890abcdefULL ^ (u64)(ts.tv_sec + ts.tv_nsec) * (i + 1);
 	add_device_randomness(entropy, sizeof(entropy));
+
+	if (rng_is_initialized()) {
+		pr_info("RNG is initialized and ready\n");
+	} else {
+		pr_info("RNG is not yet initialized\n");
+	}
 
 	register_console(&stm32_console);
 
@@ -427,12 +448,9 @@ int fake_mcu_glue_func(void)
 
 int main(int argc, char **argv)
 {
-	u32 device_id = 0x12345678;  /* Replace with actual device ID */
-	u8 random_bytes[16];
-	u32 rand32;
-	u64 rand64;
 	int ret;
-	float fval = 0.5f;
+
+	setvbuf(stdout, NULL, _IONBF, 0);
 
 	ret = fake_mcu_glue_func();
 	if (ret)
@@ -447,35 +465,6 @@ int main(int argc, char **argv)
 	pr_info("|---------------------------------|\n");
 	pr_info("666, Kineits system has been setup.\n");
 	pr_info("|---------------------------------|\n");
-	
-	pr_info("0.5f: %f\n", fval);
-
-	WARN_ON_ONCE(1);
-
-	/* Random number generation examples */
-	/* Example 1: Generate random bytes for encryption key */
-	get_random_bytes(random_bytes, sizeof(random_bytes));
-	pr_info("Random bytes (encryption key): %02x%02x%02x%02x...\n",
-		random_bytes[0], random_bytes[1], random_bytes[2], random_bytes[3]);
-
-	/* Example 2: Generate random 32-bit number for session ID */
-	rand32 = get_random_u32();
-	pr_info("Random session ID: 0x%08x\n", rand32);
-
-	/* Example 3: Generate random 64-bit number */
-	rand64 = get_random_u64();
-	pr_info("Random 64-bit value: 0x%016llx\n", rand64);
-
-	/* Example 4: Add device-specific entropy */
-	add_device_randomness(&device_id, sizeof(device_id));
-	pr_info("Device entropy added: 0x%08x\n", device_id);
-
-	/* Example 5: Check if RNG is ready */
-	if (rng_is_initialized()) {
-		pr_info("RNG is initialized and ready\n");
-	} else {
-		pr_info("RNG is not yet initialized\n");
-	}
 
 	/* USER CODE END 2 */
 

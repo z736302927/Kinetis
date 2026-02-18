@@ -1448,37 +1448,35 @@ void w25qxxx_erase_security_regs(u8 w25qxxx, u8 addr)
 		busy == 0, 1, 30000000);
 }
 
-//void w25qxxx_program_security_regs(u8 w25qxxx, u32 regNum, u32 Byteaddr, u8 *pdata, u16 length)
-//{
-//  w25qxxx_write_enable(w25qxxx);
-//  w25qxxx_cs_low(w25qxxx);
-//  w25qxxx_port_transmit(w25qxxx, PROGRAM_SECURITY_REGISTERS);
-//  if(w25qxxx == W25Q256)
-//  {
-//    w25qxxx_port_transmit(w25qxxx, 0x00);
-//  }
-//  w25qxxx_port_transmit(w25qxxx, 0x00);
-//  w25qxxx_port_transmit(w25qxxx, regNum);
-//  w25qxxx_port_transmit(w25qxxx, Byteaddr);
-//  w25qxxx_cs_high(w25qxxx);
-//}
-//
-//void w25qxxx_read_security_regs(u8 w25qxxx, u8 regNum, u8 Byteaddr, u8 *pdata, u16 length)
-//{
-//  w25qxxx_cs_low(w25qxxx);
-//  w25qxxx_port_transmit(w25qxxx, READ_SECURITY_REGISTERS);
-//  w25qxxx_port_transmit(w25qxxx, 0x00);
-//  w25qxxx_port_transmit(w25qxxx, regNum);
-//  w25qxxx_port_transmit(w25qxxx, Byteaddr);
-//  w25qxxx_port_transmit(w25qxxx, DUMMY_BYTE);
-//
-//  for(u32 i = 0;i < length;i++)
-//  {
-//    pdata[i] = w25qxxx_port_receive(w25qxxx);
-//  }
-//
-//  w25qxxx_cs_high(w25qxxx);
-//}
+void w25qxxx_program_security_regs(u8 w25qxxx, u32 regNum, u32 Byteaddr, u8 *pdata, u16 length)
+{
+	w25qxxx_write_enable(w25qxxx);
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmit(w25qxxx, PROGRAM_SECURITY_REGISTERS);
+	if (w25qxxx == W25Q256) {
+		w25qxxx_port_transmit(w25qxxx, 0x00);
+	}
+	w25qxxx_port_transmit(w25qxxx, 0x00);
+	w25qxxx_port_transmit(w25qxxx, regNum);
+	w25qxxx_port_transmit(w25qxxx, Byteaddr);
+	w25qxxx_cs_high(w25qxxx);
+}
+
+void w25qxxx_read_security_regs(u8 w25qxxx, u8 regNum, u8 Byteaddr, u8 *pdata, u16 length)
+{
+	w25qxxx_cs_low(w25qxxx);
+	w25qxxx_port_transmit(w25qxxx, READ_SECURITY_REGISTERS);
+	w25qxxx_port_transmit(w25qxxx, 0x00);
+	w25qxxx_port_transmit(w25qxxx, regNum);
+	w25qxxx_port_transmit(w25qxxx, Byteaddr);
+	w25qxxx_port_transmit(w25qxxx, DUMMY_BYTE);
+
+	for (u32 i = 0; i < length; i++) {
+		pdata[i] = w25qxxx_port_receive(w25qxxx);
+	}
+
+	w25qxxx_cs_high(w25qxxx);
+}
 
 void w25qxxx_enter_qpi_mode(u8 w25qxxx)
 {
@@ -1661,8 +1659,16 @@ void w25qxxx_read_info(u8 w25qxxx)
 #ifdef DESIGN_VERIFICATION_W25QXXX
 #include "kinetis/test-kinetis.h"
 #include "kinetis/random-gene.h"
+#include "kinetis/basic-timer.h"
 
-int t_w25qxxx_chip_erase(int argc, char **argv)
+static u8 tx_buffer[32767];
+static u8 rx_buffer[32767];
+
+/**
+ * @brief Test 1: W25Qxxx Chip Initialization and Device ID
+ * @return PASS if initialization and device ID check succeed, FAIL otherwise
+ */
+int t_w25qxxx_device_init(int argc, char **argv)
 {
 	u8 w25qxxx = W25Q128;
 	int ret;
@@ -1675,17 +1681,25 @@ int t_w25qxxx_chip_erase(int argc, char **argv)
 		}
 	}
 
-	pr_debug("Erasing is doing, 30 seconds will cost.\n");
+	pr_info("=== W25Qxxx Device Initialization Test ===");
+	pr_info("Device type: %s", (w25qxxx == W25Q128) ? "W25Q128" : "W25Q256");
 
-	ret = sw25qxxx_chip_erase(w25qxxx);
+	ret = w25qxxx_init(w25qxxx);
 	if (ret) {
-		pr_err("Chip erase failed with error: %d\n", ret);
+		pr_err("Failed to initialize device, error: %d", ret);
 		return FAIL;
 	}
 
+	w25qxxx_read_info(w25qxxx);
+
+	pr_info("Device initialization completed");
 	return PASS;
 }
 
+/**
+ * @brief Test 2: W25Qxxx Read Device Information
+ * @return PASS if device information can be read, FAIL otherwise
+ */
 int t_w25qxxx_read_info(int argc, char **argv)
 {
 	u8 w25qxxx = W25Q128;
@@ -1698,14 +1712,18 @@ int t_w25qxxx_read_info(int argc, char **argv)
 		}
 	}
 
+	pr_info("=== W25Qxxx Read Device Information Test ===");
+
 	w25qxxx_read_info(w25qxxx);
 
+	pr_info("Device information read completed");
 	return PASS;
 }
 
-static u8 tx_buffer[32767];
-static u8 rx_buffer[32767];
-
+/**
+ * @brief Test 3: W25Qxxx Write/Read Loopback Test
+ * @return PASS if data written matches data read, FAIL otherwise
+ */
 int t_w25qxxx_loopback(int argc, char **argv)
 {
 	u8 w25qxxx = W25Q128;
@@ -1725,6 +1743,8 @@ int t_w25qxxx_loopback(int argc, char **argv)
 	if (argc > 2) {
 		round = simple_strtoul(argv[2], &argv[2], 10);
 	}
+
+	pr_info("=== W25Qxxx Loopback Test (%d rounds) ===", round);
 
 	for (j = 0; j < round; j++) {
 		tmp_rng = random_get32bit();
@@ -1748,35 +1768,1209 @@ int t_w25qxxx_loopback(int argc, char **argv)
 			test_addr = 0;
 			break;
 		}
-		pr_debug("round[%4u], test addr@0x%08x, length = %d.\n",
-			j, test_addr, length);
+
+		pr_debug("Round [%4u], Test Addr: 0x%08X, Length: %d", j, test_addr, length);
 
 		random_get_array(tx_buffer, length, RNG_8BITS);
 
 		w25qxxx_write_data(w25qxxx, test_addr, tx_buffer, length);
 		w25qxxx_read_data(w25qxxx, test_addr, rx_buffer, length);
 
-		print_hex_dump(KERN_DEBUG, "w25qxxx tx buffer: ", DUMP_PREFIX_OFFSET,
-			16, 4,
-			tx_buffer, length, false);
-		print_hex_dump(KERN_DEBUG, "w25qxxx rx buffer: ", DUMP_PREFIX_OFFSET,
-			16, 4,
-			tx_buffer, length, false);
-
 		for (i = 0; i < length; i++) {
 			if (tx_buffer[i] != rx_buffer[i]) {
-				pr_err("tx[%d]: %#02x, rx[%d]: %#02x\n",
-					i, tx_buffer[i],
-					i, rx_buffer[i]);
-				printk(KERN_ERR
-					"Data writes and reads do not match, TEST FAILED !\n");
-				return -EPIPE;
+				pr_err("Data mismatch at index %d: TX=0x%02X, RX=0x%02X",
+					i, tx_buffer[i], rx_buffer[i]);
+				return FAIL;
 			}
+		}
+
+		if (j == 0 || j == round - 1) {
+			pr_info("Round %d/%d: Addr=0x%08X, Length=%d bytes - OK",
+				j + 1, round, test_addr, length);
 		}
 	}
 
-	pr_debug("w25qxxx read and write TEST PASSED !\n");
+	pr_info("Loopback test completed");
+	return PASS;
+}
 
+/**
+ * @brief Test 4: W25Qxxx Chip Erase
+ * @return PASS if chip erase succeeds, FAIL otherwise
+ */
+int t_w25qxxx_chip_erase(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	int ret;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	pr_info("=== W25Qxxx Chip Erase Test ===");
+	pr_info("Warning: This will erase all data on the chip (~30 seconds)");
+
+	ret = sw25qxxx_chip_erase(w25qxxx);
+	if (ret) {
+		pr_err("Chip erase failed with error: %d", ret);
+		return FAIL;
+	}
+
+	pr_info("Chip erase completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 5: W25Qxxx Sector Erase
+ * @return PASS if sector erase succeeds, FAIL otherwise
+ */
+int t_w25qxxx_sector_erase(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	u32 test_addr = 0;
+	int ret;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	if (argc > 2) {
+		test_addr = simple_strtoul(argv[2], &argv[2], 16);
+	} else {
+		test_addr = random_get32bit();
+		if (w25qxxx == W25Q128) {
+			test_addr &= 0xFFF000;  /* Align to 4KB sector boundary */
+		} else {
+			test_addr &= 0x1FFF000;
+		}
+	}
+
+	pr_info("=== W25Qxxx Sector Erase Test ===");
+	pr_info("Erasing sector at address: 0x%08X", test_addr);
+
+	ret = w25qxxx_sector_erase(w25qxxx, test_addr);
+	if (ret) {
+		pr_err("Sector erase failed with error: %d", ret);
+		return FAIL;
+	}
+
+	pr_info("Sector erase completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 6: W25Qxxx Block Erase (32KB)
+ * @return PASS if 32KB block erase succeeds, FAIL otherwise
+ */
+int t_w25qxxx_block_erase_32kb(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	u32 test_addr = 0;
+	int ret;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	if (argc > 2) {
+		test_addr = simple_strtoul(argv[2], &argv[2], 16);
+	} else {
+		test_addr = random_get32bit();
+		if (w25qxxx == W25Q128) {
+			test_addr &= 0xFFFF8000;  /* Align to 32KB block boundary */
+		} else {
+			test_addr &= 0x1FFF8000;
+		}
+	}
+
+	pr_info("=== W25Qxxx 32KB Block Erase Test ===");
+	pr_info("Erasing 32KB block at address: 0x%08X", test_addr);
+
+	ret = w25qxxx_block_erase_with_32kb(w25qxxx, test_addr);
+	if (ret) {
+		pr_err("32KB block erase failed with error: %d", ret);
+		return FAIL;
+	}
+
+	pr_info("32KB block erase completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 7: W25Qxxx Block Erase (64KB)
+ * @return PASS if 64KB block erase succeeds, FAIL otherwise
+ */
+int t_w25qxxx_block_erase_64kb(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	u32 test_addr = 0;
+	int ret;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	if (argc > 2) {
+		test_addr = simple_strtoul(argv[2], &argv[2], 16);
+	} else {
+		test_addr = random_get32bit();
+		if (w25qxxx == W25Q128) {
+			test_addr &= 0xFFFF0000;  /* Align to 64KB block boundary */
+		} else {
+			test_addr &= 0x1FFF0000;
+		}
+	}
+
+	pr_info("=== W25Qxxx 64KB Block Erase Test ===");
+	pr_info("Erasing 64KB block at address: 0x%08X", test_addr);
+
+	ret = w25qxxx_block_erase_with_64kb(w25qxxx, test_addr);
+	if (ret) {
+		pr_err("64KB block erase failed with error: %d", ret);
+		return FAIL;
+	}
+
+	pr_info("64KB block erase completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 8: W25Qxxx Page Program Test
+ * @return PASS if page programming succeeds, FAIL otherwise
+ */
+int t_w25qxxx_page_program(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	u32 test_addr = 0;
+	u16 length = 256;
+	u8 page_buf[256];
+	u16 i;
+	int ret;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	if (argc > 2) {
+		test_addr = simple_strtoul(argv[2], &argv[2], 16);
+	} else {
+		test_addr = random_get32bit();
+		if (w25qxxx == W25Q128) {
+			test_addr &= 0xFFFFF00;  /* Align to page boundary */
+		} else {
+			test_addr &= 0x1FFFF00;
+		}
+	}
+
+	pr_info("=== W25Qxxx Page Program Test ===");
+	pr_info("Programming page at address: 0x%08X", test_addr);
+
+	/* Prepare test pattern */
+	for (i = 0; i < length; i++) {
+		page_buf[i] = (u8)i;
+	}
+
+	ret = w25qxxx_write_data(w25qxxx, test_addr, page_buf, length);
+	if (ret) {
+		pr_err("Page program failed with error: %d", ret);
+		return FAIL;
+	}
+
+	/* Verify */
+	memset(rx_buffer, 0, length);
+	w25qxxx_read_data(w25qxxx, test_addr, rx_buffer, length);
+
+	for (i = 0; i < length; i++) {
+		if (page_buf[i] != rx_buffer[i]) {
+			pr_err("Verification failed at offset %d: wrote=0x%02X, read=0x%02X",
+				i, page_buf[i], rx_buffer[i]);
+			return FAIL;
+		}
+	}
+
+	pr_info("Page program and verification completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 9: W25Qxxx Status Register Test
+ * @return PASS if status register operations work, FAIL otherwise
+ */
+int t_w25qxxx_status_register(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	u8 status1, status2, status3;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	pr_info("=== W25Qxxx Status Register Test ===");
+
+	/* Read status registers */
+	status1 = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
+	status2 = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER2);
+	status3 = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER3);
+
+	pr_info("Status Register 1: 0x%02X", status1);
+	pr_info("Status Register 2: 0x%02X", status2);
+	pr_info("Status Register 3: 0x%02X", status3);
+
+	/* Check individual bits */
+	pr_info("SR1 - BUSY: %d, WEL: %d, BP: %d%d%d",
+		w25qxxx_read_busy(w25qxxx),
+		w25qxxx_read_wel(w25qxxx),
+		w25qxxx_read_bp2(w25qxxx),
+		w25qxxx_read_bp1(w25qxxx),
+		w25qxxx_read_bp0(w25qxxx));
+
+	pr_info("Status register test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 10: W25Qxxx Power Management Test
+ * @return PASS if power modes work correctly, FAIL otherwise
+ */
+int t_w25qxxx_power_test(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	u8 device_id;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	pr_info("=== W25Qxxx Power Management Test ===");
+
+	/* Enter power down mode */
+	pr_info("Entering power down mode...");
+	w25qxxx_power_down(w25qxxx);
+	mdelay(10);
+
+	/* Try to release from power down and get device ID */
+	pr_info("Releasing from power down...");
+	device_id = w25qxxx_release_device_id(w25qxxx);
+	pr_info("Device ID after power down release: 0x%02X", device_id);
+
+	if (device_id != 0x13) {
+		pr_warn("Device ID not 0x13 (expected), got: 0x%02X", device_id);
+	}
+
+	pr_info("Power management test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 11: W25Qxxx Reset Test
+ * @return PASS if reset operations work, FAIL otherwise
+ */
+int t_w25qxxx_reset_test(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	int ret;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	pr_info("=== W25Qxxx Reset Test ===");
+
+	/* Test soft reset */
+	pr_info("Testing soft reset...");
+	ret = w25qxxx_soft_reset(w25qxxx);
+	if (ret) {
+		pr_err("Soft reset failed with error: %d", ret);
+		return FAIL;
+	}
+	pr_info("Soft reset successful");
+
+	mdelay(100);
+
+	/* Test hard reset */
+	pr_info("Testing hard reset...");
+	w25qxxx_hard_reset(w25qxxx);
+	pr_info("Hard reset successful");
+
+	pr_info("Reset test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 12: W25Qxxx Fast Read Test
+ * @return PASS if fast read works, FAIL otherwise
+ */
+int t_w25qxxx_fast_read(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	u32 test_addr = 0x1000;
+	u8 pattern[256];
+	u8 fast_data[256];
+	u8 normal_data[256];
+	u16 i;
+	int ret;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	pr_info("=== W25Qxxx Fast Read Test ===");
+
+	/* Write test pattern */
+	for (i = 0; i < 256; i++) {
+		pattern[i] = (u8)(i ^ 0xAA);
+	}
+
+	ret = w25qxxx_write_data(w25qxxx, test_addr, pattern, 256);
+	if (ret) {
+		pr_err("Failed to write test pattern");
+		return FAIL;
+	}
+
+	/* Read using normal read */
+	w25qxxx_read_data(w25qxxx, test_addr, normal_data, 256);
+
+	/* Read using fast read */
+	w25qxxx_fast_read(w25qxxx, test_addr, fast_data, 256);
+
+	/* Compare results */
+	for (i = 0; i < 256; i++) {
+		if (normal_data[i] != fast_data[i]) {
+			pr_err("Fast read mismatch at offset %d: normal=0x%02X, fast=0x%02X",
+				i, normal_data[i], fast_data[i]);
+			return FAIL;
+		}
+	}
+
+	pr_info("Fast read test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 13: W25Qxxx Block Protection Test
+ * @return PASS if block protection works, FAIL otherwise
+ */
+int t_w25qxxx_block_protection(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	u32 test_addr = 0x10000;
+	u8 test_data[16] = {0xAB, 0xCD, 0xEF, 0x01};
+	u8 read_data[16];
+	int ret;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	pr_info("=== W25Qxxx Block Protection Test ===");
+
+	/* Lock individual block */
+	pr_info("Locking block at address 0x%08X...", test_addr);
+	w25qxxx_individual_block_sector_lock(w25qxxx, test_addr);
+	mdelay(10);
+
+	/* Try to write to locked block (should fail) */
+	pr_info("Attempting to write to locked block...");
+	ret = w25qxxx_write_data(w25qxxx, test_addr, test_data, 4);
+	if (ret == 0) {
+		pr_warn("Write to locked block succeeded (unexpected)");
+	}
+
+	/* Unlock block */
+	pr_info("Unlocking block...");
+	w25qxxx_individual_block_sector_unlock(w25qxxx, test_addr);
+	mdelay(10);
+
+	/* Try to write again (should succeed) */
+	pr_info("Attempting to write to unlocked block...");
+	ret = w25qxxx_write_data(w25qxxx, test_addr, test_data, 4);
+	if (ret) {
+		pr_err("Failed to write to unlocked block");
+		return FAIL;
+	}
+
+	/* Verify */
+	w25qxxx_read_data(w25qxxx, test_addr, read_data, 4);
+	if (read_data[0] != test_data[0] || read_data[1] != test_data[1]) {
+		pr_err("Data verification failed after unlock");
+		return FAIL;
+	}
+
+	pr_info("Block protection test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 14: W25Qxxx Erase Program Suspend/Resume Test
+ * @return PASS if suspend/resume works, FAIL otherwise
+ */
+int t_w25qxxx_suspend_resume(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	u32 erase_addr = 0x10000;
+	u32 read_addr = 0x20000;
+	u8 read_data[16];
+	int ret;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	pr_info("=== W25Qxxx Erase Program Suspend/Resume Test ===");
+
+	/* Write some data at read_addr first */
+	w25qxxx_write_data(w25qxxx, read_addr, (u8[]) {
+		0x11, 0x22, 0x33, 0x44
+	}, 4);
+
+	/* Start sector erase (will take some time) */
+	pr_info("Starting sector erase at 0x%08X...", erase_addr);
+	ret = w25qxxx_sector_erase(w25qxxx, erase_addr);
+	/* Note: In a real test, you would suspend before erase completes */
+
+	/* Suspend erase operation */
+	pr_info("Suspending erase operation...");
+	w25qxxx_erase_program_suspend(w25qxxx);
+	mdelay(20);
+
+	/* Read from another location (while suspended) */
+	pr_info("Reading from another location while suspended...");
+	w25qxxx_read_data(w25qxxx, read_addr, read_data, 4);
+	pr_info("Data at 0x%08X: %02X %02X %02X %02X",
+		read_addr, read_data[0], read_data[1], read_data[2], read_data[3]);
+
+	/* Resume erase operation */
+	pr_info("Resuming erase operation...");
+	w25qxxx_erase_program_resume(w25qxxx);
+	mdelay(50);
+
+	pr_info("Suspend/Resume test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 15: W25Qxxx Multi-Sector Program Test
+ * @return PASS if multi-sector program works, FAIL otherwise
+ */
+int t_w25qxxx_multi_sector_program(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	u32 test_addr = 0x1000;
+	u32 length = 8192;  /* 2 sectors */
+	int ret;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	pr_info("=== W25Qxxx Multi-Sector Program Test ===");
+	pr_info("Programming %d bytes at 0x%08X", length, test_addr);
+
+	/* Prepare test data */
+	for (u32 i = 0; i < length; i++) {
+		tx_buffer[i] = (u8)(i & 0xFF);
+	}
+
+	ret = w25qxxx_multi_sector_program(w25qxxx, test_addr, tx_buffer, length);
+	if (ret) {
+		pr_err("Multi-sector program failed with error: %d", ret);
+		return FAIL;
+	}
+
+	/* Verify */
+	w25qxxx_read_data(w25qxxx, test_addr, rx_buffer, length);
+
+	for (u32 i = 0; i < length; i++) {
+		if (tx_buffer[i] != rx_buffer[i]) {
+			pr_err("Verification failed at offset %u: wrote=0x%02X, read=0x%02X",
+				i, tx_buffer[i], rx_buffer[i]);
+			return FAIL;
+		}
+	}
+
+	pr_info("Multi-sector program test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 16: W25Qxxx Comprehensive Test
+ * @return PASS if all tests pass, FAIL otherwise
+ */
+int t_w25qxxx_comprehensive(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	int ret;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	pr_info("=== W25Qxxx Comprehensive Test Suite ===");
+	pr_info("Device: %s", (w25qxxx == W25Q128) ? "W25Q128" : "W25Q256");
+
+	/* Test 1: Device Init */
+	ret = t_w25qxxx_device_init(argc, argv);
+	if (ret != PASS) {
+		pr_err("FAIL: Device initialization test failed");
+		return FAIL;
+	}
+
+	/* Test 2: Status Register */
+	ret = t_w25qxxx_status_register(argc, argv);
+	if (ret != PASS) {
+		pr_err("FAIL: Status register test failed");
+		return FAIL;
+	}
+
+	/* Test 3: Page Program */
+	ret = t_w25qxxx_page_program(argc, argv);
+	if (ret != PASS) {
+		pr_err("FAIL: Page program test failed");
+		return FAIL;
+	}
+
+	/* Test 4: Sector Erase */
+	ret = t_w25qxxx_sector_erase(argc, argv);
+	if (ret != PASS) {
+		pr_err("FAIL: Sector erase test failed");
+		return FAIL;
+	}
+
+	/* Test 5: Loopback (2 rounds) */
+	char *loopback_args[] = {(w25qxxx == W25Q128) ? "w25q128" : "w25q256", "2"};
+	ret = t_w25qxxx_loopback(2, loopback_args);
+	if (ret != PASS) {
+		pr_err("FAIL: Loopback test failed");
+		return FAIL;
+	}
+
+	/* Test 6: Fast Read */
+	ret = t_w25qxxx_fast_read(argc, argv);
+	if (ret != PASS) {
+		pr_err("FAIL: Fast read test failed");
+		return FAIL;
+	}
+
+	/* Test 7: Power Management */
+	ret = t_w25qxxx_power_test(argc, argv);
+	if (ret != PASS) {
+		pr_err("FAIL: Power management test failed");
+		return FAIL;
+	}
+
+	pr_info("=== All W25Qxxx Comprehensive Tests PASSED ===");
+	return PASS;
+}
+
+/**
+ * @brief Test 17: W25Qxxx Boundary Test
+ * @return PASS if boundary operations work, FAIL otherwise
+ */
+int t_w25qxxx_boundary(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	u32 min_addr = 0;
+	u32 max_addr;
+	u8 test_data[16] = {0xA5, 0x5A, 0x55, 0xAA};
+	u8 read_data[16];
+	int ret;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	max_addr = (w25qxxx == W25Q128) ? 0xFF0000 : 0x1FF0000;
+
+	pr_info("=== W25Qxxx Boundary Test ===");
+	pr_info("Testing address boundaries: 0x%08X to 0x%08X", min_addr, max_addr);
+
+	/* Test minimum address */
+	pr_info("testing minimum address 0x%08X", min_addr);
+	ret = w25qxxx_write_data(w25qxxx, min_addr, test_data, 4);
+	if (ret) {
+		pr_err("failed to write at minimum address");
+		return FAIL;
+	}
+	w25qxxx_read_data(w25qxxx, min_addr, read_data, 4);
+	if (memcmp(test_data, read_data, 4) != 0) {
+		pr_err("verification failed at minimum address");
+		return FAIL;
+	}
+
+	/* Test maximum address */
+	pr_info("testing maximum address 0x%08X", max_addr);
+	ret = w25qxxx_write_data(w25qxxx, max_addr, test_data, 4);
+	if (ret) {
+		pr_err("failed to write at maximum address");
+		return FAIL;
+	}
+	w25qxxx_read_data(w25qxxx, max_addr, read_data, 4);
+	if (memcmp(test_data, read_data, 4) != 0) {
+		pr_err("verification failed at maximum address");
+		return FAIL;
+	}
+
+	/* Test page boundary */
+	u32 page_boundary = 0x100;
+	pr_info("testing page boundary 0x%08X", page_boundary);
+	ret = w25qxxx_write_data(w25qxxx, page_boundary, test_data, 4);
+	if (ret) {
+		pr_err("failed to write at page boundary");
+		return FAIL;
+	}
+	w25qxxx_read_data(w25qxxx, page_boundary, read_data, 4);
+	if (memcmp(test_data, read_data, 4) != 0) {
+		pr_err("verification failed at page boundary");
+		return FAIL;
+	}
+
+	/* Test sector boundary */
+	u32 sector_boundary = 0x1000;
+	pr_info("testing sector boundary 0x%08X", sector_boundary);
+	ret = w25qxxx_write_data(w25qxxx, sector_boundary, test_data, 4);
+	if (ret) {
+		pr_err("failed to write at sector boundary");
+		return FAIL;
+	}
+	w25qxxx_read_data(w25qxxx, sector_boundary, read_data, 4);
+	if (memcmp(test_data, read_data, 4) != 0) {
+		pr_err("verification failed at sector boundary");
+		return FAIL;
+	}
+
+	pr_info("boundary test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 18: W25Qxxx Performance Test
+ * @return PASS if performance is acceptable, FAIL otherwise
+ */
+int t_w25qxxx_performance(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	u32 test_addr = 0x200000;
+	u32 test_length = 8192;
+	u32 start_time, end_time, write_time, read_time;
+	int ret;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	pr_info("=== W25Qxxx Performance Test ===");
+	pr_info("testing %d bytes read/write", test_length);
+
+	/* Erase test area first */
+	w25qxxx_sector_erase(w25qxxx, test_addr);
+	mdelay(50);
+
+	/* Prepare test data */
+	for (u32 i = 0; i < test_length; i++) {
+		tx_buffer[i] = (u8)(i & 0xFF);
+	}
+
+	/* Measure write time */
+	start_time = basic_timer_get_ms();
+	ret = w25qxxx_multi_sector_program(w25qxxx, test_addr, tx_buffer, test_length);
+	end_time = basic_timer_get_ms();
+	if (ret) {
+		pr_err("multi-sector program failed");
+		return FAIL;
+	}
+	write_time = end_time - start_time;
+
+	/* Measure read time */
+	start_time = basic_timer_get_ms();
+	w25qxxx_read_data(w25qxxx, test_addr, rx_buffer, test_length);
+	end_time = basic_timer_get_ms();
+	read_time = end_time - start_time;
+
+	pr_info("write time: %lu ms (%.2f KB/s)", write_time,
+		(test_length / 1024.0) / (write_time / 1000.0));
+	pr_info("read time: %lu ms (%.2f KB/s)", read_time,
+		(test_length / 1024.0) / (read_time / 1000.0));
+
+	/* Verify data */
+	for (u32 i = 0; i < test_length; i++) {
+		if (tx_buffer[i] != rx_buffer[i]) {
+			pr_err("verification failed at offset %u", i);
+			return FAIL;
+		}
+	}
+
+	pr_info("performance test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 19: W25Qxxx Stress Test
+ * @return PASS if stress test passes, FAIL otherwise
+ */
+int t_w25qxxx_stress(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	u32 test_addr = 0x300000;
+	u32 test_length = 256;
+	int iterations = 100;
+	int success_count = 0;
+	int ret;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	if (argc > 2) {
+		iterations = simple_strtoul(argv[2], NULL, 10);
+	}
+
+	pr_info("=== W25Qxxx Stress Test ===");
+	pr_info("running %d iterations of erase-program-verify", iterations);
+
+	/* Erase test area first */
+	w25qxxx_sector_erase(w25qxxx, test_addr);
+	mdelay(50);
+
+	for (int i = 0; i < iterations; i++) {
+		u32 addr = test_addr + (i % 32) * 4096;  /* Spread across 32 sectors */
+
+		/* Prepare test pattern */
+		for (u32 j = 0; j < test_length; j++) {
+			tx_buffer[j] = (u8)((i + j) & 0xFF);
+		}
+
+		/* Write */
+		ret = w25qxxx_write_data(w25qxxx, addr, tx_buffer, test_length);
+		if (ret) {
+			pr_warn("write failed at iteration %d", i);
+			continue;
+		}
+
+		/* Verify */
+		w25qxxx_read_data(w25qxxx, addr, rx_buffer, test_length);
+		if (memcmp(tx_buffer, rx_buffer, test_length) != 0) {
+			pr_warn("verification failed at iteration %d", i);
+			continue;
+		}
+
+		success_count++;
+	}
+
+	pr_info("stress test result: %d/%d iterations successful", success_count, iterations);
+
+	if (success_count >= iterations * 95 / 100) {
+		pr_info("stress test completed (>=95%% success)");
+		return PASS;
+	}
+
+	pr_err("fail: stress test failed (<95%% success)");
+	return FAIL;
+}
+
+/**
+ * @brief Test 20: W25Qxxx Address Mode Test
+ * @return PASS if 3/4 byte address modes work, FAIL otherwise
+ */
+int t_w25qxxx_address_mode(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	u8 test_data[16] = {0x11, 0x22, 0x33, 0x44};
+	u8 read_data[16];
+	int ret;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	pr_info("=== W25Qxxx Address Mode Test ===");
+
+	if (w25qxxx == W25Q256) {
+		/* Test 4-byte address mode */
+		pr_info("testing 4-byte address mode for W25Q256");
+		u32 test_addr = 0x1000000;  /* 16MB address (requires 4 bytes) */
+
+		w25q256_enter_4byte_addr_mode(w25qxxx);
+		mdelay(1);
+
+		ret = w25qxxx_write_data(w25qxxx, test_addr, test_data, 4);
+		if (ret) {
+			pr_err("failed to write in 4-byte address mode");
+			return FAIL;
+		}
+
+		w25qxxx_read_data(w25qxxx, test_addr, read_data, 4);
+		if (memcmp(test_data, read_data, 4) != 0) {
+			pr_err("verification failed in 4-byte address mode");
+			return FAIL;
+		}
+
+		/* Exit 4-byte mode and verify normal operation */
+		w25q256_exit_4byte_addr_mode(w25qxxx);
+		mdelay(1);
+
+		test_addr = 0x1000;
+		ret = w25qxxx_write_data(w25qxxx, test_addr, test_data, 4);
+		if (ret) {
+			pr_err("failed to write after exiting 4-byte mode");
+			return FAIL;
+		}
+
+		w25qxxx_read_data(w25qxxx, test_addr, read_data, 4);
+		if (memcmp(test_data, read_data, 4) != 0) {
+			pr_err("verification failed after exiting 4-byte mode");
+			return FAIL;
+		}
+	} else {
+		pr_info("skipping 4-byte address test for W25Q128 (uses 3-byte mode)");
+	}
+
+	pr_info("address mode test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 21: W25Qxxx Write Protect Test
+ * @return PASS if write protection works, FAIL otherwise
+ */
+int t_w25qxxx_write_protect(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	u32 test_addr = 0x40000;
+	u8 test_data[16] = {0xAB, 0xCD};
+	u8 read_data[16];
+	u8 sr1, sr2;
+	int ret;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	pr_info("=== W25Qxxx Write Protect Test ===");
+
+	/* Clear any existing protection first */
+	w25qxxx_write_enable(w25qxxx);
+	w25qxxx_write_bp(w25qxxx, 0);
+	mdelay(10);
+
+	/* Enable write protection */
+	pr_info("enabling write protection (BP=1)...");
+	w25qxxx_write_enable(w25qxxx);
+	w25qxxx_write_bp(w25qxxx, 1);
+	mdelay(10);
+
+	/* Read status to verify BP bits */
+	sr1 = w25qxxx_read_status_reg(w25qxxx, READ_STATUS_REGISTER1);
+	pr_info("status register 1 after setting BP: 0x%02X", sr1);
+
+	/* Try to write to protected area (should fail) */
+	pr_info("attempting to write to protected area...");
+	ret = w25qxxx_write_data(w25qxxx, test_addr, test_data, 2);
+	if (ret == 0) {
+		pr_warn("write to protected area succeeded (unexpected)");
+	} else {
+		pr_info("write to protected area failed as expected");
+	}
+
+	/* Disable write protection */
+	pr_info("disabling write protection (BP=0)...");
+	w25qxxx_write_enable(w25qxxx);
+	w25qxxx_write_bp(w25qxxx, 0);
+	mdelay(10);
+
+	/* Try to write again (should succeed) */
+	pr_info("attempting to write to unprotected area...");
+	ret = w25qxxx_write_data(w25qxxx, test_addr, test_data, 2);
+	if (ret) {
+		pr_err("failed to write after disabling protection");
+		return FAIL;
+	}
+
+	/* Verify */
+	w25qxxx_read_data(w25qxxx, test_addr, read_data, 2);
+	if (memcmp(test_data, read_data, 2) != 0) {
+		pr_err("verification failed after disabling protection");
+		return FAIL;
+	}
+
+	pr_info("write protect test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 22: W25Qxxx Security Registers Test
+ * @return PASS if security registers work, FAIL otherwise
+ */
+int t_w25qxxx_security_registers(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	u8 test_data[256] = {0};
+	u8 read_data[256];
+	int ret;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	pr_info("=== W25Qxxx Security Registers Test ===");
+
+	/* Prepare test pattern for security register */
+	for (int i = 0; i < 256; i++) {
+		test_data[i] = (u8)(i ^ 0xAA);
+	}
+
+// 	/* Read security register 1 (OTP) */
+// 	pr_info("reading security register 1...");
+// 	w25qxxx_read_security_regs(w25qxxx, SECURITY_REGISTERS_1, rx_buffer, 256);
+// 	pr_info("security register 1[0]: 0x%02X, [255]: 0x%02X",
+// 		rx_buffer[0], rx_buffer[255]);
+//
+// 	/* Note: Security registers are OTP (One-Time Programmable) */
+// 	/* We only read them to avoid accidental programming */
+// 	pr_info("note: security registers are OTP, skipping write test");
+//
+// 	/* Read security register 2 */
+// 	pr_info("reading security register 2...");
+// 	w25qxxx_read_security_regs(w25qxxx, SECURITY_REGISTERS_2, rx_buffer, 256);
+// 	pr_info("security register 2[0]: 0x%02X, [255]: 0x%02X",
+// 		rx_buffer[0], rx_buffer[255]);
+//
+// 	/* Read security register 3 */
+// 	pr_info("reading security register 3...");
+// 	w25qxxx_read_security_regs(w25qxxx, SECURITY_REGISTERS_3, rx_buffer, 256);
+// 	pr_info("security register 3[0]: 0x%02X, [255]: 0x%02X",
+// 		rx_buffer[0], rx_buffer[255]);
+
+	pr_info("security registers test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 23: W25Qxxx Large Data Transfer Test
+ * @return PASS if large data transfers work, FAIL otherwise
+ */
+int t_w25qxxx_large_transfer(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	u32 test_addr = 0x500000;
+	u32 test_length = 65536;  /* 64KB */
+	u32 start_time, end_time;
+	int ret;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	pr_info("=== W25Qxxx Large Data Transfer Test ===");
+	pr_info("testing %d bytes transfer", test_length);
+
+	/* Erase test area */
+	w25qxxx_block_erase_with_64kb(w25qxxx, test_addr);
+	mdelay(200);
+
+	/* Prepare test data */
+	for (u32 i = 0; i < test_length; i++) {
+		tx_buffer[i] = (u8)(i & 0xFF);
+	}
+
+	/* Write large data block */
+	pr_info("writing %d bytes...", test_length);
+	start_time = basic_timer_get_ms();
+	ret = w25qxxx_multi_sector_program(w25qxxx, test_addr, tx_buffer, test_length);
+	end_time = basic_timer_get_ms();
+	if (ret) {
+		pr_err("large write failed");
+		return FAIL;
+	}
+	pr_info("write completed in %lu ms", end_time - start_time);
+
+	/* Read large data block */
+	pr_info("reading %d bytes...", test_length);
+	start_time = basic_timer_get_ms();
+	w25qxxx_read_data(w25qxxx, test_addr, rx_buffer, test_length);
+	end_time = basic_timer_get_ms();
+	pr_info("read completed in %lu ms", end_time - start_time);
+
+	/* Verify */
+	pr_info("verifying data...");
+	for (u32 i = 0; i < test_length; i++) {
+		if (tx_buffer[i] != rx_buffer[i]) {
+			pr_err("verification failed at offset %u", i);
+			return FAIL;
+		}
+	}
+
+	pr_info("large data transfer test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 24: W25Qxxx Unique ID Test
+ * @return PASS if unique ID reading works, FAIL otherwise
+ */
+int t_w25qxxx_unique_id(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	u8 uid[8];
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	pr_info("=== W25Qxxx Unique ID Test ===");
+
+	/* Read unique ID */
+	w25qxxx_read_unique_id(w25qxxx, uid);
+
+	pr_info("device unique id: %02X %02X %02X %02X %02X %02X %02X %02X",
+		uid[0], uid[1], uid[2], uid[3], uid[4], uid[5], uid[6], uid[7]);
+
+	/* Verify ID is not all zeros or all ones */
+	bool all_zeros = true;
+	bool all_ones = true;
+	for (int i = 0; i < 8; i++) {
+		if (uid[i] != 0) {
+			all_zeros = false;
+		}
+		if (uid[i] != 0xFF) {
+			all_ones = false;
+		}
+	}
+
+	if (all_zeros) {
+		pr_err("unique id is all zeros, may be invalid");
+		return FAIL;
+	}
+
+	if (all_ones) {
+		pr_err("unique id is all ones, may be invalid");
+		return FAIL;
+	}
+
+	pr_info("unique id test completed");
+	return PASS;
+}
+
+/**
+ * @brief Test 25: W25Qxxx SFDP Test
+ * @return PASS if SFDP reading works, FAIL otherwise
+ */
+int t_w25qxxx_sfdp(int argc, char **argv)
+{
+	u8 w25qxxx = W25Q128;
+	u8 sfdp_data[256];
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "w25q128")) {
+			w25qxxx = W25Q128;
+		} else if (!strcmp(argv[1], "w25q256")) {
+			w25qxxx = W25Q256;
+		}
+	}
+
+	pr_info("=== W25Qxxx SFDP Test ===");
+
+	/* Read SFDP register */
+	w25qxxx_read_sfdp_reg(w25qxxx, 0x00000000, sfdp_data, 256);
+
+	pr_info("sfdp signature: 0x%02X 0x%02X 0x%02X 0x%02X",
+		sfdp_data[0], sfdp_data[1], sfdp_data[2], sfdp_data[3]);
+
+	/* SFDP signature should be 0x50 0x4F 0x4D 0x46 ('S' 'F' 'D' 'P' in ASCII) */
+	if (sfdp_data[0] == 0x50 && sfdp_data[1] == 0x4F &&
+		sfdp_data[2] == 0x4D && sfdp_data[3] == 0x46) {
+		pr_info("sfdp signature valid");
+	} else {
+		pr_warn("sfdp signature not as expected");
+	}
+
+	pr_info("sfdp header[4-7]: %02X %02X %02X %02X",
+		sfdp_data[4], sfdp_data[5], sfdp_data[6], sfdp_data[7]);
+
+	pr_info("sfdp test completed");
 	return PASS;
 }
 

@@ -736,9 +736,9 @@ void rtc_task_callback(void)
 	pr_info("RTC task callback #%d executed after %llu ms.\n", test_callback_count, delta);
 
 	if (delta >= 59000 && delta <= 61000) {
-		pr_info("PASS - RTC task timing correct\n");
+		pr_info("RTC task timing correct\n");
 	} else {
-		pr_info("FAIL - RTC task timing incorrect (expected: 59000-61000ms, actual: %llums)\n", delta);
+		pr_info("RTC task timing incorrect (expected: 59000-61000ms, actual: %llums)\n", delta);
 	}
 	time_stamp = ktime_get();
 }
@@ -758,17 +758,17 @@ int t_rtc_task_add(int argc, char **argv)
 {
 	int ret;
 
-	pr_info("=== RTC Task Basic Test ===\n");
+	pr_info("=== rtc task basic test ===\n");
 	time_stamp = ktime_get();
 
 	ret = rtc_task_add(0, 0, 0, 0, 0, 5, true, rtc_task_callback);
 
 	if (ret) {
-		pr_err("RTC task creation failed: %d\n", ret);
+		pr_err("rtc task creation failed: %d\n", ret);
 		return FAIL;
 	}
 
-	pr_info("RTC basic task created successfully\n");
+	pr_info("rtc basic task created successfully\n");
 	return PASS;
 }
 
@@ -780,67 +780,103 @@ int t_rtc_task_validation(int argc, char **argv)
 	u16 year;
 	u8 month, date, hour, min, sec;
 
-	pr_info("=== RTC Task Validation Test ===\n");
+	pr_info("=== rtc task validation test ===\n");
 
-	// Test 1: Time validation
+	// test 1: boundary time validation
+	if (!rtc_task_validate_time(1970, 1, 1, 0, 0, 0)) {
+		pr_err("min year validation failed\n");
+		return FAIL;
+	}
+
+	if (rtc_task_validate_time(1969, 12, 31, 23, 59, 59)) {
+		pr_err("invalid year validation failed\n");
+		return FAIL;
+	}
+
+	if (!rtc_task_validate_time(2024, 12, 31, 23, 59, 59)) {
+		pr_err("max valid time validation failed\n");
+		return FAIL;
+	}
+
+	if (rtc_task_validate_time(2024, 2, 30, 23, 59, 59)) {
+		pr_err("invalid day validation failed\n");
+		return FAIL;
+	}
+
+	if (rtc_task_validate_time(2024, 13, 1, 0, 0, 0)) {
+		pr_err("invalid month validation failed\n");
+		return FAIL;
+	}
+
+	// test 2: leap year validation
 	if (!rtc_task_validate_time(2024, 2, 29, 23, 59, 59)) {
-		pr_err("FAIL - Leap year validation failed\n");
+		pr_err("leap year validation failed\n");
 		return FAIL;
 	}
 
 	if (rtc_task_validate_time(2023, 2, 29, 23, 59, 59)) {
-		pr_err("FAIL - Non-leap year validation failed\n");
+		pr_err("non-leap year validation failed\n");
 		return FAIL;
 	}
 
-	pr_info("PASS - Time validation working correctly\n");
+	if (!rtc_task_validate_time(2000, 2, 29, 23, 59, 59)) {
+		pr_err("century leap year validation failed\n");
+		return FAIL;
+	}
 
-	// Test 2: Task creation and lookup
+	if (rtc_task_validate_time(1900, 2, 29, 23, 59, 59)) {
+		pr_err("century non-leap year validation failed\n");
+		return FAIL;
+	}
+
+	pr_info("time validation working correctly\n");
+
+	// test 3: task creation and lookup
 	ret = rtc_task_add(0, 0, 0, 0, 0, 2, true, rtc_test_validation_callback);
 	if (ret) {
-		pr_err("FAIL - Test task creation failed: %d\n", ret);
+		pr_err("test task creation failed: %d\n", ret);
 		return FAIL;
 	}
 
 	found_task = rtc_task_find_by_callback(rtc_test_validation_callback);
 	if (!found_task) {
-		pr_err("FAIL - Task lookup failed\n");
+		pr_err("task lookup failed\n");
 		return FAIL;
 	}
 
-	pr_info("PASS - Task creation and lookup working\n");
+	pr_info("task creation and lookup working\n");
 
-	// Test 3: Safe time retrieval
+	// test 4: safe time retrieval
 	ret = rtc_task_get_current_time_safe(&year, &month, &date, &hour, &min, &sec);
 	if (ret) {
-		pr_err("FAIL - Safe time retrieval failed: %d\n", ret);
+		pr_err("safe time retrieval failed: %d\n", ret);
 		return FAIL;
 	}
 
-	pr_info("PASS - Safe time retrieval working (time: %04d-%02d-%02d %02d:%02d:%02d)\n",
+	pr_info("safe time retrieval working (time: %04d-%02d-%02d %02d:%02d:%02d)\n",
 		year, month, date, hour, min, sec);
 
-	// Test 4: Statistics
+	// test 5: statistics
 	rtc_task_get_stats(&stats);
 	if (stats.total_tasks_created == 0) {
-		pr_err("FAIL - Statistics not working\n");
+		pr_err("statistics not working\n");
 		return FAIL;
 	}
 
-	pr_info("PASS - Statistics working (created: %u)\n", stats.total_tasks_created);
+	pr_info("statistics working (created: %u)\n", stats.total_tasks_created);
 
-	// Test 5: Performance profiling
+	// test 6: performance profiling
 	rtc_task_set_profiling(true);
 	rtc_task_print_performance_report();
 
-	// Test 6: Cleanup
+	// test 7: cleanup
 	ret = rtc_task_add(0, 0, 0, 0, 0, 1, false, rtc_test_cleanup_callback);
 	if (ret) {
-		pr_err("FAIL - Cleanup task creation failed: %d\n", ret);
+		pr_err("cleanup task creation failed: %d\n", ret);
 		return FAIL;
 	}
 
-	pr_info("PASS - All RTC validation tests completed\n");
+	pr_info("all rtc validation tests completed\n");
 	return PASS;
 }
 
@@ -850,71 +886,261 @@ int t_rtc_task_performance(int argc, char **argv)
 	u64 start_time, end_time;
 	struct rtc_task_stats stats;
 
-	pr_info("=== RTC Task Performance Test ===\n");
+	pr_info("=== rtc task performance test ===\n");
 
-	// Reset statistics
+	// reset statistics
 	rtc_task_reset_stats();
 	rtc_task_set_profiling(true);
 
 	start_time = ktime_get();
 
-	// Create multiple tasks
+	// create multiple tasks
 	for (i = 0; i < 10; i++) {
 		ret = rtc_task_add(0, 0, 0, 0, 0, 1, true, rtc_test_validation_callback);
 		if (ret) {
-			pr_err("FAIL - Performance task %d creation failed: %d\n", i, ret);
+			pr_err("performance task %d creation failed: %d\n", i, ret);
 			return FAIL;
 		}
 	}
 
 	end_time = ktime_get();
-	pr_info("PASS - 10 RTC tasks created in %llu ms\n",
+	pr_info("10 rtc tasks created in %llu ms\n",
 		ktime_to_ms(ktime_sub(end_time, start_time)));
 
-	// Run tasks briefly
+	// run tasks briefly
 	ktime_t test_end = ktime_add_ms(ktime_get(), 3000);
 	while (ktime_compare(ktime_get(), test_end) < 0) {
 		rtc_task_loop();
 	}
-	// Get final stats
+
+	// get final stats
 	rtc_task_get_stats(&stats);
-	pr_info("Performance stats:\n");
-	pr_info("  Tasks created: %u\n", stats.total_tasks_created);
-	pr_info("  Tasks executed: %u\n", stats.total_tasks_executed);
-	pr_info("  Max execution time: %u ms\n", stats.max_execution_time_ms);
+	pr_info("performance stats:\n");
+	pr_info("  tasks created: %u\n", stats.total_tasks_created);
+	pr_info("  tasks executed: %u\n", stats.total_tasks_executed);
+	pr_info("  max execution time: %u ms\n", stats.max_execution_time_ms);
 
 	return PASS;
 }
 
 int t_rtc_task_cleanup(int argc, char **argv)
 {
-	pr_info("=== RTC Task Cleanup Test ===\n");
+	pr_info("=== rtc task cleanup test ===\n");
 
-	// Reset callback count
+	// reset callback count
 	test_callback_count = 0;
 
-	// Create a cleanup task
+	// create a cleanup task
 	int ret = rtc_task_add(0, 0, 0, 0, 0, 1, false, rtc_test_cleanup_callback);
 	if (ret) {
-		pr_err("FAIL - Cleanup test task creation failed: %d\n", ret);
+		pr_err("cleanup test task creation failed: %d\n", ret);
 		return FAIL;
 	}
 
-	// Set current time to trigger task
+	// set current time to trigger task
 	rtc_task_get_current_time(2024, 1, 1, 0, 0, 0);
 
-	// Run loop to execute task
+	// run loop to execute task
 	rtc_task_loop();
 
-	// Cleanup all tasks
+	// cleanup all tasks
 	rtc_task_cleanup_all();
 
-	// Verify cleanup
+	// verify cleanup
 	struct rtc_task_stats stats;
 	rtc_task_get_stats(&stats);
 
-	pr_info("PASS - Cleanup completed (final stats: created=%u, executed=%u)\n",
+	pr_info("cleanup completed (final stats: created=%u, executed=%u)\n",
 		stats.total_tasks_created, stats.total_tasks_executed);
+
+	return PASS;
+}
+
+static int rtc_test_interval_count = 0;
+
+void rtc_test_interval_callback(void)
+{
+	rtc_test_interval_count++;
+	pr_info("interval task executed, count: %d\n", rtc_test_interval_count);
+}
+
+int t_rtc_task_interval(int argc, char **argv)
+{
+	int ret;
+
+	pr_info("=== rtc task interval test ===\n");
+
+	// set initial time
+	rtc_task_get_current_time(2024, 1, 1, 0, 0, 0);
+
+	// test 1: second interval
+	rtc_test_interval_count = 0;
+	ret = rtc_task_add(0, 0, 0, 0, 0, 1, true, rtc_test_interval_callback);
+	if (ret) {
+		pr_err("second interval task creation failed: %d\n", ret);
+		return FAIL;
+	}
+
+	// test 2: minute interval
+	ret = rtc_task_add(0, 0, 0, 0, 1, 0, true, rtc_test_interval_callback);
+	if (ret) {
+		pr_err("minute interval task creation failed: %d\n", ret);
+		return FAIL;
+	}
+
+	// test 3: hour interval
+	ret = rtc_task_add(0, 0, 0, 1, 0, 0, true, rtc_test_interval_callback);
+	if (ret) {
+		pr_err("hour interval task creation failed: %d\n", ret);
+		return FAIL;
+	}
+
+	// test 4: day interval
+	ret = rtc_task_add(0, 0, 1, 0, 0, 0, true, rtc_test_interval_callback);
+	if (ret) {
+		pr_err("day interval task creation failed: %d\n", ret);
+		return FAIL;
+	}
+
+	// test 5: month interval
+	ret = rtc_task_add(0, 1, 0, 0, 0, 0, true, rtc_test_interval_callback);
+	if (ret) {
+		pr_err("month interval task creation failed: %d\n", ret);
+		return FAIL;
+	}
+
+	// test 6: year interval
+	ret = rtc_task_add(1, 0, 0, 0, 0, 0, true, rtc_test_interval_callback);
+	if (ret) {
+		pr_err("year interval task creation failed: %d\n", ret);
+		return FAIL;
+	}
+
+	pr_info("all interval tasks created successfully\n");
+	return PASS;
+}
+
+int t_rtc_task_boundary(int argc, char **argv)
+{
+	int ret;
+
+	pr_info("=== rtc task boundary test ===\n");
+
+	// test 1: minimum interval (1 second)
+	ret = rtc_task_add(0, 0, 0, 0, 0, 1, false, rtc_test_validation_callback);
+	if (ret) {
+		pr_err("min interval task creation failed: %d\n", ret);
+		return FAIL;
+	}
+
+	// test 2: maximum date (31st)
+	rtc_task_get_current_time(2024, 12, 31, 23, 59, 59);
+	ret = rtc_task_add(0, 0, 0, 0, 0, 1, false, rtc_test_validation_callback);
+	if (ret) {
+		pr_err("max date task creation failed: %d\n", ret);
+		return FAIL;
+	}
+
+	// test 3: leap year boundary (feb 29)
+	rtc_task_get_current_time(2024, 2, 29, 23, 59, 59);
+	ret = rtc_task_add(0, 0, 0, 0, 0, 1, false, rtc_test_validation_callback);
+	if (ret) {
+		pr_err("leap year boundary task creation failed: %d\n", ret);
+		return FAIL;
+	}
+
+	// test 4: year transition
+	rtc_task_get_current_time(2024, 12, 31, 23, 59, 59);
+	ret = rtc_task_add(0, 0, 1, 0, 0, 0, false, rtc_test_validation_callback);
+	if (ret) {
+		pr_err("year transition task creation failed: %d\n", ret);
+		return FAIL;
+	}
+
+	// test 5: month transition
+	rtc_task_get_current_time(2024, 1, 31, 23, 59, 59);
+	ret = rtc_task_add(0, 1, 0, 0, 0, 0, false, rtc_test_validation_callback);
+	if (ret) {
+		pr_err("month transition task creation failed: %d\n", ret);
+		return FAIL;
+	}
+
+	pr_info("all boundary tests passed\n");
+	return PASS;
+}
+
+int t_rtc_task_suspend_resume(int argc, char **argv)
+{
+	int ret;
+
+	pr_info("=== rtc task suspend resume test ===\n");
+
+	// create a task
+	ret = rtc_task_add(0, 0, 0, 0, 0, 1, true, rtc_test_validation_callback);
+	if (ret) {
+		pr_err("suspend resume test task creation failed: %d\n", ret);
+		return FAIL;
+	}
+
+	// test suspend
+	ret = rtc_task_suspend(rtc_test_validation_callback);
+	if (ret) {
+		pr_err("task suspend failed: %d\n", ret);
+		return FAIL;
+	}
+
+	pr_info("task suspended successfully\n");
+
+	// test resume
+	ret = rtc_task_resume(rtc_test_validation_callback);
+	if (ret) {
+		pr_err("task resume failed: %d\n", ret);
+		return FAIL;
+	}
+
+	pr_info("task resumed successfully\n");
+
+	// test drop non-existent task
+	ret = rtc_task_suspend(rtc_test_cleanup_callback);
+	if (ret != -EINVAL) {
+		pr_err("suspend non-existent task should fail\n");
+		return FAIL;
+	}
+
+	pr_info("all suspend resume tests passed\n");
+	return PASS;
+}
+
+int t_rtc_task_concurrent(int argc, char **argv)
+{
+	int ret, i;
+	struct rtc_task_stats stats;
+
+	pr_info("=== rtc task concurrent test ===\n");
+
+	// reset
+	rtc_task_reset_stats();
+
+	// create multiple concurrent tasks
+	for (i = 0; i < 5; i++) {
+		ret = rtc_task_add(0, 0, 0, 0, 0, 1, true, rtc_test_validation_callback);
+		if (ret) {
+			pr_err("concurrent task %d creation failed: %d\n", i, ret);
+			return FAIL;
+		}
+	}
+
+	rtc_task_get_stats(&stats);
+	pr_info("concurrent tasks created: %u\n", stats.total_tasks_created);
+
+	// run loop to test concurrent execution
+	ktime_t test_end = ktime_add_ms(ktime_get(), 2000);
+	while (ktime_compare(ktime_get(), test_end) < 0) {
+		rtc_task_loop();
+	}
+
+	rtc_task_get_stats(&stats);
+	pr_info("concurrent tasks executed: %u\n", stats.total_tasks_executed);
 
 	return PASS;
 }

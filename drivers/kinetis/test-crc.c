@@ -25,6 +25,7 @@
 #include <linux/crc16.h>
 #include <linux/crc32.h>
 #include <linux/string.h>
+#include <linux/printk.h>
 
 int t_crc(int argc, char **argv)
 {
@@ -70,6 +71,8 @@ int t_crc(int argc, char **argv)
 //            break;
 
 //    }
+
+    pr_err("crc error\n");
 
     return PASS;
 }

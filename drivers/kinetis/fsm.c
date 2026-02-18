@@ -1,4 +1,4 @@
-#include <generated/deconfig.h>
+
 #include <linux/slab.h>
 #include <linux/errno.h>
 #include <linux/printk.h>
@@ -429,10 +429,10 @@ int t_fsm_state_transitions(int argc, char **argv)
 
 		if (machine.current_state == expected_sequence[i]) {
 			matches++;
-			pr_info("PASS - Step %d: Reached expected state %s\n", i,
+			pr_info("Step %d: Reached expected state %s\n", i,
 				fsm_get_state_name(machine.current_state));
 		} else {
-			pr_err("FAIL - Step %d: Expected %s, got %s\n", i,
+			pr_err("Step %d: Expected %s, got %s\n", i,
 				fsm_get_state_name(expected_sequence[i]),
 				fsm_get_state_name(machine.current_state));
 		}
@@ -469,10 +469,10 @@ int t_fsm_error_handling(int argc, char **argv)
 	// Test 1: Normal operation
 	fsm_step(&machine, &sm_var, NB_IOT_Trans_Table);
 	if (machine.current_state == sNB_MODULE_INFO) {
-		pr_info("PASS - Normal operation works\n");
+		pr_info("Normal operation works\n");
 		error_passes++;
 	} else {
-		pr_err("FAIL - Normal operation failed\n");
+		pr_err("Normal operation failed\n");
 	}
 	error_tests++;
 
@@ -482,10 +482,10 @@ int t_fsm_error_handling(int argc, char **argv)
 	fsm_step(&machine, &sm_var, NB_IOT_Trans_Table);
 
 	if (fsm_last_error_code == 0x01) {
-		pr_info("PASS - Repeat limit error detected\n");
+		pr_info("Repeat limit error detected\n");
 		error_passes++;
 	} else {
-		pr_err("FAIL - Repeat limit error not detected\n");
+		pr_err("Repeat limit error not detected\n");
 	}
 	error_tests++;
 
@@ -495,10 +495,10 @@ int t_fsm_error_handling(int argc, char **argv)
 	fsm_step(&machine, &sm_var, NB_IOT_Trans_Table);
 
 	if (machine.current_state == sNB_RESET) {
-		pr_info("PASS - Error recovery working\n");
+		pr_info("Error recovery working\n");
 		error_passes++;
 	} else {
-		pr_err("FAIL - Error recovery failed\n");
+		pr_err("Error recovery failed\n");
 	}
 	error_tests++;
 
@@ -565,18 +565,18 @@ int t_fsm_validation(int argc, char **argv)
 	// Test state name conversion
 	const char *state_name = fsm_get_state_name(sNB_INIT);
 	if (state_name && strcmp(state_name, "INIT") == 0) {
-		pr_info("PASS - State name conversion working\n");
+		pr_info("State name conversion working\n");
 	} else {
-		pr_err("FAIL - State name conversion failed\n");
+		pr_err("State name conversion failed\n");
 		return FAIL;
 	}
 
 	// Test condition name conversion
 	const char *condition_name = fsm_get_condition_name(cOK);
 	if (condition_name && strcmp(condition_name, "OK") == 0) {
-		pr_info("PASS - Condition name conversion working\n");
+		pr_info("Condition name conversion working\n");
 	} else {
-		pr_err("FAIL - Condition name conversion failed\n");
+		pr_err("Condition name conversion failed\n");
 		return FAIL;
 	}
 
@@ -585,9 +585,9 @@ int t_fsm_validation(int argc, char **argv)
 	fsm_get_statistics(&stats);
 
 	if (stats.total_transitions == 0) {
-		pr_info("PASS - Statistics functions working (empty state)\n");
+		pr_info("Statistics functions working (empty state)\n");
 	} else {
-		pr_err("FAIL - Statistics functions returned unexpected data\n");
+		pr_err("Statistics functions returned unexpected data\n");
 		return FAIL;
 	}
 
@@ -596,9 +596,9 @@ int t_fsm_validation(int argc, char **argv)
 	fsm_get_statistics(&stats);
 
 	if (stats.total_transitions == 0) {
-		pr_info("PASS - Statistics reset working\n");
+		pr_info("Statistics reset working\n");
 	} else {
-		pr_err("FAIL - Statistics reset failed\n");
+		pr_err("Statistics reset failed\n");
 		return FAIL;
 	}
 

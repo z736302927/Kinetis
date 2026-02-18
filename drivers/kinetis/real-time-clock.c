@@ -442,7 +442,7 @@ int t_rtc_set_clock(int argc, char **argv)
 	struct tm rtc;
 	ktime_t start_time;
 
-	pr_info("=== RTC Set Clock Basic Test ===");
+	pr_info("=== RTC set clock basic test ===");
 
 	if (rtc_performance_monitoring) {
 		start_time = ktime_get();
@@ -500,7 +500,7 @@ int t_rtc_get_clock(int argc, char **argv)
 	struct tm rtc;
 	ktime_t start_time;
 
-	pr_info("=== RTC Get Clock Basic Test ===");
+	pr_info("=== RTC get clock basic test ===");
 
 	if (rtc_performance_monitoring) {
 		start_time = ktime_get();
@@ -519,11 +519,11 @@ int t_rtc_get_clock(int argc, char **argv)
 
 int t_rtc_validation(int argc, char **argv)
 {
-	struct tm test_times[5];
-	bool test_results[5];
+	struct tm test_times[8];
+	bool test_results[8];
 	int i;
 
-	pr_info("=== RTC Validation Test ===");
+	pr_info("=== RTC validation test ===");
 
 	// Reset statistics
 	rtc_reset_statistics();
@@ -579,31 +579,61 @@ int t_rtc_validation(int argc, char **argv)
 	test_times[4].tm_wday = 1;
 	test_results[4] = !rtc_validate_time_components(&test_times[4]);
 
+	// Test 6: Minimum year (1970)
+	test_times[5].tm_year = 1970;
+	test_times[5].tm_mon = 1;
+	test_times[5].tm_mday = 1;
+	test_times[5].tm_hour = 0;
+	test_times[5].tm_min = 0;
+	test_times[5].tm_sec = 0;
+	test_times[5].tm_wday = 4;
+	test_results[5] = rtc_validate_time_components(&test_times[5]);
+
+	// Test 7: Maximum month (12), Maximum day (31)
+	test_times[6].tm_year = 2024;
+	test_times[6].tm_mon = 12;
+	test_times[6].tm_mday = 31;
+	test_times[6].tm_hour = 23;
+	test_times[6].tm_min = 59;
+	test_times[6].tm_sec = 59;
+	test_times[6].tm_wday = 2;
+	test_results[6] = rtc_validate_time_components(&test_times[6]);
+
+	// Test 8: Invalid year (1969 - below 1970)
+	test_times[7].tm_year = 1969;
+	test_times[7].tm_mon = 1;
+	test_times[7].tm_mday = 1;
+	test_times[7].tm_hour = 0;
+	test_times[7].tm_min = 0;
+	test_times[7].tm_sec = 0;
+	test_times[7].tm_wday = 1;
+	test_results[7] = !rtc_validate_time_components(&test_times[7]);
+
 	// Run validation tests
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < 8; i++) {
 		char time_str[32];
 		rtc_format_time_string(&test_times[i], time_str, sizeof(time_str));
 
 		if (test_results[i]) {
-			pr_info("PASS - Test %d: %s", i + 1, time_str);
+			pr_info("Test %d: %s", i + 1, time_str);
 		} else {
-			pr_err("FAIL - Test %d: %s", i + 1, time_str);
+			pr_err("Test %d: %s", i + 1, time_str);
 		}
 	}
 
 	// Test leap year function
 	if (rtc_is_leap_year(2024) && !rtc_is_leap_year(2023)) {
-		pr_info("PASS - Leap year detection working");
+		pr_info("Leap year detection working");
 	} else {
-		pr_err("FAIL - Leap year detection failed");
+		pr_err("Leap year detection failed");
 	}
 	// Test days in month function
 	if (rtc_get_days_in_month(2024, 2) == 29 &&
 		rtc_get_days_in_month(2023, 2) == 28 &&
 		rtc_get_days_in_month(2024, 4) == 30) {
-		pr_info("PASS - Days in month calculation working");
+		pr_info("Days in month calculation working");
 	} else {
-		pr_err("FAIL - Days in month calculation failed");
+		pr_err("Days in month calculation failed");
 	}
 }
 
@@ -613,7 +643,7 @@ int t_rtc_performance(int argc, char **argv)
 	u64 start_time, end_time;
 	struct tm test_time;
 
-	pr_info("=== RTC Performance Test ===");
+	pr_info("=== RTC performance test ===");
 
 	// Reset and enable monitoring
 	rtc_reset_statistics();
@@ -670,7 +700,7 @@ int t_rtc_backup(int argc, char **argv)
 	u32 read_values[5];
 	int i, errors = 0;
 
-	pr_info("=== RTC Backup Register Test ===");
+	pr_info("=== RTC backup register test ===");
 
 	// Reset statistics
 	rtc_reset_statistics();
@@ -687,18 +717,18 @@ int t_rtc_backup(int argc, char **argv)
 		rtc_backup_reg_read(&read_values[i]);
 
 		if (read_values[i] == 0x32F2) { // Default value + written value
-			pr_info("PASS - Backup test %d: 0x%08X", i + 1, read_values[i]);
+			pr_info("Backup test %d: 0x%08X", i + 1, read_values[i]);
 		} else {
-			pr_err("FAIL - Backup test %d: expected 0x32F2, got 0x%08X",
+			pr_err("Backup test %d: expected 0x32F2, got 0x%08X",
 				i + 1, read_values[i]);
 			errors++;
 		}
 	}
 
 	if (errors == 0) {
-		pr_info("PASS - All backup register tests passed");
+		pr_info("All backup register tests passed");
 	} else {
-		pr_err("FAIL - %d out of %d backup register tests failed", errors, 5);
+		pr_err("%d out of %d backup register tests failed", errors, 5);
 	}
 	rtc_print_performance_report();
 	return errors == 0 ? PASS : FAIL;
@@ -708,7 +738,7 @@ int t_rtc_cleanup(int argc, char **argv)
 {
 	struct rtc_stats stats;
 
-	pr_info("=== RTC Cleanup Test ===");
+	pr_info("=== RTC cleanup test ===");
 
 	// Get final statistics
 	rtc_get_statistics(&stats);
@@ -722,7 +752,7 @@ int t_rtc_cleanup(int argc, char **argv)
 	rtc_reset_statistics();
 	rtc_enable_performance_monitoring(false);
 
-	pr_info("PASS - RTC cleanup completed");
+	pr_info("RTC cleanup completed");
 	return PASS;
 }
 
