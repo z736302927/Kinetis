@@ -3,14 +3,20 @@
         {
             "name": "windows-gcc-x64",
             "includePath": [
-                "${workspaceFolder}/include"
+                "${workspaceFolder}/include",
+                "${workspaceFolder}/include/uapi",
+                "${workspaceFolder}/arch/arm/include",
+                "${workspaceFolder}/arch/arm/include/uapi",
+                "${workspaceFolder}/arch/arm/include/generated",
+                "${workspaceFolder}/arch/arm/include/generated/uapi",
+                "${workspaceFolder}/arch/arm/mach-stm32"
             ],
             "compilerPath": "E:/Plugin/mingw64/bin/gcc.exe",
             "cStandard": "${default}",
             "cppStandard": "${default}",
             "intelliSenseMode": "windows-gcc-x64",
             "compilerArgs": [
-                ""
+                "--std=gnu17 -xc -fdata-sections -ffunction-sections -fdiagnostics-color=always -w -Wextra -Wno-unused-parameter -O0 -g3 -DFOUR_AXIS_FLIGHT -DFOUR_AXIS_FLIGHT_VERSION=\\\"1.0.0\\\" -D__KERNEL__ -DCONFIG_FAKE_LIB -DCONFIG_SIMULATION -DUSE_HAL_DRIVER -DSTM32F407xx -fdiagnostics-color=always -I include -I include\\uapi -I arch\\arm\\include -I arch\\arm\\include\\uapi -I arch\\arm\\include\\generated -I arch\\arm\\include\\generated\\uapi -I arch\\arm\\mach-stm32 -include generated\\deconfig.h -include kinetis\\step-debug.h"
             ]
         }
     ],

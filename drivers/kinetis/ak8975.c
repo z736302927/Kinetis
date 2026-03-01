@@ -555,66 +555,6 @@ static struct {
 } ak8975_slave_regs;
 
 /**
- * @brief Update AK8975 slave buffer with register data
- */
-static void ak8975_slave_update_buffer(u8 reg_addr)
-{
-	if (!ak8975_slave || !ak8975_slave->buffer) {
-		return;
-	}
-
-	switch (reg_addr) {
-	case WIA:
-		ak8975_slave->buffer[0] = ak8975_slave_regs.wia;
-		break;
-	case INFO:
-		ak8975_slave->buffer[0] = ak8975_slave_regs.info;
-		break;
-	case ST1:
-		ak8975_slave->buffer[0] = ak8975_slave_regs.st1;
-		break;
-	case ST2:
-		ak8975_slave->buffer[0] = ak8975_slave_regs.st2;
-		break;
-	case CNTL1:
-		ak8975_slave->buffer[0] = ak8975_slave_regs.cntl1;
-		break;
-	case CNTL2:
-		ak8975_slave->buffer[0] = ak8975_slave_regs.cntl2;
-		break;
-	case ASAX:
-		ak8975_slave->buffer[0] = ak8975_slave_regs.asax;
-		break;
-	case ASAY:
-		ak8975_slave->buffer[0] = ak8975_slave_regs.asay;
-		break;
-	case ASAZ:
-		ak8975_slave->buffer[0] = ak8975_slave_regs.asaz;
-		break;
-	case HXL:
-		ak8975_slave->buffer[0] = ak8975_slave_regs.hxl;
-		break;
-	case HXH:
-		ak8975_slave->buffer[0] = ak8975_slave_regs.hxh;
-		break;
-	case HYL:
-		ak8975_slave->buffer[0] = ak8975_slave_regs.hyl;
-		break;
-	case HYH:
-		ak8975_slave->buffer[0] = ak8975_slave_regs.hyh;
-		break;
-	case HZL:
-		ak8975_slave->buffer[0] = ak8975_slave_regs.hzl;
-		break;
-	case HZH:
-		ak8975_slave->buffer[0] = ak8975_slave_regs.hzh;
-		break;
-	default:
-		break;
-	}
-}
-
-/**
  * @brief Generate reasonable random magnetic field values
  * Earth's magnetic field is approximately 25-65 μT
  * AK8975 output range: 0-4095 (signed: -2048 to +2047)

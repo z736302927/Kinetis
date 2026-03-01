@@ -1,6 +1,7 @@
 #include <linux/bitops.h>
 #include <linux/printk.h>
 #include <linux/delay.h>
+#include <linux/err.h>
 
 #include "kinetis/mpu6050.h"
 #include "kinetis/iic_soft.h"
@@ -298,7 +299,7 @@ void mpu6050_write_gyro_offset_reg(u8 axis, u16 tmp)
  * @param pdata Pointer to store the offset value
  * @return None
  */
-void mpu6050_read_accel_offset_reg(uint8_t axis, uint16_t *pdata)
+void mpu6050_read_accel_offset_reg(u8 axis, u16 *pdata)
 {
 	u8 high8 = 0;
 	u8 low8 = 0;
@@ -332,7 +333,7 @@ void mpu6050_read_accel_offset_reg(uint8_t axis, uint16_t *pdata)
  * @param tmp Offset value to write
  * @return None
  */
-void mpu6050_write_accel_offset_reg(uint8_t axis, uint16_t tmp)
+void mpu6050_write_accel_offset_reg(u8 axis, u16 tmp)
 {
 	u8 high8 = 0;
 	u8 low8 = 0;
@@ -1602,7 +1603,7 @@ void mpu9250_write_accel_offset_reg(u8 axis, u16 tmp)
 
 /* Enhanced driver global variables */
 static mpu6050_config_t g_mpu6050_config = {0};
-static uint8_t g_mpu6050_initialized = 0;
+static u8 g_mpu6050_initialized = 0;
 
 /**
  * @brief Enhanced initialization function
@@ -1612,7 +1613,7 @@ static uint8_t g_mpu6050_initialized = 0;
  */
 void mpu6050_init(void)
 {
-	uint8_t who_am_i = 0;
+	u8 who_am_i = 0;
 
 	printk("Initializing MPU6050 6-axis sensor...");
 
@@ -1666,9 +1667,9 @@ void mpu6050_init(void)
  * @param None
  * @return 1 if device is present, 0 otherwise
  */
-uint8_t mpu6050_is_device_present(void)
+u8 mpu6050_is_device_present(void)
 {
-	uint8_t who_am_i = 0;
+	u8 who_am_i = 0;
 
 	mpu6050_who_am_i(&who_am_i);
 
@@ -1699,7 +1700,7 @@ void mpu6050_reset(void)
  * @param clock_source Clock source selection
  * @return None
  */
-void mpu6050_set_clock_source(uint8_t clock_source)
+void mpu6050_set_clock_source(u8 clock_source)
 {
 	mpu6050_clock_source_select(clock_source);
 }
@@ -1709,7 +1710,7 @@ void mpu6050_set_clock_source(uint8_t clock_source)
  * @param fs Full scale selection
  * @return None
  */
-void mpu6050_set_gyro_full_scale(uint8_t fs)
+void mpu6050_set_gyro_full_scale(u8 fs)
 {
 	mpu6050_gyro_full_scale_select(fs);
 
@@ -1738,7 +1739,7 @@ void mpu6050_set_gyro_full_scale(uint8_t fs)
  * @param fs Full scale selection
  * @return None
  */
-void mpu6050_set_accel_full_scale(uint8_t fs)
+void mpu6050_set_accel_full_scale(u8 fs)
 {
 	mpu6050_accel_full_scale_select(fs);
 
@@ -1767,9 +1768,9 @@ void mpu6050_set_accel_full_scale(uint8_t fs)
  * @param rate Sample rate in Hz (1-1000)
  * @return None
  */
-void mpu6050_set_sample_rate(uint16_t rate)
+void mpu6050_set_sample_rate(u16 rate)
 {
-	uint8_t divider;
+	u8 divider;
 
 	if (rate > 1000) {
 		rate = 1000;
@@ -1789,7 +1790,7 @@ void mpu6050_set_sample_rate(uint16_t rate)
  * @param bandwidth Bandwidth selection
  * @return None
  */
-void mpu6050_set_dlpf_bandwidth(uint8_t bandwidth)
+void mpu6050_set_dlpf_bandwidth(u8 bandwidth)
 {
 	mpu6050_config_dlpf(bandwidth);
 }
@@ -1801,9 +1802,9 @@ void mpu6050_set_dlpf_bandwidth(uint8_t bandwidth)
  * @param temperature Pointer to temperature reading
  * @return None
  */
-void mpu6050_get_raw_data(mpu6050_raw_data_t *accel, mpu6050_raw_data_t *gyro, int16_t *temperature)
+void mpu6050_get_raw_data(mpu6050_raw_data_t *accel, mpu6050_raw_data_t *gyro, s16 *temperature)
 {
-	uint16_t raw_data[7]; /* accel[3], temp[1], gyro[3] */
+	u16 raw_data[7]; /* accel[3], temp[1], gyro[3] */
 
 	if (!g_mpu6050_initialized) {
 		mpu6050_init();
@@ -1813,17 +1814,17 @@ void mpu6050_get_raw_data(mpu6050_raw_data_t *accel, mpu6050_raw_data_t *gyro, i
 	mpu6050_get_accel_and_gyro(raw_data);
 
 	/* Extract accelerometer data */
-	accel->x = (int16_t)raw_data[0];
-	accel->y = (int16_t)raw_data[1];
-	accel->z = (int16_t)raw_data[2];
+	accel->x = (s16)raw_data[0];
+	accel->y = (s16)raw_data[1];
+	accel->z = (s16)raw_data[2];
 
 	/* Extract temperature data */
-	*temperature = (int16_t)raw_data[3];
+	*temperature = (s16)raw_data[3];
 
 	/* Extract gyroscope data */
-	gyro->x = (int16_t)raw_data[4];
-	gyro->y = (int16_t)raw_data[5];
-	gyro->z = (int16_t)raw_data[6];
+	gyro->x = (s16)raw_data[4];
+	gyro->y = (s16)raw_data[5];
+	gyro->z = (s16)raw_data[6];
 }
 
 /**
@@ -1836,7 +1837,7 @@ void mpu6050_get_raw_data(mpu6050_raw_data_t *accel, mpu6050_raw_data_t *gyro, i
 void mpu6050_get_scaled_data(mpu6050_data_t *accel, mpu6050_data_t *gyro, float *temperature)
 {
 	mpu6050_raw_data_t raw_accel, raw_gyro;
-	int16_t raw_temp;
+	s16 raw_temp;
 
 	/* Get raw data */
 	mpu6050_get_raw_data(&raw_accel, &raw_gyro, &raw_temp);
@@ -1863,11 +1864,11 @@ void mpu6050_get_scaled_data(mpu6050_data_t *accel, mpu6050_data_t *gyro, float 
 void mpu6050_calibrate_gyro(void)
 {
 	mpu6050_raw_data_t accel, gyro;
-	int16_t temperature;
+	s16 temperature;
 	int32_t gyro_x_sum = 0, gyro_y_sum = 0, gyro_z_sum = 0;
-	uint16_t samples = 1000;
-	uint16_t i;
-	int16_t offset_x, offset_y, offset_z;
+	u16 samples = 1000;
+	u16 i;
+	s16 offset_x, offset_y, offset_z;
 
 	printk("Starting gyroscope calibration...");
 	printk("Please keep device stationary for 10 seconds");
@@ -1888,9 +1889,9 @@ void mpu6050_calibrate_gyro(void)
 	offset_z = -(gyro_z_sum / samples);
 
 	/* Store offsets in device */
-	mpu6050_write_gyro_offset_reg(X_AXIS, (uint16_t)offset_x);
-	mpu6050_write_gyro_offset_reg(Y_AXIS, (uint16_t)offset_y);
-	mpu6050_write_gyro_offset_reg(Z_AXIS, (uint16_t)offset_z);
+	mpu6050_write_gyro_offset_reg(X_AXIS, (u16)offset_x);
+	mpu6050_write_gyro_offset_reg(Y_AXIS, (u16)offset_y);
+	mpu6050_write_gyro_offset_reg(Z_AXIS, (u16)offset_z);
 
 	printk("Gyroscope calibration completed");
 	printk("Offsets - X: %d, Y: %d, Z: %d", offset_x, offset_y, offset_z);
@@ -1905,11 +1906,11 @@ void mpu6050_calibrate_gyro(void)
 void mpu6050_calibrate_accel(void)
 {
 	mpu6050_raw_data_t accel, gyro;
-	int16_t temperature;
+	s16 temperature;
 	int32_t accel_x_sum = 0, accel_y_sum = 0, accel_z_sum = 0;
-	uint16_t samples = 100;
-	uint16_t i;
-	int16_t offset_x, offset_y, offset_z;
+	u16 samples = 100;
+	u16 i;
+	s16 offset_x, offset_y, offset_z;
 
 	printk("Starting accelerometer calibration...");
 	printk("Place device in 6 different orientations and call this function");
@@ -1930,9 +1931,9 @@ void mpu6050_calibrate_accel(void)
 	offset_z = -(accel_z_sum / samples - 16384); /* 1g = 16384 LSB for ±2g range */
 
 	/* Store offsets in device */
-	mpu9250_write_accel_offset_reg(X_AXIS, (uint16_t)offset_x);
-	mpu9250_write_accel_offset_reg(Y_AXIS, (uint16_t)offset_y);
-	mpu9250_write_accel_offset_reg(Z_AXIS, (uint16_t)offset_z);
+	mpu9250_write_accel_offset_reg(X_AXIS, (u16)offset_x);
+	mpu9250_write_accel_offset_reg(Y_AXIS, (u16)offset_y);
+	mpu9250_write_accel_offset_reg(Z_AXIS, (u16)offset_z);
 
 	printk("Accelerometer calibration completed");
 	printk("Offsets - X: %d, Y: %d, Z: %d", offset_x, offset_y, offset_z);
@@ -1943,7 +1944,7 @@ void mpu6050_calibrate_accel(void)
  * @param interrupt Interrupt enable mask
  * @return None
  */
-void mpu6050_enable_interrupt(uint8_t interrupt)
+void mpu6050_enable_interrupt(u8 interrupt)
 {
 	mpu6050_int_for_raw_sensor_tmp_ready(interrupt & 0x01);
 	mpu6050_int_for_fsync((interrupt >> 3) & 0x01);
@@ -1956,7 +1957,7 @@ void mpu6050_enable_interrupt(uint8_t interrupt)
  * @param interrupt Interrupt disable mask
  * @return None
  */
-void mpu6050_disable_interrupt(uint8_t interrupt)
+void mpu6050_disable_interrupt(u8 interrupt)
 {
 	mpu6050_int_for_raw_sensor_tmp_ready(!(interrupt & 0x01));
 	mpu6050_int_for_fsync(!((interrupt >> 3) & 0x01));
@@ -1972,7 +1973,7 @@ void mpu6050_disable_interrupt(uint8_t interrupt)
 void mpu6050_clear_interrupt_flags(void)
 {
 	/* Read status register to clear flags */
-	uint8_t status;
+	u8 status;
 	mpu6050_int_status(&status);
 }
 
@@ -1981,9 +1982,9 @@ void mpu6050_clear_interrupt_flags(void)
  * @param None
  * @return Interrupt status
  */
-uint8_t mpu6050_check_interrupt_flags(void)
+u8 mpu6050_check_interrupt_flags(void)
 {
-	uint8_t status;
+	u8 status;
 	mpu6050_int_status(&status);
 	return status;
 }
@@ -2024,7 +2025,7 @@ void mpu6050_enter_cycle_mode(void)
  * @param threshold Threshold value (0-255)
  * @return None
  */
-void mpu6050_set_wake_motion_threshold(uint8_t threshold)
+void mpu6050_set_wake_motion_threshold(u8 threshold)
 {
 	mpu6050_wake_on_motion_threshold(threshold);
 }
@@ -2034,7 +2035,7 @@ void mpu6050_set_wake_motion_threshold(uint8_t threshold)
  * @param enable Enable/disable flag
  * @return None
  */
-void mpu6050_enable_wake_motion_interrupt(uint8_t enable)
+void mpu6050_enable_wake_motion_interrupt(u8 enable)
 {
 	mpu6050_enable_wake_on_motion(enable);
 	mpu6050_int_for_wake_on_motion(enable);
@@ -2045,9 +2046,9 @@ void mpu6050_enable_wake_motion_interrupt(uint8_t enable)
  * @param None
  * @return 1 if all tests pass, 0 if any test fails
  */
-uint8_t mpu6050_self_test(void)
+u8 mpu6050_self_test(void)
 {
-	uint8_t gyro_result, accel_result;
+	u8 gyro_result, accel_result;
 
 	printk("Starting MPU6050 self-test...");
 
@@ -2072,13 +2073,13 @@ uint8_t mpu6050_self_test(void)
  * @param None
  * @return 1 if test passes, 0 if test fails
  */
-uint8_t mpu6050_gyro_self_test(void)
+u8 mpu6050_gyro_self_test(void)
 {
-	uint8_t gyro_x_orig, gyro_y_orig, gyro_z_orig;
-	uint8_t gyro_x_test, gyro_y_test, gyro_z_test;
-	uint16_t axis_offset[3];
+	u8 gyro_x_orig, gyro_y_orig, gyro_z_orig;
+	u8 gyro_x_test, gyro_y_test, gyro_z_test;
+	u16 axis_offset[3];
 	int32_t test_values[3];
-	uint8_t i;
+	u8 i;
 
 	printk("Testing gyroscope...");
 
@@ -2140,13 +2141,13 @@ uint8_t mpu6050_gyro_self_test(void)
  * @param None
  * @return 1 if test passes, 0 if test fails
  */
-uint8_t mpu6050_accel_self_test(void)
+u8 mpu6050_accel_self_test(void)
 {
-	uint8_t accel_x_orig, accel_y_orig, accel_z_orig;
-	uint8_t accel_x_test, accel_y_test, accel_z_test;
-	uint16_t axis_offset[3];
+	u8 accel_x_orig, accel_y_orig, accel_z_orig;
+	u8 accel_x_test, accel_y_test, accel_z_test;
+	u16 axis_offset[3];
 	int32_t test_values[3];
-	uint8_t i;
+	u8 i;
 
 	printk("Testing accelerometer...");
 
@@ -2208,9 +2209,9 @@ uint8_t mpu6050_accel_self_test(void)
  * @param None
  * @return 1 if overflow detected, 0 otherwise
  */
-uint8_t mpu6050_check_fifo_overflow(void)
+u8 mpu6050_check_fifo_overflow(void)
 {
-	uint8_t int_status;
+	u8 int_status;
 
 	mpu6050_int_status(&int_status);
 
@@ -2236,7 +2237,7 @@ void mpu6050_reset_fifo(void)
  * @param enable Enable/disable flag
  * @return None
  */
-void mpu6050_enable_fifo(uint8_t enable)
+void mpu6050_enable_fifo(u8 enable)
 {
 	/* Call the low-level function */
 	mpu6050_enable_fifo_raw((u8)enable);
@@ -2253,7 +2254,7 @@ void mpu6050_enable_fifo(uint8_t enable)
  * @param mode FIFO mode (0=disabled, 1=enabled)
  * @return None
  */
-void mpu6050_set_fifo_mode(uint8_t mode)
+void mpu6050_set_fifo_mode(u8 mode)
 {
 	/* Call the existing function with correct parameter type */
 	mpu6050_fifo_mode((u8)mode);
@@ -2270,9 +2271,9 @@ void mpu6050_set_fifo_mode(uint8_t mode)
  * @param None
  * @return Number of bytes in FIFO
  */
-uint16_t mpu6050_get_fifo_count(void)
+u16 mpu6050_get_fifo_count(void)
 {
-	uint16_t count;
+	u16 count;
 
 	mpu6050_fifo_count(&count);
 	return count;
@@ -2284,10 +2285,10 @@ uint16_t mpu6050_get_fifo_count(void)
  * @param length Number of bytes to read
  * @return Number of bytes actually read
  */
-uint8_t mpu6050_read_fifo_data(uint8_t *data, uint16_t length)
+u8 mpu6050_read_fifo_data(u8 *data, u16 length)
 {
-	uint16_t fifo_count = mpu6050_get_fifo_count();
-	uint16_t i;
+	u16 fifo_count = mpu6050_get_fifo_count();
+	u16 i;
 
 	if (fifo_count == 0) {
 		return 0;
@@ -2329,7 +2330,7 @@ void mpu6050_configure_advanced_filters(void)
  * @param frequency Filter frequency setting
  * @return None
  */
-void mpu6050_set_high_pass_filter(uint8_t enable, uint8_t frequency)
+void mpu6050_set_high_pass_filter(u8 enable, u8 frequency)
 {
 	u8 reg = 0;
 
@@ -2354,7 +2355,7 @@ void mpu6050_set_high_pass_filter(uint8_t enable, uint8_t frequency)
  * @param threshold Motion detection threshold value
  * @return None
  */
-void mpu6050_set_motion_detection_threshold(uint8_t threshold)
+void mpu6050_set_motion_detection_threshold(u8 threshold)
 {
 	mpu6050_port_transmit(WOM_THR, threshold);
 	printk("Motion detection threshold set to: %d", threshold);
@@ -2365,7 +2366,7 @@ void mpu6050_set_motion_detection_threshold(uint8_t threshold)
  * @param threshold Zero motion detection threshold value
  * @return None
  */
-void mpu6050_set_zero_motion_detection_threshold(uint8_t threshold)
+void mpu6050_set_zero_motion_detection_threshold(u8 threshold)
 {
 	u8 reg = 0;
 
@@ -2380,7 +2381,7 @@ void mpu6050_set_zero_motion_detection_threshold(uint8_t threshold)
  * @param duration Duration setting for zero motion detection
  * @return None
  */
-void mpu6050_set_zero_motion_detection_duration(uint8_t duration)
+void mpu6050_set_zero_motion_detection_duration(u8 duration)
 {
 	/* Configure motion detection control register */
 	u8 reg = 0;
@@ -2401,7 +2402,7 @@ void mpu6050_set_zero_motion_detection_duration(uint8_t duration)
  * @param enable Enable/disable flag (0=disable, 1=enable)
  * @return None
  */
-void mpu6050_enable_free_fall_detection(uint8_t enable)
+void mpu6050_enable_free_fall_detection(u8 enable)
 {
 	u8 reg = 0;
 
@@ -2423,7 +2424,7 @@ void mpu6050_enable_free_fall_detection(uint8_t enable)
  * @param threshold Free fall threshold value
  * @return None
  */
-void mpu6050_set_free_fall_threshold(uint8_t threshold)
+void mpu6050_set_free_fall_threshold(u8 threshold)
 {
 	/* For this implementation, use WOM_THR register */
 	mpu6050_port_transmit(WOM_THR, threshold);
@@ -2435,7 +2436,7 @@ void mpu6050_set_free_fall_threshold(uint8_t threshold)
  * @param duration Free fall duration setting
  * @return None
  */
-void mpu6050_set_free_fall_duration(uint8_t duration)
+void mpu6050_set_free_fall_duration(u8 duration)
 {
 	u8 reg = 0;
 
@@ -2455,7 +2456,7 @@ void mpu6050_set_free_fall_duration(uint8_t duration)
  * @param enable Enable/disable flag (0=disable, 1=enable)
  * @return 1 if successful, 0 otherwise
  */
-uint8_t mpu6050_enable_i2c_master_mode(uint8_t enable)
+u8 mpu6050_enable_i2c_master_mode(u8 enable)
 {
 	u8 reg = 0;
 
@@ -2483,7 +2484,7 @@ uint8_t mpu6050_enable_i2c_master_mode(uint8_t enable)
  * @param len Data length
  * @return 1 if successful, 0 otherwise
  */
-uint8_t mpu6050_configure_i2c_slave(uint8_t slave_num, uint8_t dev_addr, uint8_t reg_addr, uint8_t rw_flag, uint8_t len)
+u8 mpu6050_configure_i2c_slave(u8 slave_num, u8 dev_addr, u8 reg_addr, u8 rw_flag, u8 len)
 {
 	if (slave_num > 3) {
 		return 0;
@@ -2514,9 +2515,9 @@ uint8_t mpu6050_configure_i2c_slave(uint8_t slave_num, uint8_t dev_addr, uint8_t
  * @param len Number of bytes to read
  * @return Number of bytes read
  */
-uint8_t mpu6050_read_i2c_slave_data(uint8_t slave_num, uint8_t *data, uint8_t len)
+u8 mpu6050_read_i2c_slave_data(u8 slave_num, u8 *data, u8 len)
 {
-	uint8_t i;
+	u8 i;
 
 	if (slave_num > 3) {
 		return 0;
@@ -2545,9 +2546,9 @@ uint8_t mpu6050_read_i2c_slave_data(uint8_t slave_num, uint8_t *data, uint8_t le
  * @param len Number of bytes to write
  * @return 1 if successful, 0 otherwise
  */
-uint8_t mpu6050_write_i2c_slave_data(uint8_t slave_num, uint8_t *data, uint8_t len)
+u8 mpu6050_write_i2c_slave_data(u8 slave_num, u8 *data, u8 len)
 {
-	uint8_t i;
+	u8 i;
 
 	if (slave_num > 3) {
 		return 0;
@@ -2574,7 +2575,7 @@ uint8_t mpu6050_write_i2c_slave_data(uint8_t slave_num, uint8_t *data, uint8_t l
  * @param None
  * @return Status byte
  */
-uint8_t mpu6050_get_i2c_master_status(void)
+u8 mpu6050_get_i2c_master_status(void)
 {
 	u8 status = 0;
 
@@ -2591,9 +2592,9 @@ uint8_t mpu6050_get_i2c_master_status(void)
  * @param len Number of bytes to read
  * @return None
  */
-void mpu6050_read_external_sensor_data(uint8_t slave_num, uint8_t reg_addr, uint8_t *data, uint8_t len)
+void mpu6050_read_external_sensor_data(u8 slave_num, u8 reg_addr, u8 *data, u8 len)
 {
-	uint8_t i;
+	u8 i;
 
 	if (slave_num > 3 || reg_addr + len > 24) {
 		return;
@@ -2610,7 +2611,7 @@ void mpu6050_read_external_sensor_data(uint8_t slave_num, uint8_t reg_addr, uint
  * @param slave_num Slave number
  * @return 1 if data ready, 0 otherwise
  */
-uint8_t mpu6050_check_external_sensor_data_ready(uint8_t slave_num)
+u8 mpu6050_check_external_sensor_data_ready(u8 slave_num)
 {
 	u8 status = mpu6050_get_i2c_master_status();
 
@@ -2649,7 +2650,7 @@ void mpu6050_configure_motion_detection(void)
  * @param enable Enable/disable flag
  * @return None
  */
-void mpu6050_set_accel_artifact_removal(uint8_t enable)
+void mpu6050_set_accel_artifact_removal(u8 enable)
 {
 	u8 reg = 0;
 
@@ -2672,7 +2673,7 @@ void mpu6050_set_accel_artifact_removal(uint8_t enable)
  * @param threshold Threshold value
  * @return None
  */
-void mpu6050_set_gyro_threshold(uint8_t axis, uint16_t threshold)
+void mpu6050_set_gyro_threshold(u8 axis, u16 threshold)
 {
 	/* Write to appropriate offset register as threshold */
 	mpu6050_write_gyro_offset_reg(axis, threshold);
@@ -2723,7 +2724,7 @@ int t_mpu6050_device_id(int argc, char **argv)
 int t_mpu6050_sensor_data(int argc, char **argv)
 {
 	mpu6050_raw_data_t accel, gyro;
-	int16_t temperature;
+	s16 temperature;
 	u16 readings = 100;
 	u16 i;
 
@@ -2770,7 +2771,7 @@ int t_mpu6050_sensor_data(int argc, char **argv)
  */
 int t_mpu6050_selftest(int argc, char **argv)
 {
-	uint8_t gyro_result, accel_result;
+	u8 gyro_result, accel_result;
 
 	pr_info("=== MPU6050 Self-Test ===");
 
@@ -2802,7 +2803,7 @@ int t_mpu6050_selftest(int argc, char **argv)
  */
 int t_mpu6050_gyro_calibration(int argc, char **argv)
 {
-	uint16_t offset_x, offset_y, offset_z;
+	u16 offset_x, offset_y, offset_z;
 
 	pr_info("=== MPU6050 Gyroscope Calibration ===");
 	pr_info("Note: Please keep device stationary during calibration");
@@ -2839,7 +2840,7 @@ int t_mpu6050_gyro_calibration(int argc, char **argv)
  */
 int t_mpu6050_accel_calibration(int argc, char **argv)
 {
-	uint16_t offset_x, offset_y, offset_z;
+	u16 offset_x, offset_y, offset_z;
 
 	pr_info("=== MPU6050 Accelerometer Calibration ===");
 	pr_info("Note: Place device in 6 different orientations and call this function");
@@ -2876,9 +2877,9 @@ int t_mpu6050_accel_calibration(int argc, char **argv)
  */
 int t_mpu6050_fifo_test(int argc, char **argv)
 {
-	uint16_t fifo_count;
-	uint8_t fifo_data[32];
-	uint8_t bytes_read;
+	u16 fifo_count;
+	u8 fifo_data[32];
+	u8 bytes_read;
 
 	pr_info("=== MPU6050 FIFO Test ===");
 
@@ -2915,7 +2916,7 @@ int t_mpu6050_fifo_test(int argc, char **argv)
  */
 int t_mpu6050_interrupt_test(int argc, char **argv)
 {
-	uint8_t int_status;
+	u8 int_status;
 
 	pr_info("=== MPU6050 Interrupt Test ===");
 
@@ -3113,6 +3114,117 @@ void mpu6050_Test(void)
 	printk("Temperature: %.2f°C", temperature);
 
 	printk("=== MPU6050 Comprehensive Test Completed Successfully ===");
+}
+
+/* MPU6050 I2C Slave simulation */
+static struct iic_slave *mpu6050_slave = NULL;
+
+/* Simulated MPU6050 register map (simplified for testing) */
+static struct {
+	u8 who_am_i;       /* 0x75: Device ID */
+	u8 pwr_mgmt_1;     /* 0x6B: Power Management 1 */
+	u8 pwr_mgmt_2;     /* 0x6C: Power Management 2 */
+	u8 gyro_xout_h;    /* 0x43: Gyro X high byte */
+	u8 gyro_xout_l;    /* 0x44: Gyro X low byte */
+	u8 gyro_yout_h;    /* 0x45: Gyro Y high byte */
+	u8 gyro_yout_l;    /* 0x46: Gyro Y low byte */
+	u8 gyro_zout_h;    /* 0x47: Gyro Z high byte */
+	u8 gyro_zout_l;    /* 0x48: Gyro Z low byte */
+	u8 accel_xout_h;   /* 0x3B: Accel X high byte */
+	u8 accel_xout_l;   /* 0x3C: Accel X low byte */
+	u8 accel_yout_h;   /* 0x3D: Accel Y high byte */
+	u8 accel_yout_l;   /* 0x3E: Accel Y low byte */
+	u8 accel_zout_h;   /* 0x3F: Accel Z high byte */
+	u8 accel_zout_l;   /* 0x40: Accel Z low byte */
+	u8 temp_out_h;     /* 0x41: Temperature high byte */
+	u8 temp_out_l;     /* 0x42: Temperature low byte */
+	u8 gyro_config;    /* 0x1B: Gyro Configuration */
+	u8 accel_config;   /* 0x1C: Accelerometer Configuration */
+	u8 smplrt_div;     /* 0x19: Sample Rate Divider */
+} mpu6050_slave_regs;
+
+/**
+ * @brief Start MPU6050 I2C slave simulation for testing
+ */
+int mpu6050_slave_start(void)
+{
+	/* Initialize simulated registers with default values */
+	mpu6050_slave_regs.who_am_i = 0x68;        /* Device ID: 0x68 */
+	mpu6050_slave_regs.pwr_mgmt_1 = 0x40;      /* Power Management: sleep mode */
+	mpu6050_slave_regs.pwr_mgmt_2 = 0x00;      /* All axes enabled */
+	mpu6050_slave_regs.gyro_config = 0x00;     /* ±250 dps */
+	mpu6050_slave_regs.accel_config = 0x00;    /* ±2g */
+	mpu6050_slave_regs.smplrt_div = 0x07;      /* Sample rate: 1 kHz */
+
+	/* Initialize simulated sensor data with reasonable values */
+	/* Temperature: ~25°C = 3400 in raw units */
+	mpu6050_slave_regs.temp_out_h = 0x0D;
+	mpu6050_slave_regs.temp_out_l = 0x48;
+
+	/* Create I2C slave device with address 0x68 */
+	mpu6050_slave = iic_slave_soft_init("mpu6050", 0x68,
+			(u8 *)&mpu6050_slave_regs, sizeof(mpu6050_slave_regs));
+	if (IS_ERR(mpu6050_slave)) {
+		pr_err("mpu6050_slave: Failed to initialize I2C slave");
+		return PTR_ERR(mpu6050_slave);
+	}
+
+	pr_info("mpu6050_slave: Initialized at I2C address 0x68");
+	pr_info("mpu6050_slave: Device ID = 0x%02X (expected: 0x68)",
+		 mpu6050_slave_regs.who_am_i);
+
+	return 0;
+}
+
+/**
+ * @brief Stop MPU6050 I2C slave simulation for testing
+ */
+int mpu6050_slave_stop(void)
+{
+	if (mpu6050_slave) {
+		iic_slave_soft_exit(mpu6050_slave);
+		mpu6050_slave = NULL;
+		pr_info("mpu6050_slave: Stopped");
+	}
+
+	return 0;
+}
+
+/**
+ * t_mpu6050_program_thread - MPU6050 thread control command
+ * @argc: argument count
+ * @argv: argument vector
+ *
+ * Returns: PASS on success
+ */
+int t_mpu6050_program_thread(int argc, char **argv)
+{
+	int ret;
+	bool on_off = true;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "on")) {
+			on_off = true;
+		} else if (!strcmp(argv[1], "off")) {
+			on_off = false;
+		} else {
+			return -EINVAL;
+		}
+	}
+
+	if (on_off) {
+		ret = mpu6050_slave_start();
+		if (ret) {
+			return ret;
+		}
+	} else {
+		ret = mpu6050_slave_stop();
+		if (ret) {
+			return ret;
+		}
+	}
+
+	return PASS;
 }
 
 #endif

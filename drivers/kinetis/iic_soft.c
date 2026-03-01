@@ -83,9 +83,7 @@
 
 void iic_master_soft_delay(u32 ticks)
 {
-#ifdef KINETIS_FAKE_SIM
 	// 	pr_debug("iic_master: delay %d us", ticks);
-#endif
 	mdelay(ticks);
 }
 
@@ -892,14 +890,12 @@ void fake_sda_low()
 {
 	pr_debug("iic_master: sda low");
 	i2c_bus_simulation.sda_line = 0;
-	i2c_bus_simulation.master_sda_direction = 1;
 }
 
 void fake_sda_high()
 {
 	pr_debug("iic_master: sda high");
 	i2c_bus_simulation.sda_line = 1;
-	i2c_bus_simulation.master_sda_direction = 1;
 }
 
 void fake_sda_in()

@@ -250,6 +250,8 @@ static void *find_fit_aligned(u32 size, u32 alignment)
 	int i;
 	u64 pool_start = (u64)memory_pool;
 	u64 pool_end = pool_start + STATIC_POOL_SIZE;
+	int used_indices[MAX_BLOCKS];
+	int used_count = 0;
 
 	// Ensure blocks are sorted before searching
 	ensure_blocks_sorted();
@@ -265,23 +267,30 @@ static void *find_fit_aligned(u32 size, u32 alignment)
 		return NULL;
 	}
 
-	// Check gap before first used block
-	for (i = 0; i <= block_count; i++) {
+	for (i = 0; i < block_count; i++) {
+		if (blocks[i].status == BLOCK_USED) {
+			used_indices[used_count++] = i;
+		}
+	}
+
+	// Check gap before first used block and between/after used blocks
+	for (i = 0; i <= used_count; i++) {
 		u64 gap_start, gap_end, aligned_start, allocated_end;
 
 		if (i == 0) {
-			// Gap before first block
+			// Gap before first used block
 			gap_start = pool_start;
 		} else {
-			// Gap after previous block
-			gap_start = (u64)blocks[i - 1].start + blocks[i - 1].actual_size;
+			// Gap after previous used block
+			gap_start = (u64)blocks[used_indices[i - 1]].start + blocks[used_indices[i - 1]].actual_size;
 		}
 
-		if (i == block_count) {
-			// Gap after last block
+		if (i == used_count) {
+			// Gap after last used block
 			gap_end = pool_end;
 		} else {
-			gap_end = (u64)blocks[i].start;
+			// Gap before next used block
+			gap_end = (u64)blocks[used_indices[i]].start;
 		}
 
 		// Skip if gap is too small

@@ -1,5 +1,6 @@
 #include <linux/delay.h>
 #include <linux/string.h>
+#include <linux/err.h>
 
 #include "kinetis/max77752.h"
 #include "kinetis/iic_soft.h"
@@ -1162,6 +1163,127 @@ void max77752_Test(void)
 	t_max77752_monitoring_test(0, NULL);
 
 	printk("=== MAX77752 Comprehensive Test Completed Successfully ===");
+}
+
+/* MAX77752 I2C Slave simulation */
+static struct iic_slave *max77752_slave = NULL;
+
+/* Simulated MAX77752 register map */
+static struct {
+	u8 dev_id;         /* 0x00: Device ID */
+	u8 dev_rev;        /* 0x01: Device Revision */
+	u8 status;         /* 0x02: Status */
+	u8 int_mask;       /* 0x04: Interrupt Mask */
+	u8 config;         /* 0x05: Configuration */
+	u8 reset;          /* 0x06: Reset */
+	u8 bat_status;     /* 0x0D: Battery Status */
+	u8 chg_status;     /* 0x0F: Charge Status */
+	u8 vsys_mon_h;     /* 0x12: VSYS Monitor High */
+	u8 vsys_mon_l;     /* 0x13: VSYS Monitor Low */
+	u8 vbat_mon_h;     /* 0x14: VBAT Monitor High */
+	u8 vbat_mon_l;     /* 0x15: VBAT Monitor Low */
+	u8 vbus_mon_h;     /* 0x16: VBUS Monitor High */
+	u8 vbus_mon_l;     /* 0x17: VBUS Monitor Low */
+	u8 ichg_mon_h;     /* 0x18: ICHG Monitor High */
+	u8 ichg_mon_l;     /* 0x19: ICHG Monitor Low */
+	u8 temp_status;    /* 0x1A: Temperature Status */
+	u8 thermistor;    /* 0x1B: Thermistor */
+	u8 led_cfg;        /* 0x1C: LED Configuration */
+} max77752_slave_regs;
+
+/**
+ * @brief Start MAX77752 I2C slave simulation for testing
+ */
+int max77752_slave_start(void)
+{
+	/* Initialize simulated registers with default values */
+	max77752_slave_regs.dev_id = 0x1B;         /* Device ID */
+	max77752_slave_regs.dev_rev = 0x00;        /* Device Revision */
+	max77752_slave_regs.status = 0x02;        /* Status: power good */
+	max77752_slave_regs.config = 0x00;        /* Configuration */
+	max77752_slave_regs.reset = 0x00;         /* Reset: normal operation */
+	max77752_slave_regs.bat_status = 0x01;    /* Battery present */
+	max77752_slave_regs.chg_status = 0x04;    /* Charging: CV mode */
+
+	/* Simulate typical voltage readings (mV in high/low bytes) */
+	max77752_slave_regs.vsys_mon_h = 0x0C;     /* 5000 mV */
+	max77752_slave_regs.vsys_mon_l = 0xB4;
+	max77752_slave_regs.vbat_mon_h = 0x0A;     /* 4200 mV */
+	max77752_slave_regs.vbat_mon_l = 0x68;
+	max77752_slave_regs.vbus_mon_h = 0x0D;     /* 5000 mV */
+	max77752_slave_regs.vbus_mon_l = 0xE4;
+
+	/* Simulate charge current (mA in high/low bytes) */
+	max77752_slave_regs.ichg_mon_h = 0x01;     /* 500 mA */
+	max77752_slave_regs.ichg_mon_l = 0xF4;
+
+	max77752_slave_regs.temp_status = 0x00;    /* Normal temperature */
+	max77752_slave_regs.thermistor = 0x80;     /* Mid-range */
+	max77752_slave_regs.led_cfg = 0x01;         /* LED on */
+
+	/* Create I2C slave device with address 0x3C */
+	max77752_slave = iic_slave_soft_init("max77752", 0x3C,
+			(u8 *)&max77752_slave_regs, sizeof(max77752_slave_regs));
+	if (IS_ERR(max77752_slave)) {
+		pr_err("max77752_slave: Failed to initialize I2C slave");
+		return PTR_ERR(max77752_slave);
+	}
+
+	pr_info("max77752_slave: Initialized at I2C address 0x3C");
+	pr_info("max77752_slave: Device ID = 0x%02X", max77752_slave_regs.dev_id);
+
+	return 0;
+}
+
+/**
+ * @brief Stop MAX77752 I2C slave simulation for testing
+ */
+int max77752_slave_stop(void)
+{
+	if (max77752_slave) {
+		iic_slave_soft_exit(max77752_slave);
+		max77752_slave = NULL;
+		pr_info("max77752_slave: Stopped");
+	}
+
+	return 0;
+}
+
+/**
+ * t_max77752_program_thread - MAX77752 thread control command
+ * @argc: argument count
+ * @argv: argument vector
+ *
+ * Returns: PASS on success
+ */
+int t_max77752_program_thread(int argc, char **argv)
+{
+	int ret;
+	bool on_off = true;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "on")) {
+			on_off = true;
+		} else if (!strcmp(argv[1], "off")) {
+			on_off = false;
+		} else {
+			return -EINVAL;
+		}
+	}
+
+	if (on_off) {
+		ret = max77752_slave_start();
+		if (ret) {
+			return ret;
+		}
+	} else {
+		ret = max77752_slave_stop();
+		if (ret) {
+			return ret;
+		}
+	}
+
+	return PASS;
 }
 
 #endif

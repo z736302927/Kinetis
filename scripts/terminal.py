@@ -26,7 +26,7 @@ def remove_c_comments(text):
     result_lines = []
 
     in_multiline_comment = False
-    comment_buffer = ""
+    comment_buffer = ""  # 存储多行注释内容（不使用，但需要累加以移动指针）
 
     for line in lines:
         i = 0
@@ -40,7 +40,7 @@ def remove_c_comments(text):
                 elif i + 1 < line_length and line[i] == '/' and line[i+1] == '*':
                     in_multiline_comment = True
                     i += 2
-                    comment_buffer = ""
+                    comment_buffer = ""  # 重置注释缓冲区
                 else:
                     clean_line += line[i]
                     i += 1
@@ -48,7 +48,7 @@ def remove_c_comments(text):
                 if i + 1 < line_length and line[i] == '*' and line[i+1] == '/':
                     in_multiline_comment = False
                     i += 2
-                    comment_buffer = ""
+                    comment_buffer = ""  # 清空注释缓冲区
                 else:
                     comment_buffer += line[i]
                     i += 1
@@ -365,7 +365,7 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
                 fd = process.stdout.fileno()
                 fl = fcntl.fcntl(fd, fcntl.F_GETFL)
                 fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
-            except:
+            except (ImportError, AttributeError, OSError):
                 pass  # 非阻塞设置失败，继续使用阻塞模式
 
         while not stop_reading.is_set():
@@ -555,33 +555,60 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
         for i, cmd in enumerate(commands, 1):
             print(f"\n[{i}/{len(commands)}] 发送命令：{cmd}")
 
-            # 根据命令前缀打开对应的 log 文件
+            # 先检查是否是 dsim_delay 命令
+            is_delay_cmd = False
+            if cmd.startswith('dsim_delay'):
+                parts = cmd.split()
+                if len(parts) == 3:
+                    try:
+                        delay_value = int(parts[2])
+                        is_delay_cmd = True
+                        # 延迟命令保持当前 log 文件打开，记录延迟期间的输出
+                        print(f"等待 {delay_value} 秒...（期间输出将写入当前 log 文件）")
+                        time.sleep(delay_value)
+                        print(f"等待结束，继续执行下一条命令")
+                        # 不 continue，继续执行后续流程（但不发送命令）
+                    except ValueError:
+                        print(f"警告：dsim_delay 参数错误 '{cmd}'，跳过此命令")
+                        continue
+                else:
+                    print(f"警告：dsim_delay 格式错误，应为 'dsim_delay second <秒数>'，跳过此命令")
+                    continue
+
+            # 根据命令前缀打开/切换对应的 log 文件
             prefix = get_test_prefix(cmd)
             if prefix:
-                if prefix not in prefix_log_map:
-                    # 为新前缀分配编号
-                    next_index = len(prefix_log_map) + 1
-                    prefix_log_map[prefix] = f"{next_index:03d}_{prefix}.log"
+                # dsim_delay 命令不分配新的 log 文件编号
+                if not is_delay_cmd:
+                    if prefix not in prefix_log_map:
+                        # 为新前缀分配编号
+                        next_index = len(prefix_log_map) + 1
+                        prefix_log_map[prefix] = f"{next_index:03d}_{prefix}.log"
 
-                log_filename = prefix_log_map[prefix]
-                current_test_log_path = os.path.join(output_dir, log_filename)
+                    log_filename = prefix_log_map[prefix]
+                    current_test_log_path = os.path.join(output_dir, log_filename)
 
-                try:
-                    # 如果前缀相同，继续使用同一个文件对象（追加模式）
-                    if current_test_log_obj and os.path.abspath(current_test_log_obj.name) == os.path.abspath(current_test_log_path):
-                        # 同一个文件，继续写入
-                        pass
-                    else:
-                        # 不同文件或首次打开，使用追加模式
-                        if current_test_log_obj:
-                            current_test_log_obj.close()
-                        current_test_log_obj = open(
-                            current_test_log_path, 'a', encoding='utf-8', buffering=1)
-                except Exception as e:
-                    print(f"警告：无法打开测试日志文件：{e}")
-                    current_test_log_obj = None
+                    try:
+                        # 如果前缀相同，继续使用同一个文件对象（追加模式）
+                        if current_test_log_obj and os.path.abspath(current_test_log_obj.name) == os.path.abspath(current_test_log_path):
+                            # 同一个文件，继续写入
+                            pass
+                        else:
+                            # 不同文件或首次打开，检查文件是否存在决定使用 'w' 还是 'a'
+                            if current_test_log_obj:
+                                current_test_log_obj.close()
+                            mode = 'w' if not os.path.exists(current_test_log_path) else 'a'
+                            current_test_log_obj = open(
+                                current_test_log_path, mode, encoding='utf-8', buffering=1)
+                    except Exception as e:
+                        print(f"警告：无法打开测试日志文件：{e}")
+                        current_test_log_obj = None
             else:
                 current_test_log_obj = None
+
+            # 如果是 dsim_delay 命令，跳过命令发送和测试状态检查
+            if is_delay_cmd:
+                continue
 
             # 清空队列中旧的数据
             while not output_queue.empty():
@@ -589,23 +616,6 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
                     output_queue.get_nowait()
                 except queue.Empty:
                     break
-
-            # 检查是否是 dsim_delay 命令
-            if cmd.startswith('dsim_delay'):
-                parts = cmd.split()
-                if len(parts) == 3:
-                    try:
-                        delay_value = int(parts[2])
-                        print(f"等待 {delay_value} 秒...")
-                        time.sleep(delay_value)
-                        print(f"等待结束，继续执行下一条命令")
-                        continue  # 跳过后续的命令发送和测试状态检查
-                    except ValueError:
-                        print(f"警告：dsim_delay 参数错误 '{cmd}'，跳过此命令")
-                        continue
-                else:
-                    print(f"警告：dsim_delay 格式错误，应为 'dsim_delay second <秒数>'，跳过此命令")
-                    continue
 
             # 检查进程状态
             if process.poll() is not None:
@@ -736,7 +746,8 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
                 break
 
         # 输出最终结果
-        summary = f"\n\n{"-" * 80}\n"
+        separator = "-" * 80
+        summary = f"\n\n{separator}\n"
         if all_passed:
             summary += "✅ 所有命令执行完成且检测到 TEST PASS\n"
         else:
@@ -859,7 +870,7 @@ def compile_program(makefile_path='Makefile', target='compile'):
                 makefile_path) else '.',
             capture_output=True,
             text=True,
-            timeout=120  # 编译超时 2 分钟
+            timeout=600  # 编译超时 10 分钟
         )
 
         if result.stdout:

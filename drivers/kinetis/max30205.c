@@ -1,4 +1,5 @@
 #include <linux/delay.h>
+#include <linux/err.h>
 #include <math.h>
 
 #include "kinetis/max30205.h"
@@ -911,6 +912,95 @@ void max30205_Test(void)
 	t_max30205_range_test(0, NULL);
 
 	printk("=== MAX30205 Comprehensive Test Completed Successfully ===");
+}
+
+/* MAX30205 I2C Slave simulation */
+static struct iic_slave *max30205_slave = NULL;
+
+/* Simulated MAX30205 register map */
+static struct {
+	u16 temperature;     /* 0x00: Temperature register */
+	u8 config;           /* 0x01: Configuration register */
+	u16 thyst;           /* 0x02: Temperature hysteresis */
+	u16 tos;             /* 0x03: Temperature overtemperature shutdown */
+} max30205_slave_regs;
+
+/**
+ * @brief Start MAX30205 I2C slave simulation for testing
+ */
+int max30205_slave_start(void)
+{
+	/* Initialize simulated registers with default values */
+	/* Temperature: ~25°C = 6400 in raw units (16-bit) */
+	max30205_slave_regs.temperature = 0x1900;    /* 25°C */
+	max30205_slave_regs.config = 0x00;         /* Normal mode */
+	max30205_slave_regs.thyst = 0x1450;        /* 20°C low threshold */
+	max30205_slave_regs.tos = 0x1C40;          /* 30°C high threshold */
+
+	/* Create I2C slave device with address 0x48 */
+	max30205_slave = iic_slave_soft_init("max30205", 0x48,
+			(u8 *)&max30205_slave_regs, sizeof(max30205_slave_regs));
+	if (IS_ERR(max30205_slave)) {
+		pr_err("max30205_slave: Failed to initialize I2C slave");
+		return PTR_ERR(max30205_slave);
+	}
+
+	pr_info("max30205_slave: Initialized at I2C address 0x48");
+	pr_info("max30205_slave: Initial temperature = %.2f°C",
+		 ((float)max30205_slave_regs.temperature) * 0.00390625f);
+
+	return 0;
+}
+
+/**
+ * @brief Stop MAX30205 I2C slave simulation for testing
+ */
+int max30205_slave_stop(void)
+{
+	if (max30205_slave) {
+		iic_slave_soft_exit(max30205_slave);
+		max30205_slave = NULL;
+		pr_info("max30205_slave: Stopped");
+	}
+
+	return 0;
+}
+
+/**
+ * t_max30205_program_thread - MAX30205 thread control command
+ * @argc: argument count
+ * @argv: argument vector
+ *
+ * Returns: PASS on success
+ */
+int t_max30205_program_thread(int argc, char **argv)
+{
+	int ret;
+	bool on_off = true;
+
+	if (argc > 1) {
+		if (!strcmp(argv[1], "on")) {
+			on_off = true;
+		} else if (!strcmp(argv[1], "off")) {
+			on_off = false;
+		} else {
+			return -EINVAL;
+		}
+	}
+
+	if (on_off) {
+		ret = max30205_slave_start();
+		if (ret) {
+			return ret;
+		}
+	} else {
+		ret = max30205_slave_stop();
+		if (ret) {
+			return ret;
+		}
+	}
+
+	return PASS;
 }
 
 #endif
