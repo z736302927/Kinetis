@@ -122,8 +122,7 @@ struct fmu_sch_task_info {
 
 const char *
 tim_task_decode(struct tim_task *task);
-int tim_task_add(struct tim_task *tim_task,
-	char *name, u32 interval, bool auto_load, bool sched,
+struct tim_task *tim_task_add(char *name, u32 interval, bool auto_load, bool sched,
 	tim_task_cb callback);
 void tim_task_drop(struct tim_task *tim_task);
 void tim_task_suspend(struct tim_task *tim_task);

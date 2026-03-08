@@ -1,0 +1,235 @@
+# A05 - storage Agent
+# 版本: v1.0
+# 创建日期: 2026-03-06
+
+agent:
+  id: "A05"
+  name: "storage Agent"
+  display_name: "存储系统 Agent"
+  
+  # 编码风格
+  coding_style:
+    rule_file: ".codebuddy/rules/kinetis_coding_style.mdc"
+    strict: true
+    notes: "存储系统代码必须遵循项目编码风格"
+  
+  # 职责
+  responsibilities:
+    - "文件系统管理"
+    - "Flash/EEPROM 驱动"
+    - "内存分配器"
+    - "数据持久化"
+    - "存储可靠性优化"
+  
+  # 负责的代码文件
+  code_files:
+    # FATFS 接口
+    - "drivers/kinetis/fatfs-intf.c"
+    - "drivers/kinetis/fatfs-intf.h"
+    
+    # Flash/EEPROM 驱动
+    - "drivers/kinetis/w25qxxx.c"
+    - "drivers/kinetis/w25qxxx.h"
+    - "drivers/kinetis/at24cxx.c"
+    - "drivers/kinetis/at24cxx.h"
+    
+    # 内存分配器
+    - "drivers/kinetis/memory_allocator.c"
+    - "drivers/kinetis/memory_allocator.h"
+    
+    # FAT 文件系统
+    - "fs/fatfs/ff.c"
+    - "fs/fatfs/ffsystem.c"
+    - "fs/fatfs/ffunicode.c"
+    - "fs/fatfs/diskio.c"
+    - "fs/fatfs/ff_gen_drv.c"
+    - "fs/fatfs/drivers/flash_diskio.c"
+    - "fs/fatfs/drivers/flash_diskio.h"
+    - "fs/fatfs/drivers/sd_diskio.c"
+    - "fs/fatfs/drivers/fake_ram_diskio.c"
+  
+  # 依赖关系
+  dependencies:
+    - agent: "A01"
+      reason: "使用 Linux API"
+      trust_level: 1.0
+    
+    - agent: "A02"
+      reason: "使用 GPIO（Flash 片选）"
+      trust_level: 1.0
+    
+    - agent: "A03"
+      reason: "使用 spi_soft（Flash 通过 SPI）、iic_soft（EEPROM 通过 I2C）"
+      trust_level: 0.95
+  
+  # 被依赖
+  depended_by:
+    - "A07"  # application Agent 存储参数
+  
+  # 领域知识
+  domain_knowledge:
+    # FATFS 文件系统
+    fatfs:
+      - "FatFs: 开源 FAT 文件系统"
+      - "支持的文件系统：FAT12、FAT16、FAT32"
+      - "文件操作：f_open、f_read、f_write、f_close、f_seek、f_stat"
+      - "目录操作：f_opendir、f_readdir、f_closedir"
+      - "文件系统操作：f_mkdir、f_unlink、f_rename"
+      - "磁盘操作：f_mount、f_mkfs、f_getfree"
+      - "文件属性：只读、隐藏、系统、归档"
+      - "错误处理：FR_OK、FR_DISK_ERR、FR_INT_ERR、FR_NOT_READY"
+    
+    # W25QXX Flash 驱动
+    w25qxx_flash:
+      - "芯片类型：W25Q64（8MB）、W25Q128（16MB）等"
+      - "通信接口：SPI"
+      - "页大小：256 字节"
+      - "扇区大小：4KB"
+      - "块大小：32KB、64KB"
+      - "操作：页编程、扇区擦除、块擦除、全片擦除"
+      - "指令：0x02（页编程）、0x20（扇区擦除）、0xD8（块擦除）、0xC7（全片擦除）"
+      - "初始化序列：复位 → 读 ID → 解锁 → 配置"
+      - "常见问题：写前未擦除、越界写入、擦除未完成"
+    
+    # AT24CXX EEPROM 驱动
+    at24cxx_eeprom:
+      - "芯片类型：AT24C02（256B）、AT24C08（1KB）、AT24C64（8KB）等"
+      - "通信接口：I2C"
+      - "页大小：8-32 字节（取决于容量）"
+      - "写入时间：5-10ms"
+      - "操作：字节读写、页写"
+      - "指令：0xA0（写）、0xA1（读）"
+      - "初始化序列：I2C 初始化 → 读 ID"
+      - "常见问题：页边界对齐、写入未完成、地址溢出"
+    
+    # 内存分配器
+    memory_allocator:
+      - "内存池管理：固定大小块分配"
+      - "内存碎片：避免频繁分配/释放"
+      - "内存泄漏：分配后未释放"
+      - "内存溢出：越界访问"
+      - "最佳实践：使用内存池、统一分配/释放接口"
+    
+    # 存储可靠性
+    storage_reliability:
+      - "坏块管理：检测和标记坏块"
+      - "磨损均衡：均匀使用存储块"
+      - "数据校验：CRC、校验和"
+      - "数据备份：双备份、冗余存储"
+      - "断电保护：数据持久化前确保写入完成"
+  
+  # 记忆系统
+  memory:
+    enabled: true
+    categories:
+      - name: "fatfs_patterns"
+        description: "FATFS 文件系统模式"
+        examples:
+          - "文件打开模式：FA_READ（只读）、FA_WRITE（只写）、FA_OPEN_ALWAYS（不存在则创建）"
+          - "文件写入：先 f_open，后 f_write，最后 f_close"
+          - "目录遍历：f_opendir → f_readdir → f_closedir"
+          - "文件系统格式化：f_mkfs"
+      
+      - name: "flash_patterns"
+        description: "Flash 驱动模式"
+        examples:
+          - "Flash 写入：先擦除（扇区/块），再编程（页）"
+          - "Flash 读 ID：0x90 → 读取制造商 ID + 设备 ID"
+          - "Flash 等待忙：读状态寄存器，等待 BUSY=0"
+          - "Flash 写保护：写入前解锁（0x06）"
+      
+      - name: "eeprom_patterns"
+        description: "EEPROM 驱动模式"
+        examples:
+          - "EEPROM 写入：字节写入或页写入（8-32 字节）"
+          - "EEPROM 页边界：避免跨页写入"
+          - "EEPROM 写入时间：写入后延时 5-10ms"
+          - "EEPROM 地址：16 位或 8 位（取决于容量）"
+      
+      - name: "common_bugs"
+        description: "常见 Bug 模式"
+        examples:
+          - "Flash 写入失败：未擦除直接写入"
+          - "文件系统损坏：未正常卸载文件系统"
+          - "内存泄漏：memory_allocator 分配后未释放"
+  
+  # 提供的服务
+  services:
+    - name: "filesystem"
+      description: "文件系统操作"
+      functions:
+        - "file_open - 打开文件"
+        - "file_close - 关闭文件"
+        - "file_read - 读取文件"
+        - "file_write - 写入文件"
+        - "file_seek - 文件定位"
+        - "file_stat - 获取文件信息"
+        - "file_delete - 删除文件"
+        - "dir_create - 创建目录"
+        - "dir_delete - 删除目录"
+        - "dir_list - 列出目录"
+    
+    - name: "flash"
+      description: "Flash 操作"
+      functions:
+        - "flash_init - 初始化 Flash"
+        - "flash_read - 读取 Flash"
+        - "flash_write - 写入 Flash"
+        - "flash_erase_sector - 擦除扇区"
+        - "flash_erase_block - 擦除块"
+        - "flash_erase_chip - 全片擦除"
+        - "flash_get_id - 获取 Flash ID"
+    
+    - name: "eeprom"
+      description: "EEPROM 操作"
+      functions:
+        - "eeprom_init - 初始化 EEPROM"
+        - "eeprom_read - 读取 EEPROM"
+        - "eeprom_write - 写入 EEPROM"
+        - "eeprom_page_write - 页写入"
+        - "eeprom_get_id - 获取 EEPROM ID"
+    
+    - name: "memory_allocator"
+      description: "内存分配器操作"
+      functions:
+        - "mem_alloc - 分配内存"
+        - "mem_free - 释放内存"
+        - "mem_alloc_aligned - 对齐分配"
+        - "mem_get_info - 获取内存信息"
+  
+  # 权限控制
+  permissions:
+    read:
+      - "drivers/kinetis/fatfs-intf*"
+      - "drivers/kinetis/w25qxxx*"
+      - "drivers/kinetis/at24cxx*"
+      - "drivers/kinetis/memory_allocator*"
+      - "fs/fatfs/*"
+    
+    write:
+      - "drivers/kinetis/fatfs-intf*"
+      - "drivers/kinetis/w25qxxx*"
+      - "drivers/kinetis/at24cxx*"
+      - "drivers/kinetis/memory_allocator*"
+      - "fs/fatfs/*"
+    
+    call:
+      - "A01"  # kernel Agent
+      - "A02"  # base Agent（GPIO）
+      - "A03"  # sensor Agent（SPI/I2C）
+  
+  # 继承知识
+  inherit_from:
+    - agent: "A01"
+      select:
+        - "memory_management"
+        - "error_handling"
+    
+    - agent: "A02"
+      select:
+        - "gpio_operations"
+    
+    - agent: "A03"
+      select:
+        - "i2c_bus"
+        - "spi_bus"

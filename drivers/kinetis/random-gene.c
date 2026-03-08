@@ -111,7 +111,6 @@ void random_get_array(void *pdata, u32 length, u8 bits)
 
 #ifdef DESIGN_VERIFICATION_DELAY
 #include <linux/slab.h>
-#include <linux/gfp.h>
 #include <linux/printk.h>
 #include <linux/math64.h>
 

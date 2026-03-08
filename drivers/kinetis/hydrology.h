@@ -315,8 +315,8 @@ struct hydrology {
 
 	struct device dev;
 
-	struct tim_task collecte_data;
-	struct tim_task link_pkt;
+	struct tim_task *collecte_data;
+	struct tim_task *link_pkt;
 };
 #define	to_hydrology(d) container_of(d, struct hydrology, dev)
 

@@ -1,47 +1,122 @@
+
+#define pr_fmt(fmt) "ds3231: " fmt
+
+#include <linux/slab.h>
+#include <linux/iopoll.h>
+#include <linux/printk.h>
+#include <linux/bitops.h>
+#include <linux/random.h>
+#include <linux/limits.h>
+
 #include "kinetis/ds3231.h"
 #include "kinetis/iic_soft.h"
+#include "kinetis/spi_soft.h"
+#include "kinetis/regmap-user-bus.h"
 #include "kinetis/idebug.h"
 #include "kinetis/delay.h"
 #include "kinetis/design_verification.h"
+
 #include <math.h>
+#include <pthread.h>
 
-/* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
+#define DS3231_HOURS24                  0x00
+#define DS3231_HOURS12                  0x01
+#define DS3231_AM                       0x00
+#define DS3231_PM                       0x01
+#define DS3231_FORMAT_BIN               0x0U
+#define DS3231_FORMAT_BCD               0x1U
 
-/**
-  * @step 1:  Modify the corresponding function according to the modified area and the corresponding function name.
-  * @step 2:  Modify four areas: GPIO_PORT/GPIO_PIN/Led_TypeDef/LEDn.
-  * @step 3:  .
-  * @step 4:  .
-  * @step 5:
-  */
+/* Register addresses */
+#define DS3231_REG_SECONDS              0x00
+#define DS3231_REG_MINUTES              0x01
+#define DS3231_REG_HOURS                0x02
+#define DS3231_REG_DAY                  0x03
+#define DS3231_REG_DATE                 0x04
+#define DS3231_REG_MONTH_CENTURY        0x05
+#define DS3231_REG_YEAR                 0x06
+#define DS3231_REG_ALARM1_SECONDS       0x07
+#define DS3231_REG_ALARM1_MINUTES       0x08
+#define DS3231_REG_ALARM1_HOURS         0x09
+#define DS3231_REG_ALARM1_DAY_DATE      0x0A
+#define DS3231_REG_ALARM2_MINUTES       0x0B
+#define DS3231_REG_ALARM2_HOURS         0x0C
+#define DS3231_REG_ALARM2_DAY_DATE      0x0D
+#define DS3231_REG_CONTROL              0x0E
+#define DS3231_REG_CONTROL_STATUS       0x0F
+#define DS3231_REG_AGING_OFFSET         0x10
+#define DS3231_REG_TEMP_MSB             0x11
+#define DS3231_REG_TEMP_LSB             0x12
+
+/* Bit masks for seconds register */
+#define DS3231_SECONDS_MASK             0x7F
+#define DS3231_SECONDS_ST_BIT           0x80
+
+/* Bit masks for minutes register */
+#define DS3231_MINUTES_MASK             0x7F
+
+/* Bit masks for hours register */
+#define DS3231_HOURS_MASK               0x3F
+#define DS3231_HOURS_12_24_BIT          0x40
+#define DS3231_HOURS_AM_PM_BIT          0x20
+#define DS3231_HOURS_10_HOUR_BIT        0x10
+
+/* Bit masks for day register */
+#define DS3231_DAY_MASK                 0x07
+
+/* Bit masks for date register */
+#define DS3231_DATE_MASK                0x3F
+#define DS3231_DATE_10_DATE_BIT         0x30
+
+/* Bit masks for month/century register */
+#define DS3231_MONTH_MASK               0x1F
+#define DS3231_MONTH_10_MONTH_BIT       0x10
+#define DS3231_CENTURY_BIT              0x80
+
+/* Bit masks for year register */
+#define DS3231_YEAR_MASK                0xFF
+#define DS3231_YEAR_10_YEAR_BIT         0xF0
+
+/* Bit masks for alarm registers */
+#define DS3231_ALARM_MASK               0x80
+#define DS3231_ALARM_DY_DT_BIT          0x40
+#define DS3231_ALARM_10_MINUTE_BIT      0x70
+#define DS3231_ALARM_10_HOUR_BIT        0x30
+#define DS3231_ALARM_10_DATE_BIT        0x30
+
+/* Bit masks for control register */
+#define DS3231_CONTROL_A1IE_BIT         0x01
+#define DS3231_CONTROL_A2IE_BIT         0x02
+#define DS3231_CONTROL_INTCN_BIT        0x04
+#define DS3231_CONTROL_RS1_BIT          0x08
+#define DS3231_CONTROL_RS2_BIT          0x10
+#define DS3231_CONTROL_CONV_BIT         0x20
+#define DS3231_CONTROL_BBSQW_BIT        0x40
+#define DS3231_CONTROL_EOSC_BIT         0x80
+
+/* Bit masks for control/status register */
+#define DS3231_STATUS_A1F_BIT           0x01
+#define DS3231_STATUS_A2F_BIT           0x02
+#define DS3231_STATUS_BSY_BIT           0x04
+#define DS3231_STATUS_EN32KHZ_BIT       0x08
+#define DS3231_STATUS_OSF_BIT           0x80
+
+/* Square wave frequency selection */
+#define DS3231_SQW_FREQ_1HZ             0x00
+#define DS3231_SQW_FREQ_1024HZ          0x01
+#define DS3231_SQW_FREQ_4096HZ          0x02
+#define DS3231_SQW_FREQ_8192HZ          0x03
+
+/* Alarm mask settings */
+#define DS3231_ALARM_MASK_SECOND        0x01
+#define DS3231_ALARM_MASK_MINUTE        0x02
+#define DS3231_ALARM_MASK_HOUR          0x04
+#define DS3231_ALARM_MASK_DAY_DATE      0x08
+
+/* Day/Date selection for alarms */
+#define DS3231_ALARM_DAY                0x40
+#define DS3231_ALARM_DATE               0x00
 
 #define DS3231_ADDR                     0x68
-
-static struct iic_master *ds3231_iic = &fake_master;
-
-/* DS3231 I2C slave simulation */
-static struct iic_slave *ds3231_slave = NULL;
-
-static inline void ds3231_port_transmit(u8 addr, u8 tmp)
-{
-	iic_master_port_transmit(ds3231_iic, DS3231_ADDR, addr, tmp);
-}
-
-static inline void ds3231_port_receive(u8 addr, u8 *pdata)
-{
-	iic_master_port_receive(ds3231_iic, DS3231_ADDR, addr, pdata);
-}
-
-static inline void ds3231_port_multi_transmit(u8 addr, u8 *pdata, u32 length)
-{
-	iic_master_port_multi_transmit(ds3231_iic, DS3231_ADDR, addr, pdata, length);
-}
-
-static inline void ds3231_port_multi_receive(u8 addr, u8 *pdata, u32 length)
-{
-	iic_master_port_multi_receive(ds3231_iic, DS3231_ADDR, addr, pdata, length);
-}
-/* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 #define ALARM_MASK                      0x80
 #define ALARM_MASK_1                    0x01
@@ -76,47 +151,35 @@ static inline void ds3231_port_multi_receive(u8 addr, u8 *pdata, u32 length)
 #define MSB_OF_TEMP                     0x11
 #define LSB_OF_TEMP                     0x12
 
-static u8 g_time_mode = DS3231_HOURS24;
-static u8 g_time_region = DS3231_AM;
+struct ds3231_device {
+	struct regmap *regmap;
+	u8 time_mode;
+	u8 time_region;
+	struct iic_slave *iic_slave;
+	struct spi_slave *spi_slave;
+	u8 *slave_regs;
 
-u8 ds3231_get_time_mode(void)
-{
-	return g_time_mode;
-}
+	bool thread_running;
+};
 
-void ds3231_set_time_mode(u8 tmp)
-{
-	g_time_mode = tmp;
-}
-
-u8 ds3231_get_time_region(void)
-{
-	return g_time_region;
-}
-
-void ds3231_set_time_region(u8 tmp)
-{
-	g_time_region = tmp;
-}
-
-void ds3231_get_time(u8 *pdata, u8 format)
+void ds3231_get_time(struct ds3231_device *dev, u8 *pdata, u8 format)
 {
 	u8 tmp[7];
 	u8 hour10 = 0;
 
-	ds3231_port_multi_receive(SECONDS, tmp, 7);
+	regmap_bulk_read(dev->regmap, SECONDS, tmp, 7);
 
 	if (tmp[2] & 0x40) {
-		g_time_mode = DS3231_HOURS12;
+		dev->time_mode = DS3231_HOURS12;
 		hour10 = (tmp[2] & 0x10) >> 4;
 
 		if (tmp[2] & 0x20) {
-			g_time_region = DS3231_PM;
+			dev->time_region = DS3231_PM;
 		} else {
-			g_time_region = DS3231_AM;
+			dev->time_region = DS3231_AM;
 		}
 	} else {
-		g_time_mode = DS3231_HOURS24;
+		dev->time_mode = DS3231_HOURS24;
 		hour10 = (tmp[2] & 0x30) >> 4;
 	}
 
@@ -128,12 +191,12 @@ void ds3231_get_time(u8 *pdata, u8 format)
 	pdata[5] = (tmp[6] >> 4) * 10 + (tmp[6] & 0x0F);
 }
 
-void ds3231_set_time(u8 *pdata, u8 format)
+void ds3231_set_time(struct ds3231_device *dev, u8 *pdata, u8 format)
 {
 	u8 tmp[7] = {0, 0, 0, 0, 0, 0, 0};
 
-	ds3231_port_multi_transmit(SECONDS, tmp, 3);
-	ds3231_port_multi_transmit(DATE, tmp, 3);
+	regmap_bulk_write(dev->regmap, SECONDS, tmp, 3);
+	regmap_bulk_write(dev->regmap, DATE, tmp, 3);
 
 	tmp[6] |= (pdata[0] / 10) << 4;
 	tmp[6] |= (pdata[0] % 10) << 0;
@@ -141,13 +204,13 @@ void ds3231_set_time(u8 *pdata, u8 format)
 	tmp[5] |= (pdata[1] % 10) << 0;
 	tmp[4] |= (pdata[2] / 10) << 4;
 	tmp[4] |= (pdata[2] % 10) << 0;
-	ds3231_port_multi_transmit(DATE, &tmp[4], 3);
+	regmap_bulk_write(dev->regmap, DATE, &tmp[4], 3);
 
 	tmp[2] |= (pdata[3] / 10) << 4;
 	tmp[2] |= (pdata[3] % 10) << 0;
 
-	if (g_time_mode == DS3231_HOURS12) {
-		if (g_time_region == DS3231_PM) {
+	if (dev->time_mode == DS3231_HOURS12) {
+		if (dev->time_region == DS3231_PM) {
 			tmp[2] |= 0x20;
 		} else {
 			tmp[2] &= ~0x20;
@@ -162,14 +225,14 @@ void ds3231_set_time(u8 *pdata, u8 format)
 	tmp[1] |= (pdata[4] % 10) << 0;
 	tmp[0] |= (pdata[5] / 10) << 4;
 	tmp[0] |= (pdata[5] % 10) << 0;
-	ds3231_port_multi_transmit(SECONDS, tmp, 3);
+	regmap_bulk_write(dev->regmap, SECONDS, tmp, 3);
 }
 
-void ds3231_get_time_with_string(char *pdata)
+void ds3231_get_time_with_string(struct ds3231_device *dev, char *pdata)
 {
 	u8 tmp[6];
 
-	ds3231_get_time(tmp, DS3231_FORMAT_BIN);
+	ds3231_get_time(dev, tmp, DS3231_FORMAT_BIN);
 	pdata[11] = (tmp[0] % 10) + '0';
 	pdata[10] = (tmp[0] / 10) + '0';
 	pdata[9] = (tmp[1] % 10) + '0';
@@ -184,7 +247,7 @@ void ds3231_get_time_with_string(char *pdata)
 	pdata[0] = (tmp[5] / 10) + '0';
 }
 
-void ds3231_set_time_with_string(char *pdata)
+void ds3231_set_time_with_string(struct ds3231_device *dev, char *pdata)
 {
 	u8 tmp[6];
 
@@ -194,17 +257,21 @@ void ds3231_set_time_with_string(char *pdata)
 	tmp[3] = (pdata[6] - '0') * 10 + (pdata[7] - '0');
 	tmp[4] = (pdata[8] - '0') * 10 + (pdata[9] - '0');
 	tmp[5] = (pdata[10] - '0') * 10 + (pdata[11] - '0');
-	ds3231_set_time(tmp, DS3231_FORMAT_BIN);
+	ds3231_set_time(dev, tmp, DS3231_FORMAT_BIN);
 }
 
-void ds3231_get_week(u8 *pdata)
+u8 ds3231_get_week(struct ds3231_device *dev)
 {
-	ds3231_port_receive(DAY, pdata);
+	u32 reg;
+
+	regmap_read(dev->regmap, DAY, &reg);
+
+	return reg;
 }
 
-void ds3231_set_week(u8 tmp)
+void ds3231_set_week(struct ds3231_device *dev, u8 tmp)
 {
-	ds3231_port_transmit(DAY, tmp);
+	regmap_write(dev->regmap, DAY, tmp);
 }
 
 void ds3231_alarm1_callback(void)
@@ -212,7 +279,7 @@ void ds3231_alarm1_callback(void)
 	;
 }
 
-void ds3231_set_alarm1(u8 *pdata, u8 date_or_day, u8 alarm)
+void ds3231_set_alarm1(struct ds3231_device *dev, u8 *pdata, u8 date_or_day, u8 alarm)
 {
 	u8 tmp[4] = {0, 0, 0, 0};
 	u8 tens = 0, unit = 0;
@@ -248,7 +315,7 @@ void ds3231_set_alarm1(u8 *pdata, u8 date_or_day, u8 alarm)
 	tens = (pdata[1] & 0x7F) / 10;
 	tmp[1] = (tens << 4) | unit;
 
-	if (g_time_mode == DS3231_HOURS24) {
+	if (dev->time_mode == DS3231_HOURS24) {
 		unit = (pdata[2] & 0x3F) % 10;
 		tens = (pdata[2] & 0x3F) / 10;
 		tmp[2] = (tens << 4) | unit;
@@ -275,7 +342,7 @@ void ds3231_set_alarm1(u8 *pdata, u8 date_or_day, u8 alarm)
 		tmp[3] &= ~DY_DT_MASK;
 	}
 
-	ds3231_port_multi_transmit(ALARM_1_SECONDS, tmp, 4);
+	regmap_bulk_write(dev->regmap, ALARM_1_SECONDS, tmp, 4);
 }
 
 void ds3231_alarm2_callback(void)
@@ -283,7 +350,7 @@ void ds3231_alarm2_callback(void)
 	;
 }
 
-void ds3231_set_alarm2(u8 *pdata, u8 date_or_day, u8 alarm)
+void ds3231_set_alarm2(struct ds3231_device *dev, u8 *pdata, u8 date_or_day, u8 alarm)
 {
 	u8 tmp[3] = {0, 0, 0};
 	u8 tens = 0, unit = 0;
@@ -310,7 +377,7 @@ void ds3231_set_alarm2(u8 *pdata, u8 date_or_day, u8 alarm)
 	tens = (pdata[0] & 0x7F) / 10;
 	tmp[0] = (tens << 4) | unit;
 
-	if (g_time_mode == DS3231_HOURS24) {
+	if (dev->time_mode == DS3231_HOURS24) {
 		unit = (pdata[1] & 0x3F) % 10;
 		tens = (pdata[1] & 0x3F) / 10;
 		tmp[1] = (tens << 4) | unit;
@@ -337,38 +404,38 @@ void ds3231_set_alarm2(u8 *pdata, u8 date_or_day, u8 alarm)
 		tmp[2] &= ~DY_DT_MASK;
 	}
 
-	ds3231_port_multi_transmit(ALARM_2_MINUTES, tmp, 3);
+	regmap_bulk_write(dev->regmap, ALARM_2_MINUTES, tmp, 3);
 }
 
-void ds3231_enable_oscillator(void)
+void ds3231_enable_oscillator(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	reg &= ~(0x01 << 7);
 	reg |= (0x00 << 7);
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-void ds3231_convert_temperature(void)
+void ds3231_convert_temperature(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	reg &= ~(0x01 << 6);
 	reg |= (0x01 << 6);
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-void ds3231_rate_select(u8 tmp)
+void ds3231_rate_select(struct ds3231_device *dev, u8 tmp)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	switch (tmp) {
 	case SQUARE_WAVE_1HZ:
@@ -395,73 +462,73 @@ void ds3231_rate_select(u8 tmp)
 		break;
 	}
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-void ds3231_enable_square_wave_with_bat(void)
+void ds3231_enable_square_wave_with_bat(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	reg &= ~(0x01 << 6);
 	reg |= (0x01 << 6);
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-void ds3231_enable_int(void)
+void ds3231_enable_int(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	reg &= ~(0x01 << 2);
 	reg |= (0x01 << 2);
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-void ds3231_enable_square_wave(void)
+void ds3231_enable_square_wave(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	reg &= ~(0x01 << 2);
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-void ds3231_enable_alarm2_int(void)
+void ds3231_enable_alarm2_int(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	reg &= ~(0x01 << 1);
 	reg |= (0x01 << 1);
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-void ds3231_enable_alarm1_int(void)
+void ds3231_enable_alarm1_int(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	reg &= ~(0x01 << 0);
 	reg |= (0x01 << 0);
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-u8 ds3231_oscillator_stop_flag(void)
+u8 ds3231_oscillator_stop_flag(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL_STATUS, &reg);
+	regmap_read(dev->regmap, CONTROL_STATUS, &reg);
 
 	if (reg & 0x80) {
 		return 1;
@@ -470,23 +537,23 @@ u8 ds3231_oscillator_stop_flag(void)
 	}
 }
 
-void ds3231_enable_32khz_output(void)
+void ds3231_enable_32khz_output(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	reg &= ~(0x01 << 3);
 	reg |= (0x01 << 3);
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-u8 ds3231_wait_busy(void)
+u8 ds3231_wait_busy(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL_STATUS, &reg);
+	regmap_read(dev->regmap, CONTROL_STATUS, &reg);
 
 	if (reg & 0x02) {
 		return 1;
@@ -497,11 +564,11 @@ u8 ds3231_wait_busy(void)
 
 static u8 alarm2_flag = 0;
 
-u8 ds3231_alarm2_flag(void)
+u8 ds3231_alarm2_flag(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL_STATUS, &reg);
+	regmap_read(dev->regmap, CONTROL_STATUS, &reg);
 
 	if (reg & 0x02) {
 		return 1;
@@ -510,24 +577,24 @@ u8 ds3231_alarm2_flag(void)
 	}
 }
 
-void ds3231_clear_alarm2_flag(void)
+void ds3231_clear_alarm2_flag(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	reg &= ~(0x01 << 1);
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
 static u8 alarm1_flag = 0;
 
-u8 ds3231_alarm1_flag(void)
+u8 ds3231_alarm1_flag(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL_STATUS, &reg);
+	regmap_read(dev->regmap, CONTROL_STATUS, &reg);
 
 	if (reg & 0x01) {
 		return 1;
@@ -536,23 +603,27 @@ u8 ds3231_alarm1_flag(void)
 	}
 }
 
-void ds3231_clear_alarm1_flag(void)
+void ds3231_clear_alarm1_flag(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	reg &= ~(0x01 << 0);
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-void ds3231_aging_offset(u8 *pdata)
+u8 ds3231_aging_offset(struct ds3231_device *dev)
 {
-	ds3231_port_receive(AGING_OFFSET, pdata);
+	u32 reg;
+
+	regmap_read(dev->regmap, AGING_OFFSET, &reg);
+
+	return reg;
 }
 
-void ds3231_set_aging_offset(u8 offset)
+void ds3231_set_aging_offset(struct ds3231_device *dev, u8 offset)
 {
 	/* Aging offset register is signed 8-bit value
 	 * Bit 7: Sign bit (0 = positive, 1 = negative)
@@ -560,57 +631,102 @@ void ds3231_set_aging_offset(u8 offset)
 	 * Range: -128 to +127 (represented as 0x80 to 0x7F)
 	 * Each step represents approximately 0.25°C temperature compensation
 	 */
-	ds3231_port_transmit(AGING_OFFSET, offset);
+	regmap_write(dev->regmap, AGING_OFFSET, offset);
 }
 
-void ds3231_get_aging_offset(s8 *paging_offset)
+void ds3231_get_aging_offset(struct ds3231_device *dev, s32 *paging_offset)
 {
-	ds3231_port_receive(AGING_OFFSET, (u8 *)paging_offset);
+	regmap_read(dev->regmap, AGING_OFFSET, (u32 *)paging_offset);
 }
 
-void ds3231_set_temperature_threshold(float high_threshold, float low_threshold)
+float ds3231_get_temperature(struct ds3231_device *dev)
 {
-	/* DS3231 doesn't have built-in temperature threshold registers
-	 * This function can be used by application to monitor temperature
-	 * and take actions based on thresholds
-	 */
-	/* Store thresholds in global variables for application use */
-	/* This is a placeholder implementation */
-	/* Actual implementation would depend on application requirements */
+	u8 val[2];
+
+	regmap_bulk_read(dev->regmap, MSB_OF_TEMP, val, 2);
+	return (float)val[0] + (float)(val[1] >> 6) * 0.25;
 }
 
-void ds3231_get_temperature_threshold(float *p_high, float *p_low)
+float ds3231_get_temperature_with_precision(struct ds3231_device *dev)
 {
-	/* Return stored threshold values
-	 * This is a placeholder implementation
-	 * Actual implementation would depend on application requirements */
-	if (p_high) {
-		*p_high = 0.0f;
+	u8 val[2];
+	s16 temp_raw;
+	u32 aging_offset;
+	float temp_compensated;
+
+	regmap_bulk_read(dev->regmap, MSB_OF_TEMP, val, 2);
+
+	/* Calculate temperature with higher precision */
+	temp_raw = ((s16)val[0] << 8) | val[1];
+	temp_compensated = (float)temp_raw / 256.0f;
+
+	/* Apply aging offset compensation if available */
+	regmap_read(dev->regmap, AGING_OFFSET, &aging_offset);
+	if (aging_offset & 0x80) {
+		/* Negative offset */
+		temp_compensated -= (float)(~aging_offset + 1) / 4.0f;
+	} else {
+		/* Positive offset */
+		temp_compensated += (float)aging_offset / 4.0f;
 	}
-	if (p_low) {
-		*p_low = 0.0f;
+
+	return temp_compensated;
+}
+
+void ds3231_set_temperature_compensation(struct ds3231_device *dev, float offset)
+{
+	s8 aging_offset;
+
+	/* Convert float offset to aging offset value */
+	if (offset >= 0.0f) {
+		aging_offset = (s8)(offset * 4.0f);
+		if (aging_offset > 127) {
+			aging_offset = 127;
+		}
+	} else {
+		aging_offset = (s8)(offset * 4.0f);
+		if (aging_offset < -128) {
+			aging_offset = -128;
+		}
+	}
+
+	regmap_write(dev->regmap, AGING_OFFSET, (u8)aging_offset);
+}
+
+float ds3231_get_temperature_compensation(struct ds3231_device *dev)
+{
+	s32 aging_offset;
+
+	regmap_read(dev->regmap, AGING_OFFSET, (u32 *)&aging_offset);
+
+	if (aging_offset & 0x80) {
+		/* Negative offset */
+		return -(float)(~aging_offset + 1) / 4.0f;
+	} else {
+		/* Positive offset */
+		return (float)aging_offset / 4.0f;
 	}
 }
 
-void ds3231_check_temperature_status(u8 *pstatus)
+void ds3231_check_temperature_status(struct ds3231_device *dev, u8 *pstatus)
 {
 	/* Check temperature-related status flags
 	 * Return status information about temperature monitoring
 	 */
-	u8 reg = 0;
+	u32 reg;
 	float temp;
 	static float last_temp = 0.0f;
 	u8 current_status = 0;
 
 	/* Check hardware status flags */
-	ds3231_port_receive(CONTROL_STATUS, &reg);
+	regmap_read(dev->regmap, CONTROL_STATUS, &reg);
 
 	if (reg & DS3231_STATUS_BSY_BIT) {
 		current_status |= 0x01; /* Temperature conversion busy */
 	}
 
 	/* Get current temperature and perform advanced analysis */
-	ds3231_get_temperature_with_precision(&temp);
+	temp = ds3231_get_temperature_with_precision(dev);
 
 	/* Check for significant temperature change */
 	if (fabs(temp - last_temp) > 1.0f) {
@@ -633,219 +749,149 @@ void ds3231_check_temperature_status(u8 *pstatus)
 	*pstatus = current_status;
 }
 
-void ds3231_get_temperature(float *pdata)
+void ds3231_enable_auto_temperature_compensation(struct ds3231_device *dev)
 {
-	u8 val[2];
+	u32 reg;
 
-	ds3231_port_multi_receive(MSB_OF_TEMP, val, 2);
-	*pdata = (float)val[0] + (float)(val[1] >> 6) * 0.25;
-}
-
-void ds3231_get_temperature_with_precision(float *pdata)
-{
-	u8 val[2];
-	s16 temp_raw;
-	float temp_compensated;
-
-	ds3231_port_multi_receive(MSB_OF_TEMP, val, 2);
-
-	/* Calculate temperature with higher precision */
-	temp_raw = ((s16)val[0] << 8) | val[1];
-	temp_compensated = (float)temp_raw / 256.0f;
-
-	/* Apply aging offset compensation if available */
-	u8 aging_offset;
-	ds3231_port_receive(AGING_OFFSET, &aging_offset);
-	if (aging_offset & 0x80) {
-		/* Negative offset */
-		temp_compensated -= (float)(~aging_offset + 1) / 4.0f;
-	} else {
-		/* Positive offset */
-		temp_compensated += (float)aging_offset / 4.0f;
-	}
-
-	*pdata = temp_compensated;
-}
-
-void ds3231_set_temperature_compensation(float offset)
-{
-	s8 aging_offset;
-
-	/* Convert float offset to aging offset value */
-	if (offset >= 0.0f) {
-		aging_offset = (s8)(offset * 4.0f);
-		if (aging_offset > 127) {
-			aging_offset = 127;
-		}
-	} else {
-		aging_offset = (s8)(offset * 4.0f);
-		if (aging_offset < -128) {
-			aging_offset = -128;
-		}
-	}
-
-	ds3231_port_transmit(AGING_OFFSET, (u8)aging_offset);
-}
-
-void ds3231_get_temperature_compensation(float *pdata)
-{
-	s8 aging_offset;
-
-	ds3231_port_receive(AGING_OFFSET, (u8 *)&aging_offset);
-
-	if (aging_offset & 0x80) {
-		/* Negative offset */
-		*pdata = -(float)(~aging_offset + 1) / 4.0f;
-	} else {
-		/* Positive offset */
-		*pdata = (float)aging_offset / 4.0f;
-	}
-}
-
-void ds3231_enable_auto_temperature_compensation(void)
-{
-	u8 reg = 0;
-
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	/* Clear CONV bit to enable automatic conversion */
 	reg &= ~DS3231_CONTROL_CONV_BIT;
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-void ds3231_disable_auto_temperature_compensation(void)
+void ds3231_disable_auto_temperature_compensation(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	/* Set CONV bit to disable automatic conversion */
 	reg |= DS3231_CONTROL_CONV_BIT;
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-void ds3231_trigger_temperature_conversion(void)
+u8 ds3231_is_temperature_conversion_busy(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
-
-	/* Set CONV bit to trigger temperature conversion */
-	reg |= DS3231_CONTROL_CONV_BIT;
-
-	ds3231_port_transmit(CONTROL, reg);
-
-	/* Wait for conversion to complete */
-	ds3231_wait_for_temperature_conversion();
-}
-
-u8 ds3231_is_temperature_conversion_busy(void)
-{
-	u8 reg = 0;
-
-	ds3231_port_receive(CONTROL_STATUS, &reg);
+	regmap_read(dev->regmap, CONTROL_STATUS, &reg);
 
 	return (reg & DS3231_STATUS_BSY_BIT) ? 1 : 0;
 }
 
-void ds3231_wait_for_temperature_conversion(void)
+void ds3231_wait_for_temperature_conversion(struct ds3231_device *dev)
 {
 	u32 timeout = 0;
 	const u32 max_timeout = 10000; /* 10 seconds timeout */
 
-	while (ds3231_is_temperature_conversion_busy() && timeout < max_timeout) {
-		/* Small delay */
-		for (volatile u32 i = 0; i < 1000; i++);
+	while (ds3231_is_temperature_conversion_busy(dev) && timeout < max_timeout) {
+		mdelay(1);
 		timeout++;
 	}
 }
 
-void ds3231_calibrate_temperature(void)
+void ds3231_trigger_temperature_conversion(struct ds3231_device *dev)
+{
+	u32 reg;
+
+	regmap_read(dev->regmap, CONTROL, &reg);
+
+	/* Set CONV bit to trigger temperature conversion */
+	reg |= DS3231_CONTROL_CONV_BIT;
+
+	regmap_write(dev->regmap, CONTROL, reg);
+
+	/* Wait for conversion to complete */
+	ds3231_wait_for_temperature_conversion(dev);
+}
+
+void ds3231_calibrate_temperature(struct ds3231_device *dev)
 {
 	float current_temp;
 	float reference_temp = 25.0f; /* Room temperature reference */
 	float offset;
 
 	/* Trigger temperature conversion */
-	ds3231_trigger_temperature_conversion();
+	ds3231_trigger_temperature_conversion(dev);
 
 	/* Wait for conversion to complete */
-	ds3231_wait_for_temperature_conversion();
+	ds3231_wait_for_temperature_conversion(dev);
 
 	/* Get current temperature */
-	ds3231_get_temperature_with_precision(&current_temp);
+	current_temp = ds3231_get_temperature_with_precision(dev);
 
 	/* Calculate offset needed */
 	offset = reference_temp - current_temp;
 
 	/* Set the compensation offset */
-	ds3231_set_temperature_compensation(offset);
+	ds3231_set_temperature_compensation(dev, offset);
 }
 
-void ds3231_disable_oscillator(void)
+void ds3231_disable_oscillator(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	/* Set EOSC bit to disable oscillator */
 	reg |= DS3231_CONTROL_EOSC_BIT;
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-void ds3231_enable_battery_backup(void)
+void ds3231_enable_battery_backup(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	/* Clear BBSQW bit to enable battery backup square wave */
 	reg &= ~DS3231_CONTROL_BBSQW_BIT;
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-void ds3231_disable_battery_backup(void)
+void ds3231_disable_battery_backup(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	/* Set BBSQW bit to disable battery backup square wave */
 	reg |= DS3231_CONTROL_BBSQW_BIT;
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-u8 ds3231_is_battery_backup_enabled(void)
+u8 ds3231_is_battery_backup_enabled(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	return (reg & DS3231_CONTROL_BBSQW_BIT) ? 0 : 1;
 }
 
-void ds3231_reset_oscillator_stop_flag(void)
+void ds3231_reset_oscillator_stop_flag(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL_STATUS, &reg);
+	regmap_read(dev->regmap, CONTROL_STATUS, &reg);
 
 	/* Clear OSF bit */
 	reg &= ~DS3231_STATUS_OSF_BIT;
 
-	ds3231_port_transmit(CONTROL_STATUS, reg);
+	regmap_write(dev->regmap, CONTROL_STATUS, reg);
 }
 
-void ds3231_set_32khz_output(u8 enable)
+void ds3231_set_32khz_output(struct ds3231_device *dev, u8 enable)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL_STATUS, &reg);
+	regmap_read(dev->regmap, CONTROL_STATUS, &reg);
 
 	if (enable) {
 		reg |= DS3231_STATUS_EN32KHZ_BIT;
@@ -853,23 +899,23 @@ void ds3231_set_32khz_output(u8 enable)
 		reg &= ~DS3231_STATUS_EN32KHZ_BIT;
 	}
 
-	ds3231_port_transmit(CONTROL_STATUS, reg);
+	regmap_write(dev->regmap, CONTROL_STATUS, reg);
 }
 
-u8 ds3231_is_32khz_output_enabled(void)
+u8 ds3231_is_32khz_output_enabled(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL_STATUS, &reg);
+	regmap_read(dev->regmap, CONTROL_STATUS, &reg);
 
 	return (reg & DS3231_STATUS_EN32KHZ_BIT) ? 1 : 0;
 }
 
-void ds3231_configure_square_wave(u8 frequency, u8 battery_backup)
+void ds3231_configure_square_wave(struct ds3231_device *dev, u8 frequency, u8 battery_backup)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	/* Configure frequency bits */
 	reg &= ~(DS3231_CONTROL_RS1_BIT | DS3231_CONTROL_RS2_BIT);
@@ -897,60 +943,60 @@ void ds3231_configure_square_wave(u8 frequency, u8 battery_backup)
 		reg |= DS3231_CONTROL_BBSQW_BIT;
 	}
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-void ds3231_enable_interrupt_mode(void)
+void ds3231_enable_interrupt_mode(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	/* Set INTCN bit to enable interrupt mode */
 	reg |= DS3231_CONTROL_INTCN_BIT;
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-void ds3231_disable_interrupt_mode(void)
+void ds3231_disable_interrupt_mode(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	/* Clear INTCN bit to disable interrupt mode (square wave mode) */
 	reg &= ~DS3231_CONTROL_INTCN_BIT;
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-u8 ds3231_is_interrupt_mode_enabled(void)
+u8 ds3231_is_interrupt_mode_enabled(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	return (reg & DS3231_CONTROL_INTCN_BIT) ? 1 : 0;
 }
 
-void ds3231_emergency_oscillator_enable(void)
+void ds3231_emergency_oscillator_enable(struct ds3231_device *dev)
 {
 	/* This function enables the oscillator in emergency conditions */
-	ds3231_enable_oscillator();
+	ds3231_enable_oscillator(dev);
 
 	/* Clear any oscillator stop flag */
-	ds3231_reset_oscillator_stop_flag();
+	ds3231_reset_oscillator_stop_flag(dev);
 
 	/* Enable 32kHz output */
-	ds3231_set_32khz_output(1);
+	ds3231_set_32khz_output(dev, 1);
 }
 
-u8 ds3231_check_power_status(void)
+u8 ds3231_check_power_status(struct ds3231_device *dev)
 {
 	u8 status = 0;
-	u8 control_status = 0;
+	u32 control_status = 0;
 
-	ds3231_port_receive(CONTROL_STATUS, &control_status);
+	regmap_read(dev->regmap, CONTROL_STATUS, &control_status);
 
 	/* Check oscillator stop flag */
 	if (control_status & DS3231_STATUS_OSF_BIT) {
@@ -958,7 +1004,7 @@ u8 ds3231_check_power_status(void)
 	}
 
 	/* Check if device is running on battery backup */
-	/* Note: DS3231 doesn't directly report this, so we infer from other indicators */
+	/* Note: ds3231 doesn't directly report this, so we infer from other indicators */
 	if (control_status & DS3231_STATUS_BSY_BIT) {
 		status |= 0x02; /* Busy state - may indicate battery operation */
 	}
@@ -966,131 +1012,103 @@ u8 ds3231_check_power_status(void)
 	return status;
 }
 
-void ds3231_initialize_device(void)
+void ds3231_soft_reset(struct ds3231_device *dev)
 {
-	/* Initialize IIC master */
-	ds3231_iic->init();
-
-	/* Enable oscillator */
-	ds3231_enable_oscillator();
-
-	/* Reset oscillator stop flag */
-	ds3231_reset_oscillator_stop_flag();
-
-	/* Configure for 1Hz square wave output */
-	ds3231_configure_square_wave(DS3231_SQW_FREQ_1HZ, 1);
-
-	/* Enable interrupt mode */
-	ds3231_enable_interrupt_mode();
-
-	/* Enable automatic temperature compensation */
-	ds3231_enable_auto_temperature_compensation();
-
-	/* Enable battery backup square wave */
-	ds3231_enable_battery_backup();
-
-	/* Disable 32kHz output by default */
-	ds3231_set_32khz_output(0);
-}
-
-void ds3231_soft_reset(void)
-{
-	u8 reg = 0;
+	u32 reg;
 
 	/* Save current control register settings */
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	/* Clear all control bits except INTCN */
 	u8 new_reg = reg & DS3231_CONTROL_INTCN_BIT;
 
 	/* Temporarily set all bits */
 	reg |= 0xFF;
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 
-	/* Small delay */
-	for (volatile u32 i = 0; i < 10000; i++);
+	mdelay(10);
 
 	/* Restore control register with proper configuration */
-	ds3231_port_transmit(CONTROL, new_reg);
+	regmap_write(dev->regmap, CONTROL, new_reg);
 
 	/* Reset alarm flags */
-	ds3231_clear_alarm1_flag();
-	ds3231_clear_alarm2_flag();
+	ds3231_clear_alarm1_flag(dev);
+	ds3231_clear_alarm2_flag(dev);
 }
 
-void ds3231_disable_alarm1(void)
+void ds3231_disable_alarm1(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	/* Clear A1IE bit to disable alarm 1 */
 	reg &= ~DS3231_CONTROL_A1IE_BIT;
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-void ds3231_disable_alarm2(void)
+void ds3231_disable_alarm2(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	/* Clear A2IE bit to disable alarm 2 */
 	reg &= ~DS3231_CONTROL_A2IE_BIT;
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-void ds3231_enable_alarm1_mask(u8 mask)
+void ds3231_enable_alarm1_mask(struct ds3231_device *dev, u8 mask)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	/* Set A1IE bit to enable alarm 1 */
 	reg |= DS3231_CONTROL_A1IE_BIT;
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-void ds3231_enable_alarm2_mask(u8 mask)
+void ds3231_enable_alarm2_mask(struct ds3231_device *dev, u8 mask)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL, &reg);
+	regmap_read(dev->regmap, CONTROL, &reg);
 
 	/* Set A2IE bit to enable alarm 2 */
 	reg |= DS3231_CONTROL_A2IE_BIT;
 
-	ds3231_port_transmit(CONTROL, reg);
+	regmap_write(dev->regmap, CONTROL, reg);
 }
 
-void ds3231_get_alarm1_status(u8 *pstatus)
+void ds3231_get_alarm1_status(struct ds3231_device *dev, u8 *pstatus)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL_STATUS, &reg);
+	regmap_read(dev->regmap, CONTROL_STATUS, &reg);
 
 	*pstatus = (reg & DS3231_STATUS_A1F_BIT) ? 1 : 0;
 }
 
-void ds3231_get_alarm2_status(u8 *pstatus)
+void ds3231_get_alarm2_status(struct ds3231_device *dev, u8 *pstatus)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ds3231_port_receive(CONTROL_STATUS, &reg);
+	regmap_read(dev->regmap, CONTROL_STATUS, &reg);
 
 	*pstatus = (reg & DS3231_STATUS_A2F_BIT) ? 1 : 0;
 }
 
-void ds3231_clear_all_alarm_flags(void)
+void ds3231_clear_all_alarm_flags(struct ds3231_device *dev)
 {
-	ds3231_clear_alarm1_flag();
-	ds3231_clear_alarm2_flag();
+	ds3231_clear_alarm1_flag(dev);
+	ds3231_clear_alarm2_flag(dev);
 }
 
-void ds3231_set_alarm1_with_seconds(u8 seconds, u8 minutes, u8 hours, u8 day_date, u8 mask)
+void ds3231_set_alarm1_with_seconds(struct ds3231_device *dev, u8 seconds, u8 minutes, u8 hours, u8 day_date, u8 mask)
 {
 	u8 tmp[4] = {0, 0, 0, 0};
 
@@ -1098,13 +1116,13 @@ void ds3231_set_alarm1_with_seconds(u8 seconds, u8 minutes, u8 hours, u8 day_dat
 	tmp[0] = ((seconds / 10) << 4) | (seconds % 10);
 	tmp[1] = ((minutes / 10) << 4) | (minutes % 10);
 
-	if (g_time_mode == DS3231_HOURS12) {
+	if (dev->time_mode == DS3231_HOURS12) {
 		if (hours > 12) {
 			hours -= 12;
 		}
 		tmp[2] = ((hours / 10) << 4) | (hours % 10);
 		tmp[2] |= DS3231_HOURS_12_24_BIT;
-		if (g_time_region == DS3231_PM) {
+		if (dev->time_region == DS3231_PM) {
 			tmp[2] |= DS3231_HOURS_AM_PM_BIT;
 		}
 	} else {
@@ -1134,23 +1152,23 @@ void ds3231_set_alarm1_with_seconds(u8 seconds, u8 minutes, u8 hours, u8 day_dat
 		tmp[3] |= DS3231_ALARM_MASK;
 	}
 
-	ds3231_port_multi_transmit(ALARM_1_SECONDS, tmp, 4);
+	regmap_bulk_write(dev->regmap, ALARM_1_SECONDS, tmp, 4);
 }
 
-void ds3231_set_alarm2_with_minutes(u8 minutes, u8 hours, u8 day_date, u8 mask)
+void ds3231_set_alarm2_with_minutes(struct ds3231_device *dev, u8 minutes, u8 hours, u8 day_date, u8 mask)
 {
 	u8 tmp[3] = {0, 0, 0};
 
 	/* Convert values to BCD format */
 	tmp[0] = ((minutes / 10) << 4) | (minutes % 10);
 
-	if (g_time_mode == DS3231_HOURS12) {
+	if (dev->time_mode == DS3231_HOURS12) {
 		if (hours > 12) {
 			hours -= 12;
 		}
 		tmp[1] = ((hours / 10) << 4) | (hours % 10);
 		tmp[1] |= DS3231_HOURS_12_24_BIT;
-		if (g_time_region == DS3231_PM) {
+		if (dev->time_region == DS3231_PM) {
 			tmp[1] |= DS3231_HOURS_AM_PM_BIT;
 		}
 	} else {
@@ -1177,15 +1195,15 @@ void ds3231_set_alarm2_with_minutes(u8 minutes, u8 hours, u8 day_date, u8 mask)
 		tmp[2] |= DS3231_ALARM_MASK;
 	}
 
-	ds3231_port_multi_transmit(ALARM_2_MINUTES, tmp, 3);
+	regmap_bulk_write(dev->regmap, ALARM_2_MINUTES, tmp, 3);
 }
 
-u8 ds3231_check_alarm_interrupt_source(void)
+u8 ds3231_check_alarm_interrupt_source(struct ds3231_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 	u8 source = 0;
 
-	ds3231_port_receive(CONTROL_STATUS, &reg);
+	regmap_read(dev->regmap, CONTROL_STATUS, &reg);
 
 	if (reg & DS3231_STATUS_A1F_BIT) {
 		source |= 0x01; /* Alarm 1 triggered */
@@ -1197,30 +1215,30 @@ u8 ds3231_check_alarm_interrupt_source(void)
 	return source;
 }
 
-void ds3231_disable_all_alarms(void)
+void ds3231_disable_all_alarms(struct ds3231_device *dev)
 {
-	ds3231_disable_alarm1();
-	ds3231_disable_alarm2();
-	ds3231_clear_all_alarm_flags();
+	ds3231_disable_alarm1(dev);
+	ds3231_disable_alarm2(dev);
+	ds3231_clear_all_alarm_flags(dev);
 }
 
-void ds3231_enable_matched_alarm_only(u8 alarm_number)
+void ds3231_enable_matched_alarm_only(struct ds3231_device *dev, u8 alarm_number)
 {
-	ds3231_disable_all_alarms();
+	ds3231_disable_all_alarms(dev);
 
 	if (alarm_number == 1) {
-		ds3231_enable_alarm1_mask(0xFF);
+		ds3231_enable_alarm1_mask(dev, 0xFF);
 	} else if (alarm_number == 2) {
-		ds3231_enable_alarm2_mask(0xFF);
+		ds3231_enable_alarm2_mask(dev, 0xFF);
 	}
 }
 
-u8 ds3231_get_alarm1_configuration(u8 *pseconds, u8 *pminutes, u8 *phours, u8 *pday_date, u8 *pmask)
+u8 ds3231_get_alarm1_configuration(struct ds3231_device *dev, u8 *pseconds, u8 *pminutes, u8 *phours, u8 *pday_date, u8 *pmask)
 {
 	u8 tmp[4] = {0};
 	u8 ret = 0;
 
-	ds3231_port_multi_transmit(ALARM_1_SECONDS, tmp, 4);
+	regmap_bulk_write(dev->regmap, ALARM_1_SECONDS, tmp, 4);
 
 	/* Extract values */
 	*pseconds = ((tmp[0] & 0x70) >> 4) * 10 + (tmp[0] & 0x0F);
@@ -1232,11 +1250,11 @@ u8 ds3231_get_alarm1_configuration(u8 *pseconds, u8 *pminutes, u8 *phours, u8 *p
 		if (tmp[2] & DS3231_HOURS_AM_PM_BIT) {
 			*phours += 12; /* PM */
 		}
-		g_time_mode = DS3231_HOURS12;
+		dev->time_mode = DS3231_HOURS12;
 	} else {
 		/* 24-hour mode */
 		*phours = ((tmp[2] & 0x30) >> 4) * 10 + (tmp[2] & 0x0F);
-		g_time_mode = DS3231_HOURS24;
+		dev->time_mode = DS3231_HOURS24;
 	}
 
 	if (tmp[3] & DS3231_ALARM_DY_DT_BIT) {
@@ -1263,136 +1281,278 @@ u8 ds3231_get_alarm1_configuration(u8 *pseconds, u8 *pminutes, u8 *phours, u8 *p
 	return ret;
 }
 
-#ifdef DESIGN_VERIFICATION_DS3231
-#include "kinetis/test-kinetis.h"
-#include "kinetis/random-gene.h"
-
-#include <linux/iopoll.h>
-#include <linux/printk.h>
-
-/* Simulated DS3231 register map */
-static struct {
-	u8 seconds;       /* Seconds register (0x00) */
-	u8 minutes;       /* Minutes register (0x01) */
-	u8 hours;         /* Hours register (0x02) */
-	u8 day;           /* Day of week register (0x03) */
-	u8 date;          /* Date register (0x04) */
-	u8 month;         /* Month/Century register (0x05) */
-	u8 year;          /* Year register (0x06) */
-	u8 alarm1_sec;    /* Alarm 1 Seconds (0x07) */
-	u8 alarm1_min;    /* Alarm 1 Minutes (0x08) */
-	u8 alarm1_hour;   /* Alarm 1 Hours (0x09) */
-	u8 alarm1_day;    /* Alarm 1 Day/Date (0x0A) */
-	u8 alarm2_min;    /* Alarm 2 Minutes (0x0B) */
-	u8 alarm2_hour;   /* Alarm 2 Hours (0x0C) */
-	u8 alarm2_day;    /* Alarm 2 Day/Date (0x0D) */
-	u8 control;       /* Control register (0x0E) */
-	u8 status;        /* Status register (0x0F) */
-	u8 aging;         /* Aging offset (0x10) */
-	u8 temp_msb;      /* Temperature MSB (0x11) */
-	u8 temp_lsb;      /* Temperature LSB (0x12) */
-} ds3231_slave_regs = {
-	.seconds = 0x00,
-	.minutes = 0x30,
-	.hours = 0x14,
-	.day = 0x05,
-	.date = 0x25,
-	.month = 0x12,
-	.year = 0x23,
-	.alarm1_sec = 0x00,
-	.alarm1_min = 0x30,
-	.alarm1_hour = 0x14,
-	.alarm1_day = 0x80,
-	.alarm2_min = 0x30,
-	.alarm2_hour = 0x14,
-	.alarm2_day = 0x80,
-	.control = 0x00,
-	.status = 0x00,
-	.aging = 0x00,
-	.temp_msb = 0x19,
-	.temp_lsb = 0x00,
+static const struct regmap_range ds3231_volatile_ranges[] = {
+	regmap_reg_range(0x00, 0x06),  /* Time/date registers */
+	regmap_reg_range(0x0F, 0x0F),  /* Control status */
+	regmap_reg_range(0x11, 0x12),  /* Temperature registers */
 };
 
-/**
- * @brief Start DS3231 I2C slave simulation for testing
- */
-int ds3231_slave_start(void)
+static const struct regmap_access_table ds3231_volatile_table = {
+	.yes_ranges = ds3231_volatile_ranges,
+	.n_yes_ranges = ARRAY_SIZE(ds3231_volatile_ranges),
+};
+
+static const struct regmap_config ds3231_regmap_config = {
+	.reg_bits = 8,
+	.val_bits = 8,
+	.max_register = 0x12,  /* LSB_OF_TEMP */
+	.volatile_table = &ds3231_volatile_table,
+	.cache_type = REGCACHE_NONE,
+};
+
+/* Box-Muller transform for Gaussian noise */
+static float ds3231_gaussian_noise(float mean, float std_dev)
 {
-	/* Create I2C slave device with address 0x68 (thread is auto-started in iic_slave_soft_init) */
-	ds3231_slave = iic_slave_soft_init("ds3231", DS3231_ADDR, (u8 *)&ds3231_slave_regs, sizeof(ds3231_slave_regs));
-	if (IS_ERR(ds3231_slave)) {
-		pr_err("ds3231_slave: Failed to initialize I2C slave");
-		return PTR_ERR(ds3231_slave);
-	}
+	static u32 use_last = 0;
+	static float z2, z1;
+	float u1, u2, z0;
 
-	pr_info("ds3231_slave: Initialized at I2C address 0x%02X", DS3231_ADDR);
+	if (!use_last) {
+		u1 = (float)get_random_u32() / (float)U32_MAX;
+		u2 = (float)get_random_u32() / (float)U32_MAX;
 
-	return 0;
-}
+		/* Ensure u1 is not zero */
+		if (u1 == 0.0f)
+			u1 = 0.0001f;
 
-/**
- * @brief Stop DS3231 I2C slave simulation for testing
- */
-int ds3231_slave_stop(void)
-{
-	if (ds3231_slave) {
-		/* Stop and free I2C slave (thread is auto-stopped in iic_slave_soft_exit) */
-		iic_slave_soft_exit(ds3231_slave);
-		ds3231_slave = NULL;
-		return 0;
-	}
+		z0 = sqrtf(-2.0f * logf(u1)) * sinf(2.0f * M_PI * u2);
+		z2 = sqrtf(-2.0f * logf(u1)) * cosf(2.0f * M_PI * u2);
 
-	pr_warn("ds3231_slave: No slave instance to stop");
-	return 0;
-}
-
-/**
- * @brief Test DS3231 I2C slave communication
- */
-int ds3231_slave_test(void)
-{
-	u8 time[7];
-	char time_str[16];
-	int ret = PASS;
-
-	pr_info("=== DS3231 Slave Communication Test ===");
-
-	/* Test 1: Read time */
-	ds3231_get_time(time, DS3231_FORMAT_BIN);
-	pr_info("Test 1 - Time: %02d:%02d:%02d, Date: %02d/%02d/20%02d",
-		time[2], time[1], time[0], time[4], time[3], time[5]);
-
-	/* Test 2: Write time */
-	ds3231_set_time_mode(DS3231_HOURS24);
-	u8 test_time[7] = {30, 45, 14, 5, 25, 12, 23};
-	ds3231_set_time(test_time, DS3231_FORMAT_BIN);
-	ds3231_get_time(time, DS3231_FORMAT_BIN);
-
-	if (time[2] == 14 && time[1] == 45 && time[0] == 30) {
-		pr_info("Test 2 - Time write successful");
+		z1 = z0;
+		use_last = 1;
 	} else {
-		pr_err("Test 2 - Time write verification failed");
-		ret = FAIL;
+		z1 = z2;
+		use_last = 0;
 	}
 
-	/* Test 3: Temperature read */
-	float temp;
-	ds3231_get_temperature(&temp);
-	pr_info("Test 3 - Temperature: %.2f°C", temp);
-
-	/* Test 4: Check status */
-	if (ds3231_oscillator_stop_flag()) {
-		pr_info("Test 4 - Oscillator stop flag is set");
-	}
-
-	pr_info("=== All DS3231 Slave Tests Completed ===");
-	return ret;
+	return z1 * std_dev + mean;
 }
 
-int t_ds3231_program_thread(int argc, char **argv)
+static void *ds3231_reg_random_thread(void *arg)
+{
+	struct ds3231_device *dev = arg;
+	static u8 seconds = 0, minutes = 0, hours = 0;
+	static u8 day = 1, date = 1, month = 1, year = 24;
+	static u32 tick_count = 0;
+	s16 temperature;
+
+	/* Initialize fixed registers at thread startup */
+	dev->slave_regs[DS3231_REG_CONTROL] = 0x1C;  /* INTCN=1, BBSQW=1 */
+	dev->slave_regs[DS3231_REG_CONTROL_STATUS] = 0x00;
+	dev->slave_regs[DS3231_REG_AGING_OFFSET] = 0x00;
+
+	while (dev->thread_running) {
+		/* Update time every second */
+		tick_count++;
+
+		if (tick_count % 100 == 0) {  /* 100 ticks = 1 second */
+			seconds++;
+
+			/* Handle minute rollover */
+			if (seconds >= 60) {
+				seconds = 0;
+				minutes++;
+
+				/* Handle hour rollover */
+				if (minutes >= 60) {
+					minutes = 0;
+					hours++;
+
+					/* Handle day rollover */
+					if (hours >= 24) {
+						hours = 0;
+						day = (day % 7) + 1;
+						date++;
+
+						/* Handle month rollover */
+						if (date > 31) {
+							date = 1;
+							month++;
+
+							/* Handle year rollover */
+							if (month > 12) {
+								month = 1;
+								year = (year + 1) % 100;
+							}
+						}
+					}
+				}
+			}
+
+			/* Convert to BCD format */
+			dev->slave_regs[DS3231_REG_SECONDS] = ((seconds / 10) << 4) | (seconds % 10);
+			dev->slave_regs[DS3231_REG_MINUTES] = ((minutes / 10) << 4) | (minutes % 10);
+			dev->slave_regs[DS3231_REG_HOURS] = ((hours / 10) << 4) | (hours % 10);
+			dev->slave_regs[DS3231_REG_DAY] = day;
+			dev->slave_regs[DS3231_REG_DATE] = ((date / 10) << 4) | (date % 10);
+			dev->slave_regs[DS3231_REG_MONTH_CENTURY] = ((month / 10) << 4) | (month % 10);
+			dev->slave_regs[DS3231_REG_YEAR] = ((year / 10) << 4) | (year % 10);
+		}
+
+		/* Update temperature every 100ms with noise */
+		temperature = (s16)ds3231_gaussian_noise(25.0f, 0.5f);
+
+		/* Convert temperature to DS3231 format (0.25°C/LSB) */
+		dev->slave_regs[DS3231_REG_TEMP_MSB] = (u8)((temperature >> 6) & 0xFF);
+		dev->slave_regs[DS3231_REG_TEMP_LSB] = (u8)((temperature << 2) & 0xC0);
+
+		/* Sleep for 10ms (100Hz update rate for temp, 1Hz for time) */
+		msleep(10);
+	}
+
+	return 0;
+}
+
+static pthread_t reg_thread;
+
+static int ds3231_start_reg_random(struct ds3231_device *dev)
 {
 	int ret;
+
+	dev->thread_running = true;
+
+	ret = pthread_create(&reg_thread, NULL,
+			ds3231_reg_random_thread, dev);
+	if (ret) {
+		return -ret;
+	}
+
+	/* Wait for thread to initialize */
+	msleep(100);
+
+	return 0;
+}
+
+void ds3231_stop_reg_random(struct ds3231_device *dev)
+{
+	dev->thread_running = false;
+	pthread_join(reg_thread, NULL);
+}
+
+struct ds3231_device *ds3231_init(enum regmap_user_bus_type bus_type, void *bus_master)
+{
+	struct ds3231_device *dev;
+	int ret;
+
+	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	if (!dev) {
+		return ERR_PTR(-ENOMEM);
+	}
+
+	/* Initialize regmap based on bus type */
+	if (bus_type == REGMAP_BUS_IIC_SOFT) {
+		dev->regmap = regmap_init_iic_soft(bus_master, DS3231_ADDR, &ds3231_regmap_config);
+	} else if (bus_type == REGMAP_BUS_SPI_SOFT) {
+		dev->regmap = regmap_init_spi_soft(bus_master, &ds3231_regmap_config);
+	} else {
+		pr_err("Invalid bus type specified for ds3231 initialization\n");
+		kfree(dev);
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (IS_ERR(dev->regmap)) {
+		kfree(dev);
+		return NULL;
+	}
+
+	/* Allocate register space for slave simulation */
+	dev->slave_regs = kmalloc(ds3231_regmap_config.max_register + 1, GFP_KERNEL);
+	if (!dev->slave_regs) {
+		regmap_exit(dev->regmap);
+		kfree(dev);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	/* Initialize simulated registers with default values */
+	memset(dev->slave_regs, 0, ds3231_regmap_config.max_register + 1);
+	dev->slave_regs[DS3231_REG_SECONDS] = 0x00;
+	dev->slave_regs[DS3231_REG_CONTROL] = 0x1C;  /* INTCN=1, A1IE=0, A2IE=0, BBSQW=1 */
+	dev->slave_regs[DS3231_REG_TEMP_MSB] = 0x0D;
+	dev->slave_regs[DS3231_REG_TEMP_LSB] = 0x48;  /* ~25°C */
+	ret = ds3231_start_reg_random(dev);
+	if (ret) {
+		return NULL;
+	}
+
+	/* Initialize slave for testing */
+	if (bus_type == REGMAP_BUS_SPI_SOFT) {
+		dev->spi_slave = spi_slave_soft_init("ds3231", 0, 0, SPI_BIT_ORDER_MSB,
+				dev->slave_regs, ds3231_regmap_config.max_register + 1);
+		if (IS_ERR(dev->spi_slave)) {
+			pr_err("ds3231: Failed to initialize SPI slave\n");
+			kfree(dev->slave_regs);
+			regmap_exit(dev->regmap);
+			kfree(dev);
+			return NULL;
+		}
+	} else {
+		dev->iic_slave = iic_slave_soft_init("ds3231", DS3231_ADDR,
+				dev->slave_regs, ds3231_regmap_config.max_register + 1);
+		if (IS_ERR(dev->iic_slave)) {
+			pr_err("ds3231: Failed to initialize I2C slave\n");
+			kfree(dev->slave_regs);
+			regmap_exit(dev->regmap);
+			kfree(dev);
+			return NULL;
+		}
+	}
+
+	/* Initialize default time mode and region */
+	dev->time_mode = DS3231_HOURS24;
+	dev->time_region = DS3231_FORMAT_BCD;
+
+	/* Enable oscillator */
+	ds3231_enable_oscillator(dev);
+
+	/* Reset oscillator stop flag */
+	ds3231_reset_oscillator_stop_flag(dev);
+
+	/* Configure for 1Hz square wave output */
+	ds3231_configure_square_wave(dev, DS3231_SQW_FREQ_1HZ, 1);
+
+	/* Enable interrupt mode */
+	ds3231_enable_interrupt_mode(dev);
+
+	/* Enable automatic temperature compensation */
+	ds3231_enable_auto_temperature_compensation(dev);
+
+	/* Enable battery backup square wave */
+	ds3231_enable_battery_backup(dev);
+
+	/* Disable 32kHz output by default */
+	ds3231_set_32khz_output(dev, 0);
+
+	pr_info("ds3231 device initialized successfully\n");
+
+	return dev;
+}
+
+void ds3231_exit(struct ds3231_device *dev)
+{
+	ds3231_stop_reg_random(dev);
+
+	if (dev->iic_slave) {
+		iic_slave_soft_exit(dev->iic_slave);
+	}
+
+	if (dev->spi_slave) {
+		spi_slave_soft_exit(dev->spi_slave);
+	}
+
+	regmap_exit(dev->regmap);
+	kfree(dev->slave_regs);
+	kfree(dev);
+}
+
+#ifdef DESIGN_VERIFICATION_DS3231
+#include "kinetis/test-kinetis.h"
+
+static struct ds3231_device *ds3231_dev;
+
+int t_ds3231_initialize(int argc, char **argv)
+{
 	bool on_off = true;
+	enum regmap_user_bus_type bus_type = REGMAP_BUS_IIC_SOFT;
 
 	if (argc > 1) {
 		if (!strcmp(argv[1], "on")) {
@@ -1404,37 +1564,47 @@ int t_ds3231_program_thread(int argc, char **argv)
 		}
 	}
 
-	if (on_off) {
-		ret = ds3231_slave_start();
-		if (ret) {
-			return ret;
-		}
-	} else {
-		ret = ds3231_slave_stop();
-		if (ret) {
-			return ret;
+	if (argc > 2) {
+		if (!strcmp(argv[2], "spi")) {
+			bus_type = REGMAP_BUS_SPI_SOFT;
+		} else if (!strcmp(argv[2], "i2c")) {
+			bus_type = REGMAP_BUS_IIC_SOFT;
+		} else {
+			pr_err("Invalid bus type: %s (use 'i2c' or 'spi')", argv[2]);
+			return -EINVAL;
 		}
 	}
 
-	return PASS;
+	if (on_off) {
+		pr_info("starting ds3231 slave with %s mode", bus_type ? "spi" : "i2c");
+		ds3231_dev = ds3231_init(bus_type, bus_type == REGMAP_BUS_IIC_SOFT ? (void *)&fake_iic_master : (void *)&fake_spi_master);
+		if (IS_ERR_OR_NULL(ds3231_dev)) {
+			return -EINVAL;
+		}
+		return 0;
+	}
+
+	ds3231_exit(ds3231_dev);
+	return 0;
 }
 
 int t_ds3231_set_clock(int argc, char **argv)
 {
+	struct ds3231_device *dev = ds3231_dev;
 	char time[16];
 
-	ds3231_set_time_mode(DS3231_HOURS24);
-	ds3231_set_time_region(DS3231_PM);
-	ds3231_set_time_with_string("200308202020");
-	ds3231_set_week(7);
+	dev->time_mode = DS3231_HOURS24;
+	dev->time_region = DS3231_PM;
+	ds3231_set_time_with_string(dev, "200308202020");
+	ds3231_set_week(dev, 7);
 
-	ds3231_get_time_with_string(time);
+	ds3231_get_time_with_string(dev, time);
 
 	if (strcmp("200308202020", time) != 0) {
 		return false;
 	}
 
-	if (g_time_region == DS3231_AM) {
+	if (dev->time_region == DS3231_AM) {
 		snprintf(&time[12], 4, " DS3231_AM");
 	} else {
 		snprintf(&time[12], 4, " PM");
@@ -1442,11 +1612,12 @@ int t_ds3231_set_clock(int argc, char **argv)
 
 	pr_debug("%s", time);
 
-	return PASS;
+	return 0;
 }
 
 int t_ds3231_get_clock(int argc, char **argv)
 {
+	struct ds3231_device *dev = ds3231_dev;
 	char time[16];
 	u8 i = 0;
 	u16 times = 1;
@@ -1456,9 +1627,9 @@ int t_ds3231_get_clock(int argc, char **argv)
 	}
 
 	for (i = 0; i < times; i++) {
-		ds3231_get_time_with_string(time);
+		ds3231_get_time_with_string(dev, time);
 
-		if (g_time_region == DS3231_AM) {
+		if (dev->time_region == DS3231_AM) {
 			snprintf(&time[12], 4, " DS3231_AM");
 		} else {
 			snprintf(&time[12], 4, " PM");
@@ -1468,11 +1639,12 @@ int t_ds3231_get_clock(int argc, char **argv)
 		mdelay(1000);
 	}
 
-	return PASS;
+	return 0;
 }
 
 int t_ds3231_set_alarm1(int argc, char **argv)
 {
+	struct ds3231_device *dev = ds3231_dev;
 	u8 ret = 0;
 	u8 dy_dt = 0;
 	u8 a1m4 = 0, a1m3 = 0, a1m2 = 0, a1m1 = 0;
@@ -1504,37 +1676,37 @@ int t_ds3231_set_alarm1(int argc, char **argv)
 
 	alarm_rate = (a1m4 << 3) | (a1m3 << 2) | (a1m2 << 1) | a1m1;
 
-	ds3231_enable_int();
-	ds3231_enable_alarm1_int();
+	ds3231_enable_int(dev);
+	ds3231_enable_alarm1_int(dev);
 
 	switch (alarm_rate) {
 	case 0x0F:
-		ds3231_set_alarm1(tmp, 0,
+		ds3231_set_alarm1(dev, tmp, 0,
 			ALARM_MASK_1 | ALARM_MASK_2 | ALARM_MASK_3 | ALARM_MASK_4);
 		delta = basic_timer_get_ss();
 		readb_poll_timeout_atomic(&alarm1_flag, flag, flag == true, 1, 2000);
 		delta = basic_timer_get_ss() - delta;
-		ds3231_clear_alarm1_flag();
+		ds3231_clear_alarm1_flag(dev);
 
 		if (delta == 1) {
-			ret = PASS;
+			ret = 0;
 		} else {
-			ret = FAIL;
+			ret = -1;
 		}
 
 		break;
 
 	case 0x0E:
 		tmp[0] = 0;
-		ds3231_set_alarm1(tmp, 0,
+		ds3231_set_alarm1(dev, tmp, 0,
 			ALARM_MASK_1 | ALARM_MASK_2 | ALARM_MASK_3);
-		ds3231_get_time(time, DS3231_FORMAT_BIN);
-		ds3231_clear_alarm1_flag();
+		ds3231_get_time(dev, time, DS3231_FORMAT_BIN);
+		ds3231_clear_alarm1_flag(dev);
 
 		if (time[6] == 0) {
-			ret = PASS;
+			ret = 0;
 		} else {
-			ret = FAIL;
+			ret = -1;
 		}
 
 		break;
@@ -1542,15 +1714,15 @@ int t_ds3231_set_alarm1(int argc, char **argv)
 	case 0x0C:
 		tmp[0] = 0;
 		tmp[1] = 0;
-		ds3231_set_alarm1(tmp, 0,
+		ds3231_set_alarm1(dev, tmp, 0,
 			ALARM_MASK_1 | ALARM_MASK_2);
-		ds3231_get_time(time, DS3231_FORMAT_BIN);
-		ds3231_clear_alarm1_flag();
+		ds3231_get_time(dev, time, DS3231_FORMAT_BIN);
+		ds3231_clear_alarm1_flag(dev);
 
 		if (time[5] == 0 && time[6] == 0) {
-			ret = PASS;
+			ret = 0;
 		} else {
-			ret = FAIL;
+			ret = -1;
 		}
 
 		break;
@@ -1559,15 +1731,15 @@ int t_ds3231_set_alarm1(int argc, char **argv)
 		tmp[0] = 0;
 		tmp[1] = 0;
 		tmp[2] = 0;
-		ds3231_set_alarm1(tmp, 0,
+		ds3231_set_alarm1(dev, tmp, 0,
 			ALARM_MASK_1);
-		ds3231_get_time(time, DS3231_FORMAT_BIN);
-		ds3231_clear_alarm1_flag();
+		ds3231_get_time(dev, time, DS3231_FORMAT_BIN);
+		ds3231_clear_alarm1_flag(dev);
 
 		if (time[4] == 0 && time[5] == 0 && time[6] == 0) {
-			ret = PASS;
+			ret = 0;
 		} else {
-			ret = FAIL;
+			ret = -1;
 		}
 
 		break;
@@ -1578,30 +1750,30 @@ int t_ds3231_set_alarm1(int argc, char **argv)
 			tmp[1] = 0;
 			tmp[2] = 0;
 			tmp[3] = 0;
-			ds3231_set_alarm1(tmp, 0,
+			ds3231_set_alarm1(dev, tmp, 0,
 				0);
-			ds3231_get_time(time, DS3231_FORMAT_BIN);
-			ds3231_clear_alarm1_flag();
+			ds3231_get_time(dev, time, DS3231_FORMAT_BIN);
+			ds3231_clear_alarm1_flag(dev);
 
 			if (time[3] == 0 && time[4] == 0 && time[5] == 0 && time[6] == 0) {
-				ret = PASS;
+				ret = 0;
 			} else {
-				ret = FAIL;
+				ret = -1;
 			}
 		} else {
 			tmp[0] = 0;
 			tmp[1] = 0;
 			tmp[2] = 0;
 			tmp[3] = 0;
-			ds3231_set_alarm1(tmp, 0,
+			ds3231_set_alarm1(dev, tmp, 0,
 				0);
-			ds3231_get_time(time, DS3231_FORMAT_BIN);
-			ds3231_clear_alarm1_flag();
+			ds3231_get_time(dev, time, DS3231_FORMAT_BIN);
+			ds3231_clear_alarm1_flag(dev);
 
 			if (time[3] == 0 && time[4] == 0 && time[5] == 0 && time[6] == 0) {
-				ret = PASS;
+				ret = 0;
 			} else {
-				ret = FAIL;
+				ret = -1;
 			}
 		}
 
@@ -1613,6 +1785,7 @@ int t_ds3231_set_alarm1(int argc, char **argv)
 
 int t_ds3231_set_alarm2(int argc, char **argv)
 {
+	struct ds3231_device *dev = ds3231_dev;
 	u8 ret = 0;
 	u8 dy_dt = 0;
 	u8 a1m4 = 0, a1m3 = 0, a1m2 = 0, a1m1 = 0;
@@ -1644,17 +1817,17 @@ int t_ds3231_set_alarm2(int argc, char **argv)
 
 	alarm_rate = (a1m4 << 3) | (a1m3 << 2) | (a1m2 << 1) | a1m1;
 
-	ds3231_enable_int();
-	ds3231_enable_alarm2_int();
+	ds3231_enable_int(dev);
+	ds3231_enable_alarm2_int(dev);
 
 	switch (alarm_rate) {
 	case 0x0F:
-		ds3231_set_alarm2(tmp, 0,
+		ds3231_set_alarm2(dev, tmp, 0,
 			ALARM_MASK_1 | ALARM_MASK_2 | ALARM_MASK_3 | ALARM_MASK_4);
 		delta = basic_timer_get_ss();
 		readb_poll_timeout_atomic(&alarm2_flag, flag, flag == true, 1, 2000);
 		delta = basic_timer_get_ss() - delta;
-		ds3231_clear_alarm2_flag();
+		ds3231_clear_alarm2_flag(dev);
 
 		if (delta == 1) {
 			ret = true;
@@ -1666,10 +1839,10 @@ int t_ds3231_set_alarm2(int argc, char **argv)
 
 	case 0x0E:
 		tmp[0] = 0;
-		ds3231_set_alarm2(tmp, 0,
+		ds3231_set_alarm2(dev, tmp, 0,
 			ALARM_MASK_1 | ALARM_MASK_2 | ALARM_MASK_3);
-		ds3231_get_time(time, DS3231_FORMAT_BIN);
-		ds3231_clear_alarm2_flag();
+		ds3231_get_time(dev, time, DS3231_FORMAT_BIN);
+		ds3231_clear_alarm2_flag(dev);
 
 		if (time[6] == 0) {
 			ret = true;
@@ -1682,9 +1855,9 @@ int t_ds3231_set_alarm2(int argc, char **argv)
 	case 0x0C:
 		tmp[0] = 0;
 		tmp[1] = 0;
-		ds3231_set_alarm2(tmp, 0, ALARM_MASK_1 | ALARM_MASK_2);
-		ds3231_get_time(time, DS3231_FORMAT_BIN);
-		ds3231_clear_alarm2_flag();
+		ds3231_set_alarm2(dev, tmp, 0, ALARM_MASK_1 | ALARM_MASK_2);
+		ds3231_get_time(dev, time, DS3231_FORMAT_BIN);
+		ds3231_clear_alarm2_flag(dev);
 
 		if (time[5] == 0 && time[6] == 0) {
 			ret = true;
@@ -1698,9 +1871,9 @@ int t_ds3231_set_alarm2(int argc, char **argv)
 		tmp[0] = 0;
 		tmp[1] = 0;
 		tmp[2] = 0;
-		ds3231_set_alarm2(tmp, 0, ALARM_MASK_1);
-		ds3231_get_time(time, DS3231_FORMAT_BIN);
-		ds3231_clear_alarm2_flag();
+		ds3231_set_alarm2(dev, tmp, 0, ALARM_MASK_1);
+		ds3231_get_time(dev, time, DS3231_FORMAT_BIN);
+		ds3231_clear_alarm2_flag(dev);
 
 		if (time[4] == 0 && time[5] == 0 && time[6] == 0) {
 			ret = true;
@@ -1716,9 +1889,9 @@ int t_ds3231_set_alarm2(int argc, char **argv)
 			tmp[1] = 0;
 			tmp[2] = 0;
 			tmp[3] = 0;
-			ds3231_set_alarm2(tmp, 0, 0);
-			ds3231_get_time(time, DS3231_FORMAT_BIN);
-			ds3231_clear_alarm2_flag();
+			ds3231_set_alarm2(dev, tmp, 0, 0);
+			ds3231_get_time(dev, time, DS3231_FORMAT_BIN);
+			ds3231_clear_alarm2_flag(dev);
 
 			if (time[3] == 0 && time[4] == 0 && time[5] == 0 && time[6] == 0) {
 				ret = true;
@@ -1730,9 +1903,9 @@ int t_ds3231_set_alarm2(int argc, char **argv)
 			tmp[1] = 0;
 			tmp[2] = 0;
 			tmp[3] = 0;
-			ds3231_set_alarm2(tmp, 0, 0);
-			ds3231_get_time(time, DS3231_FORMAT_BIN);
-			ds3231_clear_alarm2_flag();
+			ds3231_set_alarm2(dev, tmp, 0, 0);
+			ds3231_get_time(dev, time, DS3231_FORMAT_BIN);
+			ds3231_clear_alarm2_flag(dev);
 
 			if (time[3] == 0 && time[4] == 0 && time[5] == 0 && time[6] == 0) {
 				ret = true;
@@ -1749,6 +1922,7 @@ int t_ds3231_set_alarm2(int argc, char **argv)
 
 int t_ds3231_square_wave(int argc, char **argv)
 {
+	struct ds3231_device *dev = ds3231_dev;
 	u8 tmp = 0;
 	u8 rs1 = 0, rs2 = 0;
 
@@ -1764,149 +1938,150 @@ int t_ds3231_square_wave(int argc, char **argv)
 
 	switch (tmp) {
 	case SQUARE_WAVE_1HZ:
-		ds3231_rate_select(SQUARE_WAVE_1HZ);
+		ds3231_rate_select(dev, SQUARE_WAVE_1HZ);
 		break;
 
 	case SQUARE_WAVE_1_024HZ:
-		ds3231_rate_select(SQUARE_WAVE_1_024HZ);
+		ds3231_rate_select(dev, SQUARE_WAVE_1_024HZ);
 		break;
 
 	case SQUARE_WAVE_4_096HZ:
-		ds3231_rate_select(SQUARE_WAVE_4_096HZ);
+		ds3231_rate_select(dev, SQUARE_WAVE_4_096HZ);
 		break;
 
 	case SQUARE_WAVE_8_192HZ:
-		ds3231_rate_select(SQUARE_WAVE_8_192HZ);
+		ds3231_rate_select(dev, SQUARE_WAVE_8_192HZ);
 		break;
 
 	default:
 		break;
 	}
 
-	ds3231_rate_select(SQUARE_WAVE_1HZ);
-	ds3231_enable_square_wave();
+	ds3231_rate_select(dev, SQUARE_WAVE_1HZ);
+	ds3231_enable_square_wave(dev);
 
-	return PASS;
+	return 0;
 }
 
 int t_ds3231_32khz_wave(int argc, char **argv)
 {
-	ds3231_enable_32khz_output();
+	struct ds3231_device *dev = ds3231_dev;
+	ds3231_enable_32khz_output(dev);
 
-	return PASS;
+	return 0;
 }
 
 int t_ds3231_get_temprature(int argc, char **argv)
 {
-	float tmp = 0;
+	struct ds3231_device *dev = ds3231_dev;
+	float tmp;
 
-	ds3231_convert_temperature();
-	ds3231_get_temperature(&tmp);
+	ds3231_convert_temperature(dev);
+	tmp = ds3231_get_temperature(dev);
 
-	pr_debug("Temperature is %f", tmp);
+	pr_debug("temperature is %f", tmp);
 
-	return PASS;
+	return 0;
 }
 
 /* Enhanced test functions for comprehensive device testing */
 int t_ds3231_comprehensive_test(int argc, char **argv)
 {
-	u8 ret = PASS;
+	struct ds3231_device *dev = ds3231_dev;
+	u8 ret = 0;
 	u8 status;
 	float temperature;
 	u8 time_data[7];
 	u8 alarm_config[5];
 
-	pr_debug("Starting DS3231 comprehensive test...");
+	pr_debug("Starting ds3231 comprehensive test...");
 
 	/* Test 1: Initialize device */
 	pr_debug("Test 1: Device initialization");
-	ds3231_initialize_device();
-	if (ds3231_check_power_status() != 1) {
+	if (ds3231_check_power_status(dev) != 1) {
 		pr_err("Power status check failed");
-		ret = FAIL;
+		ret = -1;
 		goto test_end;
 	}
 
 	/* Test 2: Temperature functionality */
 	pr_debug("Test 2: Temperature functionality");
-	ds3231_trigger_temperature_conversion();
-	ds3231_wait_for_temperature_conversion();
-	ds3231_get_temperature_with_precision(&temperature);
+	ds3231_trigger_temperature_conversion(dev);
+	ds3231_wait_for_temperature_conversion(dev);
+	temperature = ds3231_get_temperature_with_precision(dev);
 	pr_debug("Temperature: %.2f°C", temperature);
 
 	if (temperature < -40.0f || temperature > 85.0f) {
 		pr_err("Temperature out of expected range");
-		ret = FAIL;
+		ret = -1;
 	}
 
 	/* Test 3: Time functionality */
 	pr_debug("Test 3: Time functionality");
-	ds3231_set_time_mode(DS3231_HOURS24);
+	dev->time_mode = DS3231_HOURS24;
 	u8 test_time[7] = {30, 45, 14, 5, 25, 12, 23}; /* 23:14:45, Dec 25, 2023 */
-	ds3231_set_time(test_time, DS3231_FORMAT_BIN);
+	ds3231_set_time(dev, test_time, DS3231_FORMAT_BIN);
 
 	/* Verify time was set */
-	ds3231_get_time(time_data, DS3231_FORMAT_BIN);
+	ds3231_get_time(dev, time_data, DS3231_FORMAT_BIN);
 	if (time_data[6] != 23 || time_data[5] != 14 || time_data[4] != 45) {
 		pr_err("Time setting verification failed");
-		ret = FAIL;
+		ret = -1;
 	}
 
 	/* Test 4: Alarm functionality */
 	pr_debug("Test 4: Alarm functionality");
-	ds3231_disable_all_alarms();
-	ds3231_clear_all_alarm_flags();
+	ds3231_disable_all_alarms(dev);
+	ds3231_clear_all_alarm_flags(dev);
 
 	/* Set alarm1 for testing */
-	ds3231_set_alarm1_with_seconds(35, 45, 14, 25, 0x00);
-	ds3231_enable_alarm1_mask(0x01);
+	ds3231_set_alarm1_with_seconds(dev, 35, 45, 14, 25, 0x00);
+	ds3231_enable_alarm1_mask(dev, 0x01);
 
 	/* Verify alarm configuration */
-	if (ds3231_get_alarm1_configuration(&alarm_config[0], &alarm_config[1],
-		&alarm_config[2], &alarm_config[3],
-		&alarm_config[4]) != 0) {
+	if (ds3231_get_alarm1_configuration(dev, &alarm_config[0], &alarm_config[1],
+		&alarm_config[2], &alarm_config[3], &alarm_config[4]) != 0) {
 		pr_err("Alarm configuration read failed");
-		ret = FAIL;
+		ret = -1;
 	}
 
 	/* Test 5: Status monitoring */
 	pr_debug("Test 5: Status monitoring");
-	ds3231_get_alarm1_status(&status);
-	ds3231_get_alarm2_status(&status);
+	ds3231_get_alarm1_status(dev, &status);
+	ds3231_get_alarm2_status(dev, &status);
 
 	/* Test 6: Oscillator functionality */
 	pr_debug("Test 6: Oscillator functionality");
-	if (ds3231_oscillator_stop_flag()) {
+	if (ds3231_oscillator_stop_flag(dev)) {
 		pr_debug("Oscillator stop flag is set");
-		ds3231_reset_oscillator_stop_flag();
+		ds3231_reset_oscillator_stop_flag(dev);
 	}
 
 	/* Test 7: Square wave output */
 	pr_debug("Test 7: Square wave output");
-	ds3231_configure_square_wave(DS3231_SQW_FREQ_1024HZ, 1);
+	ds3231_configure_square_wave(dev, DS3231_SQW_FREQ_1024HZ, 1);
 
 	/* Test 8: Battery backup */
 	pr_debug("Test 8: Battery backup functionality");
-	ds3231_enable_battery_backup();
-	if (!ds3231_is_battery_backup_enabled()) {
+	ds3231_enable_battery_backup(dev);
+	if (!ds3231_is_battery_backup_enabled(dev)) {
 		pr_err("Battery backup enable failed");
-		ret = FAIL;
+		ret = -1;
 	}
 
 	/* Test 9: 32kHz output */
 	pr_debug("Test 9: 32kHz output");
-	ds3231_set_32khz_output(1);
-	if (!ds3231_is_32khz_output_enabled()) {
+	ds3231_set_32khz_output(dev, 1);
+	if (!ds3231_is_32khz_output_enabled(dev)) {
 		pr_err("32kHz output enable failed");
-		ret = FAIL;
+		ret = -1;
 	}
 
 test_end:
-	if (ret == PASS) {
-		pr_debug("DS3231 comprehensive test PASSED");
+	if (ret == 0) {
+		pr_debug("ds3231 comprehensive test PASSED");
 	} else {
-		pr_err("DS3231 comprehensive test FAILED");
+		pr_err("ds3231 comprehensive test FAILED");
 	}
 
 	return ret;
@@ -1914,34 +2089,35 @@ test_end:
 
 int t_ds3231_stress_test(int argc, char **argv)
 {
-	u8 ret = PASS;
+	struct ds3231_device *dev = ds3231_dev;
+	u8 ret = 0;
 	u32 test_cycles = 1000;
 	u32 i;
 	float temperature;
 	u8 status;
 
-	pr_debug("Starting DS3231 stress test (%lu cycles)...", test_cycles);
+	pr_debug("Starting ds3231 stress test (%lu cycles)...", test_cycles);
 
 	for (i = 0; i < test_cycles; i++) {
 		/* Temperature test */
-		ds3231_trigger_temperature_conversion();
-		ds3231_wait_for_temperature_conversion();
-		ds3231_get_temperature_with_precision(&temperature);
+		ds3231_trigger_temperature_conversion(dev);
+		ds3231_wait_for_temperature_conversion(dev);
+		temperature = ds3231_get_temperature_with_precision(dev);
 
 		if (temperature < -40.0f || temperature > 85.0f) {
 			pr_err("Temperature out of range at cycle %lu: %.2f°C", i, temperature);
-			ret = FAIL;
+			ret = -1;
 			break;
 		}
 
 		/* Alarm flag test */
-		ds3231_get_alarm1_status(&status);
-		ds3231_get_alarm2_status(&status);
+		ds3231_get_alarm1_status(dev, &status);
+		ds3231_get_alarm2_status(dev, &status);
 
 		/* Power status test */
-		if (ds3231_check_power_status() != 1) {
+		if (ds3231_check_power_status(dev) != 1) {
 			pr_err("Power status failed at cycle %lu", i);
-			ret = FAIL;
+			ret = -1;
 			break;
 		}
 
@@ -1950,10 +2126,10 @@ int t_ds3231_stress_test(int argc, char **argv)
 		}
 	}
 
-	if (ret == PASS) {
-		pr_debug("DS3231 stress test PASSED (%lu cycles)", test_cycles);
+	if (ret == 0) {
+		pr_debug("ds3231 stress test PASSED (%lu cycles)", test_cycles);
 	} else {
-		pr_err("DS3231 stress test FAILED at cycle %lu", i);
+		pr_err("ds3231 stress test FAILED at cycle %lu", i);
 	}
 
 	return ret;

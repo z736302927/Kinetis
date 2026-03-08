@@ -1,163 +1,111 @@
 #include <linux/delay.h>
 #include <linux/err.h>
-#include <math.h>
+#include <linux/slab.h>
+#include <linux/random.h>
+#include <linux/limits.h>
 
 #include "kinetis/max30205.h"
 #include "kinetis/iic_soft.h"
+#include "kinetis/spi_soft.h"
 #include "kinetis/delay.h"
 #include "kinetis/idebug.h"
 #include "kinetis/design_verification.h"
 
-/* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
+#include <pthread.h>
+#include <math.h>
 
-/**
-  * @step 1:  Modify the corresponding function according to the modified area and the corresponding function name.
-  * @step 2:  Modify four areas: GPIO_PORT/GPIO_PIN/Led_TypeDef/LEDn.
-  * @step 3:  .
-  * @step 4:  .
-  * @step 5:
-  */
+/* Register addresses */
+#define MAX30205_REG_TEMP               0x00
+#define MAX30205_REG_CONFIG             0x01
+#define MAX30205_REG_THYST              0x02
+#define MAX30205_REG_TOS                0x03
 
-/* Device I2C address - MAX30205 typically uses 0x48 */
-#define MAX30205_ADDR                    MAX30205_I2C_ADDR
+/* Configuration register bits */
+#define MAX30205_CONFIG_SHUTDOWN_BIT    0x01
+#define MAX30205_CONFIG_MODE_BIT        0x02
+#define MAX30205_CONFIG_OS_POLARITY_BIT 0x04
+#define MAX30205_CONFIG_FAULT_QUEUE_MASK 0x18
+#define MAX30205_CONFIG_DATA_FORMAT_BIT 0x20
+#define MAX30205_CONFIG_TIMEOUT_BIT     0x40
+#define MAX30205_CONFIG_ONE_SHOT_BIT    0x80
 
-static struct iic_master *max30205_iic = &fake_master;
+/* Fault queue values */
+#define MAX30205_FAULT_QUEUE_1          0x00
+#define MAX30205_FAULT_QUEUE_2          0x08
+#define MAX30205_FAULT_QUEUE_4          0x10
+#define MAX30205_FAULT_QUEUE_6          0x18
 
-/* Private variables for calibration and status */
-static float g_temperature_offset = 0.0f;
-static float g_min_temperature_limit = -40.0f;
-static float g_max_temperature_limit = 125.0f;
-static u8 g_device_present = 0;
+/* Operating modes */
+#define MAX30205_MODE_COMPARATOR        0x00
+#define MAX30205_MODE_INTERRUPT         0x01
 
-/* Callback function pointers */
-static void (*g_high_temp_callback)(float temperature) = NULL;
-static void (*g_low_temp_callback)(float temperature) = NULL;
-static void (*g_temp_normal_callback)(void) = NULL;
+/* Temperature conversion macros */
+#define MAX30205_RAW_TO_CELSIUS(raw)    ((float)(raw) * 0.00390625f)
+#define MAX30205_CELSIUS_TO_RAW(celsius) ((u16)((celsius) / 0.00390625f))
 
-/* I/O port functions - using Kinetis I2C implementation */
-static inline void max30205_port_transmit(u8 addr, u8 data)
-{
-	iic_master_port_transmit(max30205_iic, MAX30205_ADDR, addr, data);
-}
+/* Device address (7-bit, 0x48 is typical for MAX30205) */
+#define MAX30205_I2C_ADDR               0x48
 
-static inline void max30205_port_receive(u8 addr, u8 *pdata)
-{
-	iic_master_port_receive(max30205_iic, MAX30205_ADDR, addr, pdata);
-}
+struct max30205_device {
+	struct regmap *regmap;
 
-static inline void max30205_port_multi_transmit(u8 addr, u8 *pdata, u32 length)
-{
-	iic_master_port_multi_transmit(max30205_iic, MAX30205_ADDR, addr, pdata, length);
-}
+	float temperature_offset;
+	float min_temperature;
+	float max_temperature;
+	u8 device_present;
 
-static inline void max30205_port_multi_receive(u8 addr, u8 *pdata, u32 length)
-{
-	iic_master_port_multi_receive(max30205_iic, MAX30205_ADDR, addr, pdata, length);
-}
+	struct iic_slave *iic_slave;
+	struct spi_slave *spi_slave;
+	u8 *slave_regs;
 
-/* Delay functions */
-void max30205_Delayus(u32 ticks)
-{
-	udelay(ticks);
-}
-
-void max30205_Delayms(u32 ticks)
-{
-	mdelay(ticks);
-}
-
-/* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
-
-/* Register definitions - updated to match MAX30205 specifications */
-#define TEMPERATURE                     MAX30205_REG_TEMP
-#define CONFIGURATION                    MAX30205_REG_CONFIG
-#define THYST                           MAX30205_REG_THYST
-#define TOS                             MAX30205_REG_TOS
-
-/* Initialization function */
-void max30205_init(void)
-{
-	u8 config = 0;
-
-	/* Initialize IIC master */
-	max30205_iic->init();
-
-	printk("Initializing MAX30205 temperature sensor...");
-
-	/* Check if device is present */
-	g_device_present = max30205_is_device_present();
-	if (!g_device_present) {
-		printk("ERROR: MAX30205 device not found!");
-		return;
-	}
-
-	/* Read current config to preserve settings */
-	max30205_port_receive(CONFIGURATION, &config);
-	config |= MAX30205_CONFIG_SHUTDOWN_BIT; /* Start in shutdown mode */
-	max30205_port_transmit(CONFIGURATION, config);
-
-	max30205_Delayms(10); /* Wait for configuration to take effect */
-
-	/* Set default configuration */
-	max30205_set_operating_mode(MAX30205_MODE_COMPARATOR);
-	max30205_set_os_polarity(0); /* Active low OS pin */
-	max30205_set_fault_queue(MAX30205_FAULT_QUEUE_1);
-	max30205_set_data_format(0); /* Normal data format */
-	max30205_enable_timeout(1);
-
-	/* Exit shutdown mode */
-	max30205_set_shutdown_mode(0);
-
-	printk("MAX30205 initialized successfully");
-}
+	bool thread_running;
+};
 
 /* Device detection */
-u8 max30205_is_device_present(void)
+u8 max30205_is_device_present(struct max30205_device *dev)
 {
-	u8 test_data = 0;
+	u32 test_data = 0;
 
 	/* Try to read configuration register */
-	max30205_port_receive(CONFIGURATION, &test_data);
+	regmap_read(dev->regmap, MAX30205_REG_CONFIG, &test_data);
 
 	/* A valid MAX30205 should return any value when reading config register */
-	g_device_present = (test_data != 0xFF) ? 1 : 0;
+	dev->device_present = (test_data != 0xFF) ? 1 : 0;
 
-	return g_device_present;
+	return dev->device_present;
 }
 
 /* Core temperature measurement functions */
-u16 max30205_get_raw_temperature(void)
+u16 max30205_get_raw_temperature(struct max30205_device *dev)
 {
 	u8 temp_raw[2];
 
-	max30205_port_multi_receive(TEMPERATURE, temp_raw, 2);
+	regmap_bulk_read(dev->regmap, MAX30205_REG_TEMP, temp_raw, 2);
 
 	return (temp_raw[0] << 8) | temp_raw[1];
 }
 
-void max30205_get_temperature(float *ptemperature)
+float max30205_get_temperature(struct max30205_device *dev)
 {
 	u16 raw_temp;
 
-	raw_temp = max30205_get_raw_temperature();
-	*ptemperature = MAX30205_RAW_TO_CELSIUS(raw_temp);
+	raw_temp = max30205_get_raw_temperature(dev);
+	return MAX30205_RAW_TO_CELSIUS(raw_temp);
 }
 
-/* Get temperature with calibration offset applied */
-float max30205_get_temperature_with_calibration(void)
+float max30205_get_temperature_with_calibration(struct max30205_device *dev)
 {
 	float temperature;
 
-	max30205_get_temperature(&temperature);
-	return temperature + g_temperature_offset;
+	temperature = max30205_get_temperature(dev);
+	return temperature + dev->temperature_offset;
 }
 
-/* Configuration functions */
-void max30205_set_shutdown_mode(u8 enable)
+void max30205_set_shutdown_mode(struct max30205_device *dev, u8 enable)
 {
-	u8 config = 0;
+	u32 config = 0;
 
-	max30205_port_receive(CONFIGURATION, &config);
+	regmap_read(dev->regmap, MAX30205_REG_CONFIG, &config);
 
 	if (enable) {
 		config |= MAX30205_CONFIG_SHUTDOWN_BIT;
@@ -165,14 +113,14 @@ void max30205_set_shutdown_mode(u8 enable)
 		config &= ~MAX30205_CONFIG_SHUTDOWN_BIT;
 	}
 
-	max30205_port_transmit(CONFIGURATION, config);
+	regmap_write(dev->regmap, MAX30205_REG_CONFIG, config);
 }
 
-void max30205_set_operating_mode(u8 mode)
+void max30205_set_operating_mode(struct max30205_device *dev, u8 mode)
 {
-	u8 config = 0;
+	u32 config = 0;
 
-	max30205_port_receive(CONFIGURATION, &config);
+	regmap_read(dev->regmap, MAX30205_REG_CONFIG, &config);
 
 	if (mode == MAX30205_MODE_INTERRUPT) {
 		config |= MAX30205_CONFIG_MODE_BIT;
@@ -180,14 +128,14 @@ void max30205_set_operating_mode(u8 mode)
 		config &= ~MAX30205_CONFIG_MODE_BIT;
 	}
 
-	max30205_port_transmit(CONFIGURATION, config);
+	regmap_write(dev->regmap, MAX30205_REG_CONFIG, config);
 }
 
-void max30205_set_os_polarity(u8 polarity)
+void max30205_set_os_polarity(struct max30205_device *dev, u8 polarity)
 {
-	u8 config = 0;
+	u32 config = 0;
 
-	max30205_port_receive(CONFIGURATION, &config);
+	regmap_read(dev->regmap, MAX30205_REG_CONFIG, &config);
 
 	if (polarity) {
 		config |= MAX30205_CONFIG_OS_POLARITY_BIT;
@@ -195,26 +143,26 @@ void max30205_set_os_polarity(u8 polarity)
 		config &= ~MAX30205_CONFIG_OS_POLARITY_BIT;
 	}
 
-	max30205_port_transmit(CONFIGURATION, config);
+	regmap_write(dev->regmap, MAX30205_REG_CONFIG, config);
 }
 
-void max30205_set_fault_queue(u8 fault_count)
+void max30205_set_fault_queue(struct max30205_device *dev, u8 fault_count)
 {
-	u8 config = 0;
+	u32 config = 0;
 
-	max30205_port_receive(CONFIGURATION, &config);
+	regmap_read(dev->regmap, MAX30205_REG_CONFIG, &config);
 
 	config &= ~MAX30205_CONFIG_FAULT_QUEUE_MASK;
 	config |= fault_count;
 
-	max30205_port_transmit(CONFIGURATION, config);
+	regmap_write(dev->regmap, MAX30205_REG_CONFIG, config);
 }
 
-void max30205_set_data_format(u8 format)
+void max30205_set_data_format(struct max30205_device *dev, u8 format)
 {
-	u8 config = 0;
+	u32 config = 0;
 
-	max30205_port_receive(CONFIGURATION, &config);
+	regmap_read(dev->regmap, MAX30205_REG_CONFIG, &config);
 
 	if (format) {
 		config |= MAX30205_CONFIG_DATA_FORMAT_BIT;
@@ -222,14 +170,14 @@ void max30205_set_data_format(u8 format)
 		config &= ~MAX30205_CONFIG_DATA_FORMAT_BIT;
 	}
 
-	max30205_port_transmit(CONFIGURATION, config);
+	regmap_write(dev->regmap, MAX30205_REG_CONFIG, config);
 }
 
-void max30205_enable_timeout(u8 enable)
+void max30205_enable_timeout(struct max30205_device *dev, u8 enable)
 {
-	u8 config = 0;
+	u32 config = 0;
 
-	max30205_port_receive(CONFIGURATION, &config);
+	regmap_read(dev->regmap, MAX30205_REG_CONFIG, &config);
 
 	if (enable) {
 		config |= MAX30205_CONFIG_TIMEOUT_BIT;
@@ -237,305 +185,453 @@ void max30205_enable_timeout(u8 enable)
 		config &= ~MAX30205_CONFIG_TIMEOUT_BIT;
 	}
 
-	max30205_port_transmit(CONFIGURATION, config);
+	regmap_write(dev->regmap, MAX30205_REG_CONFIG, config);
 }
 
-void max30205_trigger_one_shot(void)
+void max30205_trigger_one_shot(struct max30205_device *dev)
 {
-	u8 config = 0;
+	u32 config = 0;
 
-	max30205_port_receive(CONFIGURATION, &config);
+	regmap_read(dev->regmap, MAX30205_REG_CONFIG, &config);
 	config |= MAX30205_CONFIG_ONE_SHOT_BIT;
-	max30205_port_transmit(CONFIGURATION, config);
+	regmap_write(dev->regmap, MAX30205_REG_CONFIG, config);
 
 	/* Clear the bit after triggering */
-	max30205_Delayus(10);
+	udelay(10);
 	config &= ~MAX30205_CONFIG_ONE_SHOT_BIT;
-	max30205_port_transmit(CONFIGURATION, config);
+	regmap_write(dev->regmap, MAX30205_REG_CONFIG, config);
 }
 
 /* Threshold management functions */
-void max30205_set_threshold_high(u16 threshold_raw)
+void max30205_set_threshold_high(struct max30205_device *dev, u16 threshold_raw)
 {
 	u8 threshold_data[2];
 
+	dev->max_temperature = MAX30205_RAW_TO_CELSIUS(threshold_raw);
 	threshold_data[0] = (threshold_raw >> 8) & 0xFF;
 	threshold_data[1] = threshold_raw & 0xFF;
 
-	max30205_port_multi_transmit(TOS, threshold_data, 2);
+	regmap_bulk_write(dev->regmap, MAX30205_REG_TOS, threshold_data, 2);
 }
 
-void max30205_set_threshold_low(u16 threshold_raw)
+void max30205_set_threshold_low(struct max30205_device *dev, u16 threshold_raw)
 {
 	u8 threshold_data[2];
 
+	dev->min_temperature = MAX30205_RAW_TO_CELSIUS(threshold_raw);
 	threshold_data[0] = (threshold_raw >> 8) & 0xFF;
 	threshold_data[1] = threshold_raw & 0xFF;
 
-	max30205_port_multi_transmit(THYST, threshold_data, 2);
+	regmap_bulk_write(dev->regmap, MAX30205_REG_THYST, threshold_data, 2);
 }
 
-u16 max30205_get_threshold_high(void)
+u16 max30205_get_threshold_high(struct max30205_device *dev)
 {
 	u8 threshold_data[2];
 
-	max30205_port_multi_receive(TOS, threshold_data, 2);
+	regmap_bulk_read(dev->regmap, MAX30205_REG_TOS, threshold_data, 2);
 
 	return (threshold_data[0] << 8) | threshold_data[1];
 }
 
-u16 max30205_get_threshold_low(void)
+u16 max30205_get_threshold_low(struct max30205_device *dev)
 {
 	u8 threshold_data[2];
 
-	max30205_port_multi_receive(THYST, threshold_data, 2);
+	regmap_bulk_read(dev->regmap, MAX30205_REG_THYST, threshold_data, 2);
 
 	return (threshold_data[0] << 8) | threshold_data[1];
 }
 
 /* Status and flag management */
-u8 max30205_check_os_flag(void)
+u8 max30205_check_os_flag(struct max30205_device *dev)
 {
-	u8 config = 0;
+	u32 config = 0;
 
-	max30205_port_receive(CONFIGURATION, &config);
+	regmap_read(dev->regmap, MAX30205_REG_CONFIG, &config);
 
 	/* OS flag is bit 0 of config register when in comparator mode */
 	return (config & 0x01);
 }
 
-void max30205_clear_os_flag(void)
+void max30205_clear_os_flag(struct max30205_device *dev)
 {
 	/* OS flag is cleared by reading the temperature register */
 	u8 temp_data[2];
-	max30205_port_multi_receive(TEMPERATURE, temp_data, 2);
+	regmap_bulk_read(dev->regmap, MAX30205_REG_TEMP, temp_data, 2);
 }
 
-/* Calibration and offset functions */
-void max30205_calibrate_offset(float offset_celsius)
-{
-	g_temperature_offset = offset_celsius;
-	printk("Temperature calibration offset set to: %.3f°C", offset_celsius);
-}
+static const struct regmap_range max30205_volatile_ranges[] = {
+	regmap_reg_range(0x00, 0x00),  /* Temperature register */
+};
 
-/* Temperature limits and callback management */
-void max30205_set_temperature_limits(float min_temp, float max_temp)
-{
-	g_min_temperature_limit = min_temp;
-	g_max_temperature_limit = max_temp;
+static const struct regmap_access_table max30205_volatile_table = {
+	.yes_ranges = max30205_volatile_ranges,
+	.n_yes_ranges = ARRAY_SIZE(max30205_volatile_ranges),
+};
 
-	printk("Temperature limits set: %.2f°C to %.2f°C", min_temp, max_temp);
-}
+static const struct regmap_config max30205_regmap_config = {
+	.reg_bits = 8,
+	.val_bits = 16,  /* Temperature is 16-bit */
+	.max_register = MAX30205_REG_TOS,
+	.volatile_table = &max30205_volatile_table,
+	.cache_type = REGCACHE_NONE,
+};
 
-u8 max30205_check_temperature_limits(float temperature)
+/* Box-Muller transform for Gaussian noise */
+static float max30205_gaussian_noise(float mean, float std_dev)
 {
-	if (temperature > g_max_temperature_limit) {
-		return 1; /* High temperature */
-	} else if (temperature < g_min_temperature_limit) {
-		return 2; /* Low temperature */
+	static u32 use_last = 0;
+	static float z2, z1;
+	float u1, u2, z0;
+
+	if (!use_last) {
+		u1 = (float)get_random_u32() / (float)U32_MAX;
+		u2 = (float)get_random_u32() / (float)U32_MAX;
+
+		/* Ensure u1 is not zero */
+		if (u1 == 0.0f)
+			u1 = 0.0001f;
+
+		z0 = sqrtf(-2.0f * logf(u1)) * sinf(2.0f * M_PI * u2);
+		z2 = sqrtf(-2.0f * logf(u1)) * cosf(2.0f * M_PI * u2);
+
+		z1 = z0;
+		use_last = 1;
+	} else {
+		z1 = z2;
+		use_last = 0;
 	}
 
-	return 0; /* Normal temperature */
+	return z1 * std_dev + mean;
 }
 
-void max30205_register_high_temp_callback(void (*callback)(float temperature))
+static void *max30205_reg_random_thread(void *arg)
 {
-	g_high_temp_callback = callback;
-	printk("High temperature callback registered");
-}
+	struct max30205_device *dev = arg;
+	u16 temp_raw;
+	float temperature;
+	u8 config, conv_bits;
+	u32 update_period_ms;
+	bool one_shot_triggered;
 
-void max30205_register_low_temp_callback(void (*callback)(float temperature))
-{
-	g_low_temp_callback = callback;
-	printk("Low temperature callback registered");
-}
+	/* Initialize fixed registers at thread startup */
+	dev->slave_regs[MAX30205_REG_CONFIG] = 0x00;  /* Normal mode */
 
-void max30205_register_temp_normal_callback(void (*callback)(void))
-{
-	g_temp_normal_callback = callback;
-	printk("Temperature normal callback registered");
-}
+	one_shot_triggered = false;
 
-/* Temperature alert processing */
-void max30205_process_temperature_alert(float temperature)
-{
-	u8 limit_status = max30205_check_temperature_limits(temperature);
+	while (dev->thread_running) {
+		/* Read CONFIG register */
+		config = dev->slave_regs[MAX30205_REG_CONFIG];
 
-	switch (limit_status) {
-	case 1: /* High temperature */
-		printk("High temperature alert: %.2f°C", temperature);
-		if (g_high_temp_callback != NULL) {
-			g_high_temp_callback(temperature);
+		/* Check shutdown bit (bit 7) */
+		if (config & 0x80) {
+			/* Shutdown mode - no temperature updates */
+			msleep(10);
+			continue;
 		}
-		break;
 
-	case 2: /* Low temperature */
-		printk("Low temperature alert: %.2f°C", temperature);
-		if (g_low_temp_callback != NULL) {
-			g_low_temp_callback(temperature);
-		}
-		break;
+		/* Check ONE_SHOT bit (bit 7 of CONFIG when not in shutdown) */
+		/* In MAX30205, when not in shutdown, bit 7 is reserved */
+		/* We'll check a simulated one-shot trigger */
+		if (one_shot_triggered) {
+			/* One-shot conversion complete */
+			one_shot_triggered = false;
 
-	case 0: /* Normal temperature */
-		printk("Temperature normal: %.2f°C", temperature);
-		if (g_temp_normal_callback != NULL) {
-			g_temp_normal_callback();
+			/* Generate temperature data: ~25°C with noise */
+			temperature = max30205_gaussian_noise(25.0f, 0.5f);
+
+			/* Clamp to valid range (-55°C to +125°C) */
+			if (temperature < -55.0f)
+				temperature = -55.0f;
+			if (temperature > 125.0f)
+				temperature = 125.0f;
+
+			/* Convert to raw units (16-bit, 0.00390625°C/LSB) */
+			temp_raw = (u16)(temperature / 0.00390625f);
+
+			/* Write temperature data to slave registers (big-endian) */
+			dev->slave_regs[MAX30205_REG_TEMP] = (u8)((temp_raw >> 8) & 0xFF);
+			dev->slave_regs[MAX30205_REG_TEMP + 1] = (u8)(temp_raw & 0xFF);
+		} else {
+			/* Continuous mode - check conversion rate */
+			conv_bits = config & 0x07;  /* CONV_BITS[2:0] */
+
+			/* Calculate update period based on conversion rate */
+			switch (conv_bits) {
+			case 0x00:  /* 0.5Hz */
+				update_period_ms = 2000;
+				break;
+			case 0x01:  /* 1Hz */
+				update_period_ms = 1000;
+				break;
+			case 0x02:  /* 2Hz */
+				update_period_ms = 500;
+				break;
+			case 0x03:  /* 4Hz */
+				update_period_ms = 250;
+				break;
+			default:     /* Default to 1Hz */
+				update_period_ms = 1000;
+				break;
+			}
+
+			/* Generate temperature data: ~25°C with noise */
+			temperature = max30205_gaussian_noise(25.0f, 0.5f);
+
+			/* Clamp to valid range (-55°C to +125°C) */
+			if (temperature < -55.0f)
+				temperature = -55.0f;
+			if (temperature > 125.0f)
+				temperature = 125.0f;
+
+			/* Convert to raw units (16-bit, 0.00390625°C/LSB) */
+			temp_raw = (u16)(temperature / 0.00390625f);
+
+			/* Write temperature data to slave registers (big-endian) */
+			dev->slave_regs[MAX30205_REG_TEMP] = (u8)((temp_raw >> 8) & 0xFF);
+			dev->slave_regs[MAX30205_REG_TEMP + 1] = (u8)(temp_raw & 0xFF);
+
+			/* Sleep based on conversion rate */
+			msleep(update_period_ms);
 		}
-		break;
 	}
+
+	return 0;
 }
 
-/* Legacy function compatibility */
-void max30205_ShutDown(u8 Data)
-{
-	max30205_set_shutdown_mode(Data);
-}
+static pthread_t reg_thread;
 
-void max30205_EnterComparatorMode(void)
+static int max30205_start_reg_random(struct max30205_device *dev)
 {
-	max30205_set_operating_mode(MAX30205_MODE_COMPARATOR);
-}
+	int ret;
 
-void max30205_EnterInterruptMode(void)
-{
-	max30205_set_operating_mode(MAX30205_MODE_INTERRUPT);
-}
+	dev->thread_running = true;
 
-void max30205_OSPolarity(u8 Data)
-{
-	max30205_set_os_polarity(Data);
-}
-
-void max30205_ConfigFaultQueue(u8 Data)
-{
-	max30205_set_fault_queue(Data);
-}
-
-void max30205_DataFormat(u8 Data)
-{
-	max30205_set_data_format(Data);
-}
-
-void max30205_EnableTimeout(u8 Data)
-{
-	max30205_enable_timeout(Data);
-}
-
-void max30205_OneShot(u8 Data)
-{
-	if (Data) {
-		max30205_trigger_one_shot();
+	ret = pthread_create(&reg_thread, NULL,
+			max30205_reg_random_thread, dev);
+	if (ret) {
+		return -ret;
 	}
+
+	/* Wait for thread to initialize */
+	msleep(100);
+
+	return 0;
 }
 
-void max30205_ReadTHYST(u16 *pdata)
+static void max30205_stop_reg_random(struct max30205_device *dev)
 {
-	u8 TmpVal[2];
-
-	max30205_port_multi_receive(THYST, TmpVal, 2);
-
-	pdata[0] = (TmpVal[0] << 8) | TmpVal[1];
+	dev->thread_running = false;
+	pthread_join(reg_thread, NULL);
 }
 
-void max30205_WriteTHYST(u16 Data)
+struct max30205_device *max30205_init(enum regmap_user_bus_type bus_type, void *bus_master)
 {
-	u8 TmpVal[2];
+	struct max30205_device *dev;
+	u32 config = 0;
+	u16 temp_raw;
+	int ret;
 
-	TmpVal[0] = Data >> 8;
-	TmpVal[1] = Data & 0xFF;
+	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	if (!dev) {
+		return ERR_PTR(-ENOMEM);
+	}
 
-	max30205_port_multi_transmit(THYST, TmpVal, 2);
+	if (bus_type == REGMAP_BUS_IIC_SOFT) {
+		dev->regmap = regmap_init_iic_soft(bus_master, MAX30205_I2C_ADDR, &max30205_regmap_config);
+	} else if (bus_type == REGMAP_BUS_SPI_SOFT) {
+		dev->regmap = regmap_init_spi_soft(bus_master, &max30205_regmap_config);
+	} else {
+		pr_err("Invalid bus type specified for max30205 initialization");
+		return ERR_PTR(-EINVAL);
+	}
+	if (IS_ERR(dev->regmap)) {
+		return NULL;
+	}
+
+	dev->slave_regs = kmalloc(max30205_regmap_config.max_register + 1, GFP_KERNEL);
+	if (!dev->slave_regs) {
+		pr_err("Failed to allocate register memory");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	/* Initialize simulated registers with default values */
+	/* Temperature: ~25°C = 6400 in raw units (16-bit, big-endian) */
+	temp_raw = 0x1900;
+	dev->slave_regs[MAX30205_REG_TEMP] = (u8)((temp_raw >> 8) & 0xFF);     /* High byte */
+	dev->slave_regs[MAX30205_REG_TEMP + 1] = (u8)(temp_raw & 0xFF);        /* Low byte */
+	dev->slave_regs[MAX30205_REG_CONFIG] = 0x00;                          /* Normal mode */
+
+	/* THYST: 20°C = 5120 in raw units (big-endian) */
+	temp_raw = 0x1400;
+	dev->slave_regs[MAX30205_REG_THYST] = (u8)((temp_raw >> 8) & 0xFF);
+	dev->slave_regs[MAX30205_REG_THYST + 1] = (u8)(temp_raw & 0xFF);
+
+	/* TOS: 30°C = 7680 in raw units (big-endian) */
+	temp_raw = 0x1E00;
+	dev->slave_regs[MAX30205_REG_TOS] = (u8)((temp_raw >> 8) & 0xFF);
+	dev->slave_regs[MAX30205_REG_TOS + 1] = (u8)(temp_raw & 0xFF);
+
+	ret = max30205_start_reg_random(dev);
+	if (ret) {
+		return NULL;
+	}
+
+	/* Initialize slave for testing (MUST be done before thread starts) */
+	if (bus_type == REGMAP_BUS_IIC_SOFT) {
+		dev->iic_slave = iic_slave_soft_init("max30205", 0x48,
+				dev->slave_regs, max30205_regmap_config.max_register + 1);
+		if (IS_ERR(dev->iic_slave)) {
+			pr_err("Failed to initialize I2C slave");
+			kfree(dev->slave_regs);
+			dev->slave_regs = NULL;
+			return NULL;
+		}
+	} else {
+		dev->spi_slave = spi_slave_soft_init("max30205", 0, 0, SPI_BIT_ORDER_MSB,
+				dev->slave_regs, max30205_regmap_config.max_register + 1);
+		if (IS_ERR(dev->spi_slave)) {
+			pr_err("Failed to initialize SPI slave");
+			kfree(dev->slave_regs);
+			dev->slave_regs = NULL;
+			return NULL;
+		}
+	}
+
+	pr_info("Initial temperature = %.2f°C",
+		((float)(dev->slave_regs[MAX30205_REG_TEMP] << 8 | dev->slave_regs[MAX30205_REG_TEMP + 1])) * 0.00390625f);
+
+	dev->device_present = max30205_is_device_present(dev);
+	if (!dev->device_present) {
+		pr_err("max30205 device not found!");
+		return  ERR_PTR(-ENODEV);
+	}
+
+	/* Read current config to preserve settings */
+	regmap_read(dev->regmap, MAX30205_REG_CONFIG, &config);
+	config |= MAX30205_CONFIG_SHUTDOWN_BIT; /* Start in shutdown mode */
+	regmap_write(dev->regmap, MAX30205_REG_CONFIG, config);
+
+	mdelay(10); /* Wait for configuration to take effect */
+
+	/* Set default configuration */
+	max30205_set_operating_mode(dev, MAX30205_MODE_COMPARATOR);
+	max30205_set_os_polarity(dev, 0); /* Active low OS pin */
+	max30205_set_fault_queue(dev, MAX30205_FAULT_QUEUE_1);
+	max30205_set_data_format(dev, 0); /* Normal data format */
+	max30205_enable_timeout(dev, 1);
+
+	max30205_set_shutdown_mode(dev, 0);
+
+	return dev;
 }
 
-void max30205_ReadTOS(u16 *pdata)
+void max30205_exit(struct max30205_device *dev)
 {
-	u8 TmpVal[2];
+	max30205_stop_reg_random(dev);
 
-	max30205_port_multi_receive(TOS, TmpVal, 2);
-
-	pdata[0] = (TmpVal[0] << 8) | TmpVal[1];
-}
-
-void max30205_WriteTOS(u16 Data)
-{
-	u8 TmpVal[2];
-
-	TmpVal[0] = Data >> 8;
-	TmpVal[1] = Data & 0xFF;
-
-	max30205_port_multi_transmit(TOS, TmpVal, 2);
+	if (dev->iic_slave)
+		iic_slave_soft_exit(dev->iic_slave);
+	if (dev->spi_slave)
+		spi_slave_soft_exit(dev->spi_slave);
+	regmap_exit(dev->regmap);
+	kfree(dev->slave_regs);
+	kfree(dev);
 }
 
 #ifdef DESIGN_VERIFICATION_MAX30205
 #include "kinetis/test-kinetis.h"
-#include "kinetis/design_verification.h"
 
-/**
- * @brief Test 1: MAX30205 Basic Device Detection
- * @return PASS if device is detected, FAIL otherwise
- */
-int t_max30205_device_id(int argc, char **argv)
+static struct max30205_device *max30205_dev;
+
+int t_max30205_initialize(int argc, char **argv)
 {
-	pr_info("=== MAX30205 Device Detection Test ===");
+	enum regmap_user_bus_type bus_type = REGMAP_BUS_IIC_SOFT;
+	bool on_off = true;
+	int ret;
 
-	/* Check if device is present */
-	if (!max30205_is_device_present()) {
-		pr_err("FAIL: MAX30205 device not found");
-		return FAIL;
+	if (argc > 1) {
+		if (!strcmp(argv[1], "on")) {
+			on_off = true;
+		} else if (!strcmp(argv[1], "off")) {
+			on_off = false;
+		} else {
+			return -EINVAL;
+		}
 	}
 
-	pr_info("MAX30205 device detected successfully");
-	return PASS;
+	if (argc > 2) {
+		if (!strcmp(argv[2], "spi")) {
+			bus_type = REGMAP_BUS_SPI_SOFT;
+		} else if (!strcmp(argv[2], "i2c")) {
+			bus_type = REGMAP_BUS_IIC_SOFT;
+		} else {
+			pr_err("Invalid bus type: %s (use 'i2c' or 'spi')", argv[2]);
+			return -EINVAL;
+		}
+	}
+
+	if (on_off) {
+		pr_info("starting max30205 slave with %s mode", bus_type ? "spi" : "i2c");
+		max30205_dev = max30205_init(bus_type, bus_type == REGMAP_BUS_IIC_SOFT ? (void *)&fake_iic_master : (void *)&fake_spi_master);
+		if (IS_ERR_OR_NULL(max30205_dev)) {
+			return -EINVAL;
+		}
+		return 0;
+	}
+
+	max30205_exit(max30205_dev);
+	return 0;
 }
 
-/**
- * @brief Test 2: MAX30205 Temperature Reading (Single Shot)
- * @return PASS if temperature reading is successful, FAIL otherwise
- */
+int t_max30205_device_id(int argc, char **argv)
+{
+	struct max30205_device *dev = max30205_dev;
+
+	/* Check if device is present */
+	if (!max30205_is_device_present(dev)) {
+		pr_err("max30205 device not found");
+		return -ENODEV;
+	}
+
+	pr_info("max30205 device detected successfully");
+	return 0;
+}
+
 int t_max30205_temperature_single(int argc, char **argv)
 {
+	struct max30205_device *dev = max30205_dev;
 	float temperature;
 	u16 raw_temp;
 
-	pr_info("=== MAX30205 Single-Shot Temperature Test ===");
-
-	/* Exit shutdown mode */
-	max30205_set_shutdown_mode(0);
+	max30205_set_shutdown_mode(dev, 0);
 	mdelay(10);
 
-	/* Trigger one-shot conversion */
-	max30205_trigger_one_shot();
+	max30205_trigger_one_shot(dev);
 	mdelay(100);
 
-	/* Read temperature */
-	max30205_get_temperature(&temperature);
-	pr_info("Temperature: %.2f°C", temperature);
+	temperature = max30205_get_temperature(dev);
+	pr_info("temperature: %.2f°c", temperature);
 
-	/* Read raw temperature */
-	raw_temp = max30205_get_raw_temperature();
-	pr_info("Raw temperature: 0x%04X (%.2f°C)", raw_temp,
+	raw_temp = max30205_get_raw_temperature(dev);
+	pr_info("raw temperature: 0x%04x (%.2f°c)", raw_temp,
 		MAX30205_RAW_TO_CELSIUS(raw_temp));
 
-	/* Verify temperature is within reasonable range */
 	if (temperature < -20.0f || temperature > 100.0f) {
-		pr_warn("Temperature out of expected range");
+		pr_warn("temperature out of expected range");
 	}
 
-	/* Enter shutdown mode */
-	max30205_set_shutdown_mode(1);
+	max30205_set_shutdown_mode(dev, 1);
 
-	pr_info("Single-shot temperature reading completed");
-	return PASS;
+	pr_info("single-shot temperature reading completed");
+
+	return 0;
 }
 
-/**
- * @brief Test 3: MAX30205 Continuous Temperature Monitoring
- * @param argc Argument count (argv[1] = number of readings, default 100)
- * @param argv Argument vector
- * @return PASS if continuous readings work, FAIL otherwise
- */
 int t_max30205_temperature_continuous(int argc, char **argv)
 {
+	struct max30205_device *dev = max30205_dev;
 	float temperature;
 	u16 readings = 100;
 	u16 i;
@@ -548,18 +644,14 @@ int t_max30205_temperature_continuous(int argc, char **argv)
 		}
 	}
 
-	pr_info("=== MAX30205 Continuous Temperature Test (%d readings) ===", readings);
-
 	/* Exit shutdown mode and enter continuous mode */
-	max30205_set_shutdown_mode(0);
-	max30205_set_operating_mode(MAX30205_MODE_INTERRUPT);
+	max30205_set_shutdown_mode(dev, 0);
+	max30205_set_operating_mode(dev, MAX30205_MODE_INTERRUPT);
 	mdelay(10);
 
 	for (i = 0; i < readings; i++) {
-		/* Read temperature */
-		max30205_get_temperature(&temperature);
+		temperature = max30205_get_temperature(dev);
 
-		/* Update statistics */
 		if (temperature < temp_min) {
 			temp_min = temperature;
 		}
@@ -568,282 +660,214 @@ int t_max30205_temperature_continuous(int argc, char **argv)
 		}
 		temp_sum += temperature;
 
-		/* Show first and last readings */
-		if (i == 0 || i == readings - 1) {
-			pr_info("Reading %d/%d: %.2f°C", i + 1, readings, temperature);
-		}
+		pr_info("Reading %d/%d: %.2f°C", i + 1, readings, temperature);
 
 		mdelay(10);
 	}
 
-	/* Print statistics */
-	pr_info("Temperature statistics:");
-	pr_info("  Min: %.2f°C", temp_min);
-	pr_info("  Max: %.2f°C", temp_max);
-	pr_info("  Avg: %.2f°C", temp_sum / readings);
+	pr_info("temperature statistics:");
+	pr_info("  min: %.2f°c", temp_min);
+	pr_info("  max: %.2f°c", temp_max);
+	pr_info("  avg: %.2f°c", temp_sum / readings);
 
-	/* Enter shutdown mode */
-	max30205_set_shutdown_mode(1);
+	max30205_set_shutdown_mode(dev, 1);
 
-	pr_info("Continuous temperature monitoring completed");
-	return PASS;
+	pr_info("continuous temperature monitoring completed");
+	return 0;
 }
 
-/**
- * @brief Test 4: MAX30205 Threshold Configuration
- * @return PASS if threshold configuration works, FAIL otherwise
- */
 int t_max30205_threshold_test(int argc, char **argv)
 {
+	struct max30205_device *dev = max30205_dev;
 	u16 tos_raw, thyst_raw;
+	float temp;
 
-	pr_info("=== MAX30205 Threshold Test ===");
-
-	/* Exit shutdown mode */
-	max30205_set_shutdown_mode(0);
+	max30205_set_shutdown_mode(dev, 0);
 	mdelay(10);
 
 	/* Set high temperature threshold to 30°C */
-	max30205_set_threshold_high(MAX30205_CELSIUS_TO_RAW(30.0f));
-	tos_raw = max30205_get_threshold_high();
-	pr_info("High threshold set: 30.00°C (raw: 0x%04X)", tos_raw);
+	max30205_set_threshold_high(dev, MAX30205_CELSIUS_TO_RAW(30.0f));
+	tos_raw = max30205_get_threshold_high(dev);
+	pr_info("high threshold set: 30.00°c (raw: 0x%04x)", tos_raw);
 
 	/* Set low temperature threshold to 25°C */
-	max30205_set_threshold_low(MAX30205_CELSIUS_TO_RAW(25.0f));
-	thyst_raw = max30205_get_threshold_low();
-	pr_info("Low threshold set: 25.00°C (raw: 0x%04X)", thyst_raw);
+	max30205_set_threshold_low(dev, MAX30205_CELSIUS_TO_RAW(25.0f));
+	thyst_raw = max30205_get_threshold_low(dev);
+	pr_info("low threshold set: 25.00°c (raw: 0x%04x)", thyst_raw);
 
 	/* Read temperature to check against thresholds */
-	float temp;
-	max30205_get_temperature(&temp);
-	pr_info("Current temperature: %.2f°C", temp);
+	temp = max30205_get_temperature(dev);
+	pr_info("current temperature: %.2f°c", temp);
 
-	/* Check temperature limits */
-	u8 limit_status = max30205_check_temperature_limits(temp);
-	pr_info("Temperature limit status: %d", limit_status);
+	max30205_set_shutdown_mode(dev, 1);
 
-	/* Enter shutdown mode */
-	max30205_set_shutdown_mode(1);
-
-	pr_info("Threshold configuration completed");
-	return PASS;
+	pr_info("threshold configuration completed");
+	return 0;
 }
 
-/**
- * @brief Test 5: MAX30205 Configuration Register Tests
- * @return PASS if configuration changes work, FAIL otherwise
- */
 int t_max30205_config_test(int argc, char **argv)
 {
-	pr_info("=== MAX30205 Configuration Test ===");
+	struct max30205_device *dev = max30205_dev;
 
-	/* Test shutdown mode */
-	pr_info("Testing shutdown mode...");
-	max30205_set_shutdown_mode(0);
+	max30205_set_shutdown_mode(dev, 0);
 	mdelay(10);
 
-	max30205_set_shutdown_mode(1);
+	max30205_set_shutdown_mode(dev, 1);
 	mdelay(10);
 
-	/* Test operating mode */
-	max30205_set_shutdown_mode(0);
+	max30205_set_shutdown_mode(dev, 0);
 	mdelay(10);
 
-	pr_info("Testing operating mode...");
-	max30205_set_operating_mode(MAX30205_MODE_COMPARATOR);
+	pr_info("testing operating mode...");
+	max30205_set_operating_mode(dev, MAX30205_MODE_COMPARATOR);
 	mdelay(10);
 
-	max30205_set_operating_mode(MAX30205_MODE_INTERRUPT);
+	max30205_set_operating_mode(dev, MAX30205_MODE_INTERRUPT);
 	mdelay(10);
 
-	/* Test OS polarity */
-	pr_info("Testing OS polarity...");
-	max30205_set_os_polarity(0);
+	pr_info("testing os polarity...");
+	max30205_set_os_polarity(dev, 0);
 	mdelay(10);
 
-	max30205_set_os_polarity(1);
+	max30205_set_os_polarity(dev, 1);
 	mdelay(10);
 
-	/* Test fault queue */
-	pr_info("Testing fault queue...");
-	max30205_set_fault_queue(MAX30205_FAULT_QUEUE_1);
+	pr_info("testing fault queue...");
+	max30205_set_fault_queue(dev, MAX30205_FAULT_QUEUE_1);
 	mdelay(10);
 
-	max30205_set_fault_queue(MAX30205_FAULT_QUEUE_6);
+	max30205_set_fault_queue(dev, MAX30205_FAULT_QUEUE_6);
 	mdelay(10);
 
-	pr_info("Configuration test completed");
-	return PASS;
+	pr_info("configuration test completed");
+	return 0;
 }
 
-/**
- * @brief Test 6: MAX30205 OS (Overtemperature Shutdown) Flag
- * @return PASS if OS flag handling works, FAIL otherwise
- */
 int t_max30205_os_flag_test(int argc, char **argv)
 {
+	struct max30205_device *dev = max30205_dev;
 	u8 os_flag;
+	float temp;
 
-	pr_info("=== MAX30205 OS Flag Test ===");
-
-	/* Exit shutdown mode */
-	max30205_set_shutdown_mode(0);
+	max30205_set_shutdown_mode(dev, 0);
 	mdelay(10);
 
-	/* Read OS flag */
-	os_flag = max30205_check_os_flag();
+	os_flag = max30205_check_os_flag(dev);
 	pr_info("OS flag status: %d", os_flag);
 
-	/* Clear OS flag */
-	max30205_clear_os_flag();
+	max30205_clear_os_flag(dev);
 	mdelay(10);
 
-	/* Read OS flag again */
-	os_flag = max30205_check_os_flag();
+	os_flag = max30205_check_os_flag(dev);
 	pr_info("OS flag after clear: %d", os_flag);
 
 	/* Set threshold to trigger OS flag */
-	max30205_set_threshold_high(MAX30205_CELSIUS_TO_RAW(0.0f));
-	max30205_set_threshold_low(MAX30205_CELSIUS_TO_RAW(-10.0f));
+	max30205_set_threshold_high(dev, MAX30205_CELSIUS_TO_RAW(0.0f));
+	max30205_set_threshold_low(dev, MAX30205_CELSIUS_TO_RAW(-10.0f));
 	mdelay(100);
 
-	/* Read temperature */
-	float temp;
-	max30205_get_temperature(&temp);
-	pr_info("Current temperature: %.2f°C", temp);
+	temp = max30205_get_temperature(dev);
+	pr_info("current temperature: %.2f°c", temp);
 
-	/* Check OS flag */
-	os_flag = max30205_check_os_flag();
+	os_flag = max30205_check_os_flag(dev);
 	pr_info("OS flag after threshold change: %d", os_flag);
 
-	/* Clear OS flag */
-	max30205_clear_os_flag();
+	max30205_clear_os_flag(dev);
 
-	/* Enter shutdown mode */
-	max30205_set_shutdown_mode(1);
+	max30205_set_shutdown_mode(dev, 1);
 
 	pr_info("OS flag test completed");
-	return PASS;
+	return 0;
 }
 
-/**
- * @brief Test 7: MAX30205 Timeout Feature
- * @return PASS if timeout feature works, FAIL otherwise
- */
 int t_max30205_timeout_test(int argc, char **argv)
 {
-	pr_info("=== MAX30205 Timeout Test ===");
+	struct max30205_device *dev = max30205_dev;
 
-	/* Exit shutdown mode */
-	max30205_set_shutdown_mode(0);
+	max30205_set_shutdown_mode(dev, 0);
 	mdelay(10);
 
-	/* Enable timeout */
-	max30205_enable_timeout(1);
+	max30205_enable_timeout(dev, 1);
 	mdelay(10);
 
-	/* Disable timeout */
-	max30205_enable_timeout(0);
+	max30205_enable_timeout(dev, 0);
 	mdelay(10);
 
-	/* Enter shutdown mode */
-	max30205_set_shutdown_mode(1);
+	max30205_set_shutdown_mode(dev, 1);
 
-	pr_info("Timeout test completed");
-	return PASS;
+	pr_info("timeout test completed");
+	return 0;
 }
 
-/**
- * @brief Test 8: MAX30205 One-Shot Mode
- * @return PASS if one-shot mode works, FAIL otherwise
- */
 int t_max30205_oneshot_test(int argc, char **argv)
 {
+	struct max30205_device *dev = max30205_dev;
 	u16 readings = 10;
 	u16 i;
 	float temperature;
 
-	pr_info("=== MAX30205 One-Shot Mode Test (%d readings) ===", readings);
-
-	/* Enter shutdown mode */
-	max30205_set_shutdown_mode(1);
+	max30205_set_shutdown_mode(dev, 1);
 	mdelay(10);
 
 	for (i = 0; i < readings; i++) {
-		/* Trigger one-shot conversion */
-		max30205_trigger_one_shot();
+		max30205_trigger_one_shot(dev);
 
 		/* Wait for conversion to complete */
 		mdelay(100);
 
-		/* Read temperature */
-		max30205_get_temperature(&temperature);
+		temperature = max30205_get_temperature(dev);
 
-		pr_info("Reading %d/%d: %.2f°C", i + 1, readings, temperature);
+		pr_info("reading %d/%d: %.2f°c", i + 1, readings, temperature);
 	}
 
-	pr_info("One-shot mode test completed");
-	return PASS;
+	pr_info("one-shot mode test completed");
+	return 0;
 }
 
-/**
- * @brief Test 9: MAX30205 Temperature Calibration
- * @return PASS if calibration works, FAIL otherwise
- */
 int t_max30205_calibration_test(int argc, char **argv)
 {
+	struct max30205_device *dev = max30205_dev;
 	float temp_normal, temp_calibrated;
 
-	pr_info("=== MAX30205 Calibration Test ===");
-
-	/* Exit shutdown mode */
-	max30205_set_shutdown_mode(0);
-	max30205_set_operating_mode(MAX30205_MODE_INTERRUPT);
+	max30205_set_shutdown_mode(dev, 0);
+	max30205_set_operating_mode(dev, MAX30205_MODE_INTERRUPT);
 	mdelay(10);
 
 	/* Read normal temperature */
-	max30205_get_temperature(&temp_normal);
-	pr_info("Normal temperature: %.2f°C", temp_normal);
+	temp_normal = max30205_get_temperature(dev);
+	pr_info("normal temperature: %.2f°c", temp_normal);
 
 	/* Set calibration offset */
-	max30205_calibrate_offset(0.5f);
+	dev->temperature_offset = 0.5f;
 
 	/* Read calibrated temperature */
-	temp_calibrated = max30205_get_temperature_with_calibration();
-	pr_info("Calibrated temperature: %.2f°C (offset +0.5°C)", temp_calibrated);
+	temp_calibrated = max30205_get_temperature_with_calibration(dev);
+	pr_info("calibrated temperature: %.2f°c (offset +0.5°c)", temp_calibrated);
 
 	/* Reset calibration */
-	max30205_calibrate_offset(0.0f);
+	dev->temperature_offset = 0.0f;
 
-	/* Enter shutdown mode */
-	max30205_set_shutdown_mode(1);
+	max30205_set_shutdown_mode(dev, 1);
 
-	pr_info("Calibration test completed");
-	return PASS;
+	pr_info("calibration test completed");
+	return 0;
 }
 
-/**
- * @brief Test 10: MAX30205 Temperature Range Test
- * @return PASS if temperature readings are stable, FAIL otherwise
- */
 int t_max30205_range_test(int argc, char **argv)
 {
+	struct max30205_device *dev = max30205_dev;
 	float temperature;
 	u16 readings = 50;
 	u16 i;
 	float prev_temp = 0.0f;
 	float max_delta = 0.0f;
 
-	pr_info("=== MAX30205 Temperature Range Test (%d readings) ===", readings);
-
-	/* Exit shutdown mode */
-	max30205_set_shutdown_mode(0);
-	max30205_set_operating_mode(MAX30205_MODE_INTERRUPT);
+	max30205_set_shutdown_mode(dev, 0);
+	max30205_set_operating_mode(dev, MAX30205_MODE_INTERRUPT);
 	mdelay(10);
 
 	for (i = 0; i < readings; i++) {
-		/* Read temperature */
-		max30205_get_temperature(&temperature);
+		temperature = max30205_get_temperature(dev);
 
 		/* Calculate temperature change */
 		if (i > 0) {
@@ -861,146 +885,16 @@ int t_max30205_range_test(int argc, char **argv)
 		mdelay(20);
 	}
 
-	pr_info("Maximum temperature delta: %.2f°C", max_delta);
+	pr_info("maximum temperature delta: %.2f°c", max_delta);
 
 	if (max_delta > 2.0f) {
-		pr_warn("Temperature readings vary significantly");
+		pr_warn("temperature readings vary significantly");
 	}
 
-	/* Enter shutdown mode */
-	max30205_set_shutdown_mode(1);
+	max30205_set_shutdown_mode(dev, 1);
 
-	pr_info("Temperature range test completed");
-	return PASS;
-}
-
-void max30205_Test(void)
-{
-	printk("=== MAX30205 Comprehensive Test Started ===");
-
-	/* Test 1: Device detection */
-	if (t_max30205_device_id(0, NULL) != PASS) {
-		printk("Test 1 FAILED: Device detection failed");
-		return;
-	}
-
-	/* Test 2: Single-shot temperature */
-	t_max30205_temperature_single(0, NULL);
-
-	/* Test 3: Continuous temperature monitoring */
-	t_max30205_temperature_continuous(0, NULL);
-
-	/* Test 4: Threshold configuration */
-	t_max30205_threshold_test(0, NULL);
-
-	/* Test 5: Configuration register tests */
-	t_max30205_config_test(0, NULL);
-
-	/* Test 6: OS flag test */
-	t_max30205_os_flag_test(0, NULL);
-
-	/* Test 7: Timeout feature */
-	t_max30205_timeout_test(0, NULL);
-
-	/* Test 8: One-shot mode */
-	t_max30205_oneshot_test(0, NULL);
-
-	/* Test 9: Calibration test */
-	t_max30205_calibration_test(0, NULL);
-
-	/* Test 10: Temperature range test */
-	t_max30205_range_test(0, NULL);
-
-	printk("=== MAX30205 Comprehensive Test Completed Successfully ===");
-}
-
-/* MAX30205 I2C Slave simulation */
-static struct iic_slave *max30205_slave = NULL;
-
-/* Simulated MAX30205 register map */
-static struct {
-	u16 temperature;     /* 0x00: Temperature register */
-	u8 config;           /* 0x01: Configuration register */
-	u16 thyst;           /* 0x02: Temperature hysteresis */
-	u16 tos;             /* 0x03: Temperature overtemperature shutdown */
-} max30205_slave_regs;
-
-/**
- * @brief Start MAX30205 I2C slave simulation for testing
- */
-int max30205_slave_start(void)
-{
-	/* Initialize simulated registers with default values */
-	/* Temperature: ~25°C = 6400 in raw units (16-bit) */
-	max30205_slave_regs.temperature = 0x1900;    /* 25°C */
-	max30205_slave_regs.config = 0x00;         /* Normal mode */
-	max30205_slave_regs.thyst = 0x1450;        /* 20°C low threshold */
-	max30205_slave_regs.tos = 0x1C40;          /* 30°C high threshold */
-
-	/* Create I2C slave device with address 0x48 */
-	max30205_slave = iic_slave_soft_init("max30205", 0x48,
-			(u8 *)&max30205_slave_regs, sizeof(max30205_slave_regs));
-	if (IS_ERR(max30205_slave)) {
-		pr_err("max30205_slave: Failed to initialize I2C slave");
-		return PTR_ERR(max30205_slave);
-	}
-
-	pr_info("max30205_slave: Initialized at I2C address 0x48");
-	pr_info("max30205_slave: Initial temperature = %.2f°C",
-		 ((float)max30205_slave_regs.temperature) * 0.00390625f);
-
+	pr_info("temperature range test completed");
 	return 0;
-}
-
-/**
- * @brief Stop MAX30205 I2C slave simulation for testing
- */
-int max30205_slave_stop(void)
-{
-	if (max30205_slave) {
-		iic_slave_soft_exit(max30205_slave);
-		max30205_slave = NULL;
-		pr_info("max30205_slave: Stopped");
-	}
-
-	return 0;
-}
-
-/**
- * t_max30205_program_thread - MAX30205 thread control command
- * @argc: argument count
- * @argv: argument vector
- *
- * Returns: PASS on success
- */
-int t_max30205_program_thread(int argc, char **argv)
-{
-	int ret;
-	bool on_off = true;
-
-	if (argc > 1) {
-		if (!strcmp(argv[1], "on")) {
-			on_off = true;
-		} else if (!strcmp(argv[1], "off")) {
-			on_off = false;
-		} else {
-			return -EINVAL;
-		}
-	}
-
-	if (on_off) {
-		ret = max30205_slave_start();
-		if (ret) {
-			return ret;
-		}
-	} else {
-		ret = max30205_slave_stop();
-		if (ret) {
-			return ret;
-		}
-	}
-
-	return PASS;
 }
 
 #endif

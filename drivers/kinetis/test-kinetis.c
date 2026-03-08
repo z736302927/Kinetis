@@ -1,8 +1,8 @@
 
-#include <linux/gfp.h>
 #include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/printk.h>
+#include <linux/errname.h>
 
 #include "kinetis/design_verification.h"
 #include "kinetis/test-kinetis.h"
@@ -35,11 +35,11 @@
   */
 
 #ifdef DESIGN_VERIFICATION_AK8975
+int t_ak8975_initialize(int argc, char **argv);
 int t_ak8975_basic_info(int argc, char **argv);
 int t_ak8975_magnetic(int argc, char **argv);
 int t_ak8975_selftest(int argc, char **argv);
 int t_ak8975_fuse_rom_access(int argc, char **argv);
-int t_ak8975_program_thread(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_MPU6050
@@ -53,7 +53,7 @@ int t_mpu6050_interrupt_test(int argc, char **argv);
 int t_mpu6050_power_test(int argc, char **argv);
 int t_mpu6050_fullscale_test(int argc, char **argv);
 int t_mpu6050_dlpf_test(int argc, char **argv);
-int t_mpu6050_program_thread(int argc, char **argv);
+int t_mpu6050_initialize(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_MAX77752
@@ -69,10 +69,11 @@ int t_max77752_interrupt_test(int argc, char **argv);
 int t_max77752_selftest(int argc, char **argv);
 int t_max77752_sleep_test(int argc, char **argv);
 int t_max77752_monitoring_test(int argc, char **argv);
-int t_max77752_program_thread(int argc, char **argv);
+int t_max77752_initialize(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_MAX30205
+int t_max30205_initialize(int argc, char **argv);
 int t_max30205_device_id(int argc, char **argv);
 int t_max30205_temperature_single(int argc, char **argv);
 int t_max30205_temperature_continuous(int argc, char **argv);
@@ -83,7 +84,6 @@ int t_max30205_timeout_test(int argc, char **argv);
 int t_max30205_oneshot_test(int argc, char **argv);
 int t_max30205_calibration_test(int argc, char **argv);
 int t_max30205_range_test(int argc, char **argv);
-int t_max30205_program_thread(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_AT24CXX
@@ -109,7 +109,7 @@ int t_ds3231_square_wave(int argc, char **argv);
 int t_ds3231_32khz_wave(int argc, char **argv);
 int t_ds3231_get_temprature(int argc, char **argv);
 int t_ds3231_comprehensive_test(int argc, char **argv);
-int t_ds3231_program_thread(int argc, char **argv);
+int t_ds3231_initialize(int argc, char **argv);
 int t_ds3231_stress_test(int argc, char **argv);
 #endif
 
@@ -245,6 +245,7 @@ int t_switch_drop(int argc, char **argv);
 
 #ifdef DESIGN_VERIFICATION_TIMTASK
 int t_tim_task_add(int argc, char **argv);
+int t_tim_task_drop(int argc, char **argv);
 int t_tim_task_validation(int argc, char **argv);
 int t_tim_task_priority(int argc, char **argv);
 int t_tim_task_performance(int argc, char **argv);
@@ -328,14 +329,14 @@ struct test_case_typedef {
 struct test_case_typedef kinetis_case_table[] = {
 
 #ifdef DESIGN_VERIFICATION_AK8975
+	{"ak8975.init",               t_ak8975_initialize},
 	{"ak8975.basic-info",           t_ak8975_basic_info},
 	{"ak8975.magnetic",             t_ak8975_magnetic},
 	{"ak8975.selftest",             t_ak8975_selftest},
 	{"ak8975.fuse-rom-access",      t_ak8975_fuse_rom_access},
-	{"ak8975.thread",               t_ak8975_program_thread},
 #endif
 #ifdef DESIGN_VERIFICATION_MPU6050
-	{"mpu6050.device-id",           t_mpu6050_device_id},
+	{"mpu6050.init",               t_mpu6050_initialize},
 	{"mpu6050.sensor-data",          t_mpu6050_sensor_data},
 	{"mpu6050.selftest",            t_mpu6050_selftest},
 	{"mpu6050.gyro-calibration",     t_mpu6050_gyro_calibration},
@@ -345,10 +346,9 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"mpu6050.power-test",          t_mpu6050_power_test},
 	{"mpu6050.fullscale-test",       t_mpu6050_fullscale_test},
 	{"mpu6050.dlpf-test",            t_mpu6050_dlpf_test},
-	{"mpu6050.thread",               t_mpu6050_program_thread},
 #endif
 #ifdef DESIGN_VERIFICATION_MAX77752
-	{"max77752.device-id",          t_max77752_device_id},
+	{"max77752.init",             t_max77752_initialize},
 	{"max77752.power-test",         t_max77752_power_test},
 	{"max77752.battery-test",       t_max77752_battery_test},
 	{"max77752.voltage-test",       t_max77752_voltage_test},
@@ -360,10 +360,9 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"max77752.selftest",           t_max77752_selftest},
 	{"max77752.sleep-test",         t_max77752_sleep_test},
 	{"max77752.monitoring-test",    t_max77752_monitoring_test},
-	{"max77752.thread",             t_max77752_program_thread},
 #endif
 #ifdef DESIGN_VERIFICATION_MAX30205
-	{"max30205.device-id",          t_max30205_device_id},
+	{"max30205.init",             t_max30205_initialize},
 	{"max30205.temp-single",        t_max30205_temperature_single},
 	{"max30205.temp-continuous",    t_max30205_temperature_continuous},
 	{"max30205.threshold-test",     t_max30205_threshold_test},
@@ -373,15 +372,14 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"max30205.oneshot-test",       t_max30205_oneshot_test},
 	{"max30205.calibration-test",   t_max30205_calibration_test},
 	{"max30205.range-test",         t_max30205_range_test},
-	{"max30205.thread",             t_max30205_program_thread},
 #endif
 #ifdef DESIGN_VERIFICATION_AT24CXX
+	{"at24cxx.init",            	t_at24cxx_program_thread},
 	{"at24cxx.loopback",            t_at24cxx_loopback},
 	{"at24cxx.current-addr-read",   t_at24cxx_current_addr_read},
 	{"at24cxx.random-read",         t_at24cxx_current_random_read},
 	{"at24cxx.seq-read",            t_at24cxx_sequential_read},
 	{"at24cxx.lb-speed",            t_at24cxx_loopback_speed},
-	{"at24cxx.thread",            	t_at24cxx_program_thread},
 	{"at24cxx.device-detect",      t_at24cxx_device_detect},
 	{"at24cxx.edge-cases",         t_at24cxx_edge_cases},
 	{"at24cxx.wear-leveling",      t_at24cxx_wear_leveling_info},
@@ -392,6 +390,7 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"bmi160.", t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_DS3231
+	{"ds3231.init",               t_ds3231_initialize},
 	{"ds3231.set-clock",            t_ds3231_set_clock},
 	{"ds3231.get-clock",            t_ds3231_get_clock},
 	{"ds3231.set-alarm1",           t_ds3231_set_alarm1},
@@ -400,7 +399,6 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"ds3231.32khz-wave",           t_ds3231_32khz_wave},
 	{"ds3231.get-temprature",       t_ds3231_get_temprature},
 	{"ds3231.comprehensive",        t_ds3231_comprehensive_test},
-	{"ds3231.thread",               t_ds3231_program_thread},
 	{"ds3231.stress",               t_ds3231_stress_test},
 #endif
 #ifdef DESIGN_VERIFICATION_ESP32
@@ -556,6 +554,7 @@ struct test_case_typedef kinetis_case_table[] = {
 #endif
 #ifdef DESIGN_VERIFICATION_TIMTASK
 	{"tim-task.add",                t_tim_task_add},
+	{"tim-task.drop",               t_tim_task_drop},
 	{"tim-task.validation",         t_tim_task_validation},
 	{"tim-task.priority",           t_tim_task_priority},
 	{"tim-task.performance",        t_tim_task_performance},
@@ -684,10 +683,11 @@ int parse_test_all_case(char *cmd)
 	u32 i = 0;
 	u32 argc = 0;
 	char *argv[128];
+	int ret;
 
 	do {
 		if (argc >= 128) {
-			pr_err("Too many arguments, maximum 128 allowed\n");
+			pr_err("too many arguments, maximum 128 allowed\n");
 			break;
 		}
 		argv[argc] = strsep(&cmd, " ");
@@ -701,7 +701,13 @@ int parse_test_all_case(char *cmd)
 	for (i = 0; i < ARRAY_SIZE(kinetis_case_table); i++) {
 		if (!strcmp(kinetis_case_table[i].command, argv[0]) &&
 			kinetis_case_table[i].function != NULL) {
-			return kinetis_case_table[i].function(argc, argv);
+			 ret = kinetis_case_table[i].function(argc, argv);
+			 if (ret) {
+				 pr_err("test case %s failed, error code: %s\n", argv[0], errname(ret));
+				 return FAIL;
+			 } else {
+				 return PASS;
+			 }
 		}
 	}
 
@@ -747,7 +753,7 @@ int k_test_case_schedule(void)
 					pr_info("TEST PASS\n");
 				} else if (ret == FAIL) {
 					pr_info("TEST FAIL\n");
-				} else {
+				} else if (ret == NOT_EXSIST) {
 					pr_info("TEST NOT EXIST\n");
 				}
 				printf("/ # ");

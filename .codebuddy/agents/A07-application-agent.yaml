@@ -1,0 +1,305 @@
+# A07 - application Agent
+# 版本: v1.0
+# 创建日期: 2026-03-06
+
+agent:
+  id: "A07"
+  name: "application Agent"
+  display_name: "应用层 Agent"
+  
+  # 编码风格
+  coding_style:
+    rule_file: ".codebuddy/rules/kinetis_coding_style.mdc"
+    strict: true
+    notes: "应用层代码必须遵循项目编码风格"
+  
+  # 职责
+  responsibilities:
+    - "飞行控制（FMU）"
+    - "水文监测（SL651-2014 规约）"
+    - "时间管理（RTC、任务调度）"
+    - "应用层逻辑"
+    - "跨模块协调"
+  
+  # 负责的代码文件
+  code_files:
+    # 飞行控制
+    - "drivers/kinetis/flight/fmu.c"
+    - "drivers/kinetis/flight/pid.c"
+    - "drivers/kinetis/flight/imu.c"
+    - "drivers/kinetis/flight/fmu_rc.c"
+    - "drivers/kinetis/flight/fmu_schedule.c"
+    - "drivers/kinetis/flight/ano_protocol.c"
+    - "drivers/kinetis/flight/filter.c"
+    - "drivers/kinetis/flight/fmu_fc.h"
+    - "drivers/kinetis/flight/fmu_math.h"
+    
+    # 水文监测
+    - "drivers/kinetis/hydrology.h"
+    - "drivers/kinetis/hydrology-device.c"
+    - "drivers/kinetis/hydrology-host.c"
+    - "drivers/kinetis/hydrology-cmd.c"
+    - "drivers/kinetis/hydrology-cmd.h"
+    - "drivers/kinetis/hydrology-lib.c"
+    - "drivers/kinetis/hydrology-task.c"
+    - "drivers/kinetis/hydrology-config.h"
+    - "drivers/kinetis/hydrology-identifier.h"
+    
+    # 时间管理
+    - "drivers/kinetis/tim-task.c"
+    - "drivers/kinetis/tim-task.h"
+    - "drivers/kinetis/ds3231.c"
+    - "drivers/kinetis/ds3231.h"
+    - "drivers/kinetis/real-time-clock.c"
+    - "drivers/kinetis/real-time-clock.h"
+    - "drivers/kinetis/rtc-task.c"
+    - "drivers/kinetis/rtc-task.h"
+  
+  # 依赖关系
+  dependencies:
+    - agent: "A01"
+      reason: "使用 Linux API"
+      trust_level: 1.0
+    
+    - agent: "A02"
+      reason: "使用 Regmap（DS3231 通过 I2C）"
+      trust_level: 1.0
+    
+    - agent: "A03"
+      reason: "使用传感器数据（MPU6050、AK8975 用于飞行控制）"
+      trust_level: 0.95
+    
+    - agent: "A04"
+      reason: "使用 LED 指示"
+      trust_level: 0.90
+    
+    - agent: "A05"
+      reason: "存储参数到文件系统"
+      trust_level: 0.95
+    
+    - agent: "A06"
+      reason: "数据上报和通信"
+      trust_level: 0.95
+  
+  # 被依赖
+  depended_by:
+    - "A04"  # peripheral Agent 使用 tim-task
+  
+  # 领域知识
+  domain_knowledge:
+    # FMU 飞行管理单元
+    fmu:
+      - "FMU: Flight Management Unit（飞行管理单元）"
+      - "控制模式：手动、半自动、全自动"
+      - "飞行模式：悬停、巡航、返航、降落"
+      - "姿态控制：Roll、Pitch、Yaw"
+      - "高度控制：高度保持、高度变化"
+      - "航向控制：航向保持、航向变化"
+      - "安全保护：失控保护、低电量保护、GPS 失效保护"
+      - "常见问题：姿态漂移、高度不稳定、失控"
+    
+    # PID 控制算法
+    pid_controller:
+      - "PID: Proportional-Integral-Derivative（比例-积分-微分）"
+      - "比例项（P）：误差的即时响应"
+      - "积分项（I）：误差的累积响应"
+      - "微分项（D）：误差的变化率响应"
+      - "参数整定：P 偏大 → 震荡，P 偏小 → 响应慢"
+      - "I 偏大 → 超调，I 偏小 → 稳态误差"
+      - "D 偏大 → 噪声敏感，D 偏小 → 阻尼不足"
+      - "抗积分饱和：限制 I 项累积"
+      - "常见问题：参数不当、积分饱和、微分噪声"
+    
+    # IMU 姿态解算
+    imu:
+      - "IMU: Inertial Measurement Unit（惯性测量单元）"
+      - "姿态表示：四元数（Quaternion）、欧拉角（Euler Angle）"
+      - "四元数：q = w + xi + yj + zk（无奇点）"
+      - "欧拉角：Roll（横滚）、Pitch（俯仰）、Yaw（偏航）"
+      - "姿态解算：互补滤波器、卡尔曼滤波器、DMP"
+      - "传感器融合：加速度计 + 陀螺仪 + 磁力计 → 9 轴姿态"
+      - "DMP: Digital Motion Processor（数字运动处理器）"
+      - "常见问题：漂移、噪声、融合失败"
+    
+    # SL651-2014 水文规约
+    sl651_hydrology:
+      - "SL651-2014: 水文监测数据通信规约"
+      - "通信方式：UDP、TCP、SMS"
+      - "数据格式：ASCII、二进制"
+      - "站点类型：遥测站（设备端）、中心站（主机端）"
+      - "数据要素：雨量、水位、流量、水质、气象"
+      - "编码方式：BCD、ASCII"
+      - "数据帧结构：帧头 + 站号 + 时间 + 数据 + 校验 + 帧尾"
+      - "命令类型：查询、设置、召测、校时"
+      - "常见问题：编码错误、校验失败、超时"
+    
+    # DS3231 RTC
+    ds3231_rtc:
+      - "芯片类型：DS3231 高精度实时时钟"
+      - "通信接口：I2C（默认地址：0x68）"
+      - "精度：±2ppm（±0.432 秒/天）"
+      - "温度补偿：内置温度传感器补偿"
+      - "时间寄存器：秒、分、时、星期、日、月、年"
+      - "寄存器：0x00（秒）、0x01（分）、0x02（时）... 0x06（年）"
+      - "初始化序列：I2C 初始化 → 读时间 → 配置晶振"
+      - "常见问题：时间漂移、晶振故障、电池没电"
+    
+    # 任务调度
+    task_scheduling:
+      - "tim-task: 定时任务调度器"
+      - "任务类型：周期任务、一次性任务"
+      - "调度策略：优先级调度、时间片轮转"
+      - "任务创建：tim_task_add()"
+      - "任务删除：tim_task_del()"
+      - "任务优先级：高优先级先执行"
+      - "任务周期：1ms、10ms、100ms、1s 等"
+      - "常见问题：任务调度冲突、优先级反转、死锁"
+  
+  # 记忆系统
+  memory:
+    enabled: true
+    categories:
+      - name: "flight_control_patterns"
+        description: "飞行控制模式"
+        examples:
+          - "悬停模式：PID 控制姿态，保持高度"
+          - "巡航模式：按航点飞行，速度恒定"
+          - "返航模式：按记录的航点返航"
+          - "降落模式：缓慢下降，检测到地面后停止"
+      
+      - name: "pid_tuning_patterns"
+        description: "PID 参数整定模式"
+        examples:
+          - "P 参数：从小到大，直到出现轻微震荡"
+          - "I 参数：在 P 参数基础上增加，消除稳态误差"
+          - "D 参数：减小震荡，提高响应速度"
+          - "抗饱和：限制 I 项累积范围"
+      
+      - name: "hydrology_patterns"
+        description: "水文监测模式"
+        examples:
+          - "数据上报：周期上报（5min、15min、1h）"
+          - "数据格式：SL651-2014 编码，BCD 存储"
+          - "命令解析：查询命令、设置命令、召测命令"
+          - "数据存储：本地存储（Flash）、远程上报（NB-IoT）"
+      
+      - name: "task_scheduling_patterns"
+        description: "任务调度模式"
+        examples:
+          - "飞行控制任务：1ms 周期，高优先级"
+          - "传感器读取任务：10ms 周期，中优先级"
+          - "水文上报任务：5min 周期，低优先级"
+          - "按键扫描任务：50ms 周期，低优先级"
+      
+      - name: "common_bugs"
+        description: "常见 Bug 模式"
+        examples:
+          - "飞行控制不稳定：PID 参数不当"
+          - "姿态漂移：传感器未校准"
+          - "时间不正确：RTC 未同步"
+          - "任务调度冲突：优先级设置不当"
+  
+  # 提供的服务
+  services:
+    - name: "flight_control"
+      description: "飞行控制操作"
+      functions:
+        - "fmu_init - 初始化 FMU"
+        - "fmu_set_mode - 设置飞行模式"
+        - "fmu_set_attitude - 设置目标姿态"
+        - "fmu_set_altitude - 设置目标高度"
+        - "fmu_get_attitude - 获取当前姿态"
+        - "fmu_get_altitude - 获取当前高度"
+        - "fmu_arm - 解锁电机"
+        - "fmu_disarm - 锁定电机"
+    
+    - name: "pid_controller"
+      description: "PID 控制操作"
+      functions:
+        - "pid_init - 初始化 PID"
+        - "pid_set_param - 设置 PID 参数"
+        - "pid_update - PID 更新"
+        - "pid_reset - 重置 PID"
+        - "pid_get_output - 获取输出"
+    
+    - name: "imu_fusion"
+      description: "IMU 姿态解算操作"
+      functions:
+        - "imu_init - 初始化 IMU"
+        - "imu_update - 姿态更新"
+        - "imu_get_euler - 获取欧拉角"
+        - "imu_get_quaternion - 获取四元数"
+        - "imu_calibrate - 校准 IMU"
+    
+    - name: "hydrology"
+      description: "水文监测操作"
+      functions:
+        - "hydrology_init - 初始化水文模块"
+        - "hydrology_report - 上报水文数据"
+        - "hydrology_parse_command - 解析命令"
+        - "hydrology_encode - 编码数据"
+        - "hydrology_decode - 解码数据"
+    
+    - name: "rtc"
+      description: "RTC 操作"
+      functions:
+        - "rtc_init - 初始化 RTC"
+        - "rtc_gettime - 获取时间"
+        - "rtc_settime - 设置时间"
+        - "rtc_get_date - 获取日期"
+        - "rtc_sync - 同步时间"
+    
+    - name: "task_schedule"
+      description: "任务调度操作"
+      functions:
+        - "tim_task_init - 初始化任务调度器"
+        - "tim_task_add - 添加任务"
+        - "tim_task_del - 删除任务"
+        - "tim_task_start - 启动任务"
+        - "tim_task_stop - 停止任务"
+  
+  # 权限控制
+  permissions:
+    read:
+      - "drivers/kinetis/flight/*"
+      - "drivers/kinetis/hydrology*"
+      - "drivers/kinetis/tim-task*"
+      - "drivers/kinetis/ds3231*"
+      - "drivers/kinetis/real-time-clock*"
+      - "drivers/kinetis/rtc-task*"
+    
+    write:
+      - "drivers/kinetis/flight/*"
+      - "drivers/kinetis/hydrology*"
+      - "drivers/kinetis/tim-task*"
+      - "drivers/kinetis/ds3231*"
+      - "drivers/kinetis/real-time-clock*"
+      - "drivers/kinetis/rtc-task*"
+    
+    call:
+      - "A01"  # kernel Agent
+      - "A02"  # base Agent（Regmap）
+      - "A03"  # sensor Agent（传感器数据）
+      - "A04"  # peripheral Agent（LED）
+      - "A05"  # storage Agent（存储参数）
+      - "A06"  # protocol Agent（数据上报）
+  
+  # 继承知识
+  inherit_from:
+    - agent: "A01"
+      select:
+        - "all"  # 继承所有 Linux 内核知识
+    
+    - agent: "A02"
+      select:
+        - "regmap"
+    
+    - agent: "A03"
+      select:
+        - "sensor_fusion"
+        - "mpu6050"
+        - "ak8975"
+    
+    - agent: "A05"
+      select:
+        - "filesystem"

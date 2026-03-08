@@ -1082,7 +1082,7 @@ int t_fatfs_append(int argc, char **argv)
 		return FAIL;
 
 	/* Append a line */
-	f_printf(&fil, "%s\n", get_rtc_string());
+	f_printf(&fil, "%s\n", get_rtc_string(&fake_rtc));
 
 	/* Close the file */
 	f_close(&fil);

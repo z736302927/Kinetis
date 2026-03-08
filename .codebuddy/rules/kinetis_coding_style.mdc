@@ -1,0 +1,398 @@
+---
+description: 
+alwaysApply: true
+enabled: true
+updatedAt: 2026-03-08T03:43:43.864Z
+provider: 
+---
+
+# Kinetis 项目编码风格规范
+
+## 1. 命名规范
+
+### 1.1 函数命名
+- **格式**：小写字母 + 下划线分隔
+- **前缀**：使用模块/设备名称前缀
+- **示例**：
+  ```c
+  mpu6050_init()
+  ds3231_get_time()
+  ak8975_read_mag()
+  ```
+
+### 1.2 变量命名
+- **局部变量**：小写 + 下划线，简洁为主
+  ```c
+  u8 tmp;
+  u16 val;
+  u32 reg;
+  ```
+- **全局变量**：`g_` 前缀 + 小写 + 下划线
+  ```c
+  static mpu6050_config_t g_mpu6050_config;
+  static u8 g_mpu6050_initialized;
+  static struct mpu6050_device *g_mpu6050_dev;
+  ```
+
+### 1.3 结构体命名
+- **格式**：小写 + 下划线 + `_device` 后缀
+- **示例**：
+  ```c
+  struct mpu6050_device {
+      struct regmap *regmap;
+      u8 temp_sensitivity;
+      // ...
+  };
+  ```
+
+### 1.4 常量和宏命名
+- **格式**：大写字母 + 下划线
+- **寄存器定义**：`芯片名_` 前缀 + `_REG_` + 寄存器名
+- **示例**：
+  ```c
+  #define MAX77752_REG_STATUS  0x01
+  #define MPU6050_REG_PWR_MGMT_1  0x6B
+  ```
+
+### 1.5 类型定义
+- **格式**：小写 + 下划线 + `_t` 后缀
+- **示例**：
+  ```c
+  typedef struct mpu6050_config {
+      u8 gyro_range;
+      u8 accel_range;
+  } mpu6050_config_t;
+  ```
+
+## 2. 驱动架构规范
+
+### 2.1 设备结构体
+所有传感器驱动必须定义设备结构体，包含：
+- `struct regmap *regmap` - 寄存器映射
+- 设备特定配置字段
+- 设备状态字段
+- 任何必要的缓冲区
+
+```c
+struct mpu6050_device {
+    struct regmap *regmap;
+    u8 temp_sensitivity;
+    u16 gyro_full_scale;
+    u16 accel_full_scale;
+    // ...
+};
+```
+
+### 2.2 函数参数规范
+- **新 API 函数**：必须以 `struct xxx_device *dev` 作为第一个参数
+- **向后兼容包装函数**：使用全局设备指针 `g_xxx_dev`
+
+```c
+// 新 API（推荐）
+int mpu6050_init(struct mpu6050_device *dev, enum regmap_user_bus_type bus_type, void *bus_master);
+
+// 向后兼容包装
+int mpu6050_initialize_legacy(void) {
+    g_mpu6050_dev = mpu6050_device_init(REGMAP_BUS_IIC_SOFT, mpu6050_iic);
+    return 0;
+}
+```
+
+### 2.3 Regmap 使用规范
+- 必须使用 regmap API 进行所有硬件访问
+- 禁止直接调用端口函数
+- 批量读写使用 `regmap_bulk_read/write`
+
+```c
+// 正确 ✅
+regmap_read(dev->regmap, MPU6050_REG_PWR_MGMT_1, &tmp);
+regmap_write(dev->regmap, MPU6050_REG_PWR_MGMT_1, 0x00);
+regmap_bulk_read(dev->regmap, ACCEL_XOUT_H, val, 6);
+
+// 错误 ❌
+mpu6050_port_receive(dev, addr, &val);
+```
+
+### 2.4 Regmap 配置规范
+```c
+static const struct regmap_config xxx_regmap_config = {
+    .reg_bits = 8,
+    .val_bits = 8,
+    .max_register = 0xXX,
+    .volatile_table = &xxx_volatile_table,
+    .cache_type = REGCACHE_NONE,
+};
+```
+
+## 3. 数据类型规范
+
+### 3.1 优先使用的类型
+- **无符号整数**：`u8`, `u16`, `u32` （而非 `uint8_t`, `uint16_t`, `uint32_t`）
+- **有符号整数**：`s8`, `s16`, `s32`
+- **布尔类型**：`u8` （1 = true, 0 = false）
+
+### 3.2 函数返回值
+- **成功返回**：`0` 或非负值
+- **错误返回**：负数错误码
+- **指针返回**：成功返回指针，失败返回 `ERR_PTR(error)`
+
+```c
+int mpu6050_read_accel(struct mpu6050_device *dev, s16 *x, s16 *y, s16 *z) {
+    // ...
+    return 0;  // 成功
+}
+
+struct mpu6050_device *mpu6050_init(...) {
+    dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+    if (!dev)
+        return ERR_PTR(-ENOMEM);
+    // ...
+    return dev;
+}
+```
+
+## 4. 注释规范
+
+### 4.1 Doxygen 格式
+所有公开 API 必须使用 Doxygen 格式注释：
+
+```c
+/**
+ * @brief Initialize MPU6050 sensor
+ * @param dev: Device pointer
+ * @param bus_type: Bus type (REGMAP_BUS_IIC_SOFT, REGMAP_BUS_SPI_SOFT)
+ * @param bus_master: Bus master pointer
+ * @return Device pointer on success, ERR_PTR on failure
+ * @note This function initializes the MPU6050 with default settings
+ *       Wake up the device, configure sample rate and full scale range
+ */
+struct mpu6050_device *mpu6050_init(enum regmap_user_bus_type bus_type, void *bus_master);
+```
+
+### 4.2 代码内注释
+- 简洁扼要，解释"为什么"而非"是什么"
+- 行尾注释：使用 `//`，对齐到合理的列
+- 块注释：使用 `/* */`
+
+```c
+/* Configure PWR_MGMT_1 to wake up device */
+regmap_write(dev->regmap, MPU6050_REG_PWR_MGMT_1, 0x00);
+
+mdelay(100);  // Wait for device to stabilize
+```
+
+## 5. 错误处理规范
+
+### 5.1 返回值检查
+```c
+dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+if (!dev)
+    return ERR_PTR(-ENOMEM);
+
+ret = regmap_read(dev->regmap, reg, &val);
+if (ret < 0)
+    return ret;
+```
+
+### 5.2 错误指针处理
+```c
+if (IS_ERR(dev)) {
+    pr_err("Failed to allocate device: %ld\n", PTR_ERR(dev));
+    return PTR_ERR(dev);
+}
+```
+
+### 5.3 日志输出
+使用 `printk` 系列：
+- `pr_info()` - 信息
+- `pr_err()` - 错误
+- `pr_warn()` - 警告
+- `pr_debug()` - 调试
+
+```c
+pr_info("MPU6050 initialized successfully\n");
+pr_err("Failed to read register 0x%02x\n", reg);
+```
+
+## 6. 代码组织规范
+
+### 6.1 头文件包含顺序
+```c
+/* 系统头文件 */
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/slab.h>
+
+/* 项目头文件 */
+#include <kinetis/mpu6050.h>
+#include <kinetis/iic_soft.h>
+```
+
+### 6.2 函数顺序
+1. 结构体定义
+2. Regmap 配置
+3. 内部辅助函数
+4. 设备初始化函数
+5. 公开 API 函数
+6. 向后兼容包装函数
+
+### 6.3 分隔符注释
+使用明显的分隔符标记主要代码段：
+```c
+/*********************************************************************
+ * MPU6050 Device Structure
+ *********************************************************************/
+
+/*********************************************************************
+ * Regmap Configuration
+ *********************************************************************/
+
+/*********************************************************************
+ * Initialization
+ *********************************************************************/
+
+/*********************************************************************
+ * Public API
+ *********************************************************************/
+```
+
+## 7. 并发控制规范
+
+### 7.1 互斥锁使用
+```c
+mutex_lock(&dev->lock);
+// Critical section
+mutex_unlock(&dev->lock);
+```
+
+### 7.2 自旋锁使用
+```c
+unsigned long flags;
+spin_lock_irqsave(&dev->spinlock, flags);
+// Critical section
+spin_unlock_irqrestore(&dev->spinlock, flags);
+```
+
+## 8. 内存管理规范
+
+### 8.1 内存分配
+```c
+/* 分配并清零 */
+dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+
+/* 分配数组 */
+buf = kcalloc(count, size, GFP_KERNEL);
+
+/* 托管内存（自动释放） */
+dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
+```
+
+### 8.2 内存释放
+```c
+kfree(dev);
+vfree(buf);
+```
+
+## 9. 全局变量规范
+
+### 9.1 全局变量命名
+- 使用 `g_` 前缀
+- 尽量使用 `static` 限制作用域
+
+```c
+static struct mpu6050_device *g_mpu6050_dev;
+static mpu6050_config_t g_mpu6050_config;
+```
+
+### 9.2 全局变量用途
+- 仅用于向后兼容的包装函数
+- 设备全局状态（单一设备实例）
+- 避免滥用全局变量
+
+## 10. 常见编码模式
+
+### 10.1 设备初始化模式
+```c
+struct xxx_device *xxx_init(enum regmap_user_bus_type bus_type, void *bus_master) {
+    struct xxx_device *dev;
+    
+    /* Allocate device */
+    dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+    if (!dev)
+        return ERR_PTR(-ENOMEM);
+    
+    /* Initialize regmap */
+    dev->regmap = regmap_init_user_bus(bus_type, bus_master, &xxx_regmap_config);
+    if (IS_ERR(dev->regmap)) {
+        kfree(dev);
+        return ERR_CAST(dev->regmap);
+    }
+    
+    /* Configure device */
+    regmap_write(dev->regmap, XXX_REG_CONFIG, default_value);
+    
+    return dev;
+}
+```
+
+### 10.2 读取传感器数据模式
+```c
+int xxx_read_data(struct xxx_device *dev, u8 *buf, u16 len) {
+    u8 val[6];
+    int ret;
+    
+    ret = regmap_bulk_read(dev->regmap, XXX_REG_DATA, val, len);
+    if (ret < 0)
+        return ret;
+    
+    /* Convert data */
+    buf[0] = (val[0] << 8) | val[1];
+    // ...
+    
+    return 0;
+}
+```
+
+### 10.3 错误清理模式
+```c
+int xxx_function(struct xxx_device *dev) {
+    int ret;
+    void *buf = NULL;
+    
+    buf = kmalloc(SIZE, GFP_KERNEL);
+    if (!buf) {
+        ret = -ENOMEM;
+        goto err_out;
+    }
+    
+    ret = regmap_read(dev->regmap, REG, &val);
+    if (ret < 0)
+        goto err_free;
+    
+    /* Success */
+    kfree(buf);
+    return 0;
+
+err_free:
+    kfree(buf);
+err_out:
+    return ret;
+}
+```
+
+## 11. 代码风格检查清单
+
+在提交代码前，检查以下项目：
+
+- [ ] 所有函数使用小写 + 下划线命名
+- [ ] 全局变量使用 `g_` 前缀
+- [ ] 结构体使用 `_device` 后缀
+- [ ] 新 API 函数第一个参数是 `struct xxx_device *dev`
+- [ ] 使用 regmap API 而非端口函数
+- [ ] 所有公开 API 有 Doxygen 注释
+- [ ] 返回值正确（成功返回 0，失败返回负数）
+- [ ] 使用 `u8/u16/u32` 而非 `uint8_t/uint16_t/uint32_t`
+- [ ] 检查所有分配的返回值
+- [ ] 使用 `pr_info/pr_err/pr_warn` 输出日志
+- [ ] 代码中有明显的分隔符注释
+- [ ] 避免过度注释，解释"为什么"而非"是什么"

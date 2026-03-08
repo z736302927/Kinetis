@@ -3,7 +3,7 @@
  * Kinetis 测试计划文件
  * 说明：
  * 1. 所有带线程控制的模块，thread on 必须先执行开启线程
- * 2. 测试完成后执行 thread off 关闭线程
+ * 2. 测试完成后执行 init off 关闭线程
  * 3. 带参数的命令会使用指定参数进行测试
  * 4. 多个参数组合表示需要分别测试不同场景
  *============================================================================*/
@@ -31,17 +31,24 @@
 // switch.drop
 
 /*AK8975磁力计测试 - 需要先开启线程，进行基本信息、自检、磁场测量、ROM访问测试*/
-ak8975.thread on
+ak8975.init on i2c
 ak8975.basic-info
 ak8975.selftest
 ak8975.magnetic 128
 ak8975.magnetic 256
 ak8975.fuse-rom-access
-ak8975.thread off
+ak8975.init off
+
+ak8975.init on spi
+ak8975.basic-info
+ak8975.selftest
+ak8975.magnetic 128
+ak8975.magnetic 256
+ak8975.fuse-rom-access
+ak8975.init off
 
 /*MPU6050六轴IMU测试 - 进行设备ID检测、传感器数据读取、自检、校准、FIFO、中断、电源、量程和DLPF配置测试*/
-mpu6050.thread on
-mpu6050.device-id
+mpu6050.init on i2c
 mpu6050.sensor-data
 mpu6050.selftest
 mpu6050.gyro-calibration
@@ -51,11 +58,10 @@ mpu6050.interrupt-test
 mpu6050.power-test
 mpu6050.fullscale-test
 mpu6050.dlpf-test
-mpu6050.thread off
+mpu6050.init off
 
 /*MAX77752电源管理芯片测试 - 进行设备ID检测、电源管理、电池状态、电压监测、充电、电流监测、温度、LED控制、中断、自检、睡眠和连续监控测试*/
-max77752.thread on
-max77752.device-id
+max77752.init on i2c
 max77752.power-test
 max77752.battery-test
 max77752.voltage-test
@@ -67,11 +73,10 @@ max77752.interrupt-test
 max77752.selftest
 max77752.sleep-test
 max77752.monitoring-test
-max77752.thread off
+max77752.init off
 
 /*MAX30205温度传感器测试 - 进行设备检测、单次和连续温度读取、阈值测试、配置、OS标志、超时、单次模式、校准和范围测试*/
-max30205.thread on
-max30205.device-id
+max30205.init on i2c
 max30205.temp-single
 max30205.temp-continuous 10
 max30205.threshold-test
@@ -81,10 +86,10 @@ max30205.timeout-test
 max30205.oneshot-test
 max30205.calibration-test
 max30205.range-test
-max30205.thread off
+max30205.init off
 
 // /*AT24CXX EEPROM测试 - 需要先开启线程，进行设备检测、读写、边角、磨损均衡等测试*/
-// at24cxx.thread on
+// at24cxx.init on
 // at24cxx.device-detect
 // at24cxx.loopback
 // at24cxx.current-addr-read
@@ -95,10 +100,10 @@ max30205.thread off
 // at24cxx.wear-leveling
 // at24cxx.write-protect
 // at24cxx.write-retry
-// at24cxx.thread off
+// at24cxx.init off
 
 // /*DS3231实时时钟测试 - 需要先开启线程，进行时钟设置、读取、闹钟、方波、温度、综合和压力测试*/
-// ds3231.thread on
+// ds3231.init on
 // ds3231.set-clock
 // ds3231.get-clock
 // ds3231.get-clock 10
@@ -112,7 +117,7 @@ max30205.thread off
 // ds3231.32khz-wave
 // ds3231.comprehensive
 // ds3231.stress
-// ds3231.thread off
+// ds3231.init off
 
 // /*RTC测试 - 测试RTC时钟设置、读取、验证、性能、备份和清理功能*/
 // rtc.set-clock
@@ -132,16 +137,17 @@ max30205.thread off
 // rtc-task.suspend-resume
 // rtc-task.concurrent
 
-// /*定时任务测试 - 测试定时任务的添加、验证、优先级、性能、清理、边界、并发、短间隔和挂起恢复功能*/
-// tim-task.add
-// tim-task.validation
-// tim-task.priority
-// tim-task.performance
-// tim-task.cleanup
-// tim-task.boundary
-// tim-task.concurrent
-// tim-task.short-interval
-// tim-task.suspend-resume
+/*定时任务测试 - 测试定时任务的添加、验证、优先级、性能、清理、边界、并发、短间隔和挂起恢复功能*/
+tim-task.add
+tim-task.drop
+tim-task.validation
+tim-task.priority
+tim-task.performance
+tim-task.cleanup
+tim-task.boundary
+tim-task.concurrent
+tim-task.short-interval
+tim-task.suspend-resume
 
 // /*SPI软模拟测试 - 测试SPI的基本功能、字节传输、模式、位序、速度、边界、性能、压力、读写寄存器和大数据测试*/
 // spi.init

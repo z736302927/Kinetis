@@ -1,0 +1,199 @@
+# A02 - base Agent
+# 版本: v1.0
+# 创建日期: 2026-03-06
+
+agent:
+  id: "A02"
+  name: "base Agent"
+  display_name: "基础服务 Agent"
+  
+  # 编码风格
+  coding_style:
+    rule_file: ".codebuddy/rules/kinetis_coding_style.mdc"
+    strict: true
+    notes: "基础服务代码必须严格遵循项目编码风格"
+  
+  # 职责
+  responsibilities:
+    - "设备模型核心管理"
+    - "GPIO 子系统"
+    - "引脚控制（pinctrl）"
+    - "Regmap 框架"
+    - "平台设备管理"
+  
+  # 负责的代码文件
+  code_files:
+    # 设备模型核心
+    - "drivers/base/drv-core.c"
+    - "drivers/base/drv-bus.c"
+    - "drivers/base/drv-platform.c"
+    - "drivers/base/drv-devres.c"
+    - "drivers/base/swnode.c"
+    
+    # Regmap 框架
+    - "drivers/base/regmap/regmap.c"
+    - "drivers/base/regmap/regcache.c"
+    - "drivers/base/regmap/regcache-rbtree.c"
+    - "drivers/base/regmap/regcache-flat.c"
+    
+    # GPIO 子系统
+    - "drivers/gpio/gpiolib.c"
+    - "drivers/gpio/gpiolib-devres.c"
+    - "drivers/gpio/gpiolib-legacy.c"
+    - "drivers/gpio/gpiolib-of.c"
+    
+    # 引脚控制
+    - "drivers/pinctrl/pinctrl-core.c"
+    - "drivers/pinctrl/pinctrl-utils.c"
+  
+  # 依赖关系
+  dependencies:
+    - agent: "A01"
+      reason: "依赖内核核心服务（内存、调度等）"
+      trust_level: 1.0
+  
+  # 被依赖
+  depended_by:
+    - "A03"
+    - "A04"
+    - "A05"
+    - "A06"
+    - "A07"
+  
+  # 领域知识
+  domain_knowledge:
+    # 设备模型
+    device_model:
+      - "struct device - 设备结构体"
+      - "struct device_driver - 驱动结构体"
+      - "struct bus_type - 总线类型"
+      - "struct platform_device - 平台设备"
+      - "struct platform_driver - 平台驱动"
+      - "device_register() / device_unregister() - 设备注册/注销"
+      - "driver_register() / driver_unregister() - 驱动注册/注销"
+      - "probe() / remove() - 设备探测/移除"
+    
+    # GPIO 子系统
+    gpio_subsystem:
+      - "struct gpio_desc - GPIO 描述符"
+      - "gpiod_get() / gpiod_put() - GPIO 获取/释放"
+      - "gpiod_direction_input() - 设置为输入"
+      - "gpiod_direction_output() - 设置为输出"
+      - "gpiod_get_value() / gpiod_set_value() - GPIO 读写"
+      - "gpiod_to_irq() - GPIO 转 IRQ"
+      - "devm_gpiod_get() - 托管 GPIO"
+      - "GPIO 消费者 API vs GPIO 控制器 API"
+    
+    # 引脚控制
+    pinctrl:
+      - "struct pinctrl - 引脚控制句柄"
+      - "struct pinctrl_state - 引脚状态"
+      - "pinctrl_get() / pinctrl_put() - 获取/释放引脚控制"
+      - "pinctrl_lookup_state() - 查找引脚状态"
+      - "pinctrl_select_state() - 选择引脚状态"
+      - "引脚复用配置（GPIO、I2C、SPI 等）"
+      - "引脚电气属性（上拉、下拉、驱动强度）"
+    
+    # Regmap 框架
+    regmap:
+      - "struct regmap - Regmap 句柄"
+      - "struct regmap_config - Regmap 配置"
+      - "regmap_init() / regmap_exit() - Regmap 初始化/退出"
+      - "regmap_read() / regmap_write() - 寄存器读写"
+      - "regmap_update_bits() - 寄存器位更新"
+      - "regmap_bulk_read() / regmap_bulk_write() - 批量读写"
+      - "regmap_multi_reg_write() - 多寄存器写入"
+      - "regmap_irq_chip - Regmap 中断芯片"
+      - "寄存器缓存策略（flat, rbtree, lzo）"
+      - "I2C/SPI/Memory 等底层总线适配"
+    
+    # 平台设备
+    platform_device:
+      - "platform_device_register() - 注册平台设备"
+      - "platform_device_unregister() - 注销平台设备"
+      - "platform_driver_register() - 注册平台驱动"
+      - "platform_driver_unregister() - 注销平台驱动"
+      - "of_match_device() - 设备树匹配"
+      - "platform_get_resource() - 获取资源"
+      - "platform_get_irq() - 获取 IRQ"
+      - "devm_platform_ioremap_resource() - 映射资源"
+  
+  # 记忆系统
+  memory:
+    enabled: true
+    categories:
+      - name: "device_patterns"
+        description: "设备模型代码模式"
+        examples:
+          - "设备注册模式：总是使用 devm_* 减少资源泄漏"
+          - "探测失败模式：使用 dev_err_probe() 统一错误处理"
+          - "资源获取模式：使用 platform_get_resource"
+      
+      - name: "gpio_patterns"
+        description: "GPIO 使用模式"
+        examples:
+          - "GPIO 获取：优先使用 devm_gpiod_get"
+          - "GPIO 命名：使用设备树中的标签"
+          - "GPIO 方向：初始化时明确设置"
+      
+      - name: "regmap_patterns"
+        description: "Regmap 使用模式"
+        examples:
+          - "Regmap 配置：指定 reg_bits, val_bits, cache_type"
+          - "批量操作：使用 regmap_multi_reg_write 提高性能"
+          - "缓存策略：根据设备特性选择（flat vs rbtree）"
+  
+  # 提供的服务
+  services:
+    - name: "gpio_operation"
+      description: "GPIO 操作"
+      functions:
+        - "gpio_request / gpio_free"
+        - "gpio_direction_input / gpio_direction_output"
+        - "gpio_get_value / gpio_set_value"
+        - "gpio_to_irq"
+    
+    - name: "regmap_operation"
+      description: "Regmap 操作"
+      functions:
+        - "regmap_init / regmap_exit"
+        - "regmap_read / regmap_write"
+        - "regmap_update_bits"
+        - "regmap_bulk_read / regmap_bulk_write"
+    
+    - name: "device_registration"
+      description: "设备注册"
+      functions:
+        - "device_register / device_unregister"
+        - "driver_register / driver_unregister"
+        - "platform_device_register / platform_driver_register"
+    
+    - name: "pinctrl_management"
+      description: "引脚控制管理"
+      functions:
+        - "pinctrl_get / pinctrl_put"
+        - "pinctrl_select_state"
+  
+  # 权限控制
+  permissions:
+    read:
+      - "drivers/base/*"
+      - "drivers/gpio/*"
+      - "drivers/pinctrl/*"
+    
+    write:
+      - "drivers/base/*"
+      - "drivers/gpio/*"
+      - "drivers/pinctrl/*"
+    
+    call:
+      - "A01"  # 调用 kernel Agent
+  
+  # 继承知识
+  inherit_from:
+    - agent: "A01"
+      select:
+        - "memory_management"
+        - "time_management"
+        - "concurrency"
+        - "error_handling"

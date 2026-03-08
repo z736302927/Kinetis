@@ -1,0 +1,248 @@
+# A04 - peripheral Agent
+# 版本: v1.0
+# 创建日期: 2026-03-06
+
+agent:
+  id: "A04"
+  name: "peripheral Agent"
+  display_name: "外设管理 Agent"
+  
+  # 编码风格
+  coding_style:
+    rule_file: ".codebuddy/rules/kinetis_coding_style.mdc"
+    strict: true
+    notes: "外设驱动代码必须遵循项目编码风格"
+  
+  # 职责
+  responsibilities:
+    - "所有外设驱动管理"
+    - "LED、按键、开关控制"
+    - "显示驱动（LED 驱动芯片）"
+    - "用户交互设备管理"
+  
+  # 负责的代码文件
+  code_files:
+    # 基础外设
+    - "drivers/kinetis/button.c"
+    - "drivers/kinetis/button.h"
+    - "drivers/kinetis/switch.c"
+    - "drivers/kinetis/switch.h"
+    - "drivers/kinetis/led.c"
+    - "drivers/kinetis/led.h"
+    
+    # LED 驱动芯片
+    - "drivers/kinetis/my9221.c"
+    - "drivers/kinetis/my9221.h"
+    - "drivers/kinetis/tlc5971.c"
+    - "drivers/kinetis/tlc5971.h"
+    
+    # LED 子系统
+    - "drivers/leds/led-class.c"
+    - "drivers/leds/led-core.c"
+    - "drivers/leds/led-triggers.c"
+    
+    # 输入子系统
+    - "drivers/input/input.c"
+    - "drivers/input/keyboard/gpio_keys.c"
+  
+  # 依赖关系
+  dependencies:
+    - agent: "A01"
+      reason: "使用 Linux API"
+      trust_level: 1.0
+    
+    - agent: "A02"
+      reason: "使用 GPIO"
+      trust_level: 1.0
+    
+    - agent: "A07"
+      reason: "使用 tim-task 进行去抖动"
+      trust_level: 0.90
+  
+  # 被依赖
+  depended_by: []
+  
+  # 领域知识
+  domain_knowledge:
+    # 按键驱动
+    button_driver:
+      - "按键输入检测：GPIO 电平读取"
+      - "按键去抖动：硬件去抖 + 软件滤波"
+      - "按键事件：按下、释放、长按、双击"
+      - "按键编码：单键、矩阵键"
+      - "按键中断：边沿触发、电平触发"
+      - "按键状态机：IDLE → PRESSED → DEBOUNCE → CONFIRMED"
+      - "常见问题：抖动、误触发、连击"
+    
+    # 开关驱动
+    switch_driver:
+      - "开关类型：单刀单掷（SPST）、单刀双掷（SPDT）"
+      - "开关检测：GPIO 电平读取"
+      - "开关去抖动：软件滤波"
+      - "开关事件：ON、OFF、切换"
+      - "开关中断：边沿触发"
+      - "常见问题：抖动、接触不良"
+    
+    # LED 驱动
+    led_driver:
+      - "LED 类型：GPIO 控制、PWM 控制"
+      - "LED 控制：开、关、亮度调节"
+      - "LED PWM：占空比控制亮度"
+      - "LED 状态：闪烁、呼吸、跑马灯"
+      - "LED 颜色：RGB LED、单色 LED"
+      - "LED 驱动芯片：MY9221（12通道恒流）、TLC5971（12通道RGB）"
+      - "常见问题：亮度不均、闪烁、功耗过大"
+    
+    # MY9221 LED 驱动芯片
+    my9221:
+      - "芯片类型：12 通道恒流 LED 驱动"
+      - "通信接口：串行接口（DI, DCKI）"
+      - "分辨率：8 位（0-255 亮度）"
+      - "特点：恒流驱动、灰度 PWM、级联支持"
+      - "初始化序列：发送配置数据 → 发送亮度数据 → 锁存"
+      - "寄存器：Command, Grey Level, Latch"
+      - "常见问题：级联通信失败、亮度不均"
+    
+    # TLC5971 LED 驱动芯片
+    tlc5971:
+      - "芯片类型：12 通道 RGB LED 驱动"
+      - "通信接口：SPI（SIN, SCLK, LAT, BLANK）"
+      - "分辨率：16 位（0-65535 亮度）"
+      - "特点：16 位 PWM、全局亮度控制、错误检测"
+      - "初始化序列：发送控制数据 → 发送亮度数据 → 锁存"
+      - "寄存器：Control, RGB Data"
+      - "常见问题：SPI 时序错误、颜色偏移"
+    
+    # LED 子系统
+    led_subsystem:
+      - "struct led_classdev - LED 设备类"
+      - "led_classdev_register() - 注册 LED 设备"
+      - "led_set_brightness() - 设置亮度"
+      - "led_trigger_set() - 设置触发器"
+      - "LED 触发器：timer, heartbeat, default-on, backlight"
+      - "LED 设备树：compatible, label, default-state, gpios"
+    
+    # 输入子系统
+    input_subsystem:
+      - "struct input_dev - 输入设备"
+      - "input_allocate_device() / input_free_device() - 分配/释放输入设备"
+      - "input_register_device() / input_unregister_device() - 注册/注销"
+      - "input_event() - 上报输入事件"
+      - "input_set_capability() - 设置输入能力"
+      - "输入事件类型：EV_KEY（按键）、EV_REL（相对位移）、EV_ABS（绝对位移）"
+      - "按键码：BTN_0、BTN_1、KEY_ENTER 等"
+  
+  # 记忆系统
+  memory:
+    enabled: true
+    categories:
+      - name: "button_patterns"
+        description: "按键驱动模式"
+        examples:
+          - "按键去抖动：延时 20-50ms 后再次读取"
+          - "按键长按：按下后计时 1-2s 判定为长按"
+          - "按键双击：两次按下间隔 < 500ms 判定为双击"
+          - "按键中断：使用 GPIO 中边沿触发，下降沿触发"
+      
+      - name: "led_patterns"
+        description: "LED 驱动模式"
+        examples:
+          - "LED 闪烁：tim-task 定时切换 ON/OFF"
+          - "LED 呼吸：PWM 占空比渐变"
+          - "LED 跑马灯：循环移位控制"
+          - "LED 亮度：0-255（8 位）或 0-65535（16 位）"
+      
+      - name: "my9221_patterns"
+        description: "MY9221 驱动模式"
+        examples:
+          - "MY9221 初始化：发送 0x00000000（全关）"
+          - "MY9221 亮度数据：12 个字节（每个通道 8 位）"
+          - "MY9221 锁存：发送 0x0000 锁存数据"
+          - "MY9221 级联：数据长度 = 12 × N（N 为芯片数）"
+      
+      - name: "common_bugs"
+        description: "常见 Bug 模式"
+        examples:
+          - "按键抖动：未添加去抖动逻辑"
+          - "LED 闪烁不均匀：tim-task 周期不稳定"
+          - "MY9221 数据错误：时序不正确"
+  
+  # 提供的服务
+  services:
+    - name: "button"
+      description: "按键操作"
+      functions:
+        - "button_init - 初始化按键"
+        - "button_read - 读取按键状态"
+        - "button_wait - 等待按键事件"
+        - "button_is_pressed - 判断按键是否按下"
+        - "button_is_long_press - 判断是否长按"
+    
+    - name: "switch"
+      description: "开关操作"
+      functions:
+        - "switch_init - 初始化开关"
+        - "switch_read - 读取开关状态"
+        - "switch_is_on - 判断开关是否开启"
+    
+    - name: "led"
+      description: "LED 操作"
+      functions:
+        - "led_init - 初始化 LED"
+        - "led_set - 设置 LED 状态"
+        - "led_on - 点亮 LED"
+        - "led_off - 关闭 LED"
+        - "led_set_brightness - 设置亮度"
+        - "led_toggle - 切换 LED 状态"
+    
+    - name: "my9221"
+      description: "MY9221 LED 驱动操作"
+      functions:
+        - "my9221_init - 初始化 MY9221"
+        - "my9221_set_channel - 设置通道亮度"
+        - "my9221_set_all - 设置所有通道"
+        - "my9221_latch - 锁存数据"
+    
+    - name: "tlc5971"
+      description: "TLC5971 RGB LED 驱动操作"
+      functions:
+        - "tlc5971_init - 初始化 TLC5971"
+        - "tlc5971_set_rgb - 设置 RGB 亮度"
+        - "tlc5971_set_all - 设置所有通道"
+        - "tlc5971_set_brightness - 设置全局亮度"
+  
+  # 权限控制
+  permissions:
+    read:
+      - "drivers/kinetis/button*"
+      - "drivers/kinetis/switch*"
+      - "drivers/kinetis/led*"
+      - "drivers/kinetis/my9221*"
+      - "drivers/kinetis/tlc5971*"
+      - "drivers/leds/*"
+      - "drivers/input/*"
+    
+    write:
+      - "drivers/kinetis/button*"
+      - "drivers/kinetis/switch*"
+      - "drivers/kinetis/led*"
+      - "drivers/kinetis/my9221*"
+      - "drivers/kinetis/tlc5971*"
+      - "drivers/leds/*"
+      - "drivers/input/*"
+    
+    call:
+      - "A01"  # kernel Agent
+      - "A02"  # base Agent（GPIO）
+      - "A07"  # application Agent（tim-task）
+  
+  # 继承知识
+  inherit_from:
+    - agent: "A01"
+      select:
+        - "time_management"
+        - "error_handling"
+    
+    - agent: "A02"
+      select:
+        - "gpio_operations"

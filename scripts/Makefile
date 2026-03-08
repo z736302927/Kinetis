@@ -22,9 +22,9 @@ else
 OPT = -O0 -g3
 endif
 
-# Compiler flags -Wall
+# Compiler flags
 COMMON_FLAGS = --std=gnu17 -xc -fdata-sections -ffunction-sections -fdiagnostics-color=always
-# COMMON_FLAGS += -fsanitize=address -fsanitize=undefined
+# COMMON_FLAGS += -fsanitize=address -fsanitize=undefined -Wall
 WARN_FLAGS = -w -Wextra -Wno-unused-parameter
 CFLAGS_BASE = $(COMMON_FLAGS) $(WARN_FLAGS) $(OPT)
 
@@ -92,13 +92,13 @@ C_SOURCES += $(wildcard ../drivers/gpio/gpiolib.c)
 # C_SOURCES += $(wildcard ../drivers/leds/led-core.c)
 # C_SOURCES += $(wildcard ../drivers/leds/led-triggers.c)
 # C_SOURCES += $(wildcard ../drivers/leds/trigger/ledtrig-heartbeat.c)
-# C_SOURCES += $(wildcard ../drivers/base/regmap/regmap.c)
-# C_SOURCES += $(wildcard ../drivers/base/regmap/regmap-12c.c)
-# C_SOURCES += $(wildcard ../drivers/base/regmap/regmap-spl.c)
-# C_SOURCES += $(wildcard ../drivers/base/regmap/regcache.c)
-# C_SOURCES += $(wildcard ../drivers/base/regmap/regcache-flat.c)
-# C_SOURCES += $(wildcard ../drivers/base/regmap/regcache-lzo.c)
-# C_SOURCES += $(wildcard ../drivers/base/regmap/regcache-rbtree.c)
+C_SOURCES += $(wildcard ../drivers/base/regmap/regmap.c)
+C_SOURCES += $(wildcard ../drivers/base/regmap/regmap-12c.c)
+C_SOURCES += $(wildcard ../drivers/base/regmap/regmap-spl.c)
+C_SOURCES += $(wildcard ../drivers/base/regmap/regcache.c)
+C_SOURCES += $(wildcard ../drivers/base/regmap/regcache-flat.c)
+C_SOURCES += $(wildcard ../drivers/base/regmap/regcache-lzo.c)
+C_SOURCES += $(wildcard ../drivers/base/regmap/regcache-rbtree.c)
 C_SOURCES += $(wildcard ../drivers/tty/serdev/*.c)
 C_SOURCES += $(wildcard ../drivers/tty/serial/*.c)
 C_SOURCES += $(wildcard ../drivers/tty/*.c)

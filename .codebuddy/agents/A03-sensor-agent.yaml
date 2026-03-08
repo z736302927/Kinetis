@@ -1,0 +1,370 @@
+# A03 - sensor Agent
+# 版本: v1.0
+# 创建日期: 2026-03-06
+
+agent:
+  id: "A03"
+  name: "sensor Agent"
+  display_name: "传感器管理 Agent（含 I2C/SPI 总线驱动）"
+  
+  # 编码风格
+  coding_style:
+    rule_file: ".codebuddy/rules/kinetis_coding_style.mdc"
+    strict: true
+    notes: "传感器驱动必须遵循设备结构体+regmap架构，所有函数必须接受dev参数作为第一个参数"
+  
+  # 职责
+  responsibilities:
+    - "所有传感器驱动管理"
+    - "传感器数据读取与校准"
+    - "I2C/SPI 总线驱动（软件模拟）"
+    - "传感器数据融合"
+    - "传感器初始化与配置"
+  
+  # 负责的代码文件
+  code_files:
+    # 传感器驱动
+    - "drivers/kinetis/mpu6050.c"
+    - "drivers/kinetis/mpu6050.h"
+    - "drivers/kinetis/ak8975.c"
+    - "drivers/kinetis/ak8975.h"
+    - "drivers/kinetis/max30205.c"
+    - "drivers/kinetis/max30205.h"
+    - "drivers/kinetis/delay.c"
+    - "drivers/kinetis/delay.h"
+    
+    # I2C/SPI 总线驱动（软件模拟）
+    - "drivers/kinetis/iic_soft.c"
+    - "drivers/kinetis/iic_soft.h"
+    - "drivers/kinetis/spi_soft.c"
+    - "drivers/kinetis/spi_soft.h"
+    
+    # Regmap 适配
+    - "drivers/kinetis/regmap-user-bus.c"
+    - "drivers/kinetis/regmap-user-bus.h"
+    
+    # 工业I/O框架
+    - "drivers/iio/industrialio-core.c"
+    - "drivers/iio/industrialio-buffer.c"
+    - "drivers/iio/inkern.c"
+  
+  # 依赖关系
+  dependencies:
+    - agent: "A01"
+      reason: "使用 Linux API（kmalloc, delay 等）"
+      trust_level: 1.0
+    
+    - agent: "A02"
+      reason: "使用 GPIO（I2C/SPI 需要操作 GPIO）、Regmap 框架"
+      trust_level: 0.95
+  
+  # 被依赖
+  depended_by:
+    - "A05"  # storage Agent 通过 SPI 访问 Flash
+    - "A07"  # application Agent 使用传感器数据
+  
+  # 领域知识
+  domain_knowledge:
+    # I2C 总线
+    i2c_bus:
+      - "I2C 协议：2 线（SCL、SDA）"
+      - "I2C 时序：启动、停止、字节写入/读取、ACK/NACK"
+      - "I2C 速度：标准模式（100kHz）、快速模式（400kHz）"
+      - "I2C 多主从：主设备控制时钟，从设备响应"
+      - "I2C bit-bang 实现：软件模拟时序"
+      - "I2C 错误处理：NACK 检测、总线挂起恢复"
+      - "I2C 常见问题：总线冲突、时钟拉伸、电平不匹配"
+    
+    # SPI 总线
+    spi_bus:
+      - "SPI 协议：4 线（SCK、MOSI、MISO、CS）"
+      - "SPI 时钟极性/相位（CPOL/CPHA）：4 种模式"
+      - "SPI bit-bang 实现：软件模拟时序"
+      - "SPI 速度：可达数 MHz"
+      - "SPI 全双工/半双工模式"
+      - "SPI 片选管理：主动拉低/拉高"
+      - "SPI 常见问题：时钟相位错误、片选时序、电平不匹配"
+    
+    # MPU6050 传感器
+    mpu6050:
+      - "芯片类型：6轴 IMU（3轴加速度 + 3轴陀螺仪）"
+      - "通信接口：I2C（默认地址：0x68）"
+      - "分辨率：16 位 ADC"
+      - "采样率：可配置（4-1000 Hz）"
+      - "初始化序列：复位 → 唤醒 → 配置采样率 → 配置量程"
+      - "寄存器：PWR_MGMT_1, SMPLRT_DIV, CONFIG, GYRO_CONFIG, ACCEL_CONFIG"
+      - "校准：加速度偏移、陀螺仪偏移"
+      - "常见问题：数据漂移、噪声过大、初始化失败"
+    
+    # AK8975 传感器
+    ak8975:
+      - "芯片类型：3轴磁力计"
+      - "通信接口：I2C（默认地址：0x0C）"
+      - "分辨率：13 位 ADC（范围：-8192 到 +8191）"
+      - "初始化序列：复位 → 配置模式 → 开始测量"
+      - "寄存器映射（19个寄存器）："
+        - "  WIA (0x00): 设备ID，固定值 0x48（只读）"
+        - "  INFO (0x01): 信息寄存器，固定值 0x00（只读）"
+        - "  ST1 (0x02): 状态1寄存器，DRDY(bit0)数据就绪标志（只读）"
+        - "  HXL (0x03)/HXH (0x04): X轴磁场数据低/高字节（只读）"
+        - "  HYL (0x05)/HYH (0x06): Y轴磁场数据低/高字节（只读）"
+        - "  HZL (0x07)/HZH (0x08): Z轴磁场数据低/高字节（只读）"
+        - "  ST2 (0x09): 状态2寄存器，HOFL(bit2)溢出标志、DERR(bit1)错误标志（只读）"
+        - "  CNTL1 (0x0A): 控制寄存器1，MODE[3:0]工作模式、SELF(bit7)自测试（读写）"
+        - "  CNTL2 (0x0B): 控制寄存器2（保留）"
+        - "  ASTC (0x0C): 自测试控制，SELF(bit6)自测试使能（读写）"
+        - "  TS1 (0x0D)/TS2 (0x0E): 测试寄存器（禁止访问）"
+        - "  I2CDIS (0x0F): I2C禁用寄存器（读写）"
+        - "  ASAX (0x10)/ASAY (0x11)/ASAZ (0x12): 灵敏度调整值（Fuse ROM，只读）"
+      - "工作模式（CNTL1 MODE[3:0]）："
+        - "  0x00: Power Down 掉电模式（不测量）"
+        - "  0x01: Single Measurement 单次测量模式"
+        - "  0x02: Continuous 8Hz 连续测量 8Hz"
+        - "  0x04: Continuous 100Hz 连续测量 100Hz"
+        - "  0x06: Continuous 10Hz 连续测量 10Hz"
+        - "  0x08: Continuous 20Hz 连续测量 20Hz"
+        - "  0x11: Fuse ROM Access Fuse ROM访问模式（读取 ASAX/ASAY/ASAZ）"
+        - "  0x10: Self Test 自测试模式"
+      - "ST1 寄存器位定义："
+        - "  bit0 (DRDY): 数据就绪标志，测量完成后置1，读取ST1后自动清零"
+        - "  bit1-bit7: 保留位，固定为0"
+      - "ST2 寄存器位定义："
+        - "  bit2 (HOFL): 磁传感器溢出标志，数据超出量程时置1"
+        - "  bit1 (DERR): 数据错误标志，数据读取错误时置1"
+        - "  bit0/bit3-bit7: 保留位，固定为0"
+      - "数据读取顺序（重要）：ST1 → 数据寄存器(HXL-HZH) → ST2"
+      - "校准：磁力计偏移、灵敏度校准（ASAX/ASAY/ASAZ）"
+      - "自测试模式：产生固定磁场（约100 LSB）用于功能验证"
+      - "模拟实现要点（用于测试/仿真）："
+        - "  固定寄存器：WIA=0x48, INFO=0x00, CNTL1=0x00"
+        - "  灵敏度调整：ASAX/ASAY/ASAZ=0x80（中间值）"
+        - "  磁场数据：球面坐标生成均匀分布，40-60µT地球磁场范围"
+        - "  数据格式：小端序，13位有符号数（-8192到+8191）"
+        - "  噪声模拟：高斯分布噪声，标准差5µT"
+        - "  溢出检测：超出±8191时设置ST2.HOFL标志"
+        - "  温度数据：-20°C到+50°C范围，写入TS1/TS2"
+        - "  线程更新周期：根据CNTL1模式动态调整（8Hz=125ms, 100Hz=10ms等）"
+      - "常见问题：磁场干扰、数据跳变、融合失败、初始化时序错误"
+      - "初始化失败原因："
+        - "  I2C/SPI slave未在模拟线程启动前初始化"
+        - "  regmap操作时slave未准备好"
+        - "  解决方案：先初始化slave，再启动随机化线程"
+    
+    # MAX30205 传感器
+    max30205:
+      - "芯片类型：高精度温度传感器"
+      - "通信接口：I2C（默认地址：0x48）"
+      - "精度：±0.1°C"
+      - "分辨率：0.00390625°C（16 位）"
+      - "初始化序列：配置分辨率 → 启动转换"
+      - "寄存器：Configuration, Temperature, THYST, TOS"
+      - "常见问题：读数异常、响应慢"
+    
+    # 传感器校准
+    sensor_calibration:
+      - "零点偏移校准：静止状态下的基准值"
+      - "比例因子校准：与标准值对比"
+      - "温度补偿：温度变化对传感器的影响"
+      - "MPU6050 校准：6 面静止校准法"
+      - "AK8975 校准：硬铁/软铁补偿"
+    
+    # 传感器数据融合
+    sensor_fusion:
+      - "MPU6050 + AK8975：9轴姿态解算"
+      - "互补滤波器：加速度计 + 陀螺仪"
+      - "卡尔曼滤波器：最优估计"
+      - "四元数：无奇点姿态表示"
+      - "欧拉角：Roll、Pitch、Yaw"
+      - "DMP：数字运动处理器"
+  
+  # 记忆系统
+  memory:
+    enabled: true
+    categories:
+      - name: "sensor_initialization"
+        description: "传感器初始化模式"
+        examples:
+          - "MPU6050: 先复位 PWR_MGMT_1，延时 100ms，再配置采样率"
+          - "AK8975: 写入 0x01 到 CNTL1 进入连续测量模式"
+          - "MAX30205: 配置 0x00 到 Configuration 启动连续转换"
+          - "AK8975模拟实现：初始化顺序：分配slave_regs → 初始化I2C/SPI slave → 启动随机化线程 → 配置寄存器"
+      
+      - name: "i2c_timing"
+        description: "I2C 时序优化"
+        examples:
+          - "I2C 标准速度：SCL 高电平 > 4.0μs，低电平 > 4.7μs"
+          - "I2C 启动：SDA 下沿后 SCL 下沿"
+          - "I2C 停止：SCL 上沿后 SDA 上沿"
+          - "I2C 延时优化：根据 MCU 频率调整 mdelay"
+      
+      - name: "spi_timing"
+        description: "SPI 时序优化"
+        examples:
+          - "SPI 模式 0：CPOL=0, CPHA=0"
+          - "SPI CS 时序：CS 拉低前等待 1μs，拉高后等待 1μs"
+          - "SPI 字节间延时：高速模式下可省略"
+      
+      - name: "calibration_parameters"
+        description: "校准参数记录"
+        data:
+          mpu6050:
+            accel_offset: [0, 0, 0]
+            gyro_offset: [0, 0, 0]
+          ak8975:
+            mag_offset: [0, 0, 0]
+            mag_scale: [1, 1, 1]
+      
+      - name: "common_bugs"
+        description: "常见 Bug 模式"
+        examples:
+          - "I2C 时序过快：传感器响应失败"
+          - "传感器未唤醒：忘记配置 PWR_MGMT_1"
+          - "校准参数未保存：复位后丢失"
+          - "AK8975模拟线程启动失败：线程在I2C/SPI slave初始化前启动，导致regmap操作异常"
+          - "AK8975固定寄存器未初始化：线程启动后寄存器为随机值，导致who_am_i检查失败"
+          - "AK8975线程退出时未join：pthread_join未调用导致资源泄漏"
+          - "AK8975数据范围错误：使用±9000而非±8191（13位ADC范围）"
+
+      - name: "sensor_simulation"
+        description: "传感器模拟实现（用于测试/仿真）"
+        examples:
+          - "AK8975随机化线程：模拟真实硬件行为，包括固定寄存器初始化、工作模式处理、状态标志更新"
+          - "球面坐标生成：theta ∈ [0,π], phi ∈ [0,2π]，生成均匀分布的三维向量"
+          - "磁场数据模拟：地球磁场40-60µT，灵敏度~15 LSB/µT，13位ADC范围±8191"
+          - "噪声模拟：高斯分布噪声，标准差5µT，使用Box-Muller变换近似"
+          - "状态标志：ST1.DRDY测量完成后置1，ST2.HOFL溢出时置1，ST2.DERR错误时置1"
+          - "自测试模式：生成固定磁场值（X/Y/Z=100）用于功能验证"
+          - "温度模拟：-20°C到+50°C范围，线性转换到ADC值"
+          - "线程同步：使用bool flag控制线程启停，pthread_join等待线程退出"
+          - "动态采样率：根据CNTL1寄存器值调整更新周期（8Hz=125ms, 100Hz=10ms）"
+          - "初始化顺序：分配slave_regs → 初始化I2C/SPI slave → 启动随机化线程 → 配置寄存器"
+          - "MPU6050模拟：3轴加速度（±2/4/8/16g）、3轴陀螺仪（±250/500/1000/2000°/s），16位ADC，更新周期1-8ms"
+          - "MAX30205模拟：高精度温度传感器，±0.1°C精度，16位ADC，更新周期根据配置（连续/单次）"
+  
+  # 提供的服务
+  services:
+    - name: "i2c_bus"
+      description: "I2C 总线操作"
+      functions:
+        - "iic_soft_init - 初始化 I2C"
+        - "iic_soft_read_bytes - 读取多字节"
+        - "iic_soft_write_bytes - 写入多字节"
+        - "iic_soft_start - I2C 启动信号"
+        - "iic_soft_stop - I2C 停止信号"
+    
+    - name: "spi_bus"
+      description: "SPI 总线操作"
+      functions:
+        - "spi_soft_init - 初始化 SPI"
+        - "spi_soft_read_bytes - 读取多字节"
+        - "spi_soft_write_bytes - 写入多字节"
+        - "spi_soft_transfer - SPI 传输"
+    
+    - name: "mpu6050"
+      description: "MPU6050 传感器操作"
+      functions:
+        - "mpu6050_init - 初始化"
+        - "mpu6050_read_accel - 读取加速度"
+        - "mpu6050_read_gyro - 读取陀螺仪"
+        - "mpu6050_calibrate - 校准"
+        - "mpu6050_set_sample_rate - 设置采样率"
+    
+    - name: "ak8975"
+      description: "AK8975 磁力计操作"
+      functions:
+        - "ak8975_init - 初始化（分配slave_regs、初始化I2C/SPI slave、启动随机化线程）"
+        - "ak8975_exit - 退出（停止线程、释放资源）"
+        - "ak8975_start_reg_random - 启动随机化线程（模拟硬件行为）"
+        - "ak8975_stop_reg_random - 停止随机化线程"
+        - "ak8975_reg_random_thread - 随机化线程（更新寄存器、模拟测量）"
+        - "ak8975_who_am_i - 读取设备ID（WIA寄存器）"
+        - "ak8975_device_information - 读取设备信息（INFO寄存器）"
+        - "ak8975_data_ready - 检查数据就绪标志（ST1.DRDY）"
+        - "ak8975_data_overrun - 检查数据溢出标志（ST1.DOR）"
+        - "ak8975_check_status - 检查传感器状态（ST1+ST2）"
+        - "ak8975_data_error - 检查数据错误标志（ST2.DERR）"
+        - "ak8975_magnetic_sensor_overflow - 检查磁传感器溢出（ST2.HOFL）"
+        - "ak8975_magnetic_measurements - 读取磁场数据（HXL-HZH）"
+        - "ak8975_enter_power_down_mode - 进入掉电模式"
+        - "ak8975_enter_single_measurement_mode - 进入单次测量模式"
+        - "ak8975_enter_continuous_8hz_mode - 进入8Hz连续测量"
+        - "ak8975_enter_continuous_10hz_mode - 进入10Hz连续测量"
+        - "ak8975_enter_continuous_20hz_mode - 进入20Hz连续测量"
+        - "ak8975_enter_continuous_100hz_mode - 进入100Hz连续测量"
+        - "ak8975_enter_selftest_mode - 进入自测试模式"
+        - "ak8975_enter_fuse_rom_access_mode - 进入Fuse ROM访问模式"
+        - "ak8975_self_test - 执行自测试"
+        - "ak8975_sensitivity_adjustment_values - 读取灵敏度调整值（ASAX/ASAY/ASAZ）"
+        - "ak8975_read_temperature_data - 读取温度数据（TS1/TS2）"
+        - "ak8975_get_temperature_compensation - 获取温度补偿因子"
+        - "ak8975_temperature_compensated_measurement - 温度补偿测量"
+        - "ak8975_compensated_magnetic_measurements - 补偿后的磁场测量"
+    
+    - name: "max30205"
+      description: "MAX30205 温度传感器操作"
+      functions:
+        - "max30205_init - 初始化（分配slave_regs、初始化I2C/SPI slave）"
+        - "max30205_reg_random_thread - 随机化线程（模拟温度数据）"
+        - "max30205_start_reg_random - 启动随机化线程"
+        - "max30205_stop_reg_random - 停止随机化线程"
+        - "max30205_is_device_present - 检测设备是否存在"
+        - "max30205_get_raw_temperature - 获取原始温度值"
+        - "max30205_get_temperature - 获取摄氏温度值"
+        - "max30205_get_temperature_with_calibration - 获取校准后温度"
+        - "max30205_set_shutdown_mode - 设置关断模式"
+        - "max30205_set_mode - 设置工作模式（比较器/中断）"
+        - "max30205_set_os_polarity - 设置过采样极性"
+        - "max30205_set_fault_queue - 设置故障队列"
+        - "max30205_set_data_format - 设置数据格式"
+        - "max30205_set_timeout - 设置超时"
+        - "max30205_set_one_shot - 设置单次转换模式"
+        - "max30205_set_hysteresis - 设置温度滞回值"
+        - "max30205_set_threshold - 设置温度阈值"
+        - "max30205_read_config - 读取配置寄存器"
+        - "max30205_read_hysteresis - 读取温度滞回值"
+        - "max30205_read_threshold - 读取温度阈值"
+    
+    - name: "sensor_fusion"
+      description: "传感器数据融合"
+      functions:
+        - "imu_init - IMU 初始化"
+        - "imu_update - 姿态更新"
+        - "imu_get_euler - 获取欧拉角"
+        - "imu_get_quaternion - 获取四元数"
+  
+  # 权限控制
+  permissions:
+    read:
+      - "drivers/kinetis/mpu6050*"
+      - "drivers/kinetis/ak8975*"
+      - "drivers/kinetis/max30205*"
+      - "drivers/kinetis/iic_soft*"
+      - "drivers/kinetis/spi_soft*"
+      - "drivers/kinetis/regmap-user-bus*"
+      - "drivers/iio/*"
+    
+    write:
+      - "drivers/kinetis/mpu6050*"
+      - "drivers/kinetis/ak8975*"
+      - "drivers/kinetis/max30205*"
+      - "drivers/kinetis/iic_soft*"
+      - "drivers/kinetis/spi_soft*"
+      - "drivers/kinetis/regmap-user-bus*"
+      - "drivers/iio/*"
+    
+    call:
+      - "A01"  # kernel Agent
+      - "A02"  # base Agent（GPIO, Regmap）
+  
+  # 继承知识
+  inherit_from:
+    - agent: "A01"
+      select:
+        - "memory_management"
+        - "time_management"
+        - "error_handling"
+    
+    - agent: "A02"
+      select:
+        - "gpio_operations"
+        - "regmap"

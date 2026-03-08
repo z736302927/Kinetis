@@ -15,15 +15,36 @@ extern "C" {
 #include <linux/time.h>
 #include <linux/kernel.h>
 
-void rtc_calendar_set(struct tm *rtc, u8 format);
-void rtc_calendar_get(struct tm *rtc, u8 format);
+struct rtc_device {
+	void (*backup_reg_write)(void);
+	void (*backup_reg_read)(u32 *tmp);
+	void (*calendar_set)(struct tm *rtc, u8 format);
+	void (*calendar_get)(struct tm *rtc, u8 format);
+	void (*set_time_format)(u8 tmp);
+	u8(*get_time_format)(void);
+};
 
-static inline char *get_rtc_string(void)
+void rtc_calendar_set(struct rtc_device *dev, struct tm *rtc, u8 format);
+void rtc_calendar_get(struct rtc_device *dev, struct tm *rtc, u8 format);
+void rtc_set_time_format(struct rtc_device *dev, u8 tmp);
+u8 rtc_get_time_format(struct rtc_device *dev);
+
+#ifdef USING_CHIP_RTC
+extern struct rtc_device chip_rtc;
+#endif
+
+#ifdef USING_DS3231
+extern struct rtc_device ds3231_rtc;
+#endif
+
+extern struct rtc_device fake_rtc;
+
+static inline char *get_rtc_string(struct rtc_device *dev)
 {
 	struct tm rtc;
 	static char buf[64];
 
-	rtc_calendar_get(&rtc, KRTC_FORMAT_BIN);
+	rtc_calendar_get(dev, &rtc, KRTC_FORMAT_BIN);
 
 	sprintf(buf, "%ld-%d-%d %d:%d:%d",
 		rtc.tm_year, rtc.tm_mon, rtc.tm_mday,

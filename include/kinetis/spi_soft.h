@@ -66,6 +66,14 @@ struct spi_slave {
 	pthread_t mosi_thread;
 };
 
+int spi_master_port_transmit(struct spi_master *master, u8 reg, u8 *pdata, u8 length);
+int spi_master_port_receive(struct spi_master *master, u8 reg, u8 *pdata, u8 length);
+struct spi_slave *spi_slave_soft_init(char *name, u8 cpol, u8 cpha, u8 bit_order,
+	u8 *buffer, u32 buffer_size);
+void spi_slave_soft_exit(struct spi_slave *device);
+
+extern struct spi_master fake_spi_master;
+
 #ifdef __cplusplus
 }
 #endif

@@ -18,7 +18,7 @@
   * @step 4:  Call function Multi_Button_Test once in function main.
   */
 
-static struct tim_task button_task;
+static struct tim_task *button_task;
 static bool button_task_running = false;
 
 static void button_task_callback(struct tim_task *task)
@@ -34,9 +34,9 @@ int button_task_init(void)
 		return 0;
 	}
 
-	ret = tim_task_add(&button_task, "button_task",
+	button_task = tim_task_add("button_task",
 			5, true, false, button_task_callback);
-	if (ret == 0) {
+	if (!IS_ERR_OR_NULL(button_task)) {
 		button_task_running = true;
 	}
 
@@ -49,7 +49,7 @@ void button_task_exit(void)
 		return;
 	}
 
-	tim_task_drop(&button_task);
+	tim_task_drop(button_task);
 	button_task_running = false;
 }
 
@@ -270,10 +270,10 @@ static void button_handler(struct button *button)
 		if (button->valid_ticks >= 0 && button->valid_ticks <= 1500) {
 			button->cnt++;
 
-			// 			if (button->cnt == 1) {
-			// 				tim_task_add(&button->task, NULL,
-			// 					300, false, false, click);
-			// 			}
+// 			if (button->cnt == 1) {
+// 				tim_task_add(&button->task, NULL,
+// 					300, false, false, click);
+// 			}
 			button->event = SINGLE_CLICK;
 			if (button->callback) {
 				button->callback(button);

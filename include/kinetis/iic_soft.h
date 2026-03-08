@@ -82,7 +82,7 @@ int iic_master_port_multi_transmit (struct iic_master *master, u8 slave_addr, u1
 int iic_master_port_multi_receive(struct iic_master *master, u8 slave_addr, u16 reg,
 	u8 *pdata, u8 length);
 
-extern struct iic_master fake_master;
+extern struct iic_master fake_iic_master;
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

@@ -10,6 +10,8 @@
 #include <kinetis/design_verification.h>
 #include <kinetis/real-time-clock.h>
 
+#include <time.h>
+
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /**
@@ -45,7 +47,7 @@ static struct rtc_stats {
 static u32 rtc_validation_errors = 0;
 static u32 rtc_last_error_code = 0;
 
-void rtc_backup_reg_write(void)
+void rtc_backup_reg_write(struct rtc_device *dev)
 {
 	ktime_t start_time;
 
@@ -53,9 +55,7 @@ void rtc_backup_reg_write(void)
 		start_time = ktime_get();
 	}
 
-#ifdef USING_CHIP_RTC
-	/*##-3- Writes a data in a RTC Backup data Register1 #####################*/
-	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, 0x32F2);
+	dev->backup_reg_write();
 
 	if (rtc_performance_monitoring) {
 		u64 write_time = ktime_to_ms(ktime_sub(ktime_get(), start_time));
@@ -67,10 +67,9 @@ void rtc_backup_reg_write(void)
 
 		pr_debug("RTC backup write in %llu ms", write_time);
 	}
-#endif
 }
 
-void rtc_backup_reg_read(u32 *tmp)
+void rtc_backup_reg_read(struct rtc_device *dev, u32 *tmp)
 {
 	ktime_t start_time;
 
@@ -78,9 +77,7 @@ void rtc_backup_reg_read(u32 *tmp)
 		start_time = ktime_get();
 	}
 
-#ifdef USING_CHIP_RTC
-	/*##-3- Read a data in a RTC Backup data Register1 #######################*/
-	*tmp = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1);
+	dev->backup_reg_read(tmp);
 
 	if (rtc_performance_monitoring) {
 		u64 read_time = ktime_to_ms(ktime_sub(ktime_get(), start_time));
@@ -92,7 +89,6 @@ void rtc_backup_reg_read(u32 *tmp)
 
 		pr_debug("RTC backup read in %llu ms", read_time);
 	}
-#endif
 }
 
 // Enhanced RTC utility functions
@@ -129,7 +125,7 @@ bool rtc_validate_time_components(struct tm *rtc)
 	return true;
 }
 
-void rtc_calendar_set(struct tm *rtc, u8 format)
+void rtc_calendar_set(struct rtc_device *dev, struct tm *rtc, u8 format)
 {
 	ktime_t start_time;
 	bool valid_time;
@@ -147,55 +143,7 @@ void rtc_calendar_set(struct tm *rtc, u8 format)
 		return;
 	}
 
-#ifdef USING_CHIP_RTC
-	RTC_DateTypeDef sdate;
-	RTC_TimeTypeDef stime;
-
-	/*##-1- Configure the Date ###############################################*/
-	/* Set Date: Wednesday May 1th 2019 */
-	if (format == KRTC_FORMAT_BIN) {
-		HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BIN);
-	} else {
-		HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BCD);
-	}
-
-	sdate.Year = rtc->tm_year;
-	sdate.Month = rtc->tm_mon;
-	sdate.Date = rtc->tm_mday;
-
-	if (rtc->tm_wday != 0) {
-		sdate.WeekDay = rtc->tm_wday;
-	}
-
-	if (format == KRTC_FORMAT_BIN) {
-		HAL_RTC_SetDate(&hrtc, &sdate, RTC_FORMAT_BIN);
-	} else {
-		HAL_RTC_SetDate(&hrtc, &sdate, RTC_FORMAT_BCD);
-	}
-
-	/*##-2- Configure the Time ###############################################*/
-	/* Set Time: 00:00:00 */
-	if (format == KRTC_FORMAT_BIN) {
-		HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BIN);
-	} else {
-		HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BCD);
-	}
-
-	stime.Hours = rtc->tm_hour;
-	stime.Minutes = rtc->tm_min;
-	stime.Seconds = rtc->tm_sec;
-	stime.TimeFormat = RTC_HOURFORMAT12_AM;
-	stime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE ;
-	stime.StoreOperation = RTC_STOREOPERATION_RESET;
-
-	if (format == KRTC_FORMAT_BIN) {
-		HAL_RTC_SetTime(&hrtc, &stime, RTC_FORMAT_BIN);
-	} else {
-		HAL_RTC_SetTime(&hrtc, &stime, RTC_FORMAT_BCD);
-	}
-
-	/*##-3- Writes a data in a RTC Backup data Register1 #####################*/
-	rtc_backup_reg_write();
+	dev->calendar_set(rtc, format);
 
 	if (rtc_performance_monitoring) {
 		u64 write_time = ktime_to_ms(ktime_sub(ktime_get(), start_time));
@@ -207,31 +155,9 @@ void rtc_calendar_set(struct tm *rtc, u8 format)
 
 		pr_debug("RTC time set in %llu ms", write_time);
 	}
-#endif
-
-#ifdef USING_DS3231
-	char time[13];
-
-	/* Validate time components before formatting */
-	if (rtc->tm_year > 99 || rtc->tm_mon > 12 || rtc->tm_mday > 31 ||
-		rtc->tm_hour > 23 || rtc->tm_min > 59 || rtc->tm_sec > 59) {
-		pr_err("Invalid time values");
-		return;
-	}
-
-	snprintf(time, sizeof(time), "%02d%02d%02d%02d%02d%02d",
-		rtc->tm_year, rtc->tm_mon, rtc->tm_mday,
-		rtc->tm_hour, rtc->tm_min, rtc->tm_sec);
-	ds3231_SetTimeWithString(time);
-
-	if (rtc->tm_wday != 0) {
-		ds3231_SetWeek(rtc->tm_wday);
-	}
-
-#endif
 }
 
-void rtc_calendar_get(struct tm *rtc, u8 format)
+void rtc_calendar_get(struct rtc_device *dev, struct tm *rtc, u8 format)
 {
 	ktime_t start_time;
 
@@ -239,35 +165,7 @@ void rtc_calendar_get(struct tm *rtc, u8 format)
 		start_time = ktime_get();
 	}
 
-#ifdef USING_CHIP_RTC
-	RTC_DateTypeDef sdate;
-	RTC_TimeTypeDef stime;
-
-	/* Get the RTC current Date */
-	if (format == KRTC_FORMAT_BIN) {
-		HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BIN);
-	} else {
-		HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BCD);
-	}
-
-	rtc->tm_year = sdate.Year;
-	rtc->tm_mon = sdate.Month;
-	rtc->tm_mday = sdate.Date;
-
-	if (rtc->tm_wday != 0) {
-		rtc->tm_wday = sdate.WeekDay;
-	}
-
-	/* Get the RTC current Time */
-	if (format == KRTC_FORMAT_BIN) {
-		HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BIN);
-	} else {
-		HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BCD);
-	}
-
-	rtc->tm_hour = stime.Hours;
-	rtc->tm_min = stime.Minutes;
-	rtc->tm_sec = stime.Seconds;
+	dev->calendar_get(rtc, format);
 
 	if (rtc_performance_monitoring) {
 		u64 read_time = ktime_to_ms(ktime_sub(ktime_get(), start_time));
@@ -279,26 +177,6 @@ void rtc_calendar_get(struct tm *rtc, u8 format)
 
 		pr_debug("RTC time read in %llu ms", read_time);
 	}
-#endif
-
-#ifdef USING_DS3231
-	u8 time[6], week;
-
-	if (format == KRTC_FORMAT_BIN) {
-		ds3231_ReadTime(time, DS3231_FORMAT_BIN);
-	} else {
-		ds3231_ReadTime(time, DS3231_FORMAT_BCD);
-	}
-
-	ds3231_ReadWeek(&week);
-	rtc->tm_year = time[5];
-	rtc->tm_mon = time[4];
-	rtc->tm_mday = time[3];
-	rtc->tm_wday = week;
-	rtc->tm_hour = time[2];
-	rtc->tm_min = time[1];
-	rtc->tm_sec = time[0];
-#endif
 }
 
 /**
@@ -306,15 +184,10 @@ void rtc_calendar_get(struct tm *rtc, u8 format)
   * @param  None
   * @retval None
   */
-void rtc_set_time_format(u8 tmp)
+void rtc_set_time_format(struct rtc_device *dev, u8 tmp)
 {
-#ifdef USING_CHIP_RTC
 
-#endif
-
-#ifdef USING_DS3231
-
-#endif
+	dev->set_time_format(tmp);
 }
 
 /**
@@ -322,16 +195,10 @@ void rtc_set_time_format(u8 tmp)
   * @param  None
   * @retval None
   */
-u8 rtc_get_time_format(void)
+u8 rtc_get_time_format(struct rtc_device *dev)
 {
-#ifdef USING_CHIP_RTC
 
-#endif
-
-#ifdef USING_DS3231
-
-#endif
-	return 0;
+	return dev->get_time_format();
 }
 
 void rtc_enable_performance_monitoring(bool enable)
@@ -426,8 +293,235 @@ void rtc_format_time_string(struct tm *rtc, char *buffer, size_t buffer_size)
 #ifdef DESIGN_VERIFICATION_RTC
 #include "kinetis/test-kinetis.h"
 
-#include <linux/printk.h>
-#include <linux/random.h>
+#ifdef KINETIS_FAKE_SIM
+
+void fake_rtc_calendar_get(struct tm *rtc, u8 format)
+{
+	ktime_t start_time;
+	time_t current_time;
+	struct tm *sys_time;
+
+	if (rtc_performance_monitoring) {
+		start_time = ktime_get();
+	}
+
+	current_time = time(NULL);
+	sys_time = localtime(&current_time);
+
+	if (sys_time) {
+		/* Convert system time to RTC format */
+		rtc->tm_year = sys_time->tm_year + 1900;  /* tm_year is years since 1900 */
+		rtc->tm_mon = sys_time->tm_mon + 1;        /* tm_mon is 0-11 */
+		rtc->tm_mday = sys_time->tm_mday;
+		rtc->tm_wday = sys_time->tm_wday;
+		rtc->tm_hour = sys_time->tm_hour;
+		rtc->tm_min = sys_time->tm_min;
+		rtc->tm_sec = sys_time->tm_sec;
+		rtc->tm_yday = sys_time->tm_yday;
+	} else {
+		pr_warn("RTC: Failed to get system time");
+	}
+}
+
+void fake_rtc_set_time_format(u8 tmp)
+{
+
+}
+
+u8 fake_rtc_get_time_format(void)
+{
+	return 0;
+}
+
+struct rtc_device fake_rtc = {
+	.backup_reg_write = NULL,
+	.backup_reg_read = NULL,
+	.calendar_set = NULL,
+	.calendar_get = fake_rtc_calendar_get,
+	.set_time_format = fake_rtc_set_time_format,
+	.get_time_format = fake_rtc_get_time_format,
+};
+#endif
+
+#ifdef USING_CHIP_RTC
+void chip_rtc_backup_reg_write()
+{
+	/*##-3- Writes a data in a RTC Backup data Register1 #####################*/
+	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, 0x32F2);
+}
+
+void chip_rtc_backup_reg_read(u32 *tmp)
+{
+	/*##-3- Read a data in a RTC Backup data Register1 #######################*/
+	*tmp = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1);
+}
+
+void chip_rtc_calendar_set(struct tm *rtc, u8 format)
+{
+	RTC_DateTypeDef sdate;
+	RTC_TimeTypeDef stime;
+
+	/*##-1- Configure the Date ###############################################*/
+	/* Set Date: Wednesday May 1th 2019 */
+	if (format == KRTC_FORMAT_BIN) {
+		HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BIN);
+	} else {
+		HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BCD);
+	}
+
+	sdate.Year = rtc->tm_year;
+	sdate.Month = rtc->tm_mon;
+	sdate.Date = rtc->tm_mday;
+
+	if (rtc->tm_wday != 0) {
+		sdate.WeekDay = rtc->tm_wday;
+	}
+
+	if (format == KRTC_FORMAT_BIN) {
+		HAL_RTC_SetDate(&hrtc, &sdate, RTC_FORMAT_BIN);
+	} else {
+		HAL_RTC_SetDate(&hrtc, &sdate, RTC_FORMAT_BCD);
+	}
+
+	/*##-2- Configure the Time ###############################################*/
+	/* Set Time: 00:00:00 */
+	if (format == KRTC_FORMAT_BIN) {
+		HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BIN);
+	} else {
+		HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BCD);
+	}
+
+	stime.Hours = rtc->tm_hour;
+	stime.Minutes = rtc->tm_min;
+	stime.Seconds = rtc->tm_sec;
+	stime.TimeFormat = RTC_HOURFORMAT12_AM;
+	stime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE ;
+	stime.StoreOperation = RTC_STOREOPERATION_RESET;
+
+	if (format == KRTC_FORMAT_BIN) {
+		HAL_RTC_SetTime(&hrtc, &stime, RTC_FORMAT_BIN);
+	} else {
+		HAL_RTC_SetTime(&hrtc, &stime, RTC_FORMAT_BCD);
+	}
+
+	/*##-3- Writes a data in a RTC Backup data Register1 #####################*/
+	rtc_backup_reg_write();
+}
+
+void chip_rtc_calendar_get(struct tm *rtc, u8 format)
+{
+	RTC_DateTypeDef sdate;
+	RTC_TimeTypeDef stime;
+
+	/* Get the RTC current Date */
+	if (format == KRTC_FORMAT_BIN) {
+		HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BIN);
+	} else {
+		HAL_RTC_GetDate(&hrtc, &sdate, RTC_FORMAT_BCD);
+	}
+
+	rtc->tm_year = sdate.Year;
+	rtc->tm_mon = sdate.Month;
+	rtc->tm_mday = sdate.Date;
+
+	if (rtc->tm_wday != 0) {
+		rtc->tm_wday = sdate.WeekDay;
+	}
+
+	/* Get the RTC current Time */
+	if (format == KRTC_FORMAT_BIN) {
+		HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BIN);
+	} else {
+		HAL_RTC_GetTime(&hrtc, &stime, RTC_FORMAT_BCD);
+	}
+
+	rtc->tm_hour = stime.Hours;
+	rtc->tm_min = stime.Minutes;
+	rtc->tm_sec = stime.Seconds;
+}
+
+void chip_rtc_set_time_format(u8 tmp)
+{
+	/* Placeholder for chip RTC time format setting */
+}
+
+u8 chip_rtc_get_time_format(void)
+{
+	return 0;
+}
+
+struct rtc_device chip_rtc = {
+	.backup_reg_write = chip_rtc_backup_reg_write,
+	.backup_reg_read = chip_rtc_backup_reg_read,
+	.calendar_set = chip_rtc_calendar_set,
+	.calendar_get = chip_rtc_calendar_get,
+	.set_time_format = chip_rtc_set_time_format,
+	.get_time_format = chip_rtc_get_time_format,
+};
+#endif
+
+#ifdef USING_DS3231
+
+void ds3231_rtc_calendar_set(struct tm *rtc, u8 format)
+{
+	char time[13];
+
+	/* Validate time components before formatting */
+	if (rtc->tm_year > 99 || rtc->tm_mon > 12 || rtc->tm_mday > 31 ||
+		rtc->tm_hour > 23 || rtc->tm_min > 59 || rtc->tm_sec > 59) {
+		pr_err("Invalid time values");
+		return;
+	}
+
+	snprintf(time, sizeof(time), "%02d%02d%02d%02d%02d%02d",
+		rtc->tm_year, rtc->tm_mon, rtc->tm_mday,
+		rtc->tm_hour, rtc->tm_min, rtc->tm_sec);
+	ds3231_SetTimeWithString(time);
+
+	if (rtc->tm_wday != 0) {
+		ds3231_SetWeek(rtc->tm_wday);
+	}
+}
+
+void ds3231_rtc_calendar_get(struct tm *rtc, u8 format)
+{
+	u8 time[6], week;
+
+	if (format == KRTC_FORMAT_BIN) {
+		ds3231_get_time(time, DS3231_FORMAT_BIN);
+	} else {
+		ds3231_get_time(time, DS3231_FORMAT_BCD);
+	}
+
+	ds3231_get_week(&week);
+	rtc->tm_year = time[5];
+	rtc->tm_mon = time[4];
+	rtc->tm_mday = time[3];
+	rtc->tm_wday = week;
+	rtc->tm_hour = time[2];
+	rtc->tm_min = time[1];
+	rtc->tm_sec = time[0];
+}
+
+void ds3231_rtc_set_time_format(u8 tmp)
+{
+	/* Placeholder for DS3231 time format setting */
+}
+
+u8 ds3231_rtc_get_time_format(void)
+{
+	return 0;
+}
+
+struct rtc_device ds3231_rtc = {
+	.backup_reg_write = NULL,
+	.backup_reg_read = NULL,
+	.calendar_set = ds3231_rtc_calendar_set,
+	.calendar_get = ds3231_rtc_calendar_get,
+	.set_time_format = ds3231_rtc_set_time_format,
+	.get_time_format = ds3231_rtc_get_time_format,
+};
+#endif
 
 static int rtc_test_operation_count = 0;
 
@@ -484,8 +578,8 @@ int t_rtc_set_clock(int argc, char **argv)
 		rtc.tm_wday = simple_strtoul(argv[7], &argv[7], 10);
 	}
 
-	pr_info("Setting RTC time: %s", get_rtc_string());
-	rtc_calendar_set(&rtc, KRTC_FORMAT_BIN);
+	pr_info("Setting RTC time: %s", get_rtc_string(&fake_rtc));
+	rtc_calendar_set(&fake_rtc, &rtc, KRTC_FORMAT_BIN);
 
 	if (rtc_performance_monitoring) {
 		u64 set_time = ktime_to_ms(ktime_sub(ktime_get(), start_time));
@@ -506,8 +600,8 @@ int t_rtc_get_clock(int argc, char **argv)
 		start_time = ktime_get();
 	}
 
-	rtc_calendar_get(&rtc, KRTC_FORMAT_BIN);
-	pr_info("Getting RTC time: %s", get_rtc_string());
+	rtc_calendar_get(&fake_rtc, &rtc, KRTC_FORMAT_BIN);
+	pr_info("Getting RTC time: %s", get_rtc_string(&fake_rtc));
 
 	if (rtc_performance_monitoring) {
 		u64 get_time = ktime_to_ms(ktime_sub(ktime_get(), start_time));
@@ -654,8 +748,8 @@ int t_rtc_performance(int argc, char **argv)
 	// Test backup register performance
 	for (i = 0; i < 100; i++) {
 		u32 backup_value;
-		rtc_backup_reg_write();
-		rtc_backup_reg_read(&backup_value);
+		rtc_backup_reg_write(&fake_rtc);
+		rtc_backup_reg_read(&fake_rtc, &backup_value);
 	}
 
 	end_time = ktime_get();
@@ -674,7 +768,7 @@ int t_rtc_performance(int argc, char **argv)
 
 	for (i = 0; i < 50; i++) {
 		test_time.tm_sec = i % 60;
-		rtc_calendar_set(&test_time, KRTC_FORMAT_BIN);
+		rtc_calendar_set(&fake_rtc, &test_time, KRTC_FORMAT_BIN);
 	}
 
 	end_time = ktime_get();
@@ -684,7 +778,7 @@ int t_rtc_performance(int argc, char **argv)
 	// Test time getting performance
 	start_time = ktime_get();
 	for (i = 0; i < 50; i++) {
-		rtc_calendar_get(&test_time, KRTC_FORMAT_BIN);
+		rtc_calendar_get(&fake_rtc, &test_time, KRTC_FORMAT_BIN);
 	}
 	end_time = ktime_get();
 	pr_info("50 time get operations completed in %llu ms",
@@ -711,10 +805,10 @@ int t_rtc_backup(int argc, char **argv)
 		u32 backup_value;
 
 		// Write test value
-		rtc_backup_reg_write();
+		rtc_backup_reg_write(&fake_rtc);
 
 		// Read back the value
-		rtc_backup_reg_read(&read_values[i]);
+		rtc_backup_reg_read(&fake_rtc, &read_values[i]);
 
 		if (read_values[i] == 0x32F2) { // Default value + written value
 			pr_info("Backup test %d: 0x%08X", i + 1, read_values[i]);

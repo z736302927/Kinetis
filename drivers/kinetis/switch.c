@@ -16,7 +16,7 @@
   * @step 4:  Call function Multi_Switch_Test once in function main.
   */
 
-static struct tim_task switch_task;
+static struct tim_task *switch_task;
 static bool switch_task_running;
 
 static void switch_task_callback(struct tim_task *task)
@@ -32,13 +32,13 @@ int switch_task_init(void)
 		return 0;
 	}
 
-	ret = tim_task_add(&switch_task, "switch task",
+	switch_task = tim_task_add("switch task",
 			5, true, false, switch_task_callback);
-	if (ret == 0) {
+	if (!IS_ERR_OR_NULL(switch_task)) {
 		switch_task_running = true;
 	}
 
-	return ret;
+	return PTR_ERR_OR_ZERO(switch_task);
 }
 
 void switch_task_exit(void)
@@ -47,7 +47,7 @@ void switch_task_exit(void)
 		return;
 	}
 
-	tim_task_drop(&switch_task);
+	tim_task_drop(switch_task);
 	switch_task_running = false;
 }
 

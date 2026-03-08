@@ -63,21 +63,20 @@ tim_task_decode(struct tim_task *task)
   * @param  repeat: repeat interval time.
   * @retval None
   */
-int tim_task_add(struct tim_task *tim_task,
-	char *name, u32 interval, bool auto_load, bool sched,
+ struct tim_task *tim_task_add(char *name, u32 interval, bool auto_load, bool sched,
 	tim_task_cb callback)
 {
+	struct tim_task *tim_task;
 	int ret;
 	u32 priority_level = 1; // Default normal priority
 
-	if (!callback || !name || !tim_task) {
-		return -EINVAL;
+	if (!callback) {
+		return ERR_PTR(-EINVAL);
 	}
 
-	// Enhanced validation
 	if (interval == 0 || interval > 3600000) { // Max 1 hour
 		pr_err("Invalid interval: %u (must be 1-3600000ms)\n", interval);
-		return -EINVAL;
+		return ERR_PTR(-EINVAL);
 	}
 
 	if (tim_task_init == false) {
@@ -87,9 +86,9 @@ int tim_task_add(struct tim_task *tim_task,
 		tim_task_init = true;
 	}
 
-	tim_task->name = kstrdup_const(name, GFP_KERNEL);
-	if (!tim_task->name) {
-		return -ENOMEM;
+	tim_task = kmalloc(sizeof(*tim_task), GFP_KERNEL);
+	if (!tim_task) {
+		return ERR_PTR(-ENOMEM);
 	}
 
 	tim_task->callback = callback;
@@ -102,6 +101,13 @@ int tim_task_add(struct tim_task *tim_task,
 	tim_task->execution_count = 0;
 	tim_task->last_execution_time = 0;
 	tim_task->total_execution_time = 0;
+	if (name == NULL) {
+		snprintf(name, 32, "tim_task_%u", tim_task->task_id);
+	}
+	tim_task->name = kstrdup_const(name, GFP_KERNEL);
+	if (!tim_task->name) {
+		return ERR_PTR(-ENOMEM);
+	}
 
 	// Enhanced scheduling with priority
 	if (sched) {
@@ -112,7 +118,6 @@ int tim_task_add(struct tim_task *tim_task,
 		pr_debug("Scheduling enabled for task: %s (ID: %u)\n", name, tim_task->task_id);
 	}
 
-	// Add to priority queue
 	if (priority_level == 0) {
 		list_add_tail(&tim_task->list, &priority_heads[0]);
 		tim_stats.high_priority_tasks++;
@@ -132,7 +137,7 @@ int tim_task_add(struct tim_task *tim_task,
 	pr_info("Timer task created: %s (ID: %u, interval: %ums, priority: %u)\n",
 		name, tim_task->task_id, interval, priority_level);
 
-	return 0;
+	return tim_task;
 }
 
 /**
@@ -194,7 +199,7 @@ void tim_task_loop(void)
 {
 	struct tim_task *tim_task, *tmp;
 	ktime_t loop_start_time;
-	u64 current_time_ms;
+	s64 current_time_ms;
 
 	if (tim_task_init == false) {
 		return;
@@ -270,7 +275,7 @@ void tim_task_loop(void)
 	}
 
 	if (performance_profiling_enabled) {
-		u64 loop_time = ktime_to_ms(ktime_sub(ktime_get(), loop_start_time));
+		s64 loop_time = ktime_to_ms(ktime_sub(ktime_get(), loop_start_time));
 		if (loop_time > 10) {
 			pr_warn("Timer task loop took %llu ms (should be < 10ms)\n", loop_time);
 		}
@@ -369,7 +374,7 @@ void tim_task_set_profiling(bool enable)
 void tim_task_print_performance_report(void)
 {
 	struct tim_task_stats stats;
-	u64 uptime_ms;
+	s64 uptime_ms;
 	u32 avg_execution_time;
 
 	tim_task_get_stats(&stats);
@@ -383,7 +388,7 @@ void tim_task_print_performance_report(void)
 	avg_execution_time = stats.total_execution_time_ms / stats.total_tasks_executed;
 
 	pr_info("=== Timer Task Performance Report ===\n");
-	pr_info("System uptime: %llu ms\n", uptime_ms);
+	pr_info("System uptime: %lld ms\n", uptime_ms);
 	pr_info("Total tasks created: %u\n", stats.total_tasks_created);
 	pr_info("Total tasks executed: %u\n", stats.total_tasks_executed);
 	pr_info("Total tasks failed: %u\n", stats.total_tasks_failed);
@@ -448,8 +453,8 @@ struct tim_task *tim_task_get_next_task(void)
 {
 	struct tim_task *next_task = NULL;
 	struct tim_task *tim_task;
-	u64 current_time_ms = ktime_to_ms(ktime_get());
-	u64 earliest_timeout = U64_MAX;
+	s64 current_time_ms = ktime_to_ms(ktime_get());
+	s64 earliest_timeout = S64_MAX;
 
 	// Find task with earliest timeout
 	for (int priority = 0; priority < MAX_PRIORITY_LEVELS; priority++) {
@@ -467,10 +472,8 @@ struct tim_task *tim_task_get_next_task(void)
 #ifdef DESIGN_VERIFICATION_TIMTASK
 #include "kinetis/test-kinetis.h"
 
-#include <linux/printk.h>
-
-static u64 time_stamp;
-static struct tim_task example_task;
+static s64 time_stamp;
+static struct tim_task *example_task;
 static int tim_test_callback_count = 0;
 
 static void tim_task_callback(struct tim_task *task)
@@ -479,13 +482,13 @@ static void tim_task_callback(struct tim_task *task)
 	tim_test_callback_count++;
 
 	delta = ktime_ms_delta(ktime_get(),  time_stamp);
-	pr_info("Timer task '%s' callback #%d executed after %llu ms.\n",
+	pr_info("Timer task '%s' callback #%d executed after %lld ms.\n",
 		task ? task->name : "unknown", tim_test_callback_count, delta);
 
 	if (delta >= 900 && delta <= 1100) {
 		pr_info("Timer task timing correct\n");
 	} else {
-		pr_info("Timer task timing incorrect (expected: 900-1100ms, actual: %llums)\n", delta);
+		pr_info("Timer task timing incorrect (expected: 900-1100ms, actual: %lldms)\n", delta);
 	}
 	time_stamp = ktime_get();
 }
@@ -510,40 +513,88 @@ static void tim_test_cleanup_callback(struct tim_task *task)
 
 int t_tim_task_add(int argc, char **argv)
 {
+	u32 interval = 1000;
+	bool auto_load = true;
+	bool sched = false;
+	char task_name[32] = {0};
 	int ret;
 
-	pr_info("=== timer task basic test ===\n");
-	time_stamp = ktime_get();
-
-	ret = tim_task_add(&example_task, "example task",
-			1000, true, false, tim_task_callback); //1s loop
-
-	if (ret) {
-		pr_err("timer task creation failed: %d\n", ret);
-		return FAIL;
+	if (argc > 1) {
+		interval = simple_strtoul(argv[1], NULL, 10);
 	}
 
-	pr_info("timer basic task created successfully (id: %u)\n", example_task.task_id);
+	if (argc > 2) {
+		auto_load = simple_strtoul(argv[2], NULL, 10) ? true : false;
+	}
+
+	if (argc > 3) {
+		sched = simple_strtoul(argv[3], NULL, 10) ? true : false;
+	}
+
+	if (argc > 4) {
+		strncpy(task_name, argv[4], sizeof(task_name) - 1);
+		task_name[sizeof(task_name) - 1] = '\0';
+	}
+
+	example_task = tim_task_add(task_name, interval, auto_load, sched, tim_task_callback);
+	if (IS_ERR_OR_NULL(example_task)) {
+		pr_err("timer task creation failed\n");
+		return -EINVAL;
+	}
+
+	pr_info("timer task created: %s (id: %u, interval: %ums, auto_load: %d, sched: %d)\n",
+		example_task->name, example_task->task_id, interval, auto_load, sched);
+	return PASS;
+}
+
+int t_tim_task_drop(int argc, char **argv)
+{
+	u32 task_id = 0;
+	struct tim_task *task;
+
+	pr_info("=== timer task drop test ===\n");
+
+	if (argc > 1) {
+		task_id = simple_strtoul(argv[1], NULL, 10);
+	}
+
+	if (example_task && (task_id == 0 || task_id == example_task->task_id)) {
+		pr_info("Dropping task: %s (id: %u)\n", example_task->name, example_task->task_id);
+		tim_task_drop(example_task);
+		example_task = NULL;
+	} else if (task_id != 0) {
+		task = tim_task_find_by_id(task_id);
+		if (task) {
+			pr_info("Dropping task by ID: %s (id: %u)\n", task->name, task->task_id);
+			tim_task_drop(task);
+		} else {
+			pr_err("Task with ID %u not found\n", task_id);
+			return -ENOENT;
+		}
+	} else {
+		pr_err("No task to drop. Create a task first using t_tim_task_add\n");
+		return -EINVAL;
+	}
 	return PASS;
 }
 
 int t_tim_task_validation(int argc, char **argv)
 {
 	int ret;
-	struct tim_task test_task, *found_task;
+	struct tim_task *test_task, *found_task;
 	struct tim_task_stats stats;
 
 	pr_info("=== timer task validation test ===\n");
 
 	// test 1: task creation with priority
-	ret = tim_task_add(&test_task, "validation-task", 500, true, false, tim_test_validation_callback);
-	if (ret) {
-		pr_err("validation task creation failed: %d\n", ret);
+	test_task = tim_task_add("validation-task", 500, true, false, tim_test_validation_callback);
+	if (IS_ERR_OR_NULL(test_task)) {
+		pr_err("validation task creation failed\n");
 		return FAIL;
 	}
 
 	pr_info("task with priority created (id: %u, priority: %u)\n",
-		test_task.task_id, test_task.priority);
+		test_task->task_id, test_task->priority);
 
 	// test 2: task lookup by name
 	found_task = tim_task_find_by_name("validation-task");
@@ -555,7 +606,7 @@ int t_tim_task_validation(int argc, char **argv)
 	pr_info("task lookup by name working\n");
 
 	// test 3: task lookup by id
-	found_task = tim_task_find_by_id(test_task.task_id);
+	found_task = tim_task_find_by_id(test_task->task_id);
 	if (!found_task) {
 		pr_err("task lookup by id failed\n");
 		return FAIL;
@@ -564,26 +615,29 @@ int t_tim_task_validation(int argc, char **argv)
 	pr_info("task lookup by id working\n");
 
 	// test 4: priority setting
-	ret = tim_task_set_priority(&test_task, 0); // high priority
+	ret = tim_task_set_priority(test_task, 0); // high priority
 	if (ret) {
 		pr_err("priority setting failed: %d\n", ret);
+		tim_task_drop(test_task);
 		return FAIL;
 	}
 
-	if (test_task.priority != 0) {
+	if (test_task->priority != 0) {
 		pr_err("priority not set correctly\n");
+		tim_task_drop(test_task);
 		return FAIL;
 	}
 
 	pr_info("priority setting working\n");
 
 	// test 5: task info printing
-	tim_task_print_info(&test_task);
+	tim_task_print_info(test_task);
 
 	// test 6: statistics
 	tim_task_get_stats(&stats);
 	if (stats.total_tasks_created == 0) {
 		pr_err("statistics not working\n");
+		tim_task_drop(test_task);
 		return FAIL;
 	}
 
@@ -594,6 +648,9 @@ int t_tim_task_validation(int argc, char **argv)
 	tim_task_set_profiling(true);
 	tim_task_print_performance_report();
 
+	// cleanup: drop the test task
+	tim_task_drop(test_task);
+
 	pr_info("all timer validation tests completed\n");
 	return PASS;
 }
@@ -601,7 +658,7 @@ int t_tim_task_validation(int argc, char **argv)
 int t_tim_task_priority(int argc, char **argv)
 {
 	int ret, i;
-	struct tim_task priority_tasks[3];
+	struct tim_task *priority_tasks[3];
 	struct tim_task_stats stats;
 	const char *task_names[] = {"high-priority", "normal-priority", "low-priority"};
 	u32 priorities[] = {0, 1, 2};
@@ -610,15 +667,15 @@ int t_tim_task_priority(int argc, char **argv)
 
 	// create tasks with different priorities
 	for (i = 0; i < 3; i++) {
-		ret = tim_task_add(&priority_tasks[i], task_names[i],
+		priority_tasks[i] = tim_task_add(task_names[i],
 				200, true, false, tim_test_priority_callback);
-		if (ret) {
-			pr_err("priority task %d creation failed: %d\n", i, ret);
+		if (IS_ERR_OR_NULL(priority_tasks[i])) {
+			pr_err("priority task %d creation failed\n", i);
 			return FAIL;
 		}
 
 		// set priority
-		ret = tim_task_set_priority(&priority_tasks[i], priorities[i]);
+		ret = tim_task_set_priority(priority_tasks[i], priorities[i]);
 		if (ret) {
 			pr_err("priority setting for task %d failed: %d\n", i, ret);
 			return FAIL;
@@ -638,6 +695,12 @@ int t_tim_task_priority(int argc, char **argv)
 	pr_info("  normal priority tasks: %u\n", stats.normal_priority_tasks);
 	pr_info("  low priority tasks: %u\n", stats.low_priority_tasks);
 
+	// cleanup: drop all priority tasks
+	for (i = 0; i < 3; i++) {
+		tim_task_drop(priority_tasks[i]);
+	}
+	pr_info("all priority tasks dropped\n");
+
 	return PASS;
 }
 
@@ -645,7 +708,7 @@ int t_tim_task_performance(int argc, char **argv)
 {
 	int ret, i;
 	u64 start_time, end_time;
-	struct tim_task perf_tasks[20];
+	struct tim_task *perf_tasks[20];
 	struct tim_task_stats stats;
 
 	pr_info("=== timer task performance test ===\n");
@@ -661,15 +724,15 @@ int t_tim_task_performance(int argc, char **argv)
 		char task_name[32];
 		snprintf(task_name, sizeof(task_name), "perf-task-%d", i);
 
-		ret = tim_task_add(&perf_tasks[i], task_name,
+		perf_tasks[i] = tim_task_add(task_name,
 				50 + (i * 10), true, false, tim_test_validation_callback);
-		if (ret) {
-			pr_err("performance task %d creation failed: %d\n", i, ret);
+		if (IS_ERR_OR_NULL(perf_tasks[i])) {
+			pr_err("performance task %d creation failed\n", i);
 			return FAIL;
 		}
 
 		// set priority based on index
-		tim_task_set_priority(&perf_tasks[i], i % 3);
+		tim_task_set_priority(perf_tasks[i], i % 3);
 	}
 
 	end_time = ktime_get();
@@ -688,13 +751,19 @@ int t_tim_task_performance(int argc, char **argv)
 	pr_info("  max execution time: %u ms\n", stats.max_execution_time_ms);
 	pr_info("  min execution time: %u ms\n", stats.min_execution_time_ms);
 
+	// cleanup: drop all performance tasks
+	for (i = 0; i < 20; i++) {
+		tim_task_drop(perf_tasks[i]);
+	}
+	pr_info("all performance tasks dropped\n");
+
 	return PASS;
 }
 
 int t_tim_task_cleanup(int argc, char **argv)
 {
 	int ret;
-	struct tim_task cleanup_task;
+	struct tim_task *cleanup_task;
 
 	pr_info("=== timer task cleanup test ===\n");
 
@@ -702,14 +771,14 @@ int t_tim_task_cleanup(int argc, char **argv)
 	tim_test_callback_count = 0;
 
 	// create a cleanup task
-	ret = tim_task_add(&cleanup_task, "cleanup-test-task",
+	cleanup_task = tim_task_add("cleanup-test-task",
 			100, false, false, tim_test_cleanup_callback);
-	if (ret) {
-		pr_err("cleanup task creation failed: %d\n", ret);
+	if (IS_ERR_OR_NULL(cleanup_task)) {
+		pr_err("cleanup task creation failed\n");
 		return FAIL;
 	}
 
-	pr_info("created cleanup task with id: %u\n", cleanup_task.task_id);
+	pr_info("created cleanup task with id: %u\n", cleanup_task->task_id);
 
 	// run loop to execute task
 	tim_task_loop();
@@ -734,65 +803,73 @@ int t_tim_task_cleanup(int argc, char **argv)
 int t_tim_task_boundary(int argc, char **argv)
 {
 	int ret;
-	struct tim_task boundary_tasks[5];
+	struct tim_task *boundary_tasks[5];
+	struct tim_task *invalid_task;
 
 	pr_info("=== timer task boundary test ===\n");
 
 	// test 1: minimum interval (1ms)
-	ret = tim_task_add(&boundary_tasks[0], "min-interval",
+	boundary_tasks[0] = tim_task_add("min-interval",
 			1, false, false, tim_test_validation_callback);
-	if (ret) {
-		pr_err("min interval task creation failed: %d\n", ret);
+	if (IS_ERR_OR_NULL(boundary_tasks[0])) {
+		pr_err("min interval task creation failed\n");
 		return FAIL;
 	}
 
 	// test 2: short interval (10ms)
-	ret = tim_task_add(&boundary_tasks[1], "short-interval",
+	boundary_tasks[1] = tim_task_add("short-interval",
 			10, false, false, tim_test_validation_callback);
-	if (ret) {
-		pr_err("short interval task creation failed: %d\n", ret);
+	if (IS_ERR_OR_NULL(boundary_tasks[1])) {
+		pr_err("short interval task creation failed\n");
 		return FAIL;
 	}
 
 	// test 3: medium interval (100ms)
-	ret = tim_task_add(&boundary_tasks[2], "medium-interval",
+	boundary_tasks[2] = tim_task_add("medium-interval",
 			100, false, false, tim_test_validation_callback);
-	if (ret) {
-		pr_err("medium interval task creation failed: %d\n", ret);
+	if (IS_ERR_OR_NULL(boundary_tasks[2])) {
+		pr_err("medium interval task creation failed\n");
 		return FAIL;
 	}
 
 	// test 3: long interval (1000ms)
-	ret = tim_task_add(&boundary_tasks[3], "long-interval",
+	boundary_tasks[3] = tim_task_add("long-interval",
 			1000, false, false, tim_test_validation_callback);
-	if (ret) {
-		pr_err("long interval task creation failed: %d\n", ret);
+	if (IS_ERR_OR_NULL(boundary_tasks[3])) {
+		pr_err("long interval task creation failed\n");
 		return FAIL;
 	}
 
 	// test 4: maximum interval (3600000ms = 1 hour)
-	ret = tim_task_add(&boundary_tasks[4], "max-interval",
+	boundary_tasks[4] = tim_task_add("max-interval",
 			3600000, false, false, tim_test_validation_callback);
-	if (ret) {
-		pr_err("max interval task creation failed: %d\n", ret);
+	if (IS_ERR_OR_NULL(boundary_tasks[4])) {
+		pr_err("max interval task creation failed\n");
 		return FAIL;
 	}
 
 	// test 5: invalid interval (0ms)
-	ret = tim_task_add(&boundary_tasks[0], "invalid-zero",
+	invalid_task = tim_task_add("invalid-zero",
 			0, false, false, tim_test_validation_callback);
-	if (ret != -EINVAL) {
+	if (!IS_ERR(invalid_task)) {
 		pr_err("zero interval should be rejected\n");
 		return FAIL;
 	}
 
 	// test 6: invalid interval (too large)
-	ret = tim_task_add(&boundary_tasks[0], "invalid-too-large",
+	invalid_task = tim_task_add("invalid-too-large",
 			3600001, false, false, tim_test_validation_callback);
-	if (ret != -EINVAL) {
+	if (!IS_ERR(invalid_task)) {
 		pr_err("too large interval should be rejected\n");
 		return FAIL;
 	}
+
+	// cleanup: drop all boundary tasks
+	tim_task_drop(boundary_tasks[0]);
+	tim_task_drop(boundary_tasks[1]);
+	tim_task_drop(boundary_tasks[2]);
+	tim_task_drop(boundary_tasks[3]);
+	tim_task_drop(boundary_tasks[4]);
 
 	pr_info("all boundary tests passed\n");
 	return PASS;
@@ -801,7 +878,7 @@ int t_tim_task_boundary(int argc, char **argv)
 int t_tim_task_concurrent(int argc, char **argv)
 {
 	int ret, i;
-	struct tim_task concurrent_tasks[10];
+	struct tim_task *concurrent_tasks[10];
 	struct tim_task_stats stats;
 
 	pr_info("=== timer task concurrent test ===\n");
@@ -814,10 +891,10 @@ int t_tim_task_concurrent(int argc, char **argv)
 		char task_name[32];
 		snprintf(task_name, sizeof(task_name), "concurrent-%d", i);
 
-		ret = tim_task_add(&concurrent_tasks[i], task_name,
+		concurrent_tasks[i] = tim_task_add(task_name,
 				100 + i * 10, true, false, tim_test_validation_callback);
-		if (ret) {
-			pr_err("concurrent task %d creation failed: %d\n", i, ret);
+		if (IS_ERR_OR_NULL(concurrent_tasks[i])) {
+			pr_err("concurrent task %d creation failed\n", i);
 			return FAIL;
 		}
 	}
@@ -836,13 +913,19 @@ int t_tim_task_concurrent(int argc, char **argv)
 	pr_info("min execution time: %u ms\n", stats.min_execution_time_ms);
 	pr_info("max execution time: %u ms\n", stats.max_execution_time_ms);
 
+	// cleanup: drop all concurrent tasks
+	for (i = 0; i < 10; i++) {
+		tim_task_drop(concurrent_tasks[i]);
+	}
+	pr_info("all concurrent tasks dropped\n");
+
 	return PASS;
 }
 
 int t_tim_task_short_interval(int argc, char **argv)
 {
 	int ret, i;
-	struct tim_task short_tasks[20];
+	struct tim_task *short_tasks[20];
 	struct tim_task_stats stats;
 
 	pr_info("=== timer task short interval test ===\n");
@@ -855,10 +938,10 @@ int t_tim_task_short_interval(int argc, char **argv)
 		char task_name[32];
 		snprintf(task_name, sizeof(task_name), "short-interval-%d", i);
 
-		ret = tim_task_add(&short_tasks[i], task_name,
+		short_tasks[i] = tim_task_add(task_name,
 				1 + i, true, false, tim_test_validation_callback);
-		if (ret) {
-			pr_err("short interval task %d creation failed: %d\n", i, ret);
+		if (IS_ERR_OR_NULL(short_tasks[i])) {
+			pr_err("short interval task %d creation failed\n", i);
 			return FAIL;
 		}
 	}
@@ -872,6 +955,11 @@ int t_tim_task_short_interval(int argc, char **argv)
 	tim_task_get_stats(&stats);
 	pr_info("short interval tasks executed: %u\n", stats.total_tasks_executed);
 
+	// cleanup: drop all short interval tasks
+	for (i = 0; i < 20; i++) {
+		tim_task_drop(short_tasks[i]);
+	}
+
 	return PASS;
 }
 
@@ -883,24 +971,24 @@ static void tim_test_suspend_callback(struct tim_task *task)
 int t_tim_task_suspend_resume(int argc, char **argv)
 {
 	int ret;
-	struct tim_task suspend_task;
+	struct tim_task *suspend_task;
 
 	pr_info("=== timer task suspend resume test ===\n");
 
 	// create a task
-	ret = tim_task_add(&suspend_task, "suspend-test-task",
+	suspend_task = tim_task_add("suspend-test-task",
 			500, true, false, tim_test_suspend_callback);
-	if (ret) {
-		pr_err("suspend resume test task creation failed: %d\n", ret);
+	if (IS_ERR_OR_NULL(suspend_task)) {
+		pr_err("suspend resume test task creation failed\n");
 		return FAIL;
 	}
 
 	// test suspend
-	tim_task_suspend(&suspend_task);
+	tim_task_suspend(suspend_task);
 	pr_info("task suspended successfully\n");
 
 	// test resume
-	tim_task_resume(&suspend_task);
+	tim_task_resume(suspend_task);
 	pr_info("task resumed successfully\n");
 
 	// run loop to verify execution
@@ -908,6 +996,9 @@ int t_tim_task_suspend_resume(int argc, char **argv)
 	while (ktime_compare(ktime_get(), test_end) < 0) {
 		tim_task_loop();
 	}
+
+	// cleanup: drop the suspend task
+	tim_task_drop(suspend_task);
 
 	pr_info("all suspend resume tests passed\n");
 	return PASS;

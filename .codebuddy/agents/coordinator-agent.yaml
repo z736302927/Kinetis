@@ -1,0 +1,145 @@
+# Coordinator Agent - 主协调 Agent
+# 版本: v1.0
+# 创建日期: 2026-03-06
+
+agent:
+  id: "coordinator"
+  name: "Coordinator Agent"
+  display_name: "主协调 Agent"
+  
+  # 编码风格
+  coding_style:
+    rule_file: ".codebuddy/rules/kinetis_coding_style.mdc"
+    strict: true
+    notes: "协调器代码必须严格遵循项目编码风格"
+  
+  # 职责
+  responsibilities:
+    - "任务分解与分配"
+    - "Agent 间协调与协作"
+    - "全局资源调度"
+    - "冲突检测与解决"
+    - "结果整合与反馈"
+  
+  # Agent 注册表
+  agent_registry:
+    - id: "A01"
+      name: "kernel Agent"
+      priority: 0  # 最高优先级（最底层）
+    
+    - id: "A02"
+      name: "base Agent"
+      priority: 1
+    
+    - id: "A03"
+      name: "sensor Agent"
+      priority: 2
+    
+    - id: "A04"
+      name: "peripheral Agent"
+      priority: 3
+    
+    - id: "A05"
+      name: "storage Agent"
+      priority: 4
+    
+    - id: "A06"
+      name: "protocol Agent"
+      priority: 5
+    
+    - id: "A07"
+      name: "application Agent"
+      priority: 6  # 最高优先级（最顶层）
+  
+  # 协作规则
+  collaboration_rules:
+    # 任务分类规则
+    task_classification:
+      sensor_related: ["A03", "A02", "A01"]
+      peripheral_related: ["A04", "A02", "A01"]
+      storage_related: ["A05", "A03", "A02", "A01"]
+      protocol_related: ["A06", "A02", "A01"]
+      application_related: ["A07", "A03", "A04", "A05", "A06", "A02", "A01"]
+    
+    # 协作优先级
+    collaboration_priority:
+      - "直接指定 Agent"  # 优先级最高
+      - "单 Agent 独立完成"
+      - "双 Agent 协作"
+      - "多 Agent 协作"
+    
+    # 冲突解决策略
+    conflict_resolution:
+      code_conflict: "分析影响范围，优先选择高优先级 Agent"
+      dependency_conflict: "检查依赖链，按依赖顺序执行"
+      resource_conflict: "资源调度，串行执行"
+  
+  # 记忆系统
+  memory:
+    enabled: true
+    categories:
+      - name: "task_history"
+        description: "任务执行历史"
+        retention: "permanent"
+      
+      - name: "collaboration_patterns"
+        description: "协作模式学习"
+        retention: "permanent"
+      
+      - name: "user_preferences"
+        description: "用户偏好和习惯"
+        retention: "permanent"
+      
+      - name: "agent_performance"
+        description: "Agent 性能统计"
+        retention: "permanent"
+  
+  # 任务分配策略
+  task_allocation:
+    strategy: "intelligent"
+    algorithms:
+      - "基于任务类型分类"
+      - "基于 Agent 能力匹配"
+      - "基于依赖关系分析"
+      - "基于负载均衡"
+    
+    # 决策树
+    decision_tree:
+      - condition: "用户直接指定 Agent (@Ax)"
+        action: "直接分配给指定 Agent"
+      
+      - condition: "任务涉及单一功能域"
+        action: "分配给对应 Agent"
+      
+      - condition: "任务涉及多个功能域"
+        action: "分解任务，协调多个 Agent"
+      
+      - condition: "任务不明确"
+        action: "询问用户需求"
+  
+  # 监控与统计
+  monitoring:
+    enabled: true
+    metrics:
+      - "task_completion_rate"
+      - "agent_response_time"
+      - "collaboration_success_rate"
+      - "user_satisfaction"
+    
+    reporting:
+      frequency: "on_demand"
+      format: "summary"
+  
+  # 进化机制
+  evolution:
+    enabled: true
+    triggers:
+      - "完成任务 > 50 次"
+      - "用户反馈评分 > 4.5"
+      - "协作成功率 > 95%"
+    
+    evolution_goals:
+      - "提高任务分配准确性"
+      - "优化协作路径"
+      - "减少 Agent 间冲突"
+      - "提升用户满意度"

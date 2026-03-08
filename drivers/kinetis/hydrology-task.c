@@ -63,7 +63,7 @@ static void test_packet(void)
 	}
 
 	pr_err("[%s] Send %s packet\n",
-		get_rtc_string(),
+		get_rtc_string(&fake_rtc),
 		hydrology_type_string(TEST_REPORT));
 	hydrology_device_process(element_table, 1, HYDROLOGY_M1, TEST_REPORT);
 
@@ -75,28 +75,28 @@ static void test_packet(void)
 static void timer_report_packet(void)
 {
 	pr_err("[%s] Send %s packet\n",
-		get_rtc_string(),
+		get_rtc_string(&fake_rtc),
 		hydrology_type_string(TIMER_REPORT));
 }
 
 static void add_report_packet(void)
 {
 	pr_err("[%s] Send %s packet\n",
-		get_rtc_string(),
+		get_rtc_string(&fake_rtc),
 		hydrology_type_string(ADD_REPORT));
 }
 
 static void hour_packet(void)
 {
 	pr_err("[%s] Send %s packet\n",
-		get_rtc_string(),
+		get_rtc_string(&fake_rtc),
 		hydrology_type_string(HOUR_REPORT));
 }
 
 void hydrology_task_exit(void)
 {
-	tim_task_drop(&g_hydrology.collecte_data);
-	tim_task_drop(&g_hydrology.link_pkt);
+	tim_task_drop(g_hydrology.collecte_data);
+	tim_task_drop(g_hydrology.link_pkt);
 	rtc_task_drop(test_packet);
 	rtc_task_drop(timer_report_packet);
 	rtc_task_drop(add_report_packet);
@@ -169,9 +169,9 @@ int hydrology_task_init(void)
 		}
 	}
 
-	tim_task_add(&g_hydrology.collecte_data, "measure temperature humidit",
+	g_hydrology.collecte_data = tim_task_add("measure temperature humidit",
 		60 * 1000, true, false, measure_temperature_humidit);
-	tim_task_add(&g_hydrology.link_pkt, "link packet",
+	g_hydrology.link_pkt = tim_task_add("link packet",
 		40 * 1000, true, false, link_packet);
 
 	rtc_task_add(0, 0, 0, 0, 1, 0, true, test_packet);

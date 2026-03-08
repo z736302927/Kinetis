@@ -1,5 +1,5 @@
 #include <linux/errno.h>
-#include <linux/gfp.h>
+#include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/string.h>
 #include <linux/printk.h>

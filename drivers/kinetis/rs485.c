@@ -10,7 +10,6 @@
 //   * @step 5:
 //   */
 // 
-// #include <linux/gfp.h>
 // 
 // #include "kinetis/serial-port.h"
 // #define DEBUG

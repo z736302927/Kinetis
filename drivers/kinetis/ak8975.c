@@ -1,34 +1,23 @@
+#define pr_fmt(fmt) "ak8975: " fmt
+
 #include <linux/bitops.h>
 #include <linux/printk.h>
 #include <linux/delay.h>
 #include <linux/err.h>
-
-#define pr_fmt(fmt) "ak8975: " fmt
+#include <linux/slab.h>
+#include <linux/random.h>
 
 #include "kinetis/ak8975.h"
 #include "kinetis/iic_soft.h"
+#include "kinetis/spi_soft.h"
+#include "kinetis/regmap-user-bus.h"
 #include "kinetis/idebug.h"
 #include "kinetis/design_verification.h"
 #include "kinetis/random-gene.h"
 #include "kinetis/test-kinetis.h"
 
 #include <pthread.h>
-
-/* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
-
-/**
-  * @step 1:  Modify the corresponding function according to the modified area and the corresponding function name.
-  * @step 2:  Modify four areas: GPIO_PORT/GPIO_PIN/Led_TypeDef/LEDn.
-  * @step 3:  .
-  * @step 4:  .
-  * @step 5:
-  */
-
-#if MCU_PLATFORM_STM32
-#include "stm32f4xx_hal.h"
-#endif
-
-#define AK8975_USING_IIC
+#include <math.h>
 
 #define AK8975_CAD0                    0
 #define AK8975_CAD1                    0
@@ -42,86 +31,6 @@
 #elif (AK8975_CAD1 && AK8975_CAD0)
 #define AK8975_ADDR                    0x0F
 #endif
-
-static struct iic_master *ak8975_iic = &fake_master;
-
-static inline void ak8975_csb_low(void)
-{
-#if MCU_PLATFORM_STM32
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
-#else
-#endif
-}
-
-static inline void ak8975_csb_high(void)
-{
-#if MCU_PLATFORM_STM32
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
-#else
-#endif
-}
-
-static inline void ak8975_port_transmit(u8 addr, u8 tmp)
-{
-#ifdef AK8975_USING_IIC
-	iic_master_port_transmit(ak8975_iic, AK8975_ADDR, addr, tmp);
-#else
-	ak8975_csb_low();
-#if MCU_PLATFORM_STM32
-	HAL_SPI_Transmit(&hspi1, (addr << 1) | 0, 1, 1000);
-	HAL_SPI_Transmit(&hspi1, &tmp, 1, 1000);
-#else
-#endif
-	ak8975_csb_high();
-#endif
-}
-
-static inline void ak8975_port_receive(u8 addr, u8 *pdata)
-{
-#ifdef AK8975_USING_IIC
-	iic_master_port_receive(ak8975_iic, AK8975_ADDR, addr, pdata);
-#else
-	ak8975_csb_low();
-#if MCU_PLATFORM_STM32
-	HAL_SPI_Transmit(&hspi1, (addr << 1) | 1, 1, 1000);
-	HAL_SPI_Receive(&hspi1, pdata, 1, 1000);
-#else
-#endif
-	ak8975_csb_high();
-#endif
-}
-
-static inline void ak8975_port_multi_transmit(u8 addr, u8 *pdata, u32 length)
-{
-#ifdef AK8975_USING_IIC
-	iic_master_port_multi_transmit(ak8975_iic, AK8975_ADDR, addr, pdata, length);
-#else
-	ak8975_csb_low();
-#if MCU_PLATFORM_STM32
-	HAL_SPI_Transmit(&hspi1, (addr << 1) | 0, 1, 1000);
-	HAL_SPI_Transmit(&hspi1, pdata, length, 1000);
-#else
-#endif
-	ak8975_csb_high();
-#endif
-}
-
-static inline void ak8975_port_multi_receive(u8 addr, u8 *pdata, u32 length)
-{
-#ifdef AK8975_USING_IIC
-	iic_master_port_multi_receive(ak8975_iic, AK8975_ADDR, addr, pdata, length);
-#else
-	ak8975_csb_low();
-#if MCU_PLATFORM_STM32
-	HAL_SPI_Transmit(&hspi1, (addr << 1) | 1, 1, 1000);
-	HAL_SPI_Receive(&hspi1, pdata, length, 1000);
-#else
-#endif
-	ak8975_csb_high();
-#endif
-}
-
-/* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 #define WIA                             0x00
 #define INFO                            0x01
@@ -173,28 +82,36 @@ static inline void ak8975_port_multi_receive(u8 addr, u8 *pdata, u32 length)
 #define POWER_ON_DELAY_MS               10
 #define MODE_SWITCH_DELAY_MS            1
 
-void ak8975_enter_power_down_mode(void)
+/* Simulation thread constants */
+#define AK8975_UPDATE_PERIOD_MS        10     /* Update period: 100ms (10Hz) */
+#define MAGNETIC_MIN_UT                -600    /* Minimum: -600 µT */
+#define MAGNETIC_MAX_UT                +600    /* Maximum: +600 µT */
+#define MAGNETIC_NOISE_STDEV           5       /* Magnetic noise standard deviation (µT) */
+#define TEMP_MIN_C                    -20     /* Minimum: -20°C */
+#define TEMP_MAX_C                    +50     /* Maximum: +50°C */
+
+struct ak8975_device {
+	struct regmap *regmap;
+
+	u8 asa_values[3];
+
+	struct iic_slave *iic_slave;
+	struct spi_slave *spi_slave;
+	u8 *slave_regs;
+
+	bool thread_running;
+};
+
+void ak8975_enter_power_down_mode(struct ak8975_device *dev)
 {
-	ak8975_port_transmit(CNTL1, POWER_DOWN);
+	regmap_write(dev->regmap, CNTL1, POWER_DOWN);
 	mdelay(MODE_SWITCH_DELAY_MS);
 }
 
-void ak8975_enter_sleep_mode(void)
+u8 ak8975_get_power_state(struct ak8975_device *dev)
 {
-	ak8975_enter_power_down_mode();
-	mdelay(SLEEP_MODE_DELAY_MS);
-}
-
-void ak8975_wake_up_from_sleep(void)
-{
-	ak8975_enter_single_measurement_mode();
-	mdelay(POWER_ON_DELAY_MS);
-}
-
-u8 ak8975_get_power_state(void)
-{
-	u8 reg = 0;
-	ak8975_port_receive(CNTL1, &reg);
+	u32 reg;
+	regmap_read(dev->regmap, CNTL1, &reg);
 
 	if ((reg & 0x0F) == POWER_DOWN) {
 		return 0;    /* Power down state */
@@ -203,116 +120,99 @@ u8 ak8975_get_power_state(void)
 	}
 }
 
-void ak8975_enter_single_measurement_mode(void)
+void ak8975_enter_single_measurement_mode(struct ak8975_device *dev)
 {
-	ak8975_port_transmit(CNTL1, SINGLE_MEASUREMENT & 0xFF);
+	regmap_write(dev->regmap, CNTL1, SINGLE_MEASUREMENT & 0xFF);
 	mdelay(1);
 }
 
-void ak8975_enter_continuous_8hz_mode(void)
+void ak8975_enter_continuous_8hz_mode(struct ak8975_device *dev)
 {
-	ak8975_port_transmit(CNTL1, CONTINUOUS_MEASUREMENT_8HZ & 0xFF);
+	regmap_write(dev->regmap, CNTL1, CONTINUOUS_MEASUREMENT_8HZ & 0xFF);
 	mdelay(1);
 }
 
-void ak8975_enter_continuous_10hz_mode(void)
+void ak8975_enter_continuous_10hz_mode(struct ak8975_device *dev)
 {
-	ak8975_port_transmit(CNTL1, CONTINUOUS_MEASUREMENT_10HZ & 0xFF);
+	regmap_write(dev->regmap, CNTL1, CONTINUOUS_MEASUREMENT_10HZ & 0xFF);
 	mdelay(1);
 }
 
-void ak8975_enter_continuous_20hz_mode(void)
+void ak8975_enter_continuous_20hz_mode(struct ak8975_device *dev)
 {
-	ak8975_port_transmit(CNTL1, CONTINUOUS_MEASUREMENT_20HZ & 0xFF);
+	regmap_write(dev->regmap, CNTL1, CONTINUOUS_MEASUREMENT_20HZ & 0xFF);
 	mdelay(1);
 }
 
-void ak8975_enter_continuous_100hz_mode(void)
+void ak8975_enter_continuous_100hz_mode(struct ak8975_device *dev)
 {
-	ak8975_port_transmit(CNTL1, CONTINUOUS_MEASUREMENT_100HZ & 0xFF);
+	regmap_write(dev->regmap, CNTL1, CONTINUOUS_MEASUREMENT_100HZ & 0xFF);
 	mdelay(1);
 }
 
-void ak8975_enter_selftest_mode(void)
+void ak8975_enter_selftest_mode(struct ak8975_device *dev)
 {
-	ak8975_port_transmit(CNTL1, SELF_TEST & 0xFF);
+	regmap_write(dev->regmap, CNTL1, SELF_TEST & 0xFF);
 	mdelay(10);
 }
 
-void ak8975_enter_self_test_mode(void)
+void ak8975_enter_self_test_mode(struct ak8975_device *dev)
 {
-	ak8975_port_transmit(ASTC, ASTC_SELF_BIT);
+	regmap_write(dev->regmap, ASTC, ASTC_SELF_BIT);
 	mdelay(1);
-	ak8975_port_transmit(CNTL1, SELF_TEST & 0xFF);
+	regmap_write(dev->regmap, CNTL1, SELF_TEST & 0xFF);
 	mdelay(10);
 }
 
-u8 ak8975_self_test(void)
+void ak8975_enter_fuse_rom_access_mode(struct ak8975_device *dev)
 {
-	u8 status = -1;
-	u16 test_data[3];
-
-	ak8975_enter_power_down_mode();
-	mdelay(1);
-
-	ak8975_selftest_control(true);
-	mdelay(1);
-	ak8975_enter_self_test_mode();
-
-	ak8975_magnetic_measurements(test_data);
-
-	ak8975_enter_power_down_mode();
-
-	if ((test_data[0] >= 30 && test_data[0] <= 5000) &&
-		(test_data[1] >= 30 && test_data[1] <= 5000) &&
-		(test_data[2] >= 30 && test_data[2] <= 5000)) {
-		status = 0;
-	}
-
-	return status;
-}
-
-void ak8975_enter_fuse_rom_access_mode(void)
-{
-	ak8975_port_transmit(CNTL1, FUSE_ROM_ACCESS & 0xFF);
+	regmap_write(dev->regmap, CNTL1, FUSE_ROM_ACCESS & 0xFF);
 	mdelay(10);
 }
 
-void ak8975_who_am_i(u8 *pdata)
+u8 ak8975_who_am_i(struct ak8975_device *dev)
 {
-	ak8975_port_receive(WIA, pdata);
+	u32 reg;
+
+	regmap_read(dev->regmap, WIA, &reg);
+
+	return reg;
 }
 
-void ak8975_device_information(u8 *pdata)
+u8 ak8975_device_information(struct ak8975_device *dev)
 {
-	ak8975_port_receive(INFO, pdata);
+	u32 reg;
+
+	regmap_read(dev->regmap, INFO, &reg);
+
+	return reg;
 }
 
-u8 ak8975_data_ready(void)
+u8 ak8975_data_ready(struct ak8975_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ak8975_port_receive(ST1, &reg);
+	regmap_read(dev->regmap, ST1, &reg);
 
 	return (reg & ST1_DRDY_BIT);
 }
 
-u8 ak8975_data_overrun(void)
+u8 ak8975_data_overrun(struct ak8975_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ak8975_port_receive(ST1, &reg);
+	regmap_read(dev->regmap, ST1, &reg);
 
 	return (reg & ST1_DOR_BIT);
 }
 
-u8 ak8975_check_status(void)
+u8 ak8975_check_status(struct ak8975_device *dev)
 {
-	u8 st1_reg = 0;
-	u8 st2_reg = 0;
+	u32 st1_reg = 0;
+	u32 st2_reg = 0;
 
-	ak8975_port_receive(ST1, &st1_reg);
-	ak8975_port_receive(ST2, &st2_reg);
+	regmap_read(dev->regmap, ST1, &st1_reg);
+	regmap_read(dev->regmap, ST2, &st2_reg);
 
 	if (st2_reg & ST2_DERR_BIT) {
 		pr_err("AK8975 data error detected");
@@ -327,161 +227,174 @@ u8 ak8975_check_status(void)
 	return (st1_reg & ST1_DRDY_BIT);
 }
 
-u8 ak8975_data_error(void)
+u8 ak8975_data_error(struct ak8975_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ak8975_port_receive(ST2, &reg);
+	regmap_read(dev->regmap, ST2, &reg);
 
 	return (reg & ST2_DERR_BIT);
 }
 
-void ak8975_magnetic_measurements(u16 *pdata)
+void ak8975_magnetic_measurements(struct ak8975_device *dev, u16 *pdata)
 {
 	u8 tmp[6];
 
-	ak8975_port_multi_receive(HXL, tmp, 6);
+	regmap_bulk_read(dev->regmap, HXL, tmp, 6);
 
 	pdata[0] = (tmp[1] << 8) | tmp[0];
 	pdata[1] = (tmp[3] << 8) | tmp[2];
 	pdata[2] = (tmp[5] << 8) | tmp[4];
 }
 
-u8 ak8975_magnetic_sensor_overflow(void)
+u8 ak8975_magnetic_sensor_overflow(struct ak8975_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ak8975_port_receive(ST2, &reg);
+	regmap_read(dev->regmap, ST2, &reg);
 
 	return (reg & ST2_HOFL_BIT);
 }
 
-u8 ak8975_output_bit_setting_mirror(void)
+u8 ak8975_output_bit_setting_mirror(struct ak8975_device *dev)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ak8975_port_receive(ST2, &reg);
+	regmap_read(dev->regmap, ST2, &reg);
 
 	return (reg & ST2_BITM_BIT);
 }
 
-void ak8975_operation_mode_setting(u8 tmp)
+void ak8975_operation_mode_setting(struct ak8975_device *dev, u8 tmp)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ak8975_port_receive(CNTL1, &reg);
+	regmap_read(dev->regmap, CNTL1, &reg);
 
 	set_mask_bits(&reg, 0x0F, tmp);
 
-	ak8975_port_transmit(CNTL1, reg);
+	regmap_write(dev->regmap, CNTL1, reg);
 }
 
-void ak8975_output_bit_setting(u8 tmp)
+void ak8975_output_bit_setting(struct ak8975_device *dev, u8 tmp)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ak8975_port_receive(CNTL1, &reg);
+	regmap_read(dev->regmap, CNTL1, &reg);
 
 	set_mask_bits(&reg, 0x10, tmp);
 
-	ak8975_port_transmit(CNTL1, reg);
+	regmap_write(dev->regmap, CNTL1, reg);
 }
 
-void ak8975_soft_reset(u8 tmp)
+void ak8975_soft_reset(struct ak8975_device *dev, u8 tmp)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ak8975_port_receive(CNTL2, &reg);
+	regmap_read(dev->regmap, CNTL2, &reg);
 
 	set_mask_bits(&reg, 0x01, tmp);
 
-	ak8975_port_transmit(CNTL2, reg);
+	regmap_write(dev->regmap, CNTL2, reg);
 }
 
-void ak8975_selftest_control(u8 tmp)
+void ak8975_selftest_control(struct ak8975_device *dev, u8 tmp)
 {
-	u8 reg = 0;
+	u32 reg;
 
-	ak8975_port_receive(ASTC, &reg);
+	regmap_read(dev->regmap, ASTC, &reg);
 
 	set_mask_bits(&reg, 0x40, tmp);
 
-	ak8975_port_transmit(ASTC, reg);
+	regmap_write(dev->regmap, ASTC, reg);
 }
 
-void ak8975_i2c_disable(void)
+void ak8975_i2c_disable(struct ak8975_device *dev)
 {
-	ak8975_port_transmit(I2CDIS, 0x1B);
+	regmap_write(dev->regmap, I2CDIS, 0x1B);
 }
 
-void ak8975_i2c_enable(void)
+void ak8975_i2c_enable(struct ak8975_device *dev)
 {
-	ak8975_soft_reset(1);
+	ak8975_soft_reset(dev, 1);
 }
 
-static u8 ak8975_asa_values[3];
-
-void ak8975_sensitivity_adjustment_values(u8 *pdata)
+void ak8975_sensitivity_adjustment_values(struct ak8975_device *dev, u8 *pdata)
 {
-	ak8975_port_multi_receive(ASAX, pdata, 3);
+	regmap_bulk_read(dev->regmap, ASAX, pdata, 3);
 }
 
-static volatile u8 ak8975_dr_flag = 0;
+void ak8975_enter_sleep_mode(struct ak8975_device *dev)
+{
+	ak8975_enter_power_down_mode(dev);
+	mdelay(SLEEP_MODE_DELAY_MS);
+}
 
-u8 ak8975_magnetic_adjusted_measurements(u16 *pdata)
+void ak8975_wake_up_from_sleep(struct ak8975_device *dev)
+{
+	ak8975_enter_single_measurement_mode(dev);
+	mdelay(POWER_ON_DELAY_MS);
+}
+
+u8 ak8975_self_test(struct ak8975_device *dev)
+{
+	u8 status = -1;
+	u16 test_data[3];
+
+	ak8975_enter_power_down_mode(dev);
+	mdelay(1);
+
+	ak8975_selftest_control(dev, true);
+	mdelay(1);
+	ak8975_enter_self_test_mode(dev);
+
+	ak8975_magnetic_measurements(dev, test_data);
+
+	ak8975_enter_power_down_mode(dev);
+
+	if ((test_data[0] >= 30 && test_data[0] <= 5000) &&
+		(test_data[1] >= 30 && test_data[1] <= 5000) &&
+		(test_data[2] >= 30 && test_data[2] <= 5000)) {
+		status = 0;
+	}
+
+	return status;
+}
+
+u8 ak8975_magnetic_adjusted_measurements(struct ak8975_device *dev, u16 *pdata)
 {
 	u16 raw_data[3];
-	u32 timeout = 1000;
+	u8 data_ready = 0;
+	int ret;
 
-	ak8975_enter_single_measurement_mode();
+	ak8975_enter_single_measurement_mode(dev);
 
-	do {
-		if (ak8975_data_ready() == true) {
-			break;
-		} else {
-			mdelay(1);
-		}
-	} while (timeout--);
-
-	if (timeout <= 0) {
-		pr_err("[Error] ak8975 magnetic tmp not ready");
-		return false;
+	ret = readx_poll_timeout(ak8975_data_ready, dev, data_ready, data_ready, 0, 10000);
+	if (ret) {
+		pr_err("ak8975 magnetic data not ready");
+		return 0;
 	}
 
-	//  timeout_WaitMSDone(&ak8975_DR_Flag, true, 1000);
-
-	if (ak8975_data_overrun() == true) {
-		pr_warn("[Warning] ak8975 magnetic tmp Overrun");
+	if (ak8975_data_overrun(dev)) {
+		pr_warn("ak8975 magnetic data overrun");
 	}
 
-	ak8975_magnetic_measurements(raw_data);
+	ak8975_magnetic_measurements(dev, raw_data);
 
-	pdata[0] = (raw_data[0] * (ak8975_asa_values[0] + 128)) / 256;
-	pdata[1] = (raw_data[1] * (ak8975_asa_values[1] + 128)) / 256;
-	pdata[2] = (raw_data[2] * (ak8975_asa_values[2] + 128)) / 256;
+	pdata[0] = (raw_data[0] * (dev->asa_values[0] + 128)) / 256;
+	pdata[1] = (raw_data[1] * (dev->asa_values[1] + 128)) / 256;
+	pdata[2] = (raw_data[2] * (dev->asa_values[2] + 128)) / 256;
 
-	return true;
+	return 1;
 }
 
-void ak8975_init(void)
+s16 ak8975_read_temperature_data(struct ak8975_device *dev)
 {
-	ak8975_iic->init();
+	u32 temp_low, temp_high;
+	s16 temperature_raw;
 
-	ak8975_enter_fuse_rom_access_mode();
-	ak8975_sensitivity_adjustment_values(ak8975_asa_values);
-	pr_debug("ak8975 Adjustment Values %x, %x, %x",
-		ak8975_asa_values[0], ak8975_asa_values[1], ak8975_asa_values[2]);
-	ak8975_enter_power_down_mode();
-}
-
-/* Temperature compensation related functions */
-s16 ak8975_read_temperature_data(void)
-{
-	u8 temp_low = 0, temp_high = 0;
-	s16 temperature_raw = 0;
-
-	ak8975_port_receive(TS1, &temp_low);
-	ak8975_port_receive(TS2, &temp_high);
+	regmap_read(dev->regmap, TS1, &temp_low);
+	regmap_read(dev->regmap, TS2, &temp_high);
 
 	temperature_raw = (temp_high << 8) | temp_low;
 
@@ -515,379 +428,307 @@ u16 ak8975_temperature_compensated_measurement(u16 raw_mag_data, s16 temperature
 	return (u16)(raw_mag_data * compensation_factor);
 }
 
-void ak8975_compensated_magnetic_measurements(u16 *pdata)
+void ak8975_compensated_magnetic_measurements(struct ak8975_device *dev, u16 *pdata)
 {
 	u16 raw_data[3];
 	s16 temperature_data;
 
-	ak8975_magnetic_measurements(raw_data);
-	temperature_data = ak8975_read_temperature_data();
+	ak8975_magnetic_measurements(dev, raw_data);
+	temperature_data = ak8975_read_temperature_data(dev);
 
 	pdata[0] = ak8975_temperature_compensated_measurement(raw_data[0], temperature_data);
 	pdata[1] = ak8975_temperature_compensated_measurement(raw_data[1], temperature_data);
 	pdata[2] = ak8975_temperature_compensated_measurement(raw_data[2], temperature_data);
 }
 
-/* AK8975 I2C Slave simulation */
-static struct iic_slave *ak8975_slave = NULL;
-
-/* Simulated AK8975 register map */
-static struct {
-	u8 wia;        /* Device ID register (0x00) - should be 0x48 */
-	u8 info;       /* Information register (0x01) */
-	u8 st1;        /* Status 1 register (0x02) */
-	u8 hxl;        /* X-axis magnetic field data low byte (0x03) */
-	u8 hxh;        /* X-axis magnetic field data high byte (0x04) */
-	u8 hyl;        /* Y-axis magnetic field data low byte (0x05) */
-	u8 hyh;        /* Y-axis magnetic field data high byte (0x06) */
-	u8 hzl;        /* Z-axis magnetic field data low byte (0x07) */
-	u8 hzh;        /* Z-axis magnetic field data high byte (0x08) */
-	u8 st2;        /* Status 2 register (0x09) */
-	u8 cntl1;      /* Control 1 register (0x0A) */
-	u8 cntl2;      /* Control 2 register (0x0B) */
-	u8 astc;       /* Self-test control register (0x0C) */
-	u8 ts1;        /* Test 1 register (0x0D) */
-	u8 ts2;        /* Test 2 register (0x0E) */
-	u8 i2cdis;     /* I2C disable register (0x0F) */
-	u8 asax;       /* X-axis sensitivity adjustment (0x10) */
-	u8 asay;       /* Y-axis sensitivity adjustment (0x11) */
-	u8 asaz;       /* Z-axis sensitivity adjustment (0x12) */
-} ak8975_slave_regs;
-
-/**
- * @brief Generate reasonable random magnetic field values
- * Earth's magnetic field is approximately 25-65 μT
- * AK8975 output range: 0-4095 (signed: -2048 to +2047)
- * Typical values: 100-2000 for Earth's field
- */
-static void ak8975_generate_random_magnetic_data(void)
+static void *ak8975_reg_random_thread(void *arg)
 {
-	u16 mag_x, mag_y, mag_z;
-	s16 signed_x, signed_y, signed_z;
+	struct ak8975_device *dev = (struct ak8975_device *)arg;
+	s16 mag_x, mag_y, mag_z;
+	s16 temperature;
+	s32 noise_x, noise_y, noise_z;
+	u32 random_val;
+	float magnitude;
+	float theta, phi;
+	u8 cntl1_mode;
+	u8 astc_self_test;
+	bool in_self_test = false;
 
-	/* Generate random values in reasonable Earth magnetic field range */
-	/* Earth field varies from ~30μT to ~60μT in most locations */
-	/* AK8975 output (signed 12-bit): range -2048 to +2047 */
-	/* 1 LSB = 0.15 μT, so typical values are -200 to +400 */
-	signed_x = (s16)(random_get32bit() % 600) - 200;  /* -200 to +400 */
-	signed_y = (s16)(random_get32bit() % 600) - 200;  /* -200 to +400 */
-	signed_z = (s16)(random_get32bit() % 600) - 200;  /* -200 to +400 */
+	/* WIA: Who Am I register - Device ID (Read-only) */
+	dev->slave_regs[WIA] = AKM_DEVID;  /* 0x48 */
+	/* INFO: Device Information register (Read-only) */
+	dev->slave_regs[INFO] = 0x00;  /* Reserved, typically 0x00 */
+	/* CNTL1: Control Register 1 - Power down mode initially */
+	dev->slave_regs[CNTL1] = POWER_DOWN & 0xFF;
+	/* CNTL2: Control Register 2 (Reserved) */
+	dev->slave_regs[CNTL2] = 0x00;
+	/* ASTC: Self-Test Control register */
+	dev->slave_regs[ASTC] = 0x00;  /* Self-test inactive */
+	/* I2CDIS: I2C Disable register - I2C enabled by default */
+	dev->slave_regs[I2CDIS] = 0x00;
+	/* TS1/TS2: Test registers (Do not access) */
+	dev->slave_regs[TS1] = 0xFF;  /* Default test value */
+	dev->slave_regs[TS2] = 0xFF;
+	/* ASAX/ASAY/ASAZ: Sensitivity Adjustment values (Read-only from Fuse ROM) */
+	/* Typical values for sensitivity adjustment (Fuse ROM) */
+	dev->slave_regs[ASAX] = 0x80;  /* X-axis sensitivity adjustment */
+	dev->slave_regs[ASAY] = 0x80;  /* Y-axis sensitivity adjustment */
+	dev->slave_regs[ASAZ] = 0x80;  /* Z-axis sensitivity adjustment */
+	/* ST1: Status Register 1 - Data not ready initially */
+	dev->slave_regs[ST1] = 0x00;
+	/* ST2: Status Register 2 - No errors initially */
+	dev->slave_regs[ST2] = 0x00;
+	/* Initialize magnetic data registers to zero */
+	dev->slave_regs[HXL] = 0x00;
+	dev->slave_regs[HXH] = 0x00;
+	dev->slave_regs[HYL] = 0x00;
+	dev->slave_regs[HYH] = 0x00;
+	dev->slave_regs[HZL] = 0x00;
+	dev->slave_regs[HZH] = 0x00;
 
-	/* Convert to unsigned 16-bit values for AK8975 format */
-	mag_x = (u16)signed_x;
-	mag_y = (u16)signed_y;
-	mag_z = (u16)signed_z;
+	while (dev->thread_running) {
+		/* Read current CNTL1 and ASTC registers to determine mode */
+		cntl1_mode = dev->slave_regs[CNTL1] & 0x0F;
+		astc_self_test = dev->slave_regs[ASTC] & ASTC_SELF_BIT;
 
-	/* Store in big-endian format (high byte first) */
-	ak8975_slave_regs.hxh = (u8)((mag_x >> 8) & 0xFF);
-	ak8975_slave_regs.hxl = (u8)(mag_x & 0xFF);
-	ak8975_slave_regs.hyh = (u8)((mag_y >> 8) & 0xFF);
-	ak8975_slave_regs.hyl = (u8)(mag_y & 0xFF);
-	ak8975_slave_regs.hzh = (u8)((mag_z >> 8) & 0xFF);
-	ak8975_slave_regs.hzl = (u8)(mag_z & 0xFF);
+		/* Check for self-test mode */
+		in_self_test = ((dev->slave_regs[CNTL1] & 0x80) != 0) || (astc_self_test != 0);
 
-	/* Set data ready flag */
-	ak8975_slave_regs.st1 |= ST1_DRDY_BIT;
+		if (cntl1_mode == POWER_DOWN) {
+			/* Power down mode - no measurements, just maintain registers */
+			dev->slave_regs[ST1] = 0x00;  /* DRDY = 0 */
+			msleep(10);
+			continue;
+		}
 
-	pr_debug("ak8975_slave: Generated magnetic data: X=%d, Y=%d, Z=%d",
-		 signed_x, signed_y, signed_z);
-}
+		if (cntl1_mode == FUSE_ROM_ACCESS) {
+			/* Fuse ROM access mode - ASAX/ASAY/ASAZ are readable */
+			/* No magnetic data updates in this mode */
+			dev->slave_regs[ST1] = 0x00;  /* DRDY = 0 */
+			msleep(10);
+			continue;
+		}
 
-/**
- * @brief Start AK8975 I2C slave simulation for testing
- */
-int ak8975_slave_start()
-{
-	/* Initialize simulated registers with default values */
-	ak8975_slave_regs.wia = AKM_DEVID;        /* Device ID: 0x48 */
-	ak8975_slave_regs.info = 0x00;            /* Information: normal */
-	ak8975_slave_regs.st1 = 0x00;            /* Status 1: DRDY = 0 initially */
-	ak8975_slave_regs.st2 = 0x00;            /* Status 2: no errors */
-	ak8975_slave_regs.cntl1 = POWER_DOWN & 0xFF;  /* Control 1: power down */
-	ak8975_slave_regs.cntl2 = 0x00;          /* Control 2: no reset */
-	ak8975_slave_regs.astc = 0x00;           /* Self-test: disabled */
-	ak8975_slave_regs.i2cdis = 0x1B;        /* I2C disable: 0x1B */
-	ak8975_slave_regs.asax = 0x00;           /* X sensitivity: 0 */
-	ak8975_slave_regs.asay = 0x00;           /* Y sensitivity: 0 */
-	ak8975_slave_regs.asaz = 0x00;           /* Z sensitivity: 0 */
+		if (in_self_test) {
+			/* Self-test mode - generate fixed magnetic field pattern */
+			/* Self-test generates internal magnetic field for calibration */
+			mag_x = 100;  /* Fixed positive X for self-test */
+			mag_y = 100;  /* Fixed positive Y for self-test */
+			mag_z = 100;  /* Fixed positive Z for self-test */
+		} else {
+			/* Normal measurement mode - generate realistic magnetic data */
+			/* 1. Generate magnetic field data (simulate Earth's magnetic field) */
+			/* Generate using spherical coordinates for uniform distribution */
+			random_val = get_random_u32();
 
-	/* Initialize simulated magnetic data with initial values */
-	ak8975_generate_random_magnetic_data();
+			/* Magnetic field magnitude: 40-60 µT (Earth's magnetic field range) */
+			magnitude = 40.0f + (random_val & 0x1F);  /* 40-60 µT */
 
-	/* Create I2C slave device with address 0x0C (thread is auto-started in iic_slave_soft_init) */
-	ak8975_slave = iic_slave_soft_init("ak8975", AK8975_ADDR, (u8 *)&ak8975_slave_regs, sizeof(ak8975_slave_regs));
-	if (IS_ERR(ak8975_slave)) {
-		pr_err("ak8975_slave: Failed to initialize I2C slave");
-		return PTR_ERR(ak8975_slave);
+			/* Random direction (spherical uniform distribution) */
+			theta = ((random_val >> 5) / 32768.0f) * 3.14159f;         /* 0-π */
+			phi = ((random_val >> 20) / 32768.0f) * 2.0f * 3.14159f;  /* 0-2π */
+
+			/* Convert to Cartesian coordinates (13-bit ADC, ~15 LSB/µT) */
+			mag_x = (s16)(magnitude * sinf(theta) * cosf(phi) * 15.0f);
+			mag_y = (s16)(magnitude * sinf(theta) * sinf(phi) * 15.0f);
+			mag_z = (s16)(magnitude * cosf(theta) * 15.0f);
+
+			/* 2. Add noise (simulate sensor noise) */
+			/* Gaussian-like noise using Box-Muller transform approximation */
+			noise_x = ((s32)(get_random_u32() & 0xFF) - 128) * MAGNETIC_NOISE_STDEV / 64;
+			noise_y = ((s32)(get_random_u32() & 0xFF) - 128) * MAGNETIC_NOISE_STDEV / 64;
+			noise_z = ((s32)(get_random_u32() & 0xFF) - 128) * MAGNETIC_NOISE_STDEV / 64;
+
+			mag_x += noise_x;
+			mag_y += noise_y;
+			mag_z += noise_z;
+
+			/* 3. Clamp to valid range (13-bit ADC: -8192 to +8191) */
+			if (mag_x < -8192) mag_x = -8192;
+			if (mag_x > 8191) mag_x = 8191;
+			if (mag_y < -8192) mag_y = -8192;
+			if (mag_y > 8191) mag_y = 8191;
+			if (mag_z < -8192) mag_z = -8192;
+			if (mag_z > 8191) mag_z = 8191;
+		}
+
+		/* 4. Generate temperature data */
+		/* Temperature range: -20°C ~ +50°C */
+		/* Conversion formula: Temp(°C) = (raw - 12421) / 280 + 25 */
+		/* Reverse: raw = (Temp - 25) * 280 + 12421 */
+		temperature = (s16)(((TEMP_MIN_C + (get_random_u32() & 0x7F)) - 25) * 280 + 12421);
+
+		/* Update magnetic field data registers (HXL-HZH) */
+		dev->slave_regs[HXL] = mag_x & 0xFF;
+		dev->slave_regs[HXH] = (mag_x >> 8) & 0xFF;
+		dev->slave_regs[HYL] = mag_y & 0xFF;
+		dev->slave_regs[HYH] = (mag_y >> 8) & 0xFF;
+		dev->slave_regs[HZL] = mag_z & 0xFF;
+		dev->slave_regs[HZH] = (mag_z >> 8) & 0xFF;
+
+		/* Update temperature data registers (TS1-TS2) */
+		dev->slave_regs[TS1] = temperature & 0xFF;
+		dev->slave_regs[TS2] = (temperature >> 8) & 0xFF;
+
+		/* Update ST2: Check for overflow (13-bit limit) */
+		dev->slave_regs[ST2] = 0x00;  /* Clear previous status */
+		if ((mag_x < -8192 || mag_x > 8191) ||
+		    (mag_y < -8192 || mag_y > 8191) ||
+		    (mag_z < -8192 || mag_z > 8191)) {
+			dev->slave_regs[ST2] |= ST2_HOFL_BIT;  /* Magnetic sensor overflow */
+		}
+
+		/* Simulate occasional data error (very rare, ~0.1% probability) */
+		if ((get_random_u32() & 0x3FF) == 0) {
+			dev->slave_regs[ST2] |= ST2_DERR_BIT;  /* Data error */
+		}
+
+		/* Update ST1: Set DRDY bit to indicate data is ready */
+		dev->slave_regs[ST1] = ST1_DRDY_BIT;
+
+		/* Different update periods based on mode */
+		if (in_self_test) {
+			msleep(10);  /* Self-test mode: 10ms */
+		} else if (cntl1_mode == SINGLE_MEASUREMENT) {
+			msleep(10);  /* Single measurement: 10ms conversion time */
+		} else {
+			/* Continuous measurement modes: 10ms (100Hz default) */
+			msleep(AK8975_UPDATE_PERIOD_MS);
+		}
 	}
 
-	pr_info("ak8975_slave: Initialized at I2C address 0x%02X", AK8975_ADDR);
-	pr_info("ak8975_slave: Device ID = 0x%02X (expected: 0x%02X)",
-		 ak8975_slave_regs.wia, AKM_DEVID);
+	return NULL;
+}
+
+static pthread_t reg_thread;
+
+int ak8975_start_reg_random(struct ak8975_device *dev)
+{
+	int ret;
+
+	dev->thread_running = true;
+
+	ret = pthread_create(&reg_thread, NULL,
+			ak8975_reg_random_thread, dev);
+	if (ret) {
+		return -ret;
+	}
+
+	/* Wait for thread to start */
+	msleep(100);
 
 	return 0;
 }
 
-/**
- * @brief Stop AK8975 I2C slave simulation for testing
- */
-int ak8975_slave_stop()
+void ak8975_stop_reg_random(struct ak8975_device *dev)
 {
-	if (ak8975_slave) {
-		/* Stop and free I2C slave (thread is auto-stopped in iic_slave_soft_exit) */
-		iic_slave_soft_exit(ak8975_slave);
-		ak8975_slave = NULL;
-		return 0;
-	}
-
-	pr_warn("ak8975_slave: No slave instance to stop");
-	return 0;
+	dev->thread_running = false;
+	pthread_join(reg_thread, NULL);
 }
 
-/**
- * @brief Test AK8975 I2C slave communication
- */
-int ak8975_slave_test()
+static const struct regmap_range ak8975_volatile_ranges[] = {
+	regmap_reg_range(ST1, ST2),  /* ST1, HXL-HZH, ST2 */
+};
+
+static const struct regmap_access_table ak8975_volatile_table = {
+	.yes_ranges = ak8975_volatile_ranges,
+	.n_yes_ranges = ARRAY_SIZE(ak8975_volatile_ranges),
+};
+
+static const struct regmap_config ak8975_regmap_config = {
+	.reg_bits = 8,
+	.val_bits = 8,
+	.max_register = ASAZ,
+	.volatile_table = &ak8975_volatile_table,
+	.cache_type = REGCACHE_NONE,
+};
+
+struct ak8975_device *ak8975_init(enum regmap_user_bus_type bus_type, void *bus_master)
 {
-	u8 device_id = 0;
-	u8 temp_reg = 0;
-	u16 magnetic[3];
-	int ret = PASS;
+	struct ak8975_device *dev;
+	int ret;
 
-	pr_info("=== AK8975 Slave Communication Test ===");
-
-	/* Test 1: Read device ID (WIA register) */
-	ak8975_who_am_i(&device_id);
-	pr_info("Test 1 - Device ID: 0x%02X (expected: 0x%02X)",
-		 device_id, AKM_DEVID);
-
-	if (device_id == AKM_DEVID) {
-		pr_info("Device ID matches");
-	} else {
-		pr_err("Device ID mismatch");
-		return FAIL;
+	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	if (!dev) {
+		return ERR_PTR(-ENOMEM);
 	}
 
-	/* Test 2: Read info register */
-	ak8975_device_information(&temp_reg);
-	pr_info("Test 2 - Info register: 0x%02X", temp_reg);
-
-	/* Test 3: Read status registers */
-	temp_reg = ak8975_data_ready();
-	pr_info("Test 3 - Data Ready (ST1.DRDY): %d", temp_reg);
-
-	temp_reg = ak8975_data_overrun();
-	pr_info("Test 3 - Data Overrun (ST1.DOR): %d", temp_reg);
-
-	temp_reg = ak8975_data_error();
-	pr_info("Test 3 - Data Error (ST2.DERR): %d", temp_reg);
-
-	/* Test 4: Write control register */
-	pr_info("Test 4 - Writing to CNTL1 register...");
-	ak8975_operation_mode_setting(SINGLE_MEASUREMENT & 0xFF);
-	mdelay(2);
-
-	temp_reg = ak8975_get_power_state();
-	pr_info("Test 4 - Power state after write: %d (1=active)", temp_reg);
-
-	/* Test 5: Read magnetic data */
-	ak8975_magnetic_measurements(magnetic);
-	pr_info("Test 5 - Magnetic data: X=%d, Y=%d, Z=%d",
-		 (s16)((magnetic[0] & 0x8000) ? (magnetic[0] | 0xF000) : magnetic[0]),
-		 (s16)((magnetic[1] & 0x8000) ? (magnetic[1] | 0xF000) : magnetic[1]),
-		 (s16)((magnetic[2] & 0x8000) ? (magnetic[2] | 0xF000) : magnetic[2]));
-
-	/* Test 6: Power down */
-	pr_info("Test 6 - Entering power down mode...");
-	ak8975_enter_power_down_mode();
-	mdelay(2);
-
-	temp_reg = ak8975_get_power_state();
-	pr_info("Test 6 - Power state after power down: %d (0=power down)", temp_reg);
-
-	if (temp_reg == 0) {
-		pr_info("Successfully entered power down mode");
+	if (bus_type == REGMAP_BUS_IIC_SOFT) {
+		dev->regmap = regmap_init_iic_soft(bus_master, AK8975_ADDR, &ak8975_regmap_config);
+	} else if (bus_type == REGMAP_BUS_SPI_SOFT) {
+		dev->regmap = regmap_init_spi_soft(bus_master, &ak8975_regmap_config);
 	} else {
-		pr_err("Failed to enter power down mode");
-		ret = FAIL;
+		pr_err("Invalid bus type specified for ak8975 initialization");
+		return ERR_PTR(-EINVAL);
+	}
+	if (IS_ERR(dev->regmap)) {
+		return NULL;
 	}
 
-	pr_info("=== All AK8975 Slave Tests Completed ===");
-	return ret;
+	dev->slave_regs = kmalloc(ak8975_regmap_config.max_register + 1, GFP_KERNEL);
+	if (!dev->slave_regs) {
+		return ERR_PTR(-ENOMEM);
+	}
+
+	ret = ak8975_start_reg_random(dev);
+	if (ret) {
+		return NULL;
+	}
+
+	if (bus_type == REGMAP_BUS_SPI_SOFT) {
+		dev->spi_slave = spi_slave_soft_init("ak8975", 0, 0, SPI_BIT_ORDER_MSB,
+				dev->slave_regs, ak8975_regmap_config.max_register + 1);
+		if (IS_ERR(dev->spi_slave)) {
+			pr_err("ak8975_slave: Failed to initialize SPI slave");
+			kfree(dev->slave_regs);
+			dev->slave_regs = NULL;
+			return NULL;
+		}
+	} else {
+		dev->iic_slave = iic_slave_soft_init("ak8975", AK8975_ADDR,
+				dev->slave_regs, ak8975_regmap_config.max_register + 1);
+		if (IS_ERR(dev->iic_slave)) {
+			pr_err("ak8975_slave: Failed to initialize I2C slave");
+			kfree(dev->slave_regs);
+			dev->slave_regs = NULL;
+			return NULL;
+		}
+	}
+
+	ak8975_enter_fuse_rom_access_mode(dev);
+	ak8975_sensitivity_adjustment_values(dev, dev->asa_values);
+	pr_debug("ak8975 adjustment values %x, %x, %x",
+		dev->asa_values[0], dev->asa_values[1], dev->asa_values[2]);
+	ak8975_enter_power_down_mode(dev);
+
+	return dev;
+}
+
+void ak8975_exit(struct ak8975_device *dev)
+{
+	ak8975_stop_reg_random(dev);
+
+	if (dev->iic_slave) {
+		iic_slave_soft_exit(dev->iic_slave);
+	}
+
+	if (dev->spi_slave) {
+		spi_slave_soft_exit(dev->spi_slave);
+	}
+
+	kfree(dev->slave_regs);
+	kfree(dev);
 }
 
 #ifdef DESIGN_VERIFICATION_AK8975
 #include "kinetis/test-kinetis.h"
 
-int t_ak8975_basic_info(int argc, char **argv)
+static struct ak8975_device *ak8975_dev;
+
+int t_ak8975_initialize(int argc, char **argv)
 {
-	u8 tmp = 0;
-
-	pr_info("=== AK8975 Basic Info Test ===");
-
-	ak8975_who_am_i(&tmp);
-	pr_info("Device ID of AKM8975 is 0x%02X", tmp);
-
-	if (tmp != AKM_DEVID) {
-		pr_err("Device ID of AKM8975 is not correct, got 0x%02X expected 0x%02X",
-		       tmp, AKM_DEVID);
-		return FAIL;
-	}
-
-	ak8975_device_information(&tmp);
-	pr_info("Device information for AKM8975: 0x%02X", tmp);
-
-	if (tmp != 0x00) {
-		pr_warn("Device information is 0x%02X (expected 0x00)", tmp);
-	}
-	return PASS;
-}
-
-int t_ak8975_magnetic(int argc, char **argv)
-{
-	u16 magnetic[3] = {0, 0, 0};
-	u16 times = 128;
-	u8 i = 0;
-	u32 timeout = 1000;
-	s16 mag_x, mag_y, mag_z;
-
-	if (argc > 1) {
-		times = simple_strtoul(argv[1], &argv[1], 10);
-	}
-
-	pr_info("=== AK8975 Magnetic Measurement Test (%d readings) ===", times);
-
-	ak8975_enter_power_down_mode();
-	mdelay(10); /* Ensure complete power-off state */
-
-	for (i = 0; i < times; i++) {
-		ak8975_enter_single_measurement_mode();
-		mdelay(1); /* Mode switch delay */
-
-		/* Wait for data ready */
-		timeout = 1000;
-		do {
-			if (ak8975_data_ready() == true) {
-				break;
-			} else {
-				mdelay(1);
-			}
-		} while (timeout--);
-
-		if (timeout <= 0) {
-			pr_err("[Error] ak8975 magnetic data not ready at reading %d", i + 1);
-			return FAIL;
-		}
-
-		if (ak8975_data_overrun() == true) {
-			pr_warn("[Warning] ak8975 magnetic data overrun at reading %d", i + 1);
-		}
-
-		ak8975_magnetic_measurements(magnetic);
-
-		/* Convert to signed 16-bit for display */
-		mag_x = (s16)((magnetic[0] & 0x8000) ? (magnetic[0] | 0xF000) : magnetic[0]);
-		mag_y = (s16)((magnetic[1] & 0x8000) ? (magnetic[1] | 0xF000) : magnetic[1]);
-		mag_z = (s16)((magnetic[2] & 0x8000) ? (magnetic[2] | 0xF000) : magnetic[2]);
-
-		pr_debug("ak8975 magnetic data [%d]: X=%6d, Y=%6d, Z=%6d",
-			 i + 1, mag_x, mag_y, mag_z);
-
-		/* Show first and last readings at info level */
-		if (i == 0 || i == times - 1) {
-			pr_info("Reading %d/%d: X=%6d, Y=%6d, Z=%6d",
-				i + 1, times, mag_x, mag_y, mag_z);
-		}
-	}
-
-	ak8975_enter_power_down_mode();
-	pr_info("Completed %d magnetic readings", times);
-	return PASS;
-}
-
-int t_ak8975_selftest(int argc, char **argv)
-{
-	u16 magnetic[3] = {0, 0, 0};
-	u32 timeout = 1000;
-
-	pr_info("=== AK8975 Self Test ===");
-
-	ak8975_enter_power_down_mode();
-	mdelay(10); /* Ensure complete power-off state */
-
-	ak8975_selftest_control(true);
-	mdelay(1); /* ASTC register write delay */
-
-	ak8975_enter_selftest_mode();
-	mdelay(10); /* Self-test mode requires sufficient time to stabilize */
-
-	do {
-		if (ak8975_data_ready() == true) {
-			break;
-		} else {
-			mdelay(1);
-		}
-	} while (timeout--);
-
-	if (timeout <= 0) {
-		pr_err("[Error] ak8975 magnetic data not ready during self-test");
-		return FAIL;
-	}
-
-	ak8975_magnetic_measurements(magnetic);
-	ak8975_selftest_control(false);
-
-	pr_info("ak8975 selftest magnetic data: X=%d, Y=%d, Z=%d",
-		magnetic[0], magnetic[1], magnetic[2]);
-
-	if ((magnetic[0] >= 30 && magnetic[0] <= 5000) &&
-		(magnetic[1] >= 30 && magnetic[1] <= 5000) &&
-		(magnetic[2] >= 30 && magnetic[2] <= 5000)) {
-		pr_info("Self-test completed successfully");
-		ak8975_enter_power_down_mode();
-		return PASS;
-	} else {
-		pr_err("Self-test data out of range");
-		pr_info("  Expected range: 30-5000 for all axes");
-		pr_info("  Actual: X=%d, Y=%d, Z=%d",
-			magnetic[0], magnetic[1], magnetic[2]);
-		ak8975_enter_power_down_mode();
-		return FAIL;
-	}
-}
-
-int t_ak8975_fuse_rom_access(int argc, char **argv)
-{
-	u8 asa_values[3] = {0, 0, 0};
-
-	pr_info("=== AK8975 Fuse ROM Access Test ===");
-
-	ak8975_enter_fuse_rom_access_mode();
-	mdelay(10); /* Ensure FUSE ROM access mode is stable */
-
-	ak8975_sensitivity_adjustment_values(asa_values);
-	pr_info("ak8975_fuse_rom_access: Adjustment Values");
-	pr_info("  ASAX = 0x%02X", asa_values[0]);
-	pr_info("  ASAY = 0x%02X", asa_values[1]);
-	pr_info("  ASAZ = 0x%02X", asa_values[2]);
-
-	/* Verify ASA values are in valid range (0-255) */
-	if (asa_values[0] <= 255 && asa_values[1] <= 255 && asa_values[2] <= 255) {
-		pr_info("Sensitivity adjustment values read successfully");
-	} else {
-		pr_warn("Some ASA values appear out of range");
-	}
-
-	ak8975_enter_power_down_mode();
-	mdelay(10); /* Return to power-off state */
-
-	return PASS;
-}
-
-int t_ak8975_program_thread(int argc, char **argv)
-{
-	int ret;
 	bool on_off = true;
+	enum regmap_user_bus_type bus_type = REGMAP_BUS_IIC_SOFT;
 
 	if (argc > 1) {
 		if (!strcmp(argv[1], "on")) {
@@ -899,19 +740,169 @@ int t_ak8975_program_thread(int argc, char **argv)
 		}
 	}
 
-	if (on_off) {
-		ret = ak8975_slave_start();
-		if (ret) {
-			return ret;
-		}
-	} else {
-		ret = ak8975_slave_stop();
-		if (ret) {
-			return ret;
+	if (argc > 2) {
+		if (!strcmp(argv[2], "spi")) {
+			bus_type = REGMAP_BUS_SPI_SOFT;
+		} else if (!strcmp(argv[2], "i2c")) {
+			bus_type = REGMAP_BUS_IIC_SOFT;
+		} else {
+			pr_err("Invalid bus type: %s (use 'i2c' or 'spi')", argv[2]);
+			return -EINVAL;
 		}
 	}
 
-	return PASS;
+	if (on_off) {
+		pr_info("starting ak8975 slave with %s mode", bus_type ? "spi" : "i2c");
+		ak8975_dev = ak8975_init(bus_type, bus_type == REGMAP_BUS_IIC_SOFT ? (void *)&fake_iic_master : (void *)&fake_spi_master);
+		if (IS_ERR_OR_NULL(ak8975_dev)) {
+			return -EINVAL;
+		}
+		return 0;
+	}
+
+	ak8975_exit(ak8975_dev);
+	return 0;
+}
+
+int t_ak8975_basic_info(int argc, char **argv)
+{
+	struct ak8975_device *dev = ak8975_dev;
+	u8 tmp = 0;
+
+	tmp = ak8975_who_am_i(dev);
+	pr_info("device id of ak8975 is 0x%02x", tmp);
+	if (tmp != AKM_DEVID) {
+		pr_err("device id of ak8975 is not correct, got 0x%02x expected 0x%02x",
+			tmp, AKM_DEVID);
+		return -EINVAL;
+	}
+
+	tmp = ak8975_device_information(dev);
+	pr_info("device information for ak8975: 0x%02x", tmp);
+
+	if (tmp != 0x00) {
+		pr_warn("device information is 0x%02x (expected 0x00)", tmp);
+	}
+	return 0;
+}
+
+int t_ak8975_magnetic(int argc, char **argv)
+{
+	struct ak8975_device *dev = ak8975_dev;
+	u16 magnetic[3] = {0, 0, 0};
+	u16 times = 128;
+	u8 i;
+	s16 mag_x, mag_y, mag_z;
+	u8 data_ready = 0;
+	int ret;
+
+	if (argc > 1) {
+		times = simple_strtoul(argv[1], &argv[1], 10);
+	}
+
+	ak8975_enter_power_down_mode(dev);
+	mdelay(10); /* Ensure complete power-off state */
+
+	for (i = 0; i < times; i++) {
+		ak8975_enter_single_measurement_mode(dev);
+		mdelay(1); /* Mode switch delay */
+
+		/* Wait for data ready */
+		ret = readx_poll_timeout(ak8975_data_ready, dev, data_ready, data_ready, 0, 10000);
+		if (ret) {
+			pr_err("ak8975 magnetic data not ready at reading %d", i + 1);
+			return ret;
+		}
+
+		if (ak8975_data_overrun(dev)) {
+			pr_warn("ak8975 magnetic data overrun at reading %d", i + 1);
+		}
+
+		ak8975_magnetic_measurements(dev, magnetic);
+
+		/* Convert to signed 16-bit for display */
+		mag_x = (s16)((magnetic[0] & 0x8000) ? (magnetic[0] | 0xF000) : magnetic[0]);
+		mag_y = (s16)((magnetic[1] & 0x8000) ? (magnetic[1] | 0xF000) : magnetic[1]);
+		mag_z = (s16)((magnetic[2] & 0x8000) ? (magnetic[2] | 0xF000) : magnetic[2]);
+
+		pr_debug("ak8975 magnetic data [%d/%d]: x=%6d, y=%6d, z=%6d",
+			i + 1, times, mag_x, mag_y, mag_z);
+	}
+
+	ak8975_enter_power_down_mode(dev);
+	pr_info("completed %d magnetic readings", times);
+	return 0;
+}
+
+int t_ak8975_selftest(int argc, char **argv)
+{
+	struct ak8975_device *dev = ak8975_dev;
+	u16 magnetic[3] = {0, 0, 0};
+	u8 data_ready = 0;
+	int ret;
+
+	ak8975_enter_power_down_mode(dev);
+	mdelay(10); /* Ensure complete power-off state */
+
+	ak8975_selftest_control(dev, true);
+	mdelay(1); /* ASTC register write delay */
+
+	ak8975_enter_selftest_mode(dev);
+	mdelay(10); /* Self-test mode requires sufficient time to stabilize */
+
+	ret = readx_poll_timeout(ak8975_data_ready, dev, data_ready, data_ready, 0, 100000);
+	if (ret) {
+		pr_err("ak8975 magnetic data not ready during self-test");
+		return ret;
+	}
+
+	ak8975_magnetic_measurements(dev, magnetic);
+	ak8975_selftest_control(dev, false);
+
+	pr_info("ak8975 selftest magnetic data: X=%d, Y=%d, Z=%d",
+		magnetic[0], magnetic[1], magnetic[2]);
+
+	if ((magnetic[0] >= 30 && magnetic[0] <= 5000) &&
+		(magnetic[1] >= 30 && magnetic[1] <= 5000) &&
+		(magnetic[2] >= 30 && magnetic[2] <= 5000)) {
+		pr_info("self-test completed successfully");
+		ak8975_enter_power_down_mode(dev);
+	} else {
+		pr_err("self-test data out of range");
+		pr_info("  expected range: 30-5000 for all axes");
+		pr_info("  actual: x=%d, y=%d, z=%d",
+			magnetic[0], magnetic[1], magnetic[2]);
+		ak8975_enter_power_down_mode(dev);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+int t_ak8975_fuse_rom_access(int argc, char **argv)
+{
+	struct ak8975_device *dev = ak8975_dev;
+	u8 asa_values[3] = {0, 0, 0};
+
+	ak8975_enter_fuse_rom_access_mode(dev);
+	mdelay(10); /* Ensure FUSE ROM access mode is stable */
+
+	ak8975_sensitivity_adjustment_values(dev, asa_values);
+	pr_info("adjustment values");
+	pr_info("  asax = 0x%02x", asa_values[0]);
+	pr_info("  asay = 0x%02x", asa_values[1]);
+	pr_info("  asaz = 0x%02x", asa_values[2]);
+
+	/* verify asa values are in valid range (0-255) */
+	if (asa_values[0] <= 255 && asa_values[1] <= 255 && asa_values[2] <= 255) {
+		pr_info("sensitivity adjustment values read successfully");
+	} else {
+		pr_warn("some asa values appear out of range");
+	}
+
+	ak8975_enter_power_down_mode(dev);
+	mdelay(10); /* Return to power-off state */
+
+	return 0;
 }
 
 #endif

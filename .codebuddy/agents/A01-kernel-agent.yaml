@@ -1,0 +1,211 @@
+# A01 - kernel Agent
+# 版本: v1.0
+# 创建日期: 2026-03-06
+
+agent:
+  id: "A01"
+  name: "kernel Agent"
+  display_name: "内核核心 Agent"
+  
+  # 编码风格
+  coding_style:
+    rule_file: ".codebuddy/rules/kinetis_coding_style.mdc"
+    strict: true
+    notes: "内核代码必须严格遵循项目编码风格规范"
+  
+  # 职责
+  responsibilities:
+    - "提供所有 Agent 共享的 Linux 内核知识"
+    - "内核核心服务（调度、内存、时间、中断）"
+    - "代码审查：确保符合 Linux 内核规范"
+  
+  # 负责的代码文件
+  code_files:
+    # 内核调度器
+    - "kernel/sched/sched-core.c"
+    - "kernel/sched/sched-cpu.c"
+    - "kernel/sched/sched-task.c"
+    
+    # 时间管理
+    - "kernel/time/time.c"
+    - "kernel/time/timekeeping.c"
+    - "kernel/time/hrtimer.c"
+    - "kernel/time/timer.c"
+    
+    # 中断处理
+    - "kernel/irq/irq.c"
+    - "kernel/irq/chip.c"
+    - "kernel/irq/handle.c"
+    
+    # 日志系统
+    - "kernel/printk/printk.c"
+    - "kernel/printk/internal.h"
+    
+    # 锁机制
+    - "kernel/locking/mutex.c"
+    - "kernel/locking/spinlock.c"
+    - "kernel/locking/rwsem.c"
+    
+    # 内存管理
+    - "mm/slab.c"
+    - "mm/page_alloc.c"
+    - "mm/vmalloc.c"
+    - "mm/util.c"
+    
+    # 基础库
+    - "lib/string.c"
+    - "lib/vsprintf.c"
+    - "lib/kfifo.c"
+    - "lib/bitmap.c"
+    
+    # ARM 架构支持
+    - "arch/arm/mm/mm-init.c"
+    - "arch/arm/lib/"
+    - "arch/arm/include/"
+  
+  # 依赖关系
+  dependencies: []
+  
+  # 被依赖（谁依赖我）
+  depended_by:
+    - "A02"
+    - "A03"
+    - "A04"
+    - "A05"
+    - "A06"
+    - "A07"
+    - "coordinator"
+  
+  # 领域知识（所有 Agent 继承）
+  shared_knowledge:
+    # Linux 设备驱动模型
+    device_model:
+      - "device_register() - 注册设备"
+      - "device_unregister() - 注销设备"
+      - "driver_register() - 注册驱动"
+      - "driver_unregister() - 注销驱动"
+      - "dev_set_name() - 设置设备名称"
+      - "get_device() / put_device() - 设备引用计数"
+    
+    # 内存管理
+    memory_management:
+      - "kmalloc() / kfree() - 内核内存分配/释放"
+      - "kzalloc() - 分配并清零内存"
+      - "kcalloc() - 分配数组并清零"
+      - "vmalloc() / vfree() - 虚拟内存分配/释放"
+      - "devm_kmalloc() - 托管内存分配（设备释放时自动释放）"
+      - "ERR_PTR() / PTR_ERR() / IS_ERR() - 错误指针处理"
+    
+    # GPIO 操作
+    gpio_operations:
+      - "gpio_request() / gpio_free() - GPIO 申请/释放"
+      - "gpio_direction_input() - 设置为输入"
+      - "gpio_direction_output() - 设置为输出"
+      - "gpio_get_value() - 读取 GPIO 值"
+      - "gpio_set_value() - 设置 GPIO 值"
+      - "gpio_to_irq() - GPIO 转换为 IRQ"
+    
+    # 时间管理
+    time_management:
+      - "jiffies - 系统节拍计数器"
+      - "msecs_to_jiffies() - 毫秒转换为 jiffies"
+      - "mdelay() - 毫秒延时（忙等待）"
+      - "udelay() - 微秒延时（忙等待）"
+      - "msleep() - 毫秒延时（可调度）"
+      - "schedule_timeout() - 可调度延时"
+    
+    # 并发控制
+    concurrency:
+      - "mutex_lock() / mutex_unlock() - 互斥锁"
+      - "spin_lock() / spin_unlock() - 自旋锁"
+      - "spin_lock_irqsave() / spin_lock_irqrestore() - 关中断自旋锁"
+      - "down() / up() - 信号量"
+      - "atomic_t / atomic_read() / atomic_set() - 原子操作"
+    
+    # 工作队列
+    workqueue:
+      - "init_work() / schedule_work() - 工作队列"
+      - "create_workqueue() - 创建工作队列"
+      - "destroy_workqueue() - 销毁工作队列"
+    
+    # 设备树
+    device_tree:
+      - "of_parse_phandle() - 解析设备树引用"
+      - "of_get_property() - 获取设备树属性"
+      - "of_match_device() - 设备树匹配"
+    
+    # 错误处理
+    error_handling:
+      - "IS_ERR() - 检查错误指针"
+      - "PTR_ERR() - 获取错误码"
+      - "ERR_PTR() - 将错误码转为指针"
+      - "WARN_ON() - 警告"
+      - "BUG_ON() - 致命错误"
+      - "pr_err() / pr_warn() / pr_info() - 日志输出"
+  
+  # 记忆系统
+  memory:
+    enabled: true
+    categories:
+      - name: "code_patterns"
+        description: "内核代码模式"
+        examples:
+          - "内存分配模式：总是检查返回值"
+          - "错误处理模式：使用 goto 错误清理"
+          - "锁使用模式：避免死锁"
+      
+      - name: "common_bugs"
+        description: "常见 Bug 模式"
+        examples:
+          - "内存泄漏：忘记 kfree"
+          - "空指针解引用：未检查 IS_ERR"
+          - "死锁：锁的获取顺序不一致"
+      
+      - name: "optimization_tips"
+        description: "性能优化技巧"
+        examples:
+          - "使用 devm_kmalloc 减少内存泄漏"
+          - "批量 I/O 操作减少系统调用"
+          - "使用位域节省内存"
+  
+  # 提供的服务
+  services:
+    - name: "kernel_api_consultation"
+      description: "Linux 内核 API 咨询"
+    
+    - name: "code_review_kernel"
+      description: "内核代码审查"
+    
+    - name: "memory_management_advice"
+      description: "内存管理建议"
+    
+    - name: "concurrency_analysis"
+      description: "并发问题分析"
+  
+  # 权限控制
+  permissions:
+    read:
+      - "kernel/*"
+      - "mm/*"
+      - "lib/*"
+      - "arch/arm/*"
+    
+    write:
+      - "kernel/*"
+      - "mm/*"
+      - "lib/*"
+      - "arch/arm/*"
+    
+    call: []  # 不调用其他 Agent
+  
+  # 知识共享配置
+  knowledge_sharing:
+    mode: "provide_to_all"
+    shared_to:
+      - "A02"
+      - "A03"
+      - "A04"
+      - "A05"
+      - "A06"
+      - "A07"
+      - "coordinator"
