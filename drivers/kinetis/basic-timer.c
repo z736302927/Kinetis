@@ -332,7 +332,7 @@ int t_basic_timer_get_tick(int argc, char **argv)
 
 	pr_debug("===== basic timer test passed =====\n");
 
-	return PASS;
+	return 0;
 }
 
 #endif

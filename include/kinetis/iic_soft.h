@@ -81,6 +81,7 @@ int iic_master_port_multi_transmit (struct iic_master *master, u8 slave_addr, u1
 	u8 *pdata, u8 length);
 int iic_master_port_multi_receive(struct iic_master *master, u8 slave_addr, u16 reg,
 	u8 *pdata, u8 length);
+int iic_master_soft_init(struct iic_master *master);
 
 extern struct iic_master fake_iic_master;
 

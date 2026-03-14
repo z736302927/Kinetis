@@ -165,6 +165,6 @@ int t_my9221_send_packet(int argc, char **argv)
 {
 	my9221_send_packet();
 
-	return PASS;
+	return 0;
 }
 #endif

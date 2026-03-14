@@ -148,20 +148,20 @@ int t_led_add(int argc, char **argv)
 
 	pr_debug("led test is running.");
 
-	return PASS;
+	return 0;
 }
 
 int t_led_drop(int argc, char **argv)
 {
 	if (list_empty(&led_head)) {
-		return PASS;
+		return 0;
 	}
 
 	led_drop(1);
 
 	pr_debug("led test is over");
 
-	return PASS;
+	return 0;
 }
 
 #endif

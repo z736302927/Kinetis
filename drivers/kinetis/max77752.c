@@ -919,7 +919,9 @@ struct max77752_device *max77752_init(enum regmap_user_bus_type bus_type, void *
 	if (bus_type == REGMAP_BUS_IIC_SOFT) {
 		dev->regmap = regmap_init_iic_soft(bus_master, MAX77752_I2C_ADDR, &max77752_regmap_config);
 	} else if (bus_type == REGMAP_BUS_SPI_SOFT) {
-		dev->regmap = regmap_init_spi_soft(bus_master, &max77752_regmap_config);
+		/* Default SPI attributes: CPOL=0, CPHA=0, MSB first */
+		dev->regmap = regmap_init_spi_soft(bus_master,
+						   0, 0, SPI_BIT_ORDER_MSB, 2, &max77752_regmap_config);
 	} else {
 		pr_err("Invalid bus type specified for max77752 initialization\n");
 		kfree(dev);

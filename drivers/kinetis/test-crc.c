@@ -74,7 +74,7 @@ int t_crc(int argc, char **argv)
 
     pr_err("crc error\n");
 
-    return PASS;
+    return 0;
 }
 
 #endif

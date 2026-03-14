@@ -32,8 +32,10 @@ struct spi_master {
 	int (*miso_read)(void);
 	int (*sck_low)(void);
 	int (*sck_high)(void);
-	int (*write_bytes)(u8 reg, u8 *pdata, u8 length);
-	int (*read_bytes)(u8 reg, u8 *pdata, u8 length);
+	int (*write_byte)(u8 data);
+	u8 (*read_byte)();
+	int (*write_bytes)(u8 *pdata, u8 length);
+	int (*read_bytes)(u8 *pdata, u8 length);
 	int (*init)(void);
 };
 
@@ -66,6 +68,7 @@ struct spi_slave {
 	pthread_t mosi_thread;
 };
 
+int spi_master_soft_init(struct spi_master *master, u8 cpol, u8 cpha, u8 bit_order, u8 speed);
 int spi_master_port_transmit(struct spi_master *master, u8 reg, u8 *pdata, u8 length);
 int spi_master_port_receive(struct spi_master *master, u8 reg, u8 *pdata, u8 length);
 struct spi_slave *spi_slave_soft_init(char *name, u8 cpol, u8 cpha, u8 bit_order,

@@ -1163,7 +1163,7 @@ int t_iic_slave_basic(int argc, char **argv)
 
 	iic_slave_soft_exit(device);
 
-	return PASS;
+	return 0;
 }
 
 int t_iic_transfer_byte(int argc, char **argv)
@@ -1188,7 +1188,7 @@ int t_iic_transfer_byte(int argc, char **argv)
 
 	pr_info("i2c transfer byte test completed\n");
 
-	return PASS;
+	return 0;
 }
 
 int t_iic_transfer_bytes(int argc, char **argv)
@@ -1231,7 +1231,7 @@ int t_iic_transfer_bytes(int argc, char **argv)
 
 	pr_info("i2c transfer bytes test passed\n");
 
-	return PASS;
+	return 0;
 }
 
 int t_iic_edge_cases(int argc, char **argv)
@@ -1291,7 +1291,7 @@ int t_iic_edge_cases(int argc, char **argv)
 
 	pr_info("i2c edge cases test passed\n");
 
-	return PASS;
+	return 0;
 }
 
 int t_iic_performance(int argc, char **argv)
@@ -1323,7 +1323,7 @@ int t_iic_performance(int argc, char **argv)
 
 	if (success_count == iterations) {
 		pr_info("i2c performance test passed\n");
-		return PASS;
+		return 0;
 	} else {
 		pr_err("i2c performance test failed: only %d/%d succeeded\n", success_count, iterations);
 		return FAIL;
@@ -1360,7 +1360,7 @@ int t_iic_stress(int argc, char **argv)
 
 	pr_info("i2c stress test passed\n");
 
-	return PASS;
+	return 0;
 }
 
 int t_iic_read_write_reg(int argc, char **argv)
@@ -1407,7 +1407,7 @@ int t_iic_read_write_reg(int argc, char **argv)
 
 	pr_info("i2c read write reg test passed\n");
 
-	return PASS;
+	return 0;
 }
 
 int t_iic_boundary_large(int argc, char **argv)
@@ -1447,7 +1447,7 @@ int t_iic_boundary_large(int argc, char **argv)
 
 	pr_info("i2c boundary large test passed\n");
 
-	return PASS;
+	return 0;
 }
 
 int t_iic_address_modes(int argc, char **argv)
@@ -1483,7 +1483,7 @@ int t_iic_address_modes(int argc, char **argv)
 
 	pr_info("i2c address modes test passed\n");
 
-	return PASS;
+	return 0;
 }
 
 int t_iic_start_stop(int argc, char **argv)
@@ -1511,7 +1511,7 @@ int t_iic_start_stop(int argc, char **argv)
 
 	pr_info("i2c start stop test passed\n");
 
-	return PASS;
+	return 0;
 }
 
 #endif /* DESIGN_VERIFICATION_IIC */

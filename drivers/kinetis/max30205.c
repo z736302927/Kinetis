@@ -441,7 +441,9 @@ struct max30205_device *max30205_init(enum regmap_user_bus_type bus_type, void *
 	if (bus_type == REGMAP_BUS_IIC_SOFT) {
 		dev->regmap = regmap_init_iic_soft(bus_master, MAX30205_I2C_ADDR, &max30205_regmap_config);
 	} else if (bus_type == REGMAP_BUS_SPI_SOFT) {
-		dev->regmap = regmap_init_spi_soft(bus_master, &max30205_regmap_config);
+		/* Default SPI attributes: CPOL=0, CPHA=0, MSB first */
+		dev->regmap = regmap_init_spi_soft(bus_master,
+						   0, 0, SPI_BIT_ORDER_MSB, 2, &max30205_regmap_config);
 	} else {
 		pr_err("Invalid bus type specified for max30205 initialization");
 		return ERR_PTR(-EINVAL);

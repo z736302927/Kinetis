@@ -295,7 +295,7 @@ int t_serial_port_basic(int argc, char **argv)
 	if (strcmp(rx_data, "ERROR") == 0 || strncmp(rx_data, tx_data, strlen(tx_data)) == 0) {
 		pr_info("basic test passed, received %d bytes", ret);
 		serial_port_free(serial);
-		return PASS;
+		return 0;
 	}
 
 	pr_err("unexpected data received");
@@ -340,7 +340,7 @@ int t_serial_port_boundary(int argc, char **argv)
 	if (ret == SERIAL_PORT_BUFFER_SIZE - 1) {
 		pr_info("boundary test passed, received %d bytes", ret);
 		serial_port_free(serial);
-		return PASS;
+		return 0;
 	}
 
 	pr_err("unexpected size received: %d", ret);
@@ -388,7 +388,7 @@ int t_serial_port_performance(int argc, char **argv)
 
 	pr_info("performance test passed, 100 iterations in %lu ms", end_time - start_time);
 	serial_port_free(serial);
-	return PASS;
+	return 0;
 }
 
 int t_serial_port_stress(int argc, char **argv)
@@ -424,7 +424,7 @@ int t_serial_port_stress(int argc, char **argv)
 
 	if (success_count > 450) {
 		pr_info("stress test passed, %d/%d iterations successful", success_count, 500);
-		return PASS;
+		return 0;
 	}
 
 	pr_err("stress test failed, only %d/%d iterations successful", success_count, 500);
@@ -449,7 +449,7 @@ int t_serial_port_timeout(int argc, char **argv)
 	if (ret == -ETIMEDOUT) {
 		pr_info("timeout test passed, timeout occurred as expected");
 		serial_port_free(serial);
-		return PASS;
+		return 0;
 	}
 
 	pr_err("timeout test failed, expected ETIMEDOUT but got %d", ret);
@@ -508,7 +508,7 @@ int t_serial_port_null_checks(int argc, char **argv)
 
 	pr_info("null checks test passed");
 	serial_port_free(serial);
-	return PASS;
+	return 0;
 }
 
 int t_serial_port_zero_timeout(int argc, char **argv)
@@ -537,7 +537,7 @@ int t_serial_port_zero_timeout(int argc, char **argv)
 	if (ret >= 0) {
 		pr_info("zero timeout test passed, received %d bytes", ret);
 		serial_port_free(serial);
-		return PASS;
+		return 0;
 	}
 
 	pr_err("zero timeout test failed, got %d", ret);
@@ -592,7 +592,7 @@ int t_serial_port_ring_buffer(int argc, char **argv)
 	pr_info("ring buffer test passed, producer=%d consumer=%d",
 		serial->producer, serial->consumer);
 	serial_port_free(serial);
-	return PASS;
+	return 0;
 }
 
 int t_serial_port_error_injection(int argc, char **argv)
@@ -633,7 +633,7 @@ int t_serial_port_error_injection(int argc, char **argv)
 
 	if (error_count > 0 && error_count <= 10) {
 		pr_info("error injection test passed, %d errors out of 20 requests", error_count);
-		return PASS;
+		return 0;
 	}
 
 	pr_err("error injection test failed, unexpected error count: %d", error_count);
@@ -666,7 +666,7 @@ int t_serial_port_special_characters(int argc, char **argv)
 	if (ret >= 0) {
 		pr_info("special characters test passed, received %d bytes", ret);
 		serial_port_free(serial);
-		return PASS;
+		return 0;
 	}
 
 	pr_err("special characters test failed");

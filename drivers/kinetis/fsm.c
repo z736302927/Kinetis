@@ -394,7 +394,7 @@ int t_fsm_basic(int argc, char **argv)
 	pr_info("FSM basic test: %d steps completed\n", steps);
 	fsm_print_performance_report();
 
-	return PASS;
+	return 0;
 }
 
 int t_fsm_state_transitions(int argc, char **argv)
@@ -447,7 +447,7 @@ int t_fsm_state_transitions(int argc, char **argv)
 	pr_info("State transition test: %d/%d matches\n", matches, sequence_len - 1);
 	fsm_print_performance_report();
 
-	return (matches >= (sequence_len - 1) * 0.8) ? PASS : FAIL;
+	return (matches >= (sequence_len - 1) * 0.8) ? 0 : FAIL;
 }
 
 int t_fsm_error_handling(int argc, char **argv)
@@ -505,7 +505,7 @@ int t_fsm_error_handling(int argc, char **argv)
 	pr_info("Error handling test: %d/%d tests passed\n", error_passes, error_tests);
 	fsm_print_performance_report();
 
-	return (error_passes >= error_tests * 0.7) ? PASS : FAIL;
+	return (error_passes >= error_tests * 0.7) ? 0 : FAIL;
 }
 
 int t_fsm_performance(int argc, char **argv)
@@ -555,7 +555,7 @@ int t_fsm_performance(int argc, char **argv)
 		ktime_to_ms(ktime_sub(end_time, start_time)));
 
 	fsm_print_performance_report();
-	return PASS;
+	return 0;
 }
 
 int t_fsm_validation(int argc, char **argv)
@@ -602,13 +602,13 @@ int t_fsm_validation(int argc, char **argv)
 		return FAIL;
 	}
 
-	return PASS;
+	return 0;
 }
 
 int t_fsm_example(int argc, char **argv)
 {
 	pr_info("=== FSM Example Test ===\n");
-	return PASS;
+	return 0;
 }
 
 #endif

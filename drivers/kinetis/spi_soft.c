@@ -227,7 +227,7 @@ int spi_master_port_transmit(struct spi_master *master, u8 reg, u8 *pdata, u8 le
 	}
 
 	if (master->write_bytes) {
-		return master->write_bytes(reg, pdata, length);
+		return master->write_bytes(pdata, length);
 	} else {
 		return spi_master_soft_write_bytes_with_reg(master, reg, pdata, length);
 	}
@@ -240,7 +240,7 @@ int spi_master_port_receive(struct spi_master *master, u8 reg, u8 *pdata, u8 len
 	}
 
 	if (master->read_bytes) {
-		return master->read_bytes(reg, pdata, length);
+		return master->read_bytes(pdata, length);
 	} else {
 		return spi_master_soft_read_bytes_with_reg(master, reg, pdata, length);
 	}
@@ -848,14 +848,14 @@ int t_spi_system_init(int argc, char **argv)
 
 	spi_master_soft_init(&fake_spi_master, fake_spi_device->cpol, fake_spi_device->cpha, fake_spi_device->bit_order, speed);
 
-	return PASS;
+	return 0;
 }
 
 int t_spi_system_exit(int argc, char **argv)
 {
 	spi_slave_soft_exit(fake_spi_device);
 
-	return PASS;
+	return 0;
 }
 
 int t_spi_loopback(int argc, char **argv)
@@ -933,7 +933,7 @@ int t_spi_set_mode(int argc, char **argv)
 
 	pr_info("spi mode set to cpol=%d, cpha=%d, bit_order=%d, speed=%d\n", cpol, cpha, bit_order, speed);
 
-	return PASS;
+	return 0;
 }
 
 int t_spi_edge_cases(int argc, char **argv)
@@ -991,7 +991,7 @@ int t_spi_edge_cases(int argc, char **argv)
 
 	pr_info("spi edge cases test completed\n");
 
-	return PASS;
+	return 0;
 }
 
 int t_spi_performance(int argc, char **argv)
@@ -1085,7 +1085,7 @@ int t_spi_performance(int argc, char **argv)
 	/* Performance test passes if success rate >= 95% */
 	if (success_count >= iterations * 2 * 95 / 100) {
 		pr_info("spi performance test PASSED\n");
-		return PASS;
+		return 0;
 	} else {
 		pr_err("spi performance test FAILED: success rate too low\n");
 		return FAIL;
@@ -1130,7 +1130,7 @@ int t_spi_stress(int argc, char **argv)
 
 	pr_info("spi stress test passed\n");
 
-	return PASS;
+	return 0;
 }
 
 int t_spi_read_write_reg(int argc, char **argv)
@@ -1169,7 +1169,7 @@ int t_spi_read_write_reg(int argc, char **argv)
 
 	pr_info("spi read write reg test passed\n");
 
-	return PASS;
+	return 0;
 }
 
 int t_spi_boundary_large(int argc, char **argv)
@@ -1207,7 +1207,7 @@ int t_spi_boundary_large(int argc, char **argv)
 
 	pr_info("spi boundary large test passed\n");
 
-	return PASS;
+	return 0;
 }
 
 #endif /* DESIGN_VERIFICATION_SPI */

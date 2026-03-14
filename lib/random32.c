@@ -667,34 +667,35 @@ late_initcall(prandom_init_late);
 
 /*
  * get_random_range - get a random number in the specified range
- * @max: maximum value (inclusive)
+ * @max: maximum value (exclusive)
  * @min: minimum value (inclusive)
- * 
- * Returns a random number between min and max (inclusive).
+ *
+ * Returns a random number between min and max (exclusive).
  * If min > max, the function swaps the values.
  */
 u32 get_random_range(u32 max, u32 min)
 {
 	u32 range, temp, result;
-	
-	/* Ensure min <= max */
-	if (min > max) {
-		temp = min;
-		min = max;
-		max = temp;
+
+	/* Ensure min < max */
+	if (min >= max) {
+		if (min > max) {
+			/* Swap if min > max */
+			temp = min;
+			min = max;
+			max = temp;
+		} else {
+			/* min == max, return min */
+			return min;
+		}
 	}
-	
-	/* Calculate range (add 1 to make max inclusive) */
-	range = max - min + 1;
-	
-	/* Handle edge case where range is 0 (min == max) */
-	if (range == 0) {
-		return min;
-	}
-	
+
+	/* Calculate range (max is exclusive) */
+	range = max - min;
+
 	/* Generate random number in the range */
 	result = prandom_u32() % range + min;
-	
+
 	return result;
 }
 EXPORT_SYMBOL(get_random_range);

@@ -255,7 +255,7 @@ int t_switch_add(int argc, char **argv)
 
 	pr_debug("switch test is running, please push the switch.");
 
-	return PASS;
+	return 0;
 }
 
 int t_switch_drop(int argc, char **argv)
@@ -263,14 +263,14 @@ int t_switch_drop(int argc, char **argv)
 	switch_task_exit();
 
 	if (list_empty(&switch_head)) {
-		return PASS;
+		return 0;
 	}
 
 	switch_drop(1);
 
 	pr_debug("switch test is over");
 
-	return PASS;
+	return 0;
 }
 
 #endif

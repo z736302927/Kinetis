@@ -522,7 +522,7 @@ int t_button_add(int argc, char **argv)
 
 	pr_debug("button test is running, please push the button.\n");
 
-	return PASS;
+	return 0;
 }
 
 int t_button_drop(int argc, char **argv)
@@ -533,7 +533,7 @@ int t_button_drop(int argc, char **argv)
 
 	pr_debug("button test is over\n");
 
-	return PASS;
+	return 0;
 }
 
 #endif

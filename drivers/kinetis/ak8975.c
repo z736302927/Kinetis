@@ -150,17 +150,13 @@ void ak8975_enter_continuous_100hz_mode(struct ak8975_device *dev)
 	mdelay(1);
 }
 
-void ak8975_enter_selftest_mode(struct ak8975_device *dev)
-{
-	regmap_write(dev->regmap, CNTL1, SELF_TEST & 0xFF);
-	mdelay(10);
-}
+
 
 void ak8975_enter_self_test_mode(struct ak8975_device *dev)
 {
 	regmap_write(dev->regmap, ASTC, ASTC_SELF_BIT);
 	mdelay(1);
-	regmap_write(dev->regmap, CNTL1, SELF_TEST & 0xFF);
+	regmap_write(dev->regmap, CNTL1, SINGLE_MEASUREMENT & 0xFF);
 	mdelay(10);
 }
 
@@ -492,7 +488,7 @@ static void *ak8975_reg_random_thread(void *arg)
 		astc_self_test = dev->slave_regs[ASTC] & ASTC_SELF_BIT;
 
 		/* Check for self-test mode */
-		in_self_test = ((dev->slave_regs[CNTL1] & 0x80) != 0) || (astc_self_test != 0);
+		in_self_test = (astc_self_test != 0);
 
 		if (cntl1_mode == POWER_DOWN) {
 			/* Power down mode - no measurements, just maintain registers */
@@ -656,7 +652,9 @@ struct ak8975_device *ak8975_init(enum regmap_user_bus_type bus_type, void *bus_
 	if (bus_type == REGMAP_BUS_IIC_SOFT) {
 		dev->regmap = regmap_init_iic_soft(bus_master, AK8975_ADDR, &ak8975_regmap_config);
 	} else if (bus_type == REGMAP_BUS_SPI_SOFT) {
-		dev->regmap = regmap_init_spi_soft(bus_master, &ak8975_regmap_config);
+		/* Default SPI attributes: CPOL=0, CPHA=0, MSB first */
+		dev->regmap = regmap_init_spi_soft(bus_master,
+						   0, 0, SPI_BIT_ORDER_MSB, 2, &ak8975_regmap_config);
 	} else {
 		pr_err("Invalid bus type specified for ak8975 initialization");
 		return ERR_PTR(-EINVAL);
@@ -847,7 +845,7 @@ int t_ak8975_selftest(int argc, char **argv)
 	ak8975_selftest_control(dev, true);
 	mdelay(1); /* ASTC register write delay */
 
-	ak8975_enter_selftest_mode(dev);
+	ak8975_enter_self_test_mode(dev);
 	mdelay(10); /* Self-test mode requires sufficient time to stabilize */
 
 	ret = readx_poll_timeout(ak8975_data_ready, dev, data_ready, data_ready, 0, 100000);

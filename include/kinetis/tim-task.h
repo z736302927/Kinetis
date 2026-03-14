@@ -38,19 +38,6 @@ struct tim_task {
 	u64 total_execution_time;
 };
 
-struct tim_task_stats {
-	u32 total_tasks_created;
-	u32 total_tasks_executed;
-	u32 total_tasks_failed;
-	u64 total_execution_time_ms;
-	u32 max_execution_time_ms;
-	u32 min_execution_time_ms;
-	ktime_t system_start_time;
-	u32 high_priority_tasks;
-	u32 normal_priority_tasks;
-	u32 low_priority_tasks;
-};
-
 /* support at most 1024 task, use 1024 size hash table */
 #define FMU_SCH_HASH_BITS	10
 

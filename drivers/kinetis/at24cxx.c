@@ -494,7 +494,7 @@ int t_at24cxx_program_thread(int argc, char **argv)
 		return ret;
 	}
 
-	return PASS;
+	return 0;
 }
 
 static u8 tx_buffer[AT24CXX_VOLUME];
@@ -558,7 +558,7 @@ int t_at24cxx_loopback(int argc, char **argv)
 
 	pr_debug("at24cxx Read and write TEST PASSED!\n");
 
-	return PASS;
+	return 0;
 }
 
 int t_at24cxx_current_addr_read(int argc, char **argv)
@@ -574,7 +574,7 @@ int t_at24cxx_current_addr_read(int argc, char **argv)
 
 	pr_debug("at24cxx current address data %d.\n", tmp);
 
-	return PASS;
+	return 0;
 }
 
 int t_at24cxx_current_random_read(int argc, char **argv)
@@ -609,7 +609,7 @@ int t_at24cxx_current_random_read(int argc, char **argv)
 			&rx_buffer[test_addr], length, false);
 	}
 
-	return PASS;
+	return 0;
 }
 
 int t_at24cxx_sequential_read(int argc, char **argv)
@@ -625,7 +625,7 @@ int t_at24cxx_sequential_read(int argc, char **argv)
 
 	pr_debug("at24cxx Sequential Read data %d.\n", tmp);
 
-	return PASS;
+	return 0;
 }
 
 int t_at24cxx_device_detect(int argc, char **argv)
@@ -636,7 +636,7 @@ int t_at24cxx_device_detect(int argc, char **argv)
 
 	if (ret == 0) {
 		pr_info("AT24CXX: Device detected successfully\n");
-		return PASS;
+		return 0;
 	} else {
 		pr_err("AT24CXX: Device detection failed with error %d\n", ret);
 		return FAIL;
@@ -651,10 +651,10 @@ int t_at24cxx_write_protection_check(int argc, char **argv)
 
 	if (ret == 0) {
 		pr_info("AT24CXX: Write protection check passed - write operation allowed\n");
-		return PASS;
+		return 0;
 	} else if (ret == -EROFS) {
 		printk(KERN_WARNING "AT24CXX: Write protection is enabled - device is read-only\n");
-		return PASS; /* This is also normal, depending on specific hardware configuration */
+		return 0; /* This is also normal, depending on specific hardware configuration */
 	} else {
 		pr_err("AT24CXX: Write protection check failed with error %d\n", ret);
 		return FAIL;
@@ -684,7 +684,7 @@ int t_at24cxx_wear_leveling_info(int argc, char **argv)
 	pr_info("AT24CXX: After test writes - Max cycles: %u, Min cycles: %u, Total cycles: %u\n",
 		max_cycles, min_cycles, total_cycles);
 
-	return PASS;
+	return 0;
 }
 
 int t_at24cxx_write_with_retry(int argc, char **argv)
@@ -712,7 +712,7 @@ int t_at24cxx_write_with_retry(int argc, char **argv)
 	}
 
 	pr_info("AT24CXX: Write with retry test passed\n");
-	return PASS;
+	return 0;
 }
 
 int t_at24cxx_edge_cases(int argc, char **argv)
@@ -757,7 +757,7 @@ int t_at24cxx_edge_cases(int argc, char **argv)
 	}
 
 	pr_info("AT24CXX: Edge cases test passed\n");
-	return PASS;
+	return 0;
 }
 
 int t_at24cxx_loopback_speed(int argc, char **argv)
@@ -795,7 +795,7 @@ int t_at24cxx_loopback_speed(int argc, char **argv)
 		AT24CXX_VOLUME, time_stamp);
 	pr_debug("Test completed.\n");
 
-	return PASS;
+	return 0;
 }
 
 #endif

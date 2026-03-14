@@ -32,6 +32,10 @@ struct regmap_iic_soft_context {
 /* SPI soft bus context */
 struct regmap_spi_soft_context {
 	struct spi_master *master;
+	u8 cpol;
+	u8 cpha;
+	u8 bit_order;
+	u8 speed;
 };
 
 /*
@@ -57,10 +61,14 @@ struct regmap *regmap_init_iic_soft(struct iic_master *master,
  * regmap_init_spi_soft - Initialize regmap for SPI soft bus
  * @master: SPI master instance
  * @config: Regmap configuration for the device
+ * @cpol: SPI clock polarity
+ * @cpha: SPI clock phase
+ * @bit_order: SPI bit order (SPI_BIT_ORDER_MSB or SPI_BIT_ORDER_LSB)
  *
  * Return: regmap pointer on success, ERR_PTR on failure
  */
 struct regmap *regmap_init_spi_soft(struct spi_master *master,
+				     u8 cpol, u8 cpha, u8 bit_order, u8 speed,
 				     const struct regmap_config *config);
 
 /*

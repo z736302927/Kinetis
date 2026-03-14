@@ -254,7 +254,7 @@ void *pthread_rtc_time_update(void *para)
 		seconds = time_info->tm_sec;
 		
 		/* Update RTC task time */
-		rtc_task_get_current_time(year, month, date, hours, minutes, seconds);
+		rtc_task_set_current_time(year, month, date, hours, minutes, seconds);
 		
 		/* Update every second */
 		usleep(500000);

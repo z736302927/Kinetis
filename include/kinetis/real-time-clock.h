@@ -24,7 +24,7 @@ struct rtc_device {
 	u8(*get_time_format)(void);
 };
 
-void rtc_calendar_set(struct rtc_device *dev, struct tm *rtc, u8 format);
+int rtc_calendar_set(struct rtc_device *dev, struct tm *rtc, u8 format);
 void rtc_calendar_get(struct rtc_device *dev, struct tm *rtc, u8 format);
 void rtc_set_time_format(struct rtc_device *dev, u8 tmp);
 u8 rtc_get_time_format(struct rtc_device *dev);

@@ -139,10 +139,43 @@ int t_fatfs_file_check(int argc, char **argv);
 int t_fatfs_scan_files(int argc, char **argv);
 int t_fatfs_append(int argc, char **argv);
 int t_fatfs_delete_node(int argc, char **argv);
-int t_fatfs_expend(int argc, char **argv);
+int t_fatfs_expand(int argc, char **argv);
 int t_fatfs_diskio(int argc, char **argv);
 int t_fatfs_contiguous_file(int argc, char **argv);
 int t_fatfs_raw_speed(int argc, char **argv);
+#if !FF_FS_READONLY
+int t_fatfs_truncate(int argc, char **argv);
+int t_fatfs_sync(int argc, char **argv);
+#endif
+#if FF_USE_CHMOD
+int t_fatfs_chmod(int argc, char **argv);
+int t_fatfs_utime(int argc, char **argv);
+#endif
+#if FF_FS_RPATH >= 2
+int t_fatfs_chdir(int argc, char **argv);
+#endif
+#if FF_USE_FIND
+int t_fatfs_find(int argc, char **argv);
+#endif
+#if FF_USE_LABEL
+int t_fatfs_label(int argc, char **argv);
+#endif
+#if FF_USE_STRFUNC
+int t_fatfs_char_io(int argc, char **argv);
+int t_fatfs_gets(int argc, char **argv);
+#endif
+int t_fatfs_file_status(int argc, char **argv);
+int t_fatfs_unmount(int argc, char **argv);
+#if FF_USE_FORWARD
+int t_fatfs_forward(int argc, char **argv);
+#endif
+#if FF_CODE_PAGE == 0
+int t_fatfs_setcp(int argc, char **argv);
+#endif
+#if FF_MULTI_PARTITION
+int t_fatfs_disk_partition(int argc, char **argv);
+#endif
+int t_fatfs_speed(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_FSM
@@ -161,15 +194,17 @@ int t_general_timeout(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_HC_05
-int t_hc_05_test_cmd(int argc, char **argv);
-int t_hc_05_setup(int argc, char **argv);
-int t_hc_05_slave_mode(int argc, char **argv);
-int t_hc_05_master_mode(int argc, char **argv);
-int t_hc_05_data_transfer(int argc, char **argv);
-int t_hc_05_device_info(int argc, char **argv);
-int t_hc_05_diagnostics(int argc, char **argv);
-int t_hc_05_factory_reset(int argc, char **argv);
-int t_hc_05_full_test(int argc, char **argv);
+int t_hc_05_basic_init(int argc, char **argv);
+int t_hc_05_info_query(int argc, char **argv);
+int t_hc_05_cleanup(int argc, char **argv);
+int t_hc_05_config_basic(int argc, char **argv);
+int t_hc_05_config_role(int argc, char **argv);
+int t_hc_05_config_advanced(int argc, char **argv);
+int t_hc_05_data_comm(int argc, char **argv);
+int t_hc_05_connection(int argc, char **argv);
+int t_hc_05_pairing(int argc, char **argv);
+int t_hc_05_performance(int argc, char **argv);
+int t_hc_05_comprehensive(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_HYDROLOGY
@@ -200,17 +235,17 @@ int t_random_array_multi(int argc, char **argv);
 int t_rtc_set_clock(int argc, char **argv);
 int t_rtc_get_clock(int argc, char **argv);
 int t_rtc_validation(int argc, char **argv);
-int t_rtc_performance(int argc, char **argv);
 int t_rtc_backup(int argc, char **argv);
-int t_rtc_cleanup(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_RTCTASK
 int t_rtc_task_add(int argc, char **argv);
+int t_rtc_task_drop(int argc, char **argv);
 int t_rtc_task_validation(int argc, char **argv);
+int t_rtc_task_priority(int argc, char **argv);
 int t_rtc_task_performance(int argc, char **argv);
 int t_rtc_task_cleanup(int argc, char **argv);
-int t_rtc_task_interval(int argc, char **argv);
+int t_rtc_task_short_interval(int argc, char **argv);
 int t_rtc_task_boundary(int argc, char **argv);
 int t_rtc_task_suspend_resume(int argc, char **argv);
 int t_rtc_task_concurrent(int argc, char **argv);
@@ -414,30 +449,32 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"gt9271.",                     t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_HC_05
-	{"hc-05.test",                  t_hc_05_test_cmd},
-	{"hc-05.setup",                 t_hc_05_setup},
-	{"hc-05.slave",                 t_hc_05_slave_mode},
-	{"hc-05.master",                t_hc_05_master_mode},
-	{"hc-05.data-transfer",         t_hc_05_data_transfer},
-	{"hc-05.device-info",           t_hc_05_device_info},
-	{"hc-05.diagnostics",           t_hc_05_diagnostics},
-	{"hc-05.factory-reset",         t_hc_05_factory_reset},
-	{"hc-05.full",                  t_hc_05_full_test},
+	{"hc-05.basic-init",           t_hc_05_basic_init},
+	{"hc-05.info-query",           t_hc_05_info_query},
+	{"hc-05.cleanup",              t_hc_05_cleanup},
+	{"hc-05.config-basic",         t_hc_05_config_basic},
+	{"hc-05.config-role",          t_hc_05_config_role},
+	{"hc-05.config-advanced",      t_hc_05_config_advanced},
+	{"hc-05.data-comm",            t_hc_05_data_comm},
+	{"hc-05.connection",           t_hc_05_connection},
+	{"hc-05.pairing",              t_hc_05_pairing},
+	{"hc-05.performance",          t_hc_05_performance},
+	{"hc-05.comprehensive",         t_hc_05_comprehensive},
 #endif
 #ifdef DESIGN_VERIFICATION_IIC
 	{"iic.slave-basic",             t_iic_slave_basic},
 	{"iic.transfer-byte",           t_iic_transfer_byte},
 	{"iic.transfer-bytes",          t_iic_transfer_bytes},
-	{"iic.edge-cases",             t_iic_edge_cases},
+	{"iic.edge-cases",             	t_iic_edge_cases},
 	{"iic.performance",             t_iic_performance},
-	{"iic.stress",                 t_iic_stress},
-	{"iic.read-write-reg",         t_iic_read_write_reg},
-	{"iic.boundary-large",         t_iic_boundary_large},
-	{"iic.address-modes",          t_iic_address_modes},
-	{"iic.start-stop",             t_iic_start_stop},
+	{"iic.stress",                 	t_iic_stress},
+	{"iic.read-write-reg",        	t_iic_read_write_reg},
+	{"iic.boundary-large",         	t_iic_boundary_large},
+	{"iic.address-modes",          	t_iic_address_modes},
+	{"iic.start-stop",             	t_iic_start_stop},
 #endif
 #ifdef DESIGN_VERIFICATION_HMC5883L
-	{"hmc5883l.", t_function},
+	{"hmc5883l.", 					t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_HYDROLOGY
 	{"hydrology.init",              t_hydrology_init},
@@ -453,7 +490,7 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"basic-timer.get-tick",        t_basic_timer_get_tick},
 #endif
 #ifdef DESIGN_VERIFICATION_CHINESE
-	{"chinese.", t_function},
+	{"chinese.", 					t_function},
 #endif
 #ifdef DESIGN_VERIFICATION_CRC
 	{"crc.test",                    t_crc},
@@ -469,10 +506,43 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"fatfs.scan-files",            t_fatfs_scan_files},
 	{"fatfs.append",                t_fatfs_append},
 	{"fatfs.delete-node",           t_fatfs_delete_node},
-	{"fatfs.expend",                t_fatfs_expend},
+	{"fatfs.expand",                t_fatfs_expand},
 	{"fatfs.diskio",                t_fatfs_diskio},
 	{"fatfs.contiguous-file",       t_fatfs_contiguous_file},
 	{"fatfs.raw-speed",             t_fatfs_raw_speed},
+#if !FF_FS_READONLY
+	{"fatfs.truncate",              t_fatfs_truncate},
+	{"fatfs.sync",                  t_fatfs_sync},
+#endif
+#if FF_USE_CHMOD
+	{"fatfs.chmod",                 t_fatfs_chmod},
+	{"fatfs.utime",                 t_fatfs_utime},
+#endif
+#if FF_FS_RPATH >= 2
+	{"fatfs.chdir",                 t_fatfs_chdir},
+#endif
+#if FF_USE_FIND
+	{"fatfs.find",                  t_fatfs_find},
+#endif
+#if FF_USE_LABEL
+	{"fatfs.label",                 t_fatfs_label},
+#endif
+#if FF_USE_STRFUNC
+	{"fatfs.char-io",               t_fatfs_char_io},
+	{"fatfs.gets",                  t_fatfs_gets},
+#endif
+	{"fatfs.file-status",           t_fatfs_file_status},
+	{"fatfs.unmount",               t_fatfs_unmount},
+#if FF_USE_FORWARD
+	{"fatfs.forward",               t_fatfs_forward},
+#endif
+#if FF_CODE_PAGE == 0
+	{"fatfs.setcp",                 t_fatfs_setcp},
+#endif
+#if FF_MULTI_PARTITION
+	{"fatfs.disk-partition",        t_fatfs_disk_partition},
+#endif
+	{"fatfs.speed",                 t_fatfs_speed},
 #endif
 #ifdef DESIGN_VERIFICATION_FSM
 	{"fsm.example",                 t_fsm_example},
@@ -515,16 +585,16 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"rtc.set-clock",               t_rtc_set_clock},
 	{"rtc.get-clock",               t_rtc_get_clock},
 	{"rtc.validation",              t_rtc_validation},
-	{"rtc.performance",             t_rtc_performance},
-	{"rtc.backup",                 t_rtc_backup},
-	{"rtc.cleanup",                t_rtc_cleanup},
+	{"rtc.backup",                 	t_rtc_backup},
 #endif
 #ifdef DESIGN_VERIFICATION_RTCTASK
 	{"rtc-task.add",                t_rtc_task_add},
+	{"rtc-task.drop",               t_rtc_task_drop},
 	{"rtc-task.validation",         t_rtc_task_validation},
+	{"rtc-task.priority",           t_rtc_task_priority},
 	{"rtc-task.performance",        t_rtc_task_performance},
 	{"rtc-task.cleanup",            t_rtc_task_cleanup},
-	{"rtc-task.interval",           t_rtc_task_interval},
+	{"rtc-task.short-interval",      t_rtc_task_short_interval},
 	{"rtc-task.boundary",           t_rtc_task_boundary},
 	{"rtc-task.suspend-resume",     t_rtc_task_suspend_resume},
 	{"rtc-task.concurrent",         t_rtc_task_concurrent},
@@ -620,9 +690,9 @@ struct test_case_typedef kinetis_case_table[] = {
 #endif
 #ifdef DESIGN_VERIFICATION_SPI
 	{"spi.init",                    t_spi_system_init},
-	{"spi.exit",                   t_spi_system_exit},
+	{"spi.exit",                   	t_spi_system_exit},
 	{"spi.loopback",                t_spi_loopback},
-	{"spi.mode",                   t_spi_set_mode},
+	{"spi.mode",                   	t_spi_set_mode},
 	{"spi.edge-cases",              t_spi_edge_cases},
 	{"spi.performance",             t_spi_performance},
 	{"spi.stress",                  t_spi_stress},

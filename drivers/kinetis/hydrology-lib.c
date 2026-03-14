@@ -892,7 +892,7 @@ int t_hydrology_init(int argc, char **argv)
 		return FAIL;
 	}
 
-	return PASS;
+	return 0;
 }
 
 int t_hydrology(int argc, char **argv)
@@ -960,7 +960,7 @@ int t_hydrology(int argc, char **argv)
 	}
 
 	if (ret == 0) {
-		return PASS;
+		return 0;
 	} else {
 		return FAIL;
 	}

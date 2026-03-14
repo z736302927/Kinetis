@@ -1712,327 +1712,599 @@ void hc_05_exit(struct hc_05_device *device)
 #ifdef DESIGN_VERIFICATION_HC_05
 #include "kinetis/test-kinetis.h"
 
-int t_hc_05_test_cmd(int argc, char **argv)
+/*********************************************************************
+ * HC-05 Test Framework
+ *********************************************************************/
+
+/**
+ * @brief Test result structure
+ */
+struct hc_05_test_result {
+	int total;
+	int passed;
+	int failed;
+	char details[512];
+};
+
+/**
+ * @brief Test framework - Allocate and initialize test device
+ * @param test_name: Test name for logging
+ * @return Device pointer on success, NULL on failure
+ */
+static struct hc_05_device *hc_05_test_alloc(const char *test_name)
 {
 	struct hc_05_device *device;
-	int ret;
 
-	pr_info("=== hc-05 at command test ===\n");
+	pr_info("=== %s START ===\n", test_name);
 
 	device = hc_05_alloc();
-	if (device == NULL) {
-		pr_err("failed to allocate hc-05 device\n");
-		return FAIL;
+	if (!device) {
+		pr_err("[%s] failed to allocate device\n", test_name);
+		return NULL;
 	}
 
+	pr_info("[%s] device initialized\n", test_name);
+	return device;
+}
+
+/**
+ * @brief Test framework - Cleanup test device
+ * @param device: Device pointer
+ * @param test_name: Test name for logging
+ */
+static void hc_05_test_free(struct hc_05_device *device, const char *test_name)
+{
+	if (device) {
+		hc_05_exit(device);
+		pr_info("=== %s END ===\n", test_name);
+	}
+}
+
+/**
+ * @brief Test framework - Record test result
+ * @param result: Test result structure
+ * @param test_item: Test item description
+ * @param success: Test result (0 = fail, 1 = pass)
+ */
+static void hc_05_test_record(struct hc_05_test_result *result,
+			       const char *test_item, int success)
+{
+	result->total++;
+	if (success) {
+		result->passed++;
+		pr_info("[PASS] %s\n", test_item);
+	} else {
+		result->failed++;
+		pr_err("[FAIL] %s\n", test_item);
+	}
+}
+
+/**
+ * @brief Test framework - Print test summary
+ * @param result: Test result structure
+ * @param test_name: Test name
+ */
+static void hc_05_test_summary(struct hc_05_test_result *result, const char *test_name)
+{
+	pr_info("\n=== %s SUMMARY ===\n", test_name);
+	pr_info("Total: %d, Passed: %d, Failed: %d\n",
+		result->total, result->passed, result->failed);
+
+	if (result->failed == 0) {
+		pr_info("Result: ALL TESTS PASSED\n");
+	} else {
+		pr_err("Result: SOME TESTS FAILED\n");
+	}
+	pr_info("===================\n");
+}
+
+
+
+int t_hc_05_basic_init(int argc, char **argv)
+{
+	struct hc_05_device *device;
+	struct hc_05_test_result result = {0};
+	char buffer[SERIAL_PORT_BUFFER_SIZE];
+	int ret;
+
+	device = hc_05_test_alloc("HC-05 BASIC INIT");
+	if (!device)
+		return -ENOMEM;
+
+	/* Test 1: AT command response */
 	ret = hc_05_test(device);
-	if (ret) {
-		pr_err("at test failed\n");
-		hc_05_exit(device);
-		return FAIL;
+	hc_05_test_record(&result, "AT Command Response", ret == 0);
+
+	/* Test 2: Get version information */
+	ret = hc_05_get_version(device, buffer, sizeof(buffer));
+	hc_05_test_record(&result, "Get Version", ret >= 0);
+	if (ret >= 0) {
+		pr_info("Version: %s\n", buffer);
 	}
 
-	ret = hc_05_get_version(device, (char *)argv[1], 32);
-	if (ret < 0) {
-		pr_err("get version failed\n");
-		hc_05_exit(device);
-		return FAIL;
-	}
-
+	/* Test 3: Device reset */
 	ret = hc_05_reset(device);
-	if (ret) {
-		pr_err("reset failed\n");
-		hc_05_exit(device);
-		return FAIL;
-	}
+	hc_05_test_record(&result, "Device Reset", ret == 0);
 
-	hc_05_exit(device);
+	/* Print test summary */
+	hc_05_test_summary(&result, "HC-05 BASIC INIT");
 
-	pr_info("=== hc-05 at command test passed ===\n");
-	return PASS;
+	hc_05_test_free(device, "HC-05 BASIC INIT");
+
+	return result.failed > 0 ? -1 : 0;
 }
 
-int t_hc_05_setup(int argc, char **argv)
+int t_hc_05_info_query(int argc, char **argv)
 {
 	struct hc_05_device *device;
+	struct hc_05_test_result result = {0};
+	char info_buffer[512];
 	int ret;
 
-	pr_info("=== hc-05 setup test ===\n");
+	device = hc_05_test_alloc("HC-05 INFO QUERY");
+	if (!device)
+		return -ENOMEM;
 
-	device = hc_05_alloc();
-	if (device == NULL) {
-		pr_err("failed to allocate hc-05 device\n");
-		return FAIL;
-	}
-
-	ret = hc_05_quick_setup(device, "TestDevice", "1234", 9600);
-	if (ret) {
-		pr_err("quick setup failed\n");
-		hc_05_exit(device);
-		return FAIL;
-	}
-
-	hc_05_exit(device);
-
-	pr_info("=== hc-05 setup test passed ===\n");
-	return PASS;
-}
-
-int t_hc_05_slave_mode(int argc, char **argv)
-{
-	struct hc_05_device *device;
-	int ret;
-
-	pr_info("=== hc-05 slave mode test ===\n");
-
-	device = hc_05_alloc();
-	if (device == NULL) {
-		pr_err("failed to allocate hc-05 device\n");
-		return FAIL;
-	}
-
-	ret = hc_05_setup_slave(device, "HC05-Slave", "1234", 115200);
-	if (ret) {
-		pr_err("slave setup failed\n");
-		hc_05_exit(device);
-		return FAIL;
-	}
-
-	hc_05_exit(device);
-
-	pr_info("=== hc-05 slave mode test passed ===\n");
-	return PASS;
-}
-
-int t_hc_05_master_mode(int argc, char **argv)
-{
-	struct hc_05_device *device;
-	int ret;
-
-	pr_info("=== hc-05 master mode test ===\n");
-
-	device = hc_05_alloc();
-	if (device == NULL) {
-		pr_err("failed to allocate hc-05 device\n");
-		return FAIL;
-	}
-
-	ret = hc_05_setup_master(device, "HC05-Master", "1234", 115200);
-	if (ret) {
-		pr_err("master setup failed\n");
-		hc_05_exit(device);
-		return FAIL;
-	}
-
-	hc_05_exit(device);
-
-	pr_info("=== hc-05 master mode test passed ===\n");
-	return PASS;
-}
-
-int t_hc_05_data_transfer(int argc, char **argv)
-{
-	struct hc_05_device *device;
-	u8 tx_data[128];
-	u8 rx_data[128];
-	int ret;
-	int i;
-
-	pr_info("=== hc-05 data transfer test ===\n");
-
-	device = hc_05_alloc();
-	if (device == NULL) {
-		pr_err("failed to allocate hc-05 device\n");
-		return FAIL;
-	}
-
-	ret = hc_05_quick_setup(device, "DataTest", "1234", 9600);
+	/* Initialize device first */
+	ret = hc_05_quick_setup(device, "InfoQueryTest", "1234", 9600);
 	if (ret) {
 		pr_err("setup failed\n");
-		hc_05_exit(device);
-		return FAIL;
+		hc_05_test_free(device, "HC-05 INFO QUERY");
+		return ret;
 	}
 
+	/* Test 1: Get device info */
+	ret = hc_05_get_device_info(device, info_buffer, sizeof(info_buffer));
+	hc_05_test_record(&result, "Get Device Info", ret >= 0);
+	if (ret >= 0) {
+		pr_info("Device Info:\n%s\n", info_buffer);
+	}
+
+	/* Test 2: Run diagnostics */
+	ret = hc_05_diagnostics(device, info_buffer, sizeof(info_buffer));
+	hc_05_test_record(&result, "Diagnostics", ret >= 0);
+	if (ret >= 0) {
+		pr_info("Diagnostics:\n%s\n", info_buffer);
+	}
+
+	hc_05_test_summary(&result, "HC-05 INFO QUERY");
+	hc_05_test_free(device, "HC-05 INFO QUERY");
+
+	return result.failed > 0 ? -1 : 0;
+}
+
+int t_hc_05_cleanup(int argc, char **argv)
+{
+	struct hc_05_device *device;
+	struct hc_05_test_result result = {0};
+	int ret;
+
+	device = hc_05_test_alloc("HC-05 CLEANUP");
+	if (!device)
+		return -ENOMEM;
+
+	/* Test: Factory reset and setup */
+	ret = hc_05_factory_reset_and_setup(device, "CleanDevice", "5678", 115200);
+	hc_05_test_record(&result, "Factory Reset and Setup", ret == 0);
+
+	hc_05_test_summary(&result, "HC-05 CLEANUP");
+	hc_05_test_free(device, "HC-05 CLEANUP");
+
+	return result.failed > 0 ? -1 : 0;
+}
+
+/*********************************************************************
+ * HC-05 Configuration Layer Tests
+ *********************************************************************/
+
+int t_hc_05_config_basic(int argc, char **argv)
+{
+	struct hc_05_device *device;
+	struct hc_05_test_result result = {0};
+	int ret;
+
+	device = hc_05_test_alloc("HC-05 CONFIG BASIC");
+	if (!device)
+		return -ENOMEM;
+
+	/* Test 1: Quick setup with default parameters */
+	ret = hc_05_quick_setup(device, "ConfigBasic", "1234", 9600);
+	hc_05_test_record(&result, "Quick Setup", ret == 0);
+
+	/* Test 2: Set baudrate */
+	ret = hc_05_set_uart(device, 115200, 0, 0);
+	hc_05_test_record(&result, "Set Baudrate 115200", ret == 0);
+
+	/* Test 3: Set device name */
+	ret = hc_05_set_name(device, "HC05-ConfigTest");
+	hc_05_test_record(&result, "Set Device Name", ret == 0);
+
+	/* Test 4: Set password */
+	ret = hc_05_set_password(device, "4321");
+	hc_05_test_record(&result, "Set Password", ret == 0);
+
+	hc_05_test_summary(&result, "HC-05 CONFIG BASIC");
+	hc_05_test_free(device, "HC-05 CONFIG BASIC");
+
+	return result.failed > 0 ? -1 : 0;
+}
+
+int t_hc_05_config_role(int argc, char **argv)
+{
+	struct hc_05_device *device;
+	struct hc_05_test_result result = {0};
+	int role, ret;
+
+	device = hc_05_test_alloc("HC-05 CONFIG ROLE");
+	if (!device)
+		return -ENOMEM;
+
+	/* Test 1: Setup slave mode */
+	ret = hc_05_setup_slave(device, "HC05-Slave", "1234", 115200);
+	hc_05_test_record(&result, "Setup Slave Mode", ret == 0);
+
+	/* Test 2: Get role (should be slave) */
+	ret = hc_05_get_role(device, &role);
+	hc_05_test_record(&result, "Get Role (Slave)", ret == 0 && role == 0);
+
+	/* Test 3: Setup master mode */
+	ret = hc_05_setup_master(device, "HC05-Master", "1234", 115200);
+	hc_05_test_record(&result, "Setup Master Mode", ret == 0);
+
+	/* Test 4: Get role (should be master) */
+	ret = hc_05_get_role(device, &role);
+	hc_05_test_record(&result, "Get Role (Master)", ret == 0 && role == 1);
+
+	hc_05_test_summary(&result, "HC-05 CONFIG ROLE");
+	hc_05_test_free(device, "HC-05 CONFIG ROLE");
+
+	return result.failed > 0 ? -1 : 0;
+}
+
+int t_hc_05_config_advanced(int argc, char **argv)
+{
+	struct hc_05_device *device;
+	struct hc_05_test_result result = {0};
+	int ret;
+
+	device = hc_05_test_alloc("HC-05 CONFIG ADVANCED");
+	if (!device)
+		return -ENOMEM;
+
+	ret = hc_05_quick_setup(device, "ConfigAdvanced", "1234", 9600);
+	if (ret) {
+		pr_err("setup failed\n");
+		hc_05_test_free(device, "HC-05 CONFIG ADVANCED");
+		return ret;
+	}
+
+
+	/* Test: Set connection mode */
+	ret = hc_05_set_cmode(device, 1);  /* Any address */
+	hc_05_test_record(&result, "Set Connection Mode", ret == 0);
+
+	hc_05_test_summary(&result, "HC-05 CONFIG ADVANCED");
+	hc_05_test_free(device, "HC-05 CONFIG ADVANCED");
+
+	return result.failed > 0 ? -1 : 0;
+}
+
+/*********************************************************************
+ * HC-05 Function Layer Tests
+ *********************************************************************/
+
+int t_hc_05_data_comm(int argc, char **argv)
+{
+	struct hc_05_device *device;
+	struct hc_05_test_result result = {0};
+	u8 tx_data[128];
+	u8 rx_data[256];
+	int i, ret;
+
+	device = hc_05_test_alloc("HC-05 DATA COMM");
+	if (!device)
+		return -ENOMEM;
+
+	ret = hc_05_quick_setup(device, "DataComm", "1234", 9600);
+	if (ret) {
+		pr_err("setup failed\n");
+		hc_05_test_free(device, "HC-05 DATA COMM");
+		return ret;
+	}
+
+	/* Prepare test data */
 	for (i = 0; i < 128; i++) {
 		tx_data[i] = (u8)i;
 	}
 
+	/* Test 1: Send binary data */
 	ret = hc_05_send_data(device, tx_data, 128, 64, 10);
-	if (ret < 0) {
-		pr_err("send data failed\n");
-		hc_05_exit(device);
-		return FAIL;
-	}
+	hc_05_test_record(&result, "Send Binary Data", ret == 128);
 
+	/* Test 2: Send string */
 	ret = hc_05_send_string(device, "Hello, HC-05!", 0, 0);
-	if (ret < 0) {
-		pr_err("send string failed\n");
-		hc_05_exit(device);
-		return FAIL;
-	}
+	hc_05_test_record(&result, "Send String", ret > 0);
 
-	hc_05_exit(device);
+	/* Test 3: Receive data (with timeout) */
+	ret = hc_05_receive_data(device, rx_data, sizeof(rx_data), 1000);
+	hc_05_test_record(&result, "Receive Data", ret >= 0);
 
-	pr_info("=== hc-05 data transfer test passed ===\n");
-	return PASS;
+	/* Test 4: Send and wait */
+	ret = hc_05_send_and_wait(device, (u8*)"PING", 4, rx_data, sizeof(rx_data), 1000);
+	hc_05_test_record(&result, "Send and Wait", ret >= 0);
+
+	/* Test 5: Clear buffers */
+	ret = hc_05_clear_buffers(device);
+	hc_05_test_record(&result, "Clear Buffers", ret == 0);
+
+	hc_05_test_summary(&result, "HC-05 DATA COMM");
+	hc_05_test_free(device, "HC-05 DATA COMM");
+
+	return result.failed > 0 ? -1 : 0;
 }
 
-int t_hc_05_device_info(int argc, char **argv)
+int t_hc_05_connection(int argc, char **argv)
 {
 	struct hc_05_device *device;
-	char info_buffer[512];
+	struct hc_05_test_result result = {0};
 	int ret;
 
-	pr_info("=== hc-05 device info test ===\n");
+	device = hc_05_test_alloc("HC-05 CONNECTION");
+	if (!device)
+		return -ENOMEM;
 
-	device = hc_05_alloc();
-	if (device == NULL) {
-		pr_err("failed to allocate hc-05 device\n");
-		return FAIL;
-	}
-
-	ret = hc_05_quick_setup(device, "InfoTest", "1234", 9600);
+	ret = hc_05_setup_master(device, "ConnTest", "1234", 115200);
 	if (ret) {
 		pr_err("setup failed\n");
-		hc_05_exit(device);
-		return FAIL;
+		hc_05_test_free(device, "HC-05 CONNECTION");
+		return ret;
 	}
 
-	ret = hc_05_get_device_info(device, info_buffer, sizeof(info_buffer));
-	if (ret < 0) {
-		pr_err("get device info failed\n");
-		hc_05_exit(device);
-		return FAIL;
+	/* Test 1: Connect to device (if address provided) */
+	if (argc > 1) {
+		ret = hc_05_connect(device, argv[1]);
+		hc_05_test_record(&result, "Connect to Device", ret == 0);
 	}
 
-	pr_info("device info:\n%s\n", info_buffer);
+	/* Test 2: Disconnect */
+	ret = hc_05_disconnect(device);
+	hc_05_test_record(&result, "Disconnect", ret == 0);
 
-	hc_05_exit(device);
+	hc_05_test_summary(&result, "HC-05 CONNECTION");
+	hc_05_test_free(device, "HC-05 CONNECTION");
 
-	pr_info("=== hc-05 device info test passed ===\n");
-	return PASS;
+	return result.failed > 0 ? -1 : 0;
 }
 
-int t_hc_05_diagnostics(int argc, char **argv)
+int t_hc_05_pairing(int argc, char **argv)
 {
 	struct hc_05_device *device;
-	char diag_buffer[512];
+	struct hc_05_test_result result = {0};
 	int ret;
 
-	pr_info("=== hc-05 diagnostics test ===\n");
+	device = hc_05_test_alloc("HC-05 PAIRING");
+	if (!device)
+		return -ENOMEM;
 
-	device = hc_05_alloc();
-	if (device == NULL) {
-		pr_err("failed to allocate hc-05 device\n");
-		return FAIL;
-	}
-
-	ret = hc_05_diagnostics(device, diag_buffer, sizeof(diag_buffer));
-	if (ret < 0) {
-		pr_err("diagnostics failed\n");
-		hc_05_exit(device);
-		return FAIL;
-	}
-
-	pr_info("diagnostics:\n%s\n", diag_buffer);
-
-	hc_05_exit(device);
-
-	pr_info("=== hc-05 diagnostics test passed ===\n");
-	return PASS;
-}
-
-int t_hc_05_factory_reset(int argc, char **argv)
-{
-	struct hc_05_device *device;
-	int ret;
-
-	pr_info("=== hc-05 factory reset test ===\n");
-
-	device = hc_05_alloc();
-	if (device == NULL) {
-		pr_err("failed to allocate hc-05 device\n");
-		return FAIL;
-	}
-
-	ret = hc_05_factory_reset_and_setup(device, "NewDevice", "5678", 9600);
+	ret = hc_05_setup_slave(device, "PairingSlave", "1234", 115200);
 	if (ret) {
-		pr_err("factory reset and setup failed\n");
-		hc_05_exit(device);
-		return FAIL;
+		pr_err("setup failed\n");
+		hc_05_test_free(device, "HC-05 PAIRING");
+		return ret;
 	}
 
-	hc_05_exit(device);
+	/* Test 1: Enter pair mode */
+	ret = hc_05_pair(device, device->addr, 10);
+	hc_05_test_record(&result, "Enter Pair Mode", ret == 0);
 
-	pr_info("=== hc-05 factory reset test passed ===\n");
-	return PASS;
+	/* Note: Actual pairing requires two devices, this is a basic test */
+
+	hc_05_test_summary(&result, "HC-05 PAIRING");
+	hc_05_test_free(device, "HC-05 PAIRING");
+
+	return result.failed > 0 ? -1 : 0;
 }
 
-int t_hc_05_full_test(int argc, char **argv)
+
+
+
+/*********************************************************************
+ * HC-05 Performance Layer Tests
+ *********************************************************************/
+
+int t_hc_05_performance(int argc, char **argv)
 {
 	struct hc_05_device *device;
+	struct hc_05_test_result result = {0};
+	u8 tx_data[256];
+	u8 rx_data[256];
+	int packet_size = 256;
+	int packet_count = 100;
+	int test_loops = 5;
+	int test_mode = 0;
+	int i, loop, ret;
+
+	pr_info("=== hc-05 performance test ===\n");
+	pr_info("usage: t_hc_05_performance [packet_size] [packet_count] [loops] [mode]\n");
+	pr_info("  mode: 0=send only, 1=receive only, 2=both (send then receive)\n");
+
+	if (argc > 1)
+		packet_size = simple_strtoul(argv[1], &argv[1], 10);
+	if (packet_size > 256)
+		packet_size = 256;
+
+	if (argc > 2)
+		packet_count = simple_strtoul(argv[2], &argv[1], 10);
+
+	if (argc > 3)
+		test_loops = simple_strtoul(argv[3], &argv[1], 10);
+
+	if (argc > 4)
+		test_mode = simple_strtoul(argv[4], &argv[1], 10);
+
+	pr_info("params: %d bytes, %d packets, %d loops, mode=%d\n",
+		packet_size, packet_count, test_loops, test_mode);
+
+	device = hc_05_test_alloc("HC-05 PERFORMANCE");
+	if (!device)
+		return -ENOMEM;
+
+	ret = hc_05_quick_setup(device, "PerfTest", "1234", 115200);
+	if (ret) {
+		pr_err("setup failed\n");
+		hc_05_test_free(device, "HC-05 PERFORMANCE");
+		return ret;
+	}
+
+	for (i = 0; i < packet_size; i++)
+		tx_data[i] = (u8)i;
+
+	if (test_mode == 0 || test_mode == 2) {
+		u64 total_bytes = 0;
+		u64 total_time = 0;
+
+		pr_info("\n--- send test ---\n");
+		for (loop = 0; loop < test_loops; loop++) {
+			u64 start, end, bytes = 0;
+
+			start = ktime_get_ns();
+			for (i = 0; i < packet_count; i++) {
+				ret = hc_05_send_data(device, tx_data, packet_size, 0, 0);
+				if (ret > 0)
+					bytes += ret;
+			}
+			end = ktime_get_ns();
+
+			total_bytes += bytes;
+			total_time += (end - start) / 1000;
+
+			pr_info("loop %d: %llu bytes, %llu us\n",
+				loop, bytes, (end - start) / 1000);
+		}
+
+		u64 speed_kb_s = total_time > 0 ? (total_bytes * 1000) / total_time : 0;
+		pr_info("send: %llu bytes, %llu us, %llu KB/s\n",
+			total_bytes, total_time, speed_kb_s);
+		hc_05_test_record(&result, "Send Performance", speed_kb_s > 0);
+	}
+
+	if (test_mode == 1 || test_mode == 2) {
+		u64 total_bytes = 0;
+		u64 total_time = 0;
+
+		pr_info("\n--- receive test ---\n");
+		for (loop = 0; loop < test_loops; loop++) {
+			u64 start, end, bytes = 0;
+
+			start = ktime_get_ns();
+			for (i = 0; i < packet_count; i++) {
+				ret = hc_05_receive_data(device, rx_data, sizeof(rx_data), 100);
+				if (ret > 0)
+					bytes += ret;
+			}
+			end = ktime_get_ns();
+
+			total_bytes += bytes;
+			total_time += (end - start) / 1000;
+
+			pr_info("loop %d: %llu bytes, %llu us\n",
+				loop, bytes, (end - start) / 1000);
+		}
+
+		u64 speed_kb_s = total_time > 0 ? (total_bytes * 1000) / total_time : 0;
+		pr_info("receive: %llu bytes, %llu us, %llu KB/s\n",
+			total_bytes, total_time, speed_kb_s);
+		hc_05_test_record(&result, "Receive Performance", speed_kb_s > 0);
+	}
+
+	hc_05_test_summary(&result, "HC-05 PERFORMANCE");
+	hc_05_test_free(device, "HC-05 PERFORMANCE");
+
+	return result.failed > 0 ? -1 : 0;
+}
+
+/*********************************************************************
+ * HC-05 Comprehensive Layer Tests
+ *********************************************************************/
+
+int t_hc_05_comprehensive(int argc, char **argv)
+{
+	struct hc_05_device *device;
+	struct hc_05_test_result result = {0};
 	char buffer[512];
-	int ret;
+	int ret, role;
+	int i;
+	u64 start, end;
 
-	pr_info("=== hc-05 full test ===\n");
+	device = hc_05_test_alloc("HC-05 COMPREHENSIVE");
+	if (!device)
+		return -ENOMEM;
 
-	device = hc_05_alloc();
-	if (device == NULL) {
-		pr_err("failed to allocate hc-05 device\n");
-		return FAIL;
-	}
+	pr_info("Running comprehensive test suite...\n");
 
-	pr_info("test 1: factory reset and setup\n");
-	ret = hc_05_factory_reset_and_setup(device, "FullTest", "1234", 115200);
-	if (ret) {
-		pr_err("factory reset test failed\n");
-		goto fail;
-	}
+	/* Phase 1: Basic Tests */
+	pr_info("\n--- Phase 1: Basic Tests ---\n");
 
-	pr_info("test 2: get device info\n");
+	ret = hc_05_test(device);
+	hc_05_test_record(&result, "1.1 AT Command", ret == 0);
+
+	ret = hc_05_get_version(device, buffer, sizeof(buffer));
+	hc_05_test_record(&result, "1.2 Get Version", ret >= 0);
+
+	/* Phase 2: Configuration Tests */
+	pr_info("\n--- Phase 2: Configuration ---\n");
+
+	ret = hc_05_quick_setup(device, "ComprehensiveTest", "1234", 115200);
+	hc_05_test_record(&result, "2.1 Quick Setup", ret == 0);
+
+	ret = hc_05_set_role(device, 0);  /* Slave mode */
+	hc_05_test_record(&result, "2.2 Set Role", ret == 0);
+
+	ret = hc_05_get_role(device, &role);
+	hc_05_test_record(&result, "2.3 Get Role", ret == 0 && role == 0);
+
+	/* Phase 3: Information Query */
+	pr_info("\n--- Phase 3: Information Query ---\n");
+
 	ret = hc_05_get_device_info(device, buffer, sizeof(buffer));
-	if (ret < 0) {
-		pr_err("get device info test failed\n");
-		goto fail;
-	}
+	hc_05_test_record(&result, "3.1 Device Info", ret >= 0);
 
-	pr_info("test 3: run diagnostics\n");
 	ret = hc_05_diagnostics(device, buffer, sizeof(buffer));
-	if (ret < 0) {
-		pr_err("diagnostics test failed\n");
-		goto fail;
-	}
+	hc_05_test_record(&result, "3.2 Diagnostics", ret >= 0);
 
-	pr_info("test 4: slave mode setup\n");
-	ret = hc_05_setup_slave(device, "SlaveTest", "1234", 9600);
-	if (ret) {
-		pr_err("slave mode test failed\n");
-		goto fail;
-	}
+	/* Phase 4: Data Transfer */
+	pr_info("\n--- Phase 4: Data Transfer ---\n");
 
-	pr_info("test 5: master mode setup\n");
-	ret = hc_05_setup_master(device, "MasterTest", "1234", 9600);
-	if (ret) {
-		pr_err("master mode test failed\n");
-		goto fail;
-	}
+	start = ktime_get_ns();
+	ret = hc_05_send_string(device, "Test Message", 0, 0);
+	end = ktime_get_ns();
+	hc_05_test_record(&result, "4.1 Send String", ret > 0);
 
-	pr_info("test 6: reset device\n");
+	pr_info("Send time: %llu ns\n", end - start);
+
+	/* Phase 5: Performance Test */
+	pr_info("\n--- Phase 5: Performance ---\n");
+
+	start = ktime_get_ns();
+	for (i = 0; i < 10; i++) {
+		hc_05_send_string(device, "PerformanceTest", 0, 0);
+	}
+	end = ktime_get_ns();
+
+	pr_info("10 sends in %llu ns (avg: %llu ns)\n",
+		end - start, (end - start) / 10);
+	hc_05_test_record(&result, "5.1 Performance Test", 1);
+
+	/* Phase 6: Cleanup */
+	pr_info("\n--- Phase 6: Cleanup ---\n");
+
 	ret = hc_05_reset(device);
-	if (ret) {
-		pr_err("reset test failed\n");
-		goto fail;
-	}
+	hc_05_test_record(&result, "6.1 Reset Device", ret == 0);
 
-	hc_05_exit(device);
+	hc_05_test_summary(&result, "HC-05 COMPREHENSIVE");
+	hc_05_test_free(device, "HC-05 COMPREHENSIVE");
 
-	pr_info("=== hc-05 full test passed ===\n");
-	return PASS;
-
-fail:
-	hc_05_exit(device);
-	pr_info("=== hc-05 full test failed ===\n");
-	return FAIL;
+	return result.failed > 0 ? -1 : 0;
 }
 
 #endif

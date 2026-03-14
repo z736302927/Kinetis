@@ -249,7 +249,7 @@ int t_tlc5971_send_packet(int argc, char **argv)
 	tlc5971_send_packet_with_timing2();
 	tlc5971_send_packet_with_timing3();
 
-	return PASS;
+	return 0;
 }
 
 #endif

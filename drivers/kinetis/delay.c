@@ -232,7 +232,7 @@ int t_delay(int argc, char **argv)
 
 	pr_debug("===== delay test PASSed =====\n");
 
-	return PASS;
+	return 0;
 }
 
 #endif
