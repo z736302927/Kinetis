@@ -111,7 +111,19 @@ void serial_port_extract_data(struct serial_port *serial)
 	serial->rx_complete = (serial->received_size > 0);
 }
 
-int serial_port_get_data(struct serial_port *serial_port, char *buffer, int size, u32 timeout_ms)
+void serial_port_clear_rx(struct serial_port *serial)
+{
+	serial_port_extract_data(serial);
+
+	for (int i = 0; i < serial->received_size; i++) {
+		serial->rx_buffer[serial->consumer] = '\0';
+		serial->consumer = (serial->consumer + 1) % SERIAL_PORT_BUFFER_SIZE;
+	}
+	serial->rx_complete = false;
+	serial->received_size = 0;
+}
+
+int serial_port_receive_bytes(struct serial_port *serial, char *buffer, int size, u32 timeout_ms)
 {
 	u32 elapsed_ms = 0;
 
@@ -120,50 +132,50 @@ int serial_port_get_data(struct serial_port *serial_port, char *buffer, int size
 	}
 
 	if (size < SERIAL_PORT_BUFFER_SIZE) {
-		pr_warn("serial_port_get_data: buffer size %d is less than SERIAL_PORT_BUFFER_SIZE %d",
+		pr_warn("serial_port_receive_bytes: buffer size %d is less than SERIAL_PORT_BUFFER_SIZE %d",
 			size, SERIAL_PORT_BUFFER_SIZE);
 		return -EINVAL;
 	}
 
 	if (timeout_ms == 0) {
 		while (1) {
-			serial_port_extract_data(serial_port);
-			if (serial_port->rx_complete) {
+			serial_port_extract_data(serial);
+			if (serial->rx_complete) {
 				break;
 			}
 			mdelay(1);
 		}
 	} else {
 		while (elapsed_ms < timeout_ms) {
-			serial_port_extract_data(serial_port);
-			if (serial_port->rx_complete) {
+			serial_port_extract_data(serial);
+			if (serial->rx_complete) {
 				break;
 			}
 			mdelay(1);
 			elapsed_ms++;
 		}
-		if (elapsed_ms >= timeout_ms && !serial_port->rx_complete) {
+		if (elapsed_ms >= timeout_ms && !serial->rx_complete) {
 			buffer[0] = '\0';
 			pr_err("Cannot get data from serial port within %u ms", timeout_ms);
 			return -ETIMEDOUT;
 		}
 	}
 
-	if (serial_port->rx_complete) {
-		for (int i = 0; i < serial_port->received_size; i++) {
-			buffer[i] = serial_port->rx_buffer[serial_port->consumer];
-			serial_port->rx_buffer[serial_port->consumer] = '\0';
-			serial_port->consumer = (serial_port->consumer + 1) % SERIAL_PORT_BUFFER_SIZE;
+	if (serial->rx_complete) {
+		for (int i = 0; i < serial->received_size; i++) {
+			buffer[i] = serial->rx_buffer[serial->consumer];
+			serial->rx_buffer[serial->consumer] = '\0';
+			serial->consumer = (serial->consumer + 1) % SERIAL_PORT_BUFFER_SIZE;
 		}
-		serial_port->rx_complete = false;
+		serial->rx_complete = false;
 #ifndef CONFIG_SERIAL_PORT_RING_BUFFER
-		serial_port->producer = 0;
-		serial_port->consumer = 0;
+		serial->producer = 0;
+		serial->consumer = 0;
 #endif
-		pr_debug("producer: %d, consumer: %d\n", serial_port->producer, serial_port->consumer);
+		pr_debug("producer: %d, consumer: %d\n", serial->producer, serial->consumer);
 	}
 
-	return serial_port->received_size;
+	return serial->received_size;
 }
 
 int serial_port_transmit_bytes(struct serial_port *serial, const u8 *data, u16 size)
@@ -182,6 +194,53 @@ int serial_port_transmit_bytes(struct serial_port *serial, const u8 *data, u16 s
 	serial->transmited_size = size;
 
 	return 0;
+}
+
+int serial_port_transmit_byte(struct serial_port *serial, u8 byte)
+{
+	serial->tx_buffer[0] = byte;
+	serial->tx_buffer[1] = '\0';
+	serial->transmited_size = 1;
+
+	return 0;
+}
+
+int serial_port_data_available(struct serial_port *serial)
+{
+	serial_port_extract_data(serial);
+	return serial->rx_complete ? serial->received_size : 0;
+}
+
+int serial_port_config(struct serial_port *serial, u32 baud_rate, u8 parity, u8 data_bits, u8 flow_control)
+{
+	/* Configure serial port parameters
+	 * baud_rate: 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, etc
+	 * parity: 0=None, 1=Odd, 2=Even
+	 * data_bits: 7 or 8
+	 * flow_control: 0=None, 1=XON/XOFF, 2=RTS/CTS
+	 */
+
+	/* Save current configuration */
+	serial->baud_rate = baud_rate;
+	serial->parity = parity;
+	serial->data_bits = data_bits;
+	serial->flow_control = flow_control;
+
+	/* Call external callback to apply hardware configuration */
+	if (serial->config_callback) {
+		return serial->config_callback(serial, baud_rate, parity, data_bits, flow_control);
+	}
+
+	return 0;
+}
+
+void serial_port_send_break(struct serial_port *serial)
+{
+	serial->irq_disable();
+	serial->set_tx(0);
+	mdelay(250);
+	serial->set_tx(1);
+	serial->irq_enable();
 }
 
 #ifdef DESIGN_VERIFICATION_SEIRALPORT
@@ -251,7 +310,7 @@ int t_serial_port_interactive(int argc, char **argv)
 	for (int i = 0; i < ARRAY_SIZE(fake_at_commands); i++) {
 		serial_port_transmit_bytes(serial, fake_at_commands[i].request, strlen(fake_at_commands[i].request));
 
-		ret = serial_port_get_data(serial, at_ack, sizeof(at_ack), 1000);
+		ret = serial_port_receive_bytes(serial, at_ack, sizeof(at_ack), 1000);
 		if (ret < 0) {
 			return ret;
 		}
@@ -285,7 +344,7 @@ int t_serial_port_basic(int argc, char **argv)
 		return FAIL;
 	}
 
-	ret = serial_port_get_data(serial, rx_data, sizeof(rx_data), 1000);
+	ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 1000);
 	if (ret < 0) {
 		pr_err("failed to get data");
 		serial_port_free(serial);
@@ -330,7 +389,7 @@ int t_serial_port_boundary(int argc, char **argv)
 		return FAIL;
 	}
 
-	ret = serial_port_get_data(serial, rx_data, sizeof(rx_data), 1000);
+	ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 1000);
 	if (ret < 0) {
 		pr_err("failed to get boundary data");
 		serial_port_free(serial);
@@ -376,7 +435,7 @@ int t_serial_port_performance(int argc, char **argv)
 			return FAIL;
 		}
 
-		ret = serial_port_get_data(serial, rx_data, sizeof(rx_data), 1000);
+		ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 1000);
 		if (ret < 0) {
 			pr_err("get data failed at iteration %d", i);
 			serial_port_free(serial);
@@ -414,7 +473,7 @@ int t_serial_port_stress(int argc, char **argv)
 			continue;
 		}
 
-		ret = serial_port_get_data(serial, rx_data, sizeof(rx_data), 500);
+		ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 500);
 		if (ret >= 0) {
 			success_count++;
 		}
@@ -445,7 +504,7 @@ int t_serial_port_timeout(int argc, char **argv)
 		return FAIL;
 	}
 
-	ret = serial_port_get_data(serial, rx_data, sizeof(rx_data), 100);
+	ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 100);
 	if (ret == -ETIMEDOUT) {
 		pr_info("timeout test passed, timeout occurred as expected");
 		serial_port_free(serial);
@@ -491,7 +550,7 @@ int t_serial_port_null_checks(int argc, char **argv)
 		return FAIL;
 	}
 
-	ret = serial_port_get_data(serial, NULL, SERIAL_PORT_BUFFER_SIZE, 1000);
+	ret = serial_port_receive_bytes(serial, NULL, SERIAL_PORT_BUFFER_SIZE, 1000);
 	if (ret != -EINVAL) {
 		pr_err("null buffer check failed");
 		serial_port_free(serial);
@@ -499,7 +558,7 @@ int t_serial_port_null_checks(int argc, char **argv)
 	}
 
 	char small_buffer[10];
-	ret = serial_port_get_data(serial, small_buffer, sizeof(small_buffer), 1000);
+	ret = serial_port_receive_bytes(serial, small_buffer, sizeof(small_buffer), 1000);
 	if (ret != -EINVAL) {
 		pr_err("small buffer check failed");
 		serial_port_free(serial);
@@ -533,7 +592,7 @@ int t_serial_port_zero_timeout(int argc, char **argv)
 		return FAIL;
 	}
 
-	ret = serial_port_get_data(serial, rx_data, sizeof(rx_data), 0);
+	ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 0);
 	if (ret >= 0) {
 		pr_info("zero timeout test passed, received %d bytes", ret);
 		serial_port_free(serial);
@@ -568,7 +627,7 @@ int t_serial_port_ring_buffer(int argc, char **argv)
 		return FAIL;
 	}
 
-	ret = serial_port_get_data(serial, rx_data, sizeof(rx_data), 1000);
+	ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 1000);
 	if (ret < 0) {
 		pr_err("failed to get first message");
 		serial_port_free(serial);
@@ -582,7 +641,7 @@ int t_serial_port_ring_buffer(int argc, char **argv)
 		return FAIL;
 	}
 
-	ret = serial_port_get_data(serial, rx_data, sizeof(rx_data), 1000);
+	ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 1000);
 	if (ret < 0) {
 		pr_err("failed to get second message");
 		serial_port_free(serial);
@@ -618,7 +677,7 @@ int t_serial_port_error_injection(int argc, char **argv)
 			return FAIL;
 		}
 
-		ret = serial_port_get_data(serial, rx_data, sizeof(rx_data), 1000);
+		ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 1000);
 		if (ret < 0) {
 			pr_err("get data failed at iteration %d", i);
 			continue;
@@ -662,7 +721,7 @@ int t_serial_port_special_characters(int argc, char **argv)
 		return FAIL;
 	}
 
-	ret = serial_port_get_data(serial, rx_data, sizeof(rx_data), 1000);
+	ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 1000);
 	if (ret >= 0) {
 		pr_info("special characters test passed, received %d bytes", ret);
 		serial_port_free(serial);

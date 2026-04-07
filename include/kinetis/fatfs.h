@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-/* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
+/* The following program is modified by the user according to the hardware device, otherwise driver cannot run. */
 
 /* Includes ------------------------------------------------------------------*/
 #include "kinetis/core_common.h"
@@ -24,8 +24,10 @@ FRESULT fatfs_delete_node(TCHAR *path, UINT sz_buff, FILINFO *fno);
 int fatfs_diskio(BYTE pdrv, UINT ncyc, DWORD *buff, UINT sz_buff);
 FRESULT fatfs_contiguous_file(FIL *fp, int *cont);
 int fatfs_raw_speed(BYTE pdrv, DWORD lba, DWORD len, void *buff, UINT sz_buff);
+int fatfs_get_file_mtime(char *file_path, char *file_name, u64 *modtime);
+int fatfs_get_file_mode(char *file_path, char *file_name, mode_t *mode);
 
-/* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
+/* The above procedure is modified by the user according to the hardware device, otherwise driver cannot run. */
 
 #ifdef __cplusplus
 }

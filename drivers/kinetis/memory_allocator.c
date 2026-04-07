@@ -50,7 +50,7 @@ typedef uint64_t u64;
 
 // Static memory pool size
 #define STATIC_POOL_SIZE (1024 * 1024)
-#define MAX_BLOCKS 64
+#define MAX_BLOCKS 256
 
 // Memory alignment macros (fixed for 64-bit addresses)
 #define ALIGN_UP(val, align) (((val) + (align) - 1) & ~((u64)(align) - 1))

@@ -20,8 +20,8 @@
 #include "kinetis/max77752.h"
 #include "kinetis/max30205.h"
 #include "kinetis/spi_soft.h"
-#include "w25qxxx.h"
 
+#include "w25qxxx.h"
 #include "hydrology.h"
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */

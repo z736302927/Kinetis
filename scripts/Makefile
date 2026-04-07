@@ -164,6 +164,7 @@ C_SOURCES += $(wildcard ../fs/*.c)
 C_SOURCES += $(wildcard ../fs/fatfs/*.c)
 C_SOURCES += $(wildcard ../fs/fatfs/drivers/fake_ram_diskio.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/*.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/lrzsz/*.c)
 #C_SOURCES += $(wildcard ../drivers/kinetis/flight/*.c)
 # Add other necessary source files...
 
@@ -190,6 +191,7 @@ EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/flight/filter.c)
 EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/flight/fmu_task.c)
 EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/chinese.c)
 EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/kinetis-module-boot.c)
+EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/ustp.c)
 
 C_SOURCES := $(filter-out $(EXCLUDE_SOURCES),$(C_SOURCES))
 
@@ -301,7 +303,7 @@ endif
 # Default target - build .exe
 all: $(TARGET)
 	@$(ECHO) "Build completed: $(TARGET)"
-	@$(ECHO) "Auto-running the program..."
+	@$(ECHO) "Auto-running program..."
 	@$(MAKE) run
 
 # Compile only - build .exe without running

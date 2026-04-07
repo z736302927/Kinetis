@@ -554,9 +554,6 @@ static void *spi_slave_state_machine_thread(void *data)
 	return NULL;
 }
 
-/**
- * @brief Start SPI slave state machine thread
- */
 static int spi_slave_start_thread(struct spi_slave *device)
 {
 	int ret;
@@ -579,9 +576,6 @@ static int spi_slave_start_thread(struct spi_slave *device)
 	return 0;
 }
 
-/**
- * @brief Stop SPI slave state machine thread
- */
 static void spi_slave_stop_thread(struct spi_slave *device)
 {
 	void *thread_ret;
@@ -603,9 +597,6 @@ static void spi_slave_stop_thread(struct spi_slave *device)
 	pr_info("spi_slave(%s): Thread stopped", device->name);
 }
 
-/**
- * @brief Stop SPI slave state machine thread
- */
 void spi_slave_soft_exit(struct spi_slave *device)
 {
 	pr_info("spi_slave(%s): Shutting down SPI slave", device->name);

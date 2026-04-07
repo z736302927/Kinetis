@@ -316,11 +316,18 @@ static int hydrology_device_make_up_body(struct hydrology_element_info *element_
 	}
 
 	if (!element_table &&
-		(funcode != LINK_REPORT && funcode != INIT_SOLID_STORAGE_REPORT &&
-			funcode != RESET_REPORT && funcode != SET_CLOCK_REPORT &&
-			funcode != TIME_REPORT && funcode != ARTIFICIAL_NUM_REPORT &&
-			funcode != INQUIRE_ARTIFICIAL_NUM_REPORT && funcode != PICTURE_REPORT &&
-			funcode != SW_VERSION_REPORT)) {
+		(funcode != LINK_REPORT &&
+		funcode != INIT_SOLID_STORAGE_REPORT &&
+		funcode != RESET_REPORT &&
+		funcode != SET_CLOCK_REPORT &&
+		funcode != TIME_REPORT &&
+		funcode != ARTIFICIAL_NUM_REPORT &&
+		funcode != INQUIRE_ARTIFICIAL_NUM_REPORT &&
+		funcode != PICTURE_REPORT &&
+		funcode != SW_VERSION_REPORT &&
+		funcode != PUMP_REPORT &&
+		funcode != VALVE_REPORT &&
+		funcode != GATE_REPORT)) {
 		pr_err("Invalid element_table parameter for funcode %d\n", funcode);
 		return -EINVAL;
 	}
@@ -2573,50 +2580,50 @@ int t_hydrology_device_m1m2(enum hydrology_mode mode)
 	g_hydrology.source = MSG_FORM_CLIENT;
 
 	if (t_hydrology_device_random_element(mode, LINK_REPORT)) {
-		return -1;
+				return -1;
 	}
 
 	if (t_hydrology_device_random_element(mode, TEST_REPORT)) {
-		return -1;
+				return -1;
 	}
 
 	if (t_hydrology_device_random_element(mode, EVEN_PERIOD_INFO_REPORT)) {
-		return -1;
+				return -1;
 	}
 
 	if (t_hydrology_device_random_element(mode, TIMER_REPORT)) {
-		return -1;
+				return -1;
 	}
 
 	if (t_hydrology_device_random_element(mode, ADD_REPORT)) {
-		return -1;
+				return -1;
 	}
 
 	if (t_hydrology_device_random_element(mode, HOUR_REPORT)) {
-		return -1;
+				return -1;
 	}
 
 	if (t_hydrology_device_random_element(mode, ARTIFICIAL_NUM_REPORT)) {
-		return -1;
+				return -1;
 	}
 
 	if (t_hydrology_device_random_element(mode, PICTURE_REPORT)) {
-		return -1;
+				return -1;
 	}
 
 	if (t_hydrology_device_random_element(mode, PUMP_REPORT)) {
-		return -1;
+				return -1;
 	}
 
 	if (t_hydrology_device_random_element(mode, VALVE_REPORT)) {
-		return -1;
+				return -1;
 	}
 
 	if (t_hydrology_device_random_element(mode, GATE_REPORT)) {
-		return -1;
+				return -1;
 	}
 
-	return 0;
+		return 0;
 }
 
 int t_hydrology_device_m3(void)
@@ -2624,53 +2631,53 @@ int t_hydrology_device_m3(void)
 	g_hydrology.source = MSG_FORM_CLIENT;
 
 	if (t_hydrology_device_random_element(HYDROLOGY_M3, TEST_REPORT)) {
-		return -1;
+				return -1;
 	}
 
 	if (t_hydrology_device_random_element(HYDROLOGY_M3, EVEN_PERIOD_INFO_REPORT)) {
-		return -1;
+				return -1;
 	}
 
 	if (t_hydrology_device_random_element(HYDROLOGY_M3, TIMER_REPORT)) {
-		return -1;
+				return -1;
 	}
 
 	if (t_hydrology_device_random_element(HYDROLOGY_M3, ADD_REPORT)) {
-		return -1;
+				return -1;
 	}
 
 	if (t_hydrology_device_random_element(HYDROLOGY_M3, HOUR_REPORT)) {
-		return -1;
+				return -1;
 	}
 
 	if (t_hydrology_device_random_element(HYDROLOGY_M3, ARTIFICIAL_NUM_REPORT)) {
-		return -1;
+				return -1;
 	}
 
 	if (t_hydrology_device_random_element(HYDROLOGY_M3, PICTURE_REPORT)) {
-		return -1;
+				return -1;
 	}
 
 	if (t_hydrology_device_random_element(HYDROLOGY_M3, PUMP_REPORT)) {
-		return -1;
+				return -1;
 	}
 
 	if (t_hydrology_device_random_element(HYDROLOGY_M3, VALVE_REPORT)) {
-		return -1;
+				return -1;
 	}
 
 	if (t_hydrology_device_random_element(HYDROLOGY_M3, GATE_REPORT)) {
-		return -1;
+				return -1;
 	}
 
-	return 0;
+		return 0;
 }
 
 int t_hydrology_device_m4(void)
 {
-	g_hydrology.source = MSG_FORM_CLIENT;
+		g_hydrology.source = MSG_FORM_CLIENT;
 
 	return hydrology_device_process(NULL, 0, HYDROLOGY_M4, (enum hydrology_body_type)NULL);
-}
+	}
 
 #endif

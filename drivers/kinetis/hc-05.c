@@ -44,7 +44,7 @@ static int hc_05_query(struct hc_05_device *device, const char *cmd,
 		return ret;
 	}
 
-	ret = serial_port_get_data(device->serial, buffer, size, timeout_ms);
+	ret = serial_port_receive_bytes(device->serial, buffer, size, timeout_ms);
 	if (ret < 0) {
 		return ret;
 	}
@@ -259,7 +259,7 @@ static int hc_05_detect_device(struct hc_05_device *device)
 
 	serial_port_transmit_bytes(device->serial, "AT", strlen("AT"));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -286,7 +286,7 @@ int hc_05_reset(struct hc_05_device *device)
 
 	serial_port_transmit_bytes(device->serial, "AT+RESET", strlen("AT+RESET"));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -317,7 +317,7 @@ static int hc_05_restore_factory(struct hc_05_device *device)
 
 	serial_port_transmit_bytes(device->serial, "AT+ORGL", strlen("AT+ORGL"));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -341,7 +341,7 @@ static int hc_05_set_name(struct hc_05_device *device, const char *name)
 
 	serial_port_transmit_bytes(device->serial, cmd, strlen(cmd));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -375,7 +375,7 @@ static int hc_05_set_password(struct hc_05_device *device, const char *password)
 
 	serial_port_transmit_bytes(device->serial, cmd, strlen(cmd));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -409,7 +409,7 @@ static int hc_05_set_uart(struct hc_05_device *device, int baudrate, int stopbit
 
 	serial_port_transmit_bytes(device->serial, cmd, strlen(cmd));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -443,7 +443,7 @@ static int hc_05_set_role(struct hc_05_device *device, int role)
 
 	serial_port_transmit_bytes(device->serial, cmd, strlen(cmd));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -482,7 +482,7 @@ static int hc_05_set_cmode(struct hc_05_device *device, int mode)
 
 	serial_port_transmit_bytes(device->serial, cmd, strlen(cmd));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -521,7 +521,7 @@ static int hc_05_set_bind(struct hc_05_device *device, int nap, int uap, int lap
 
 	serial_port_transmit_bytes(device->serial, cmd, strlen(cmd));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -555,7 +555,7 @@ static int hc_05_set_iac(struct hc_05_device *device, const char *iac)
 
 	serial_port_transmit_bytes(device->serial, cmd, strlen(cmd));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -589,7 +589,7 @@ static int hc_05_set_class(struct hc_05_device *device, int class)
 
 	serial_port_transmit_bytes(device->serial, cmd, strlen(cmd));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -623,7 +623,7 @@ static int hc_05_set_inqm(struct hc_05_device *device, int mode, int max, int ti
 
 	serial_port_transmit_bytes(device->serial, cmd, strlen(cmd));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -657,7 +657,7 @@ static int hc_05_set_ipscan(struct hc_05_device *device, int interval, int windo
 
 	serial_port_transmit_bytes(device->serial, cmd, strlen(cmd));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -691,7 +691,7 @@ static int hc_05_set_sniff(struct hc_05_device *device, int max_interval, int mi
 
 	serial_port_transmit_bytes(device->serial, cmd, strlen(cmd));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -725,7 +725,7 @@ static int hc_05_set_pio(struct hc_05_device *device, int pio)
 
 	serial_port_transmit_bytes(device->serial, cmd, strlen(cmd));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -764,7 +764,7 @@ static int hc_05_set_mpio(struct hc_05_device *device, int mpio)
 
 	serial_port_transmit_bytes(device->serial, cmd, strlen(cmd));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -872,7 +872,7 @@ static int hc_05_init_spp(struct hc_05_device *device)
 
 	serial_port_transmit_bytes(device->serial, "AT+INIT", strlen("AT+INIT"));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -891,7 +891,7 @@ static int hc_05_inquiry(struct hc_05_device *device)
 
 	serial_port_transmit_bytes(device->serial, "AT+INQ", strlen("AT+INQ"));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -910,7 +910,7 @@ static int hc_05_inquiry_cancel(struct hc_05_device *device)
 
 	serial_port_transmit_bytes(device->serial, "AT+INQC", strlen("AT+INQC"));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -932,7 +932,7 @@ static int hc_05_pair(struct hc_05_device *device, const char *addr, int timeout
 
 	serial_port_transmit_bytes(device->serial, cmd, strlen(cmd));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 10000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 10000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -954,7 +954,7 @@ static int hc_05_connect(struct hc_05_device *device, const char *addr)
 
 	serial_port_transmit_bytes(device->serial, cmd, strlen(cmd));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 10000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 10000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -973,7 +973,7 @@ int hc_05_disconnect(struct hc_05_device *device)
 
 	serial_port_transmit_bytes(device->serial, "AT+DISC", strlen("AT+DISC"));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -992,7 +992,7 @@ static int hc_05_remove_all_devices(struct hc_05_device *device)
 
 	serial_port_transmit_bytes(device->serial, "AT+RMAAD", strlen("AT+RMAAD"));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -1014,7 +1014,7 @@ static int hc_05_remove_device(struct hc_05_device *device, const char *addr)
 
 	serial_port_transmit_bytes(device->serial, cmd, strlen(cmd));
 
-	ret = serial_port_get_data(device->serial, at_ack, sizeof(at_ack), 1000);
+	ret = serial_port_receive_bytes(device->serial, at_ack, sizeof(at_ack), 1000);
 	if (ret < 0) {
 		return ret;
 	}
@@ -1182,7 +1182,7 @@ int hc_05_scan_and_connect(struct hc_05_device *device, const char *target_name,
 		return ret;
 	}
 
-	ret = serial_port_get_data(device->serial, buffer, sizeof(buffer), (timeout + 2) * 1000);
+	ret = serial_port_receive_bytes(device->serial, buffer, sizeof(buffer), (timeout + 2) * 1000);
 	if (ret < 0) {
 		pr_warn("no devices found or timeout\n");
 		return ret;
@@ -1499,7 +1499,7 @@ int hc_05_receive_data(struct hc_05_device *device, u8 *buffer, int size, u32 ti
 		return -EINVAL;
 	}
 
-	ret = serial_port_get_data(device->serial, (char *)buffer, size, timeout_ms);
+	ret = serial_port_receive_bytes(device->serial, (char *)buffer, size, timeout_ms);
 	if (ret < 0) {
 		pr_err("Failed to receive data: %d\n", ret);
 		return ret;
@@ -1521,7 +1521,7 @@ int hc_05_receive_string(struct hc_05_device *device, char *buffer, int size, u3
 		return -EINVAL;
 	}
 
-	ret = serial_port_get_data(device->serial, buffer, size, timeout_ms);
+	ret = serial_port_receive_bytes(device->serial, buffer, size, timeout_ms);
 	if (ret < 0) {
 		pr_err("Failed to receive string: %d\n", ret);
 		return ret;
@@ -1572,7 +1572,7 @@ int hc_05_wait_for_data(struct hc_05_device *device, int expected_bytes, u32 tim
 		return -EINVAL;
 	}
 
-	ret = serial_port_get_data(device->serial, (char *)buffer, sizeof(buffer), timeout_ms);
+	ret = serial_port_receive_bytes(device->serial, (char *)buffer, sizeof(buffer), timeout_ms);
 	if (ret < 0) {
 		pr_err("Failed to wait for data\n");
 		return ret;
@@ -1596,7 +1596,7 @@ int hc_05_flush_rx_buffer(struct hc_05_device *device)
 		return -EINVAL;
 	}
 
-	ret = serial_port_get_data(device->serial, (char *)buffer, sizeof(buffer), 10);
+	ret = serial_port_receive_bytes(device->serial, (char *)buffer, sizeof(buffer), 10);
 	if (ret > 0) {
 		pr_debug("Flushed %d bytes from RX buffer\n", ret);
 	}

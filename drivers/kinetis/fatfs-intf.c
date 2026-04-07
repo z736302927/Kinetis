@@ -65,10 +65,6 @@ static int fatfs_build_path(char *buffer, size_t buffer_size,
 	size_t path_len;
 	bool need_sep;
 
-	if (!buffer || !file_path || !file_name) {
-		return -EINVAL;
-	}
-
 	path_len = strlen(file_path);
 	need_sep = (path_len > 0 && file_path[path_len - 1] != '/' && file_path[path_len - 1] != '\\');
 
@@ -412,4 +408,105 @@ out_close:
 	}
 
 	return ret;
+}
+
+/**
+ * Convert FAT date/time to Unix timestamp
+ * @fdate: FAT date (bits 15-9: year-1980, bits 8-5: month, bits 4-0: day)
+ * @ftime: FAT time (bits 15-11: hour, bits 10-5: minute, bits 4-0: second/2)
+ * @return: Unix timestamp (seconds since 1970-01-01)
+ */
+static u64 fat_time_to_unix_timestamp(WORD fdate, WORD ftime)
+{
+	u16 year = ((fdate >> 9) & 0x7F) + 1980;
+	u8 month = (fdate >> 5) & 0x0F;
+	u8 day = fdate & 0x1F;
+	u8 hour = (ftime >> 11) & 0x1F;
+	u8 minute = (ftime >> 5) & 0x3F;
+	u8 second = (ftime & 0x1F) * 2;
+	
+	/* Simplified Unix timestamp calculation (days since 1970-01-01) */
+	u64 days = 365 * (year - 1970) + (year - 1969) / 4 - (year - 1901) / 100 + (year - 1601) / 400;
+	u8 month_days[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+	
+	/* Add days for previous months in current year */
+	for (u8 m = 1; m < month; m++) {
+		days += month_days[m - 1];
+		if (m == 2 && (year % 400 == 0 || (year % 100 != 0 && year % 4 == 0))) {
+			days += 1;  /* Leap year February */
+		}
+	}
+	days += day - 1;
+	
+	return days * 86400ULL + hour * 3600ULL + minute * 60ULL + second;
+}
+
+/**
+ * Get file last modification time
+ * @file_path: Directory path
+ * @file_name: File name
+ * @modtime: Pointer to store modification time (Unix timestamp)
+ * @return: 0 on success, negative error code on failure
+ */
+int fatfs_get_file_mtime(char *file_path, char *file_name, u64 *modtime)
+{
+	FRESULT res;
+	FILINFO fno;
+	char buffer[FATFS_BUFFER_SIZE];
+	int ret;
+
+	if (!file_path && file_name) {
+		res = f_stat(file_name, &fno);
+	} else {
+		ret = fatfs_build_path(buffer, sizeof(buffer), file_path, file_name);
+		if (ret < 0) {
+			pr_err("File path too long: %s%s\n", file_path, file_name);
+			return ret;
+		}
+		res = f_stat(buffer, &fno);
+	}
+	if (res != FR_OK) {
+		return fatfs_error_to_linux_error(res);
+	}
+
+	*modtime = fat_time_to_unix_timestamp(fno.fdate, fno.ftime);
+	return 0;
+}
+
+/**
+ * Get file permissions
+ * @file_path: Directory path
+ * @file_name: File name
+ * @mode: Pointer to store file permissions (mode_t format, e.g., 0644)
+ * @return: 0 on success, negative error code on failure
+ */
+int fatfs_get_file_mode(char *file_path, char *file_name, mode_t *mode)
+{
+	FRESULT res;
+	FILINFO fno;
+	char buffer[FATFS_BUFFER_SIZE];
+	int ret;
+
+	if (!file_path && file_name) {
+		res = f_stat(file_name, &fno);
+	} else {
+		ret = fatfs_build_path(buffer, sizeof(buffer), file_path, file_name);
+		if (ret < 0) {
+			pr_err("File path too long: %s%s\n", file_path, file_name);
+			return ret;
+		}
+		res = f_stat(buffer, &fno);
+	}
+	if (res != FR_OK) {
+		return fatfs_error_to_linux_error(res);
+	}
+
+	/* Convert FAT attributes to Unix-style mode */
+	if (fno.fattrib & AM_RDO) {
+		*mode = 0444;  /* Read-only: r--r--r-- */
+	} else {
+		*mode = 0644;  /* Read/write: rw-r--r-- */
+	}
+
+	return 0;
 }
