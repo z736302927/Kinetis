@@ -88,7 +88,7 @@ static int hc_05_buf_append(char *buffer, int size, int *pos, const char *fmt, .
 	return 0;
 }
 
-static void hc_05_parse_command(char *request, char *response, void *context)
+static u32 hc_05_parse_command(char *request, char *response, void *context)
 {
 	struct hc_05_device *device = (struct hc_05_device *)context;
 
@@ -250,6 +250,8 @@ static void hc_05_parse_command(char *request, char *response, void *context)
 
 	pr_info("request: %s", request);
 	pr_info("response: %s", response);
+
+	return strlen(response);
 }
 
 static int hc_05_detect_device(struct hc_05_device *device)
@@ -1652,12 +1654,13 @@ struct hc_05_device *hc_05_alloc()
 	device->enapwd = 0;
 	device->initialized = true;
 
-	device->serial = serial_port_alloc(hc_05_parse_command, device);
+	device->serial = serial_port_alloc(&fake_serial_port_ops);
 	if (IS_ERR(device->serial)) {
 		ret = PTR_ERR(device->serial);
 		kfree(device);
 		return ERR_PTR(ret);
 	}
+	serial_port_start_thread(device->serial, SERIAL_PORT_DF_SELF, hc_05_parse_command, device);
 
 	ret = hc_05_detect_device(device);
 	if (ret) {

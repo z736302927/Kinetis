@@ -17,11 +17,11 @@ struct zreadline_ {
 
 typedef struct zreadline_ zreadline_t;
 
-zreadline_t *zreadline_init(int fd, size_t readnum, size_t bufsize, int no_timeout);
+zreadline_t *zreadline_init(struct serial_port *serial, size_t readnum, size_t bufsize, int no_timeout);
 void zreadline_flush (zreadline_t *zr);
 void zreadline_flushline (zreadline_t *zr);
 int zreadline_getc(zreadline_t *zr, int timeout);
-void zreadline_canit (zreadline_t *zr, int fd);
+void zreadline_canit (zreadline_t *zr);
 
 
 #endif

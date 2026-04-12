@@ -44,7 +44,7 @@ struct zm_ {
 
 typedef struct zm_ zm_t;
 
-zm_t *zm_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
+zm_t *zm_init(struct serial_port *serial, size_t readnum, size_t bufsize, int no_timeout,
 	      int rxtimeout, int znulls, int eflag, int baudrate, int zctlesc, int zrwindow);
 int zm_get_zctlesc(zm_t *zm);
 void zm_set_zctlesc(zm_t *zm, int zctlesc);

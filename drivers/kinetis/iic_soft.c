@@ -689,9 +689,6 @@ static void *iic_slave_state_machine_thread(void *data)
 	return NULL;
 }
 
-/**
- * @brief Start the I2C slave state machine thread
- */
 static int iic_slave_start_thread(struct iic_slave *device)
 {
 	int ret;
@@ -714,9 +711,6 @@ static int iic_slave_start_thread(struct iic_slave *device)
 	return 0;
 }
 
-/**
- * @brief Stop the I2C slave state machine thread
- */
 static void iic_slave_stop_thread(struct iic_slave *device)
 {
 	void *thread_ret;
@@ -738,9 +732,6 @@ static void iic_slave_stop_thread(struct iic_slave *device)
 	pr_info("iic_slave(%s): Thread stopped", device->name);
 }
 
-/**
- * @brief Stop I2C slave state machine thread
- */
 void iic_slave_soft_exit(struct iic_slave *device)
 {
 	pr_info("iic_slave(%s): Shutting down I2C slave", device->name);

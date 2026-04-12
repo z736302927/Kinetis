@@ -7,6 +7,8 @@ extern "C" {
 
 #include <linux/types.h>
 
+#include "kinetis/serial-port.h"
+
 /* Result codes */
 #define RZSZ_NO_ERROR (0)
 #define RZSZ_ERROR (1)
@@ -57,7 +59,8 @@ extern "C" {
 
    The return value is the sum of the sizes of the files successfully
    transfered. */
-size_t zmodem_receive(const char *directory,
+size_t zmodem_receive(struct serial_port *serial,
+            const char *directory,
 		      bool (*approver)(const char *filename, size_t size, u64 date),
 		      bool tick_cb(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left),
 		      void (*complete)(const char *filename, int result, size_t size, u64 date),
@@ -103,12 +106,16 @@ size_t zmodem_receive(const char *directory,
 
    The return value is the sum of the sizes of the files successfully
    transfered. */
-size_t zmodem_send(int file_count,
+size_t zmodem_send(struct serial_port *serial,
+         int file_count,
 		   const char **file_list,
 		   bool (*tick)(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left),
 		   void (*complete)(const char *filename, int result, size_t size, u64 date),
 		   u64 min_bps,
 		   u32 flags);
+
+int lrzsz_rz(struct serial_port *serial, const char *directory);
+int lrzsz_sz();
 
 #ifdef __cplusplus
 }

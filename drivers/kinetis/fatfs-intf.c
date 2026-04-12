@@ -58,6 +58,80 @@ static int fatfs_error_to_linux_error(FRESULT fr)
 	}
 }
 
+/**
+ * Create multi-level directories recursively
+ * @param path: Directory path to create (e.g., "0:/lrzsz/sz")
+ * @return: 0 on success, negative error code on failure
+ */
+static int fatfs_create_dirs(const char *path)
+{
+	char buffer[FATFS_BUFFER_SIZE];
+	char *p;
+	char *next_sep;
+	char full_path[FATFS_BUFFER_SIZE];
+	int path_len;
+	int level_len;
+	FRESULT res;
+
+	if (!path || strlen(path) == 0) {
+		return -EINVAL;
+	}
+
+	/* Copy path to buffer to avoid modifying original */
+	if (snprintf(buffer, sizeof(buffer), "%s", path) >= sizeof(buffer)) {
+		return -ENAMETOOLONG;
+	}
+
+	/* Skip drive prefix (e.g., "0:") */
+	p = buffer;
+	if (p[0] >= '0' && p[0] <= '9' && p[1] == ':') {
+		p += 2;
+	}
+
+	/* Skip leading slash */
+	if (*p == '/' || *p == '\\') {
+		p++;
+	}
+
+	/* Create each directory level */
+	while (*p) {
+		next_sep = strchr(p, '/');
+		if (!next_sep) {
+			next_sep = strchr(p, '\\');
+		}
+
+		if (next_sep) {
+			*next_sep = '\0';
+		}
+
+		/* Build partial path back to current level */
+		/* full_path = "0:/lrzsz" */
+		path_len = p - buffer;
+		level_len = strlen(p);
+		if (path_len + level_len + 1 >= sizeof(full_path)) {
+			return -ENAMETOOLONG;
+		}
+		memcpy(full_path, buffer, path_len + level_len);
+		full_path[path_len + level_len] = '\0';
+
+		/* Try to create directory, ignore if already exists */
+		res = f_mkdir(full_path);
+		if (res != FR_OK && res != FR_EXIST) {
+			pr_err("Failed to create directory %s: %d\n", full_path, res);
+			return fatfs_error_to_linux_error(res);
+		}
+
+		if (next_sep) {
+			*next_sep = '/';
+			p = next_sep + 1;
+		} else {
+			break;
+		}
+	}
+
+	return 0;
+}
+
 static int fatfs_build_path(char *buffer, size_t buffer_size,
 	const char *file_path, const char *file_name)
 {
@@ -65,11 +139,17 @@ static int fatfs_build_path(char *buffer, size_t buffer_size,
 	size_t path_len;
 	bool need_sep;
 
-	path_len = strlen(file_path);
-	need_sep = (path_len > 0 && file_path[path_len - 1] != '/' && file_path[path_len - 1] != '\\');
+	/* If file_path is NULL, file_name is already the full path */
+	if (!file_path) {
+		written = snprintf(buffer, buffer_size, "%s", file_name);
+	} else {
+		path_len = strlen(file_path);
+		need_sep = (path_len > 0 && file_path[path_len - 1] != '/' && file_path[path_len - 1] != '\\');
 
-	written = snprintf(buffer, buffer_size, "%s%s%s", file_path, need_sep ? "/" : "", file_name);
-	if (written < 0 || written >= (int)buffer_size) {
+		written = snprintf(buffer, buffer_size, "%s%s%s", file_path, need_sep ? "/" : "", file_name);
+	}
+
+	if (written < 0 || (size_t)written >= buffer_size) {
 		return -ENAMETOOLONG;
 	}
 
@@ -180,11 +260,9 @@ int fatfs_create_file(char *file_path, char *file_name)
 	if (res == FR_OK) {
 		dir_opened = true;
 	} else if (res == FR_NO_PATH) {
-		/* Failure to open directory, create directory. */
-		res = f_mkdir(buffer);
-		if (res != FR_OK) {
-			pr_err("Failed to create directory %s: %d\n", buffer, res);
-			ret = fatfs_error_to_linux_error(res);
+		/* Directory doesn't exist, create multi-level path. */
+		ret = fatfs_create_dirs(buffer);
+		if (ret < 0) {
 			goto out;
 		}
 		/* Try to open the newly created directory */
@@ -239,26 +317,24 @@ int fatfs_delete_file(char *file_path, char *file_name)
 	char buffer[FATFS_BUFFER_SIZE];
 	int ret;
 
-	if (!file_path || !file_name) {
-		pr_err("Invalid parameters: file_path or file_name is NULL\n");
+	if (!file_name) {
+		pr_err("Invalid parameter: file_name is NULL\n");
 		return -EINVAL;
 	}
 
 	ret = fatfs_build_path(buffer, sizeof(buffer), file_path, file_name);
 	if (ret < 0) {
-		pr_err("File path too long: %s%s\n", file_path, file_name);
+		pr_err("File path too long: %s%s\n", file_path ? file_path : "", file_name);
 		return ret;
 	}
 
 	res = f_unlink(buffer);
 	if (res != FR_OK) {
 		pr_err("Failed to delete file %s: %d\n", buffer, res);
-		ret = fatfs_error_to_linux_error(res);
-	} else {
-		ret = 0;
+		return fatfs_error_to_linux_error(res);
 	}
 
-	return ret;
+	return 0;
 }
 
 int fatfs_read_file_size(char *file_path, char *file_name,
@@ -424,11 +500,11 @@ static u64 fat_time_to_unix_timestamp(WORD fdate, WORD ftime)
 	u8 hour = (ftime >> 11) & 0x1F;
 	u8 minute = (ftime >> 5) & 0x3F;
 	u8 second = (ftime & 0x1F) * 2;
-	
+
 	/* Simplified Unix timestamp calculation (days since 1970-01-01) */
 	u64 days = 365 * (year - 1970) + (year - 1969) / 4 - (year - 1901) / 100 + (year - 1601) / 400;
 	u8 month_days[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-	
+
 	/* Add days for previous months in current year */
 	for (u8 m = 1; m < month; m++) {
 		days += month_days[m - 1];
@@ -437,7 +513,7 @@ static u64 fat_time_to_unix_timestamp(WORD fdate, WORD ftime)
 		}
 	}
 	days += day - 1;
-	
+
 	return days * 86400ULL + hour * 3600ULL + minute * 60ULL + second;
 }
 

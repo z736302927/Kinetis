@@ -39,11 +39,12 @@ static int
 readline_internal(zreadline_t *zr, unsigned int timeout);
 
 zreadline_t *
-zreadline_init(int fd, size_t readnum, size_t bufsize, int no_timeout)
+zreadline_init(struct serial_port *serial, size_t readnum, size_t bufsize, int no_timeout)
 {
 	zreadline_t *zr = (zreadline_t *) kmalloc(sizeof(zreadline_t), GFP_KERNEL);
 	memset(zr, 0, sizeof(zreadline_t));
-	zr->readline_fd = fd;
+	zr->serial = serial;
+	zr->readline_fd = 0;
 	zr->readline_readnum = readnum;
 	zr->readline_buffer = kmalloc(bufsize > readnum ? bufsize : readnum, GFP_KERNEL);
 	if (!zr->readline_buffer) {
@@ -83,10 +84,7 @@ zreadline_alarm_handler(int dummy LRZSZ_ATTRIB_UNUSED)
 static int
 readline_internal(zreadline_t *zr, unsigned int timeout)
 {
-	u64 start_time, elapsed_time;
-	unsigned int timeout_ms;
-	int ret;
-
+	unsigned int timeout_ms = 10000;
 	if (!zr->no_timeout) {
 		/* Convert timeout (tenths of seconds) to milliseconds */
 		unsigned int n = timeout / 10;
@@ -96,39 +94,22 @@ readline_internal(zreadline_t *zr, unsigned int timeout)
 			n = 1;
 		}
 		timeout_ms = n * 1000;  /* Convert to milliseconds */
-		start_time = basic_timer_get_ms();
 		pr_notice("Calling read: timeout=%d ms  Readnum=%d ",
 			timeout_ms, zr->readline_readnum);
 	} else {
 		pr_notice("Calling read: Readnum=%d ", zr->readline_readnum);
 	}
-
 	zr->readline_ptr = zr->readline_buffer;
-
-	ret = serial_port_receive_bytes(zr->serial,
-				       zr->readline_buffer,
-				       zr->readline_readnum,
-				       zr->no_timeout ? 0 : timeout_ms);
-	if (ret < 0) {
-		zr->readline_left = 0;
-		pr_notice("Serial port read failed: %d\n", ret);
-		return TIMEOUT;
-	}
-	zr->readline_left = ret;
-
-	if (!zr->no_timeout) {
-		/* Check if read timed out */
-		elapsed_time = basic_timer_get_ms() - start_time;
-		if (elapsed_time >= timeout_ms) {
-			pr_notice("Read timeout after %llu ms\n", elapsed_time);
-			return TIMEOUT;
-		}
-	}
-
-	pr_notice("Read returned %d bytes\n", zr->readline_left);
+	zr->readline_left = serial_port_receive_bytes(zr->serial,
+			zr->readline_ptr,
+			zr->readline_readnum,
+			timeout_ms);
 
 	if (zr->readline_left < 1) {
+		pr_notice("Read failure\n");
 		return TIMEOUT;
+	} else {
+		pr_notice("Read returned %d bytes\n", zr->readline_left);
 	}
 	zr->readline_left -- ;
 	char c = *zr->readline_ptr;
@@ -154,7 +135,7 @@ zreadline_flushline(zreadline_t *zr)
 
 /* send cancel string to get the other end to shut up */
 void
-zreadline_canit(zreadline_t *zr, int fd)
+zreadline_canit(zreadline_t *zr)
 {
 	static char canistr[] = {
 		24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 0

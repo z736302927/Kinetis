@@ -22,6 +22,8 @@
 
   originally written by Chuck Forsberg
 */
+#define pr_fmt(fmt) "lsz: " fmt
+
 #include <linux/printk.h>
 #include <linux/slab.h>
 
@@ -98,8 +100,6 @@ struct sz_ {
 	int hyperterm;
 	int io_mode_fd;
 
-	struct serial_port *serial;
-
 	void (*complete_cb)(const char *filename, int result, size_t size, u64 date);
 	bool (*tick_cb)(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left);
 
@@ -108,7 +108,7 @@ struct sz_ {
 typedef struct sz_ sz_t;
 
 static sz_t *
-sz_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
+sz_init(struct serial_port *serial, size_t readnum, size_t bufsize, int no_timeout,
 	int rxtimeout, int znulls, int eflag, int baudrate, int zctlesc, int zrwindow,
 	char lzconv, char lzmanag, int lskipnocor, int tcp_flag, unsigned txwindow, unsigned txwspac,
 	int under_rsh, int no_unixmode, int canseek, int restricted,
@@ -122,7 +122,7 @@ sz_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 {
 	sz_t *sz = kmalloc(sizeof(sz_t), GFP_KERNEL);
 	memset(sz, 0, sizeof(sz_t));
-	sz->zm = zm_init(fd, readnum, bufsize, no_timeout,
+	sz->zm = zm_init(serial, readnum, bufsize, no_timeout,
 			rxtimeout, znulls, eflag, baudrate, zctlesc, zrwindow);
 	sz->lzconv = lzconv;
 	sz->lzmanag = lzmanag;
@@ -156,6 +156,7 @@ sz_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
 	sz->hyperterm = hyperterm;
 	sz->complete_cb = complete_cb;
 	sz->tick_cb = tick_cb;
+	sz->input_f = kmalloc(sizeof(FIL), GFP_KERNEL);
 	return sz;
 }
 
@@ -206,9 +207,9 @@ static int no_timeout = FALSE;
 static void
 bibi (sz_t *sz, int n)
 {
-	// canit(zr, STDOUT_FILENO);
+	// canit(zr);
 	// FIXME, should be io_mode (sz->io_mode_fd, 0);
-	io_mode(sz->serial, 0);
+	io_mode(sz->zm->serial, 0);
 	if (n == 99) {
 		pr_crit(_("io_mode(,2) in rbsb.c not implemented"));
 	} else {
@@ -224,15 +225,16 @@ onintr(int n LRZSZ_ATTRIB_UNUSED)
 	// longjmp(sz->intrjmp, -1);
 }
 
-size_t zmodem_send(int file_count,
+size_t zmodem_send(struct serial_port *serial,
+	int file_count,
 	const char **file_list,
 	bool (*tick)(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left),
 	void (*complete)(const char *filename, int result, size_t size, u64 date),
 	u64 min_bps,
 	u32 flags)
 {
-	sz_t *sz = sz_init(0, /* fd */
-			128, /* readnum */
+	sz_t *sz = sz_init(serial,
+			256, /* readnum */
 			256, /* bufsize */
 			1, /* no_timeout */
 			600,	/* rxtimeout */
@@ -273,7 +275,7 @@ size_t zmodem_send(int file_count,
 			sz->start_blklen = sz->max_blklen = sz->tframlen;
 		}
 	}
-	sz->zm->baudrate = io_mode(sz->serial, 1);
+	sz->zm->baudrate = io_mode(sz->zm->serial, 1);
 
 	/* Spec 8.1: "The sending program may send the string "rz\r" to
 	   invoke the receiving program from a possible command
@@ -305,9 +307,9 @@ size_t zmodem_send(int file_count,
 	/* This is the main loop.  */
 	if (sz_transmit_files(sz, file_count, file_list) == ERROR) {
 		sz->exitcode = 0200;
-		zreadline_canit(sz->zm->zr, STDOUT_FILENO);
+		zreadline_canit(sz->zm->zr);
 	}
-	io_mode(sz->serial, 0);
+	io_mode(sz->zm->serial, 0);
 	int dm = 0;
 	if (sz->exitcode) {
 		dm = sz->exitcode;
@@ -415,7 +417,7 @@ sz_transmit_files (sz_t *sz, int argc, const char *argp[])
 	}
 	sz->totsecs = 0;
 	if (sz->filcnt == 0) {			/* bitch if we couldn't open ANY files */
-		zreadline_canit(sz->zm->zr, STDOUT_FILENO);
+		zreadline_canit(sz->zm->zr);
 		pr_info (_ ("Can't open any requested files."));
 		return ERROR;
 	}
@@ -660,7 +662,7 @@ sz_getnak(sz_t *sz)
 			continue;
 		case WANTG:
 			/* Set cbreak, XON/XOFF, etc. */
-			io_mode(sz->serial, 2);
+			io_mode(sz->zm->serial, 2);
 			sz->optiong = TRUE;
 			sz->blklen = 1024;
 		case WANTCRC:
@@ -724,7 +726,7 @@ sz_transmit_file_contents(sz_t *sz, struct zm_fileinfo *zi)
 	attempts = 0;
 	do {
 		zreadline_flushline(sz->zm->zr);
-		serial_port_transmit_byte(sz->serial, EOT);
+		serial_port_transmit_byte(sz->zm->serial, EOT);
 		++attempts;
 	} while ((firstch = (zreadline_getc(sz->zm->zr, sz->zm->rxtimeout)) != ACK) && attempts < RETRYMAX);
 	if (attempts == RETRYMAX) {
@@ -749,22 +751,22 @@ sz_transmit_sector(sz_t *sz, char *buf, int sectnum, size_t cseclen)
 	pr_debug(_("Zmodem sectors/kbytes sent: %3d/%2dk"), sz->totsecs, sz->totsecs / 8);
 	for (attempts = 0; attempts <= RETRYMAX; attempts++) {
 		sz->lastrx = firstch;
-		serial_port_transmit_byte(sz->serial, cseclen == 1024 ? STX : SOH);
-		serial_port_transmit_byte(sz->serial, sectnum & 0xFF);
+		serial_port_transmit_byte(sz->zm->serial, cseclen == 1024 ? STX : SOH);
+		serial_port_transmit_byte(sz->zm->serial, sectnum & 0xFF);
 		/* FIXME: clarify the following line - mlg */
-		serial_port_transmit_byte(sz->serial, (-sectnum - 1) & 0xFF);
+		serial_port_transmit_byte(sz->zm->serial, (-sectnum - 1) & 0xFF);
 		oldcrc = checksum = 0;
 		for (wcj = cseclen, cp = buf; --wcj >= 0;) {
-			serial_port_transmit_byte(sz->serial, *cp);
+			serial_port_transmit_byte(sz->zm->serial, *cp);
 			oldcrc = updcrc((0377 & *cp), oldcrc);
 			checksum += *cp++;
 		}
 		if (sz->crcflg) {
 			oldcrc = updcrc(0, updcrc(0, oldcrc));
-			serial_port_transmit_byte(sz->serial, ((int)oldcrc >> 8) & 0xFF);
-			serial_port_transmit_byte(sz->serial, ((int)oldcrc) & 0xFF);
+			serial_port_transmit_byte(sz->zm->serial, ((int)oldcrc >> 8) & 0xFF);
+			serial_port_transmit_byte(sz->zm->serial, ((int)oldcrc) & 0xFF);
 		} else {
-			serial_port_transmit_byte(sz->serial, checksum & 0xFF);
+			serial_port_transmit_byte(sz->zm->serial, checksum & 0xFF);
 		}
 
 		if (sz->optiong) {
@@ -1014,7 +1016,7 @@ sz_getzrxinit(sz_t *sz)
 				sz->txwindow = 0;
 			}
 			pr_debug("Rxbuflen=%d Tframlen=%d", sz->rxbuflen, sz->tframlen);
-			io_mode(sz->serial, 2);	/* Set cbreak, XON/XOFF, etc. */
+			io_mode(sz->zm->serial, 2);	/* Set cbreak, XON/XOFF, etc. */
 			/* Override to force shorter frame length */
 			if (sz->tframlen && sz->rxbuflen > sz->tframlen) {
 				sz->rxbuflen = sz->tframlen;
@@ -1304,7 +1306,7 @@ gotack:
 		 *  sent by the receiver, in place of setjmp/longjmp
 		 *  rdchk(fdes) returns non 0 if a character is available
 		 */
-		while (rdchk (sz->serial)) {
+		while (rdchk (sz->zm->serial)) {
 			switch (zreadline_getc (sz->zm->zr, 1)) {
 			case CAN:
 			case ZPAD:
@@ -1446,7 +1448,7 @@ gotack:
 		 *  sent by the receiver, in place of setjmp/longjmp
 		 *  rdchk(fdes) returns non 0 if a character is available
 		 */
-		while (rdchk (sz->serial)) {
+		while (rdchk (sz->zm->serial)) {
 			switch (zreadline_getc (sz->zm->zr, 1)) {
 			case CAN:
 			case ZPAD:

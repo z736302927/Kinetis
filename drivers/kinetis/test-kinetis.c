@@ -251,18 +251,8 @@ int t_rtc_task_suspend_resume(int argc, char **argv);
 int t_rtc_task_concurrent(int argc, char **argv);
 #endif
 
-#ifdef DESIGN_VERIFICATION_SEIRALPORT
+#ifdef DESIGN_VERIFICATION_SERIALPORT
 int t_serial_port_interactive(int argc, char **argv);
-int t_serial_port_basic(int argc, char **argv);
-int t_serial_port_boundary(int argc, char **argv);
-int t_serial_port_performance(int argc, char **argv);
-int t_serial_port_stress(int argc, char **argv);
-int t_serial_port_timeout(int argc, char **argv);
-int t_serial_port_null_checks(int argc, char **argv);
-int t_serial_port_zero_timeout(int argc, char **argv);
-int t_serial_port_ring_buffer(int argc, char **argv);
-int t_serial_port_error_injection(int argc, char **argv);
-int t_serial_port_special_characters(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_SHELL
@@ -348,6 +338,12 @@ int t_iic_read_write_reg(int argc, char **argv);
 int t_iic_boundary_large(int argc, char **argv);
 int t_iic_address_modes(int argc, char **argv);
 int t_iic_start_stop(int argc, char **argv);
+#endif
+
+#ifdef DESIGN_VERIFICATION_LRZSZ
+int t_mrz(int argc, char *argv[]);
+int t_msz_send_specified_file(int argc, char *argv[]);
+int t_msz_send_random_file(int argc, char *argv[]);
 #endif
 
 static int t_function(int argc, char **argv)
@@ -599,18 +595,8 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"rtc-task.suspend-resume",     t_rtc_task_suspend_resume},
 	{"rtc-task.concurrent",         t_rtc_task_concurrent},
 #endif
-#ifdef DESIGN_VERIFICATION_SEIRALPORT
+#ifdef DESIGN_VERIFICATION_SERIALPORT
 	{"serial-port.interactive",     t_serial_port_interactive},
-	{"serial-port.basic",           t_serial_port_basic},
-	{"serial-port.boundary",        t_serial_port_boundary},
-	{"serial-port.performance",     t_serial_port_performance},
-	{"serial-port.stress",          t_serial_port_stress},
-	{"serial-port.timeout",         t_serial_port_timeout},
-	{"serial-port.null-checks",     t_serial_port_null_checks},
-	{"serial-port.zero-timeout",    t_serial_port_zero_timeout},
-	{"serial-port.ring-buffer",     t_serial_port_ring_buffer},
-	{"serial-port.error-injection", t_serial_port_error_injection},
-	{"serial-port.special-characters", t_serial_port_special_characters},
 #endif
 #ifdef DESIGN_VERIFICATION_SHELL
 	{"test", t_function},
@@ -702,6 +688,11 @@ struct test_case_typedef kinetis_case_table[] = {
 #ifdef DESIGN_VERIFICATION_XMODEM
 	{"test",                        t_function},
 #endif
+#ifdef DESIGN_VERIFICATION_LRZSZ
+	{"lrzsz.rz",                   t_mrz},
+	{"lrzsz.sz",                   t_msz_send_specified_file},
+	{"lrzsz.random-sz",                   t_msz_send_random_file},
+#endif
 };
 
 static int idle_task_init(void)
@@ -715,10 +706,10 @@ static int idle_task_init(void)
 
 	shell_init_async();
 
-	// 	ret = hydrology_device_reboot();
-	// 	if (ret) {
-	// 		goto err;
-	// 	}
+// 	ret = hydrology_device_reboot();
+// 	if (ret) {
+// 		goto err;
+// 	}
 
 	ret = button_task_init();
 	if (ret) {
@@ -729,6 +720,10 @@ static int idle_task_init(void)
 	if (ret) {
 		goto err;
 	}
+
+	int argc = 2;
+	char *argv[] = {"msz", "1"};
+	t_msz_send_random_file(argc, argv);
 
 	return 0;
 err:

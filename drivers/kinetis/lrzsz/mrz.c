@@ -1,3 +1,5 @@
+#define pr_fmt(fmt) "lrz: " fmt
+
 #include <linux/delay.h>
 #include <linux/printk.h>
 #include <linux/ctype.h>
@@ -34,10 +36,30 @@ static void complete_cb(const char *filename, int result, size_t size, u64 date)
 	}
 }
 
-int
-mrz(int argc, char *argv[])
+int lrzsz_rz(struct serial_port *serial, const char *directory)
 {
-	size_t bytes = zmodem_receive(NULL, /* use current directory */
+	size_t bytes = zmodem_receive(serial, directory, /* use specified directory */
+			approver_cb, /* receive everything */
+			tick_cb,
+			complete_cb,
+			0,
+			RZSZ_FLAGS_NONE);
+	pr_err("Received %zu bytes.\n", bytes);
+	return 0;
+}
+
+int
+t_mrz(int argc, char *argv[])
+{
+	struct serial_port *serial;
+
+	serial = serial_port_alloc(&fake_serial_port_ops);
+	if (!serial) {
+		return -ENOMEM;
+	}
+	serial_port_start_thread(serial, SERIAL_PORT_DF_OTHERS, NULL, NULL);
+
+	size_t bytes = zmodem_receive(serial, NULL, /* use current directory */
 			approver_cb, /* receive everything */
 			tick_cb,
 			complete_cb,

@@ -97,18 +97,19 @@ static void zm_put_escaped_string(zm_t *zm, const char *str, size_t len);
 
 /* Return a newly allocated state machine for zm primitives. */
 zm_t *
-zm_init(int fd, size_t readnum, size_t bufsize, int no_timeout,
+zm_init(struct serial_port *serial, size_t readnum, size_t bufsize, int no_timeout,
 	int rxtimeout, int znulls, int eflag, int baudrate, int zctlesc, int zrwindow)
 {
 	zm_t *zm = (zm_t *) kmalloc(sizeof(zm_t), GFP_KERNEL);
 	memset(zm, 0, sizeof(zm_t));
-	zm->zr = zreadline_init(fd, readnum, bufsize, no_timeout);
+	zm->zr = zreadline_init(serial, readnum, bufsize, no_timeout);
 	zm->rxtimeout = rxtimeout;
 	zm->znulls = znulls;
 	zm->eflag = eflag;
 	zm->baudrate = baudrate;
 	zm->zctlesc = zctlesc;
 	zm->zrwindow = zrwindow;
+	zm->serial = serial;
 	zm_escape_sequence_init(zm);
 	return zm;
 }
@@ -745,7 +746,7 @@ zm_get_header(zm_t *zm, u32 *payload)
 
 	/* Max bytes before start of frame */
 	max_intro_msg_len = zm->zrwindow + zm->baudrate;
-	intro_msg = (char *) calloc(max_intro_msg_len + 1, sizeof(char));
+	intro_msg = kcalloc(max_intro_msg_len + 1, sizeof(char), GFP_KERNEL);
 	intro_msg_len = 0;
 
 	zm->rxframeind = zm->rxtype = 0;

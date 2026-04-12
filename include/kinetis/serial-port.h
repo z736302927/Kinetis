@@ -22,6 +22,18 @@ struct virtual_at_command {
 	const char *response;
 };
 
+struct serial_port;
+
+struct serial_port_ops {
+	int (*transmit_bytes)(const u8 *data, u16 size);
+	int (*receive_bytes)(u8 *data, u16 size, u32 timeout_ms);
+	void (*update_producer)(struct serial_port *serial);
+	int (*config)(struct serial_port *serial, u32 baud_rate, u8 parity, u8 data_bits, u8 flow_control);
+	void (*irq_disable)(void);
+	void (*irq_enable)(void);
+	void (*set_tx)(u8 state);
+};
+
 struct serial_port {
 	u8 rx_buffer[SERIAL_PORT_BUFFER_SIZE];
 	u8 tx_buffer[SERIAL_PORT_BUFFER_SIZE];
@@ -35,9 +47,7 @@ struct serial_port {
 
 	struct list_head list;
 
-	int (*transmit_bytes)(const u8 *data, u16 size);
-
-	void (*sim_callback)(char *request, char *response, void *context);
+	u32(*sim_callback)(char *request, char *response, void *context);
 	void *private;
 
 	u8 thread_switch;
@@ -48,15 +58,19 @@ struct serial_port {
 	u8 data_bits;		/* Current data bits: 7 or 8 */
 	u8 flow_control;	/* Current flow control: 0=None, 1=XON/XOFF, 2=RTS/CTS */
 
-	int (*config_callback)(struct serial_port *serial, u32 baud_rate, u8 parity, u8 data_bits, u8 flow_control);
+	struct serial_port_ops *ops;
 
-	void (*irq_disable)(void);
-	void (*irq_enable)(void);
-	void (*set_tx)(u8 state);
 };
 
-struct serial_port *serial_port_alloc(void (*sim_callback)(char *request, char *response, void *context),
+#define SERIAL_PORT_DF_NONE 	1
+#define SERIAL_PORT_DF_SELF 	2
+#define SERIAL_PORT_DF_OTHERS 	3
+
+void serial_port_start_thread(struct serial_port *serial, u8 oneself,
+	u32(*sim_callback)(char *request, char *response, void *context),
 	void *private);
+void serial_port_stop_thread(struct serial_port *serial);
+struct serial_port *serial_port_alloc(struct serial_port_ops *ops);
 void serial_port_free(struct serial_port *serial);
 void serial_port_clear_rx(struct serial_port *serial);
 int serial_port_receive_bytes(struct serial_port *serial_port, char *buffer, int size, u32 timeout_ms);
@@ -65,6 +79,8 @@ int serial_port_transmit_byte(struct serial_port *serial, u8 byte);
 int serial_port_data_available(struct serial_port *serial);
 int serial_port_config(struct serial_port *serial, u32 baud_rate, u8 parity, u8 data_bits, u8 flow_control);
 void serial_port_send_break(struct serial_port *serial);
+
+extern struct serial_port_ops fake_serial_port_ops;
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

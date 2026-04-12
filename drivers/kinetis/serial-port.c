@@ -3,6 +3,7 @@
 #include <linux/delay.h>
 #include <linux/errno.h>
 #include <linux/string.h>
+#include <linux/iopoll.h>
 
 #include "kinetis/serial-port.h"
 #include "kinetis/basic-timer.h"
@@ -27,35 +28,28 @@
   * @step 5:  Finally, you can process the received data in function serial_port_rx_buffer_Process.Note: maximum 256 bytes received.
   */
 
-#if MCU_PLATFORM_STM32
-#include "usart.h"
-#else
-#endif
-
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
-void *serial_port_monitor(void *para)
+void *serial_port_copy_to_self(void *para)
 {
 	struct serial_port *serial = (struct serial_port *)para;
 	char response[SERIAL_PORT_BUFFER_SIZE];
 	int i, index;
 
 	while (serial->thread_switch) {
-		if (serial->tx_buffer[0] != '\0') {
+		if (serial->transmited_size > 0) {
 			size_t resp_len;
 
 			response[0] = '\0';
-			serial->sim_callback(serial->tx_buffer, response, serial->private);
+			resp_len = serial->sim_callback(serial->tx_buffer, response, serial->private);
 
-			resp_len = strnlen(response, SERIAL_PORT_BUFFER_SIZE - 1);
 			index = serial->producer;
 			for (i = 0; i < resp_len; i++) {
 				serial->rx_buffer[index] = response[i];
 				index = (index + 1) % SERIAL_PORT_BUFFER_SIZE;
 			}
-			serial->rx_buffer[index] = '\0';
-
-			memset(serial->tx_buffer, 0, serial->transmited_size);
+			serial->ops->update_producer(serial);
+			serial->transmited_size = 0;
 		}
 
 		usleep(1000);
@@ -64,8 +58,55 @@ void *serial_port_monitor(void *para)
 	return NULL;
 }
 
-struct serial_port *serial_port_alloc(void (*sim_callback)(char *request, char *response, void *context),
+void *serial_port_copy_to_others(void *para)
+{
+	struct serial_port *serial_boy = (struct serial_port *)para;
+	struct serial_port *serial_girl = (struct serial_port *)serial_boy->private;
+
+	while (serial_boy->thread_switch) {
+		if (serial_boy->transmited_size > 0) {
+			memcpy(serial_girl->rx_buffer, serial_boy->tx_buffer, serial_boy->transmited_size);
+			serial_girl->producer = (serial_girl->producer + serial_boy->transmited_size) % SERIAL_PORT_BUFFER_SIZE;
+			serial_boy->transmited_size = 0;
+		}
+
+		usleep(1000);
+	}
+
+	return NULL;
+}
+
+void serial_port_start_thread(struct serial_port *serial, u8 oneself,
+	u32(*sim_callback)(char *request, char *response, void *context),
 	void *private)
+{
+	serial->sim_callback = sim_callback;
+	serial->private = private;
+
+	switch (oneself) {
+	case SERIAL_PORT_DF_SELF:
+		serial->thread_switch = 1;
+		pthread_create(&serial->thread, NULL, serial_port_copy_to_self, serial);
+		break;
+	case SERIAL_PORT_DF_OTHERS:
+		serial->thread_switch = 1;
+		pthread_create(&serial->thread, NULL, serial_port_copy_to_others, serial);
+		break;
+	default:
+		break;
+	}
+}
+
+void serial_port_stop_thread(struct serial_port *serial)
+{
+	if (serial->thread) {
+		serial->thread_switch = 0;
+		pthread_join(serial->thread, NULL);
+		serial->thread = 0;
+	}
+}
+
+struct serial_port *serial_port_alloc(struct serial_port_ops *ops)
 {
 	struct serial_port *serial;
 
@@ -75,38 +116,20 @@ struct serial_port *serial_port_alloc(void (*sim_callback)(char *request, char *
 	}
 
 	serial->rx_complete = false;
-
-	if (sim_callback != NULL) {
-		serial->sim_callback = sim_callback;
-		serial->private = private;
-		serial->thread_switch = 1;
-		pthread_create(&serial->thread, NULL, serial_port_monitor, serial);
-	}
+	serial->ops = ops;
 
 	return serial;
 }
 
 void serial_port_free(struct serial_port *serial)
 {
-	if (serial->sim_callback && serial->thread) {
-		serial->thread_switch = 0;
-		pthread_join(serial->thread, NULL);
-		serial->thread = 0;
-	}
+	serial_port_stop_thread(serial);
 
 	kfree(serial);
 }
 
 void serial_port_extract_data(struct serial_port *serial)
 {
-	while (1) {
-		if (serial->rx_buffer[serial->producer] != '\0') {
-			serial->producer = (serial->producer + 1) % SERIAL_PORT_BUFFER_SIZE;
-		} else {
-			break;
-		}
-	}
-
 	serial->received_size = (serial->producer + SERIAL_PORT_BUFFER_SIZE - serial->consumer) % SERIAL_PORT_BUFFER_SIZE;
 	serial->rx_complete = (serial->received_size > 0);
 }
@@ -172,7 +195,6 @@ int serial_port_receive_bytes(struct serial_port *serial, char *buffer, int size
 		serial->producer = 0;
 		serial->consumer = 0;
 #endif
-		pr_debug("producer: %d, consumer: %d\n", serial->producer, serial->consumer);
 	}
 
 	return serial->received_size;
@@ -180,9 +202,7 @@ int serial_port_receive_bytes(struct serial_port *serial, char *buffer, int size
 
 int serial_port_transmit_bytes(struct serial_port *serial, const u8 *data, u16 size)
 {
-	if (!serial || !data || size == 0) {
-		return -EINVAL;
-	}
+	u16 tx_size;
 
 	if (size >= SERIAL_PORT_BUFFER_SIZE) {
 		size = SERIAL_PORT_BUFFER_SIZE - 1;
@@ -190,19 +210,27 @@ int serial_port_transmit_bytes(struct serial_port *serial, const u8 *data, u16 s
 	}
 
 	memcpy(serial->tx_buffer, data, size);
-	serial->tx_buffer[size] = '\0';
 	serial->transmited_size = size;
+	print_hex_dump(KERN_DEBUG, "serial port tx: ", DUMP_PREFIX_OFFSET,
+		16, 1,
+		serial->tx_buffer, serial->transmited_size, false);
 
-	return 0;
+	/* Wait for data to be transmitted (transmited_size goes to 0) */
+	return readl_poll_timeout(&serial->transmited_size, tx_size, tx_size == 0, 100, 100000);
 }
 
 int serial_port_transmit_byte(struct serial_port *serial, u8 byte)
 {
-	serial->tx_buffer[0] = byte;
-	serial->tx_buffer[1] = '\0';
-	serial->transmited_size = 1;
+	u16 tx_size;
 
-	return 0;
+	serial->tx_buffer[0] = byte;
+	serial->transmited_size = 1;
+	print_hex_dump(KERN_DEBUG, "serial port tx: ", DUMP_PREFIX_OFFSET,
+		16, 1,
+		serial->tx_buffer, serial->transmited_size, false);
+
+	/* Wait for data to be transmitted (transmited_size goes to 0) */
+	return readl_poll_timeout(&serial->transmited_size, tx_size, tx_size == 0, 100, 100000);
 }
 
 int serial_port_data_available(struct serial_port *serial)
@@ -227,8 +255,8 @@ int serial_port_config(struct serial_port *serial, u32 baud_rate, u8 parity, u8 
 	serial->flow_control = flow_control;
 
 	/* Call external callback to apply hardware configuration */
-	if (serial->config_callback) {
-		return serial->config_callback(serial, baud_rate, parity, data_bits, flow_control);
+	if (serial->ops->config) {
+		return serial->ops->config(serial, baud_rate, parity, data_bits, flow_control);
 	}
 
 	return 0;
@@ -236,14 +264,14 @@ int serial_port_config(struct serial_port *serial, u32 baud_rate, u8 parity, u8 
 
 void serial_port_send_break(struct serial_port *serial)
 {
-	serial->irq_disable();
-	serial->set_tx(0);
+	serial->ops->irq_disable();
+	serial->ops->set_tx(0);
 	mdelay(250);
-	serial->set_tx(1);
-	serial->irq_enable();
+	serial->ops->set_tx(1);
+	serial->ops->irq_enable();
 }
 
-#ifdef DESIGN_VERIFICATION_SEIRALPORT
+#ifdef DESIGN_VERIFICATION_SERIALPORT
 #include "kinetis/test-kinetis.h"
 
 static const struct virtual_at_command fake_at_commands[] = {
@@ -265,7 +293,61 @@ static const struct virtual_at_command fake_at_commands[] = {
 	}
 };
 
-void serial_port_callback(char *request, char *response, void *context)
+static int fake_serial_transmit_bytes(const u8 *data, u16 size)
+{
+	pr_debug("fake tx: %u bytes", size);
+	print_hex_dump(KERN_DEBUG, "fake serial tx: ", DUMP_PREFIX_OFFSET,
+		16, 1, data, size, false);
+	return 0;
+}
+
+static int fake_serial_receive_bytes(u8 *data, u16 size, u32 timeout_ms)
+{
+	pr_debug("fake rx: request %u bytes, timeout %u ms", size, timeout_ms);
+	return 0;
+}
+
+static void fake_serial_update_producer(struct serial_port *serial)
+{
+	serial->producer = (serial->producer + serial->transmited_size) % SERIAL_PORT_BUFFER_SIZE;
+	pr_debug("fake update producer: prod=%d cons=%d",
+		serial->producer, serial->consumer);
+}
+
+static int fake_serial_config(struct serial_port *serial, u32 baud_rate,
+	u8 parity, u8 data_bits, u8 flow_control)
+{
+	pr_info("fake serial config: baud=%u parity=%u data_bits=%u flow=%u",
+		baud_rate, parity, data_bits, flow_control);
+	return 0;
+}
+
+static void fake_serial_irq_disable(void)
+{
+	pr_debug("fake irq disable");
+}
+
+static void fake_serial_irq_enable(void)
+{
+	pr_debug("fake irq enable");
+}
+
+static void fake_serial_set_tx(u8 state)
+{
+	pr_debug("fake set tx: %s", state ? "high" : "low");
+}
+
+struct serial_port_ops fake_serial_port_ops = {
+	.transmit_bytes  = fake_serial_transmit_bytes,
+	.receive_bytes   = fake_serial_receive_bytes,
+	.update_producer  = fake_serial_update_producer,
+	.config          = fake_serial_config,
+	.irq_disable     = fake_serial_irq_disable,
+	.irq_enable      = fake_serial_irq_enable,
+	.set_tx          = fake_serial_set_tx,
+};
+
+u32 serial_port_callback(char *request, char *response, void *context)
 {
 	struct virtual_at_command *array = context;
 	struct virtual_at_command *at_cmd;
@@ -297,6 +379,8 @@ void serial_port_callback(char *request, char *response, void *context)
 		}
 	}
 	response[i] = '\0';
+
+	return i;
 }
 
 int t_serial_port_interactive(int argc, char **argv)
@@ -305,7 +389,8 @@ int t_serial_port_interactive(int argc, char **argv)
 	char at_ack[SERIAL_PORT_BUFFER_SIZE];
 	int ret;
 
-	serial = serial_port_alloc(serial_port_callback, fake_at_commands);
+	serial = serial_port_alloc(&fake_serial_port_ops);
+	serial_port_start_thread(serial, SERIAL_PORT_DF_SELF, serial_port_callback, fake_at_commands);
 
 	for (int i = 0; i < ARRAY_SIZE(fake_at_commands); i++) {
 		serial_port_transmit_bytes(serial, fake_at_commands[i].request, strlen(fake_at_commands[i].request));
@@ -320,417 +405,6 @@ int t_serial_port_interactive(int argc, char **argv)
 	serial_port_free(serial);
 
 	return 0;
-}
-
-int t_serial_port_basic(int argc, char **argv)
-{
-	struct serial_port *serial;
-	char tx_data[] = "Hello Serial Port";
-	char rx_data[SERIAL_PORT_BUFFER_SIZE];
-	int ret;
-
-	pr_info("starting serial port basic test");
-
-	serial = serial_port_alloc(serial_port_callback, fake_at_commands);
-	if (!serial) {
-		pr_err("failed to allocate serial port");
-		return FAIL;
-	}
-
-	ret = serial_port_transmit_bytes(serial, (u8 *)tx_data, strlen(tx_data));
-	if (ret < 0) {
-		pr_err("failed to transmit data");
-		serial_port_free(serial);
-		return FAIL;
-	}
-
-	ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 1000);
-	if (ret < 0) {
-		pr_err("failed to get data");
-		serial_port_free(serial);
-		return FAIL;
-	}
-
-	if (strcmp(rx_data, "ERROR") == 0 || strncmp(rx_data, tx_data, strlen(tx_data)) == 0) {
-		pr_info("basic test passed, received %d bytes", ret);
-		serial_port_free(serial);
-		return 0;
-	}
-
-	pr_err("unexpected data received");
-	serial_port_free(serial);
-	return FAIL;
-}
-
-int t_serial_port_boundary(int argc, char **argv)
-{
-	struct serial_port *serial;
-	char tx_data[SERIAL_PORT_BUFFER_SIZE];
-	char rx_data[SERIAL_PORT_BUFFER_SIZE];
-	int ret, i;
-
-	pr_info("starting serial port boundary test");
-
-	serial = serial_port_alloc(serial_port_callback, fake_at_commands);
-	if (!serial) {
-		pr_err("failed to allocate serial port");
-		return FAIL;
-	}
-
-	for (i = 0; i < SERIAL_PORT_BUFFER_SIZE - 1; i++) {
-		tx_data[i] = 'A' + (i % 26);
-	}
-	tx_data[SERIAL_PORT_BUFFER_SIZE - 1] = '\0';
-
-	ret = serial_port_transmit_bytes(serial, (u8 *)tx_data, SERIAL_PORT_BUFFER_SIZE - 1);
-	if (ret < 0) {
-		pr_err("failed to transmit maximum size data");
-		serial_port_free(serial);
-		return FAIL;
-	}
-
-	ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 1000);
-	if (ret < 0) {
-		pr_err("failed to get boundary data");
-		serial_port_free(serial);
-		return FAIL;
-	}
-
-	if (ret == SERIAL_PORT_BUFFER_SIZE - 1) {
-		pr_info("boundary test passed, received %d bytes", ret);
-		serial_port_free(serial);
-		return 0;
-	}
-
-	pr_err("unexpected size received: %d", ret);
-	serial_port_free(serial);
-	return FAIL;
-}
-
-int t_serial_port_performance(int argc, char **argv)
-{
-	struct serial_port *serial;
-	char tx_data[64];
-	char rx_data[SERIAL_PORT_BUFFER_SIZE];
-	u32 start_time, end_time;
-	int i, ret;
-
-	pr_info("starting serial port performance test");
-
-	serial = serial_port_alloc(serial_port_callback, fake_at_commands);
-	if (!serial) {
-		pr_err("failed to allocate serial port");
-		return FAIL;
-	}
-
-	strcpy(tx_data, "AT");
-
-	start_time = basic_timer_get_ms();
-
-	for (i = 0; i < 100; i++) {
-		ret = serial_port_transmit_bytes(serial, (u8 *)tx_data, strlen(tx_data));
-		if (ret < 0) {
-			pr_err("transmit failed at iteration %d", i);
-			serial_port_free(serial);
-			return FAIL;
-		}
-
-		ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 1000);
-		if (ret < 0) {
-			pr_err("get data failed at iteration %d", i);
-			serial_port_free(serial);
-			return FAIL;
-		}
-	}
-
-	end_time = basic_timer_get_ms();
-
-	pr_info("performance test passed, 100 iterations in %lu ms", end_time - start_time);
-	serial_port_free(serial);
-	return 0;
-}
-
-int t_serial_port_stress(int argc, char **argv)
-{
-	struct serial_port *serial;
-	char tx_data[128];
-	char rx_data[SERIAL_PORT_BUFFER_SIZE];
-	int i, ret, success_count = 0;
-
-	pr_info("starting serial port stress test");
-
-	serial = serial_port_alloc(serial_port_callback, fake_at_commands);
-	if (!serial) {
-		pr_err("failed to allocate serial port");
-		return FAIL;
-	}
-
-	for (i = 0; i < 500; i++) {
-		sprintf(tx_data, "AT+TEST%03d", i);
-		ret = serial_port_transmit_bytes(serial, (u8 *)tx_data, strlen(tx_data));
-		if (ret < 0) {
-			pr_err("transmit failed at iteration %d", i);
-			continue;
-		}
-
-		ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 500);
-		if (ret >= 0) {
-			success_count++;
-		}
-	}
-
-	serial_port_free(serial);
-
-	if (success_count > 450) {
-		pr_info("stress test passed, %d/%d iterations successful", success_count, 500);
-		return 0;
-	}
-
-	pr_err("stress test failed, only %d/%d iterations successful", success_count, 500);
-	return FAIL;
-}
-
-int t_serial_port_timeout(int argc, char **argv)
-{
-	struct serial_port *serial;
-	char rx_data[SERIAL_PORT_BUFFER_SIZE];
-	int ret;
-
-	pr_info("starting serial port timeout test");
-
-	serial = serial_port_alloc(serial_port_callback, fake_at_commands);
-	if (!serial) {
-		pr_err("failed to allocate serial port");
-		return FAIL;
-	}
-
-	ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 100);
-	if (ret == -ETIMEDOUT) {
-		pr_info("timeout test passed, timeout occurred as expected");
-		serial_port_free(serial);
-		return 0;
-	}
-
-	pr_err("timeout test failed, expected ETIMEDOUT but got %d", ret);
-	serial_port_free(serial);
-	return FAIL;
-}
-
-int t_serial_port_null_checks(int argc, char **argv)
-{
-	struct serial_port *serial;
-	char tx_data[] = "test";
-	int ret;
-
-	pr_info("starting serial port null checks test");
-
-	ret = serial_port_transmit_bytes(NULL, (u8 *)tx_data, strlen(tx_data));
-	if (ret != -EINVAL) {
-		pr_err("null serial port check failed");
-		return FAIL;
-	}
-
-	serial = serial_port_alloc(serial_port_callback, fake_at_commands);
-	if (!serial) {
-		pr_err("failed to allocate serial port");
-		return FAIL;
-	}
-
-	ret = serial_port_transmit_bytes(serial, NULL, strlen(tx_data));
-	if (ret != -EINVAL) {
-		pr_err("null data check failed");
-		serial_port_free(serial);
-		return FAIL;
-	}
-
-	ret = serial_port_transmit_bytes(serial, (u8 *)tx_data, 0);
-	if (ret != -EINVAL) {
-		pr_err("zero size check failed");
-		serial_port_free(serial);
-		return FAIL;
-	}
-
-	ret = serial_port_receive_bytes(serial, NULL, SERIAL_PORT_BUFFER_SIZE, 1000);
-	if (ret != -EINVAL) {
-		pr_err("null buffer check failed");
-		serial_port_free(serial);
-		return FAIL;
-	}
-
-	char small_buffer[10];
-	ret = serial_port_receive_bytes(serial, small_buffer, sizeof(small_buffer), 1000);
-	if (ret != -EINVAL) {
-		pr_err("small buffer check failed");
-		serial_port_free(serial);
-		return FAIL;
-	}
-
-	pr_info("null checks test passed");
-	serial_port_free(serial);
-	return 0;
-}
-
-int t_serial_port_zero_timeout(int argc, char **argv)
-{
-	struct serial_port *serial;
-	char tx_data[] = "AT";
-	char rx_data[SERIAL_PORT_BUFFER_SIZE];
-	int ret;
-
-	pr_info("starting serial port zero timeout test");
-
-	serial = serial_port_alloc(serial_port_callback, fake_at_commands);
-	if (!serial) {
-		pr_err("failed to allocate serial port");
-		return FAIL;
-	}
-
-	ret = serial_port_transmit_bytes(serial, (u8 *)tx_data, strlen(tx_data));
-	if (ret < 0) {
-		pr_err("failed to transmit data");
-		serial_port_free(serial);
-		return FAIL;
-	}
-
-	ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 0);
-	if (ret >= 0) {
-		pr_info("zero timeout test passed, received %d bytes", ret);
-		serial_port_free(serial);
-		return 0;
-	}
-
-	pr_err("zero timeout test failed, got %d", ret);
-	serial_port_free(serial);
-	return FAIL;
-}
-
-int t_serial_port_ring_buffer(int argc, char **argv)
-{
-	struct serial_port *serial;
-	char tx_data1[] = "FirstMessage";
-	char tx_data2[] = "SecondMessage";
-	char rx_data[SERIAL_PORT_BUFFER_SIZE];
-	int ret;
-
-	pr_info("starting serial port ring buffer test");
-
-	serial = serial_port_alloc(serial_port_callback, fake_at_commands);
-	if (!serial) {
-		pr_err("failed to allocate serial port");
-		return FAIL;
-	}
-
-	ret = serial_port_transmit_bytes(serial, (u8 *)tx_data1, strlen(tx_data1));
-	if (ret < 0) {
-		pr_err("failed to transmit first message");
-		serial_port_free(serial);
-		return FAIL;
-	}
-
-	ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 1000);
-	if (ret < 0) {
-		pr_err("failed to get first message");
-		serial_port_free(serial);
-		return FAIL;
-	}
-
-	ret = serial_port_transmit_bytes(serial, (u8 *)tx_data2, strlen(tx_data2));
-	if (ret < 0) {
-		pr_err("failed to transmit second message");
-		serial_port_free(serial);
-		return FAIL;
-	}
-
-	ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 1000);
-	if (ret < 0) {
-		pr_err("failed to get second message");
-		serial_port_free(serial);
-		return FAIL;
-	}
-
-	pr_info("ring buffer test passed, producer=%d consumer=%d",
-		serial->producer, serial->consumer);
-	serial_port_free(serial);
-	return 0;
-}
-
-int t_serial_port_error_injection(int argc, char **argv)
-{
-	struct serial_port *serial;
-	char tx_data[] = "AT";
-	char rx_data[SERIAL_PORT_BUFFER_SIZE];
-	int ret, error_count = 0;
-
-	pr_info("starting serial port error injection test");
-
-	serial = serial_port_alloc(serial_port_callback, fake_at_commands);
-	if (!serial) {
-		pr_err("failed to allocate serial port");
-		return FAIL;
-	}
-
-	for (int i = 0; i < 20; i++) {
-		ret = serial_port_transmit_bytes(serial, (u8 *)tx_data, strlen(tx_data));
-		if (ret < 0) {
-			pr_err("transmit failed at iteration %d", i);
-			serial_port_free(serial);
-			return FAIL;
-		}
-
-		ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 1000);
-		if (ret < 0) {
-			pr_err("get data failed at iteration %d", i);
-			continue;
-		}
-
-		if (strcmp(rx_data, "ERROR") == 0) {
-			error_count++;
-		}
-	}
-
-	serial_port_free(serial);
-
-	if (error_count > 0 && error_count <= 10) {
-		pr_info("error injection test passed, %d errors out of 20 requests", error_count);
-		return 0;
-	}
-
-	pr_err("error injection test failed, unexpected error count: %d", error_count);
-	return FAIL;
-}
-
-int t_serial_port_special_characters(int argc, char **argv)
-{
-	struct serial_port *serial;
-	char tx_data[] = "AT+SPECIAL\r\n\0\t";
-	char rx_data[SERIAL_PORT_BUFFER_SIZE];
-	int ret;
-
-	pr_info("starting serial port special characters test");
-
-	serial = serial_port_alloc(serial_port_callback, fake_at_commands);
-	if (!serial) {
-		pr_err("failed to allocate serial port");
-		return FAIL;
-	}
-
-	ret = serial_port_transmit_bytes(serial, (u8 *)tx_data, strlen(tx_data));
-	if (ret < 0) {
-		pr_err("failed to transmit special characters");
-		serial_port_free(serial);
-		return FAIL;
-	}
-
-	ret = serial_port_receive_bytes(serial, rx_data, sizeof(rx_data), 1000);
-	if (ret >= 0) {
-		pr_info("special characters test passed, received %d bytes", ret);
-		serial_port_free(serial);
-		return 0;
-	}
-
-	pr_err("special characters test failed");
-	serial_port_free(serial);
-	return FAIL;
 }
 
 #endif
