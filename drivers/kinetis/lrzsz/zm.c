@@ -114,6 +114,18 @@ zm_init(struct serial_port *serial, size_t readnum, size_t bufsize, int no_timeo
 	return zm;
 }
 
+void
+zm_free(zm_t *zm)
+{
+	if (!zm) {
+		return;
+	}
+	if (zm->zr) {
+		zreadline_free(zm->zr);
+	}
+	kfree(zm);
+}
+
 int
 zm_get_zctlesc(zm_t *zm)
 {

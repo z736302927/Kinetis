@@ -277,8 +277,8 @@
 // hc-05.comprehensive
 
 /*水文设备测试 - 测试水文设备在M1/M2/M3/M4四种模式下的功能*/
-hydrology.init
-hydrology.test device m1
+// hydrology.init
+// hydrology.test device m1
 // hydrology.test device m2
 // hydrology.test device m3
 // hydrology.test device m4
@@ -298,8 +298,13 @@ hydrology.test device m1
 // /*串口测试 - 测试串口的交互式功能*/
 // serial-port.interactive
 
+// /*MAVLink电机控制测试 - 测试MAVLink消息打包/解析和主从模拟仿真*/
+// mavlink.msg-pack-parse
+// mavlink.master-slave-sim
+// mavlink.master-slave-sim 10
+
 // /*LED驱动测试 - 测试MY9221和TLC5971 LED驱动芯片的数据发送功能*/
-// my9221.send
+my9221.send
 // tlc5971.send
 
 

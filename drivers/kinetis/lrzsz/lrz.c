@@ -123,6 +123,7 @@ struct rz_ {
 	bool (*approver_cb)(const char *filename, size_t size, u64 date);
 
 	size_t bytes_received;	/* Total bytes received across all files */
+	const char *directory;	/* If non-NULL, directory to save received files in. */
 
 };
 
@@ -136,6 +137,7 @@ rz_t *rz_init(struct serial_port *serial, size_t readnum, size_t bufsize, int no
 	u64 stop_time, int try_resume,
 	int makelcpathname, int rxclob,
 	int o_sync, int tcp_flag, int topipe,
+	const char *directory,
 	bool tick_cb(const char *fname, long bytes_sent, long bytes_total,
 		long last_bps, int min_left, int sec_left),
 	void complete_cb(const char *filename, int result, size_t size, u64 date),
@@ -170,6 +172,7 @@ rz_init(struct serial_port *serial, size_t readnum, size_t bufsize, int no_timeo
 	unsigned long min_bps, long min_bps_time,
 	u64 stop_time, int try_resume,
 	int makelcpathname, int rxclob, int o_sync, int tcp_flag, int topipe,
+	const char *directory,
 	bool tick_cb(const char *fname, long bytes_sent, long bytes_total,
 		long last_bps, int min_left, int sec_left),
 	void complete_cb(const char *filename, int result, size_t size, u64 date),
@@ -202,6 +205,7 @@ rz_init(struct serial_port *serial, size_t readnum, size_t bufsize, int no_timeo
 	rz->errors = 0;
 	rz->tryzhdrtype = ZRINIT;
 	rz->tcp_socket = -1;
+	rz->directory = directory;
 	rz->rxclob = FALSE;
 	rz->skip_if_not_found = FALSE;
 	rz->tick_cb = tick_cb;
@@ -210,6 +214,19 @@ rz_init(struct serial_port *serial, size_t readnum, size_t bufsize, int no_timeo
 	rz->bytes_received = 0;
 	return rz;
 
+}
+
+void
+rz_free(rz_t *rz)
+{
+	if (!rz) {
+		return;
+	}
+	if (rz->zm) {
+		zm_free(rz->zm);
+	}
+	kfree(rz->fout);
+	kfree(rz);
 }
 
 /* called by signal interrupt or terminate to clean things up */
@@ -260,6 +277,7 @@ size_t zmodem_receive(struct serial_port *serial,
 			0,		 /* o_sync */
 			0,		 /* tcp_flag */
 			0,		 /* topipe */
+			directory,
 			tick_cb,
 			complete_cb,
 			approver_cb
@@ -280,7 +298,9 @@ size_t zmodem_receive(struct serial_port *serial,
 		pr_info(_("Transfer complete"));
 	}
 
-	return rz->bytes_received;
+	size_t bytes = rz->bytes_received;
+	rz_free(rz);
+	return bytes;
 }
 
 static int
@@ -564,12 +584,23 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 			name = p;
 		}
 	}
-	name_static = kmalloc(strlen(name) + 1, GFP_KERNEL);
-	if (!name_static) {
-		pr_crit(_("out of memory"));
-		return -ENOMEM;
+	if (rz->directory) {
+		const char *base = strrchr(name, '/');
+		base = base ? base + 1 : name;
+		name_static = kmalloc(strlen(rz->directory) + 1 + strlen(base) + 1, GFP_KERNEL);
+		if (!name_static) {
+			pr_crit(_("out of memory"));
+			return -ENOMEM;
+		}
+		sprintf(name_static, "%s/%s", rz->directory, base);
+	} else {
+		name_static = kmalloc(strlen(name) + 1, GFP_KERNEL);
+		if (!name_static) {
+			pr_crit(_("out of memory"));
+			return -ENOMEM;
+		}
+		strcpy(name_static, name);
 	}
-	strcpy(name_static, name);
 	zi->fname = name_static;
 
 	pr_debug(_("zmanag=%d, Lzmanag=%d"), rz->zmanag, rz->lzmanag);

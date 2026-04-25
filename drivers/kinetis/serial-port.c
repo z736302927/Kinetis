@@ -65,8 +65,17 @@ void *serial_port_copy_to_others(void *para)
 
 	while (serial_boy->thread_switch) {
 		if (serial_boy->transmited_size > 0) {
-			memcpy(serial_girl->rx_buffer, serial_boy->tx_buffer, serial_boy->transmited_size);
-			serial_girl->producer = (serial_girl->producer + serial_boy->transmited_size) % SERIAL_PORT_BUFFER_SIZE;
+			u16 size = serial_boy->transmited_size;
+			u16 pos = serial_girl->producer;
+			u16 tail = SERIAL_PORT_BUFFER_SIZE - pos;
+
+			if (size <= tail) {
+				memcpy(serial_girl->rx_buffer + pos, serial_boy->tx_buffer, size);
+			} else {
+				memcpy(serial_girl->rx_buffer + pos, serial_boy->tx_buffer, tail);
+				memcpy(serial_girl->rx_buffer, serial_boy->tx_buffer + tail, size - tail);
+			}
+			serial_girl->producer = (pos + size) % SERIAL_PORT_BUFFER_SIZE;
 			serial_boy->transmited_size = 0;
 		}
 
@@ -216,7 +225,7 @@ int serial_port_transmit_bytes(struct serial_port *serial, const u8 *data, u16 s
 		serial->tx_buffer, serial->transmited_size, false);
 
 	/* Wait for data to be transmitted (transmited_size goes to 0) */
-	return readl_poll_timeout(&serial->transmited_size, tx_size, tx_size == 0, 100, 100000);
+	return readw_poll_timeout(&serial->transmited_size, tx_size, tx_size == 0, 100, 100000);
 }
 
 int serial_port_transmit_byte(struct serial_port *serial, u8 byte)
@@ -230,7 +239,7 @@ int serial_port_transmit_byte(struct serial_port *serial, u8 byte)
 		serial->tx_buffer, serial->transmited_size, false);
 
 	/* Wait for data to be transmitted (transmited_size goes to 0) */
-	return readl_poll_timeout(&serial->transmited_size, tx_size, tx_size == 0, 100, 100000);
+	return readw_poll_timeout(&serial->transmited_size, tx_size, tx_size == 0, 100, 100000);
 }
 
 int serial_port_data_available(struct serial_port *serial)

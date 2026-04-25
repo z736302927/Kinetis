@@ -1,4 +1,4 @@
-PROJECT = Four-Axis-Flight
+PROJECT ?= persistence-of-vision
 BUILD_DIR = output
 
 # Detect OS
@@ -165,7 +165,9 @@ C_SOURCES += $(wildcard ../fs/fatfs/*.c)
 C_SOURCES += $(wildcard ../fs/fatfs/drivers/fake_ram_diskio.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/*.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/lrzsz/*.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/mavlink/*.c)
 #C_SOURCES += $(wildcard ../drivers/kinetis/flight/*.c)
+C_SOURCES += $(wildcard ../projects/$(PROJECT)/*.c)
 # Add other necessary source files...
 
 # Exclude unnecessary files
@@ -203,8 +205,10 @@ C_INCLUDES += -I../arch/arm/include/uapi/
 C_INCLUDES += -I../arch/arm/include/generated/
 C_INCLUDES += -I../arch/arm/include/generated/uapi/
 C_INCLUDES += -I../arch/arm/mach-stm32
+C_INCLUDES += -I../projects/$(PROJECT)
 C_INCLUDES += -include generated/deconfig.h
 C_INCLUDES += -include kinetis/step-debug.h
+C_INCLUDES += -include project.h
 # Add other necessary include directories...
 
 # Define header directories for dependency tracking
@@ -215,6 +219,7 @@ HEADER_DIRS += ../arch/arm/include/uapi
 HEADER_DIRS += ../arch/arm/include/generated
 HEADER_DIRS += ../arch/arm/include/generated/uapi
 HEADER_DIRS += ../arch/arm/mach-stm32
+HEADER_DIRS += ../projects/$(PROJECT)
 
 # Find all header files in include directories and subdirectories
 # Manually list common directories and use wildcard for each level
@@ -254,8 +259,6 @@ TARGET = $(BUILD_DIR)/$(PROJECT).exe
 
 # Macros for gcc
 C_DEFS =  \
--DFOUR_AXIS_FLIGHT \
--DFOUR_AXIS_FLIGHT_VERSION=\"1.0.0\" \
 -D__KERNEL__ \
 -DCONFIG_FAKE_LIB \
 -DCONFIG_SIMULATION \

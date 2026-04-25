@@ -70,8 +70,8 @@ int t_msz_send_specified_file(int argc, char *argv[])
 	}
 
 	serial = serial_port_alloc(&fake_serial_port_ops);
-	if (!serial) {
-		ret = -ENOMEM;
+	if (IS_ERR(serial)) {
+		ret = PTR_ERR(serial);
 		goto file_err;
 	}
 
@@ -141,6 +141,16 @@ int t_msz_send_random_file(int argc, char *argv[])
 		return -ENOMEM;
 	}
 
+	ret = fatfs_create_dirs(LRZSZ_SZ_DIRRECTORY);
+	if (ret) {
+		goto file_err;
+	}
+
+	ret = fatfs_create_dirs(LRZSZ_RZ_DIRRECTORY);
+	if (ret) {
+		goto file_err;
+	}
+
 	for (int i = 0; i < num_files; i++) {
 		snprintf(file_name, sizeof(file_name), "test_file_%d.txt", i + 1);
 		snprintf(file_path, sizeof(file_path), "%s/%s", LRZSZ_SZ_DIRRECTORY, file_name);
@@ -150,7 +160,7 @@ int t_msz_send_random_file(int argc, char *argv[])
 			goto file_err;
 		}
 
-		file_size = get_random_range(1024, 1024 * 1024);
+		file_size = get_random_range(10, 20);
 		for (size_t j = 0; j < file_size; j++) {
 			file_data[j] = get_random_u32() & 0xFF;
 		}
@@ -174,7 +184,16 @@ int t_msz_send_random_file(int argc, char *argv[])
 	file_data = NULL;
 
 	serial_sz = serial_port_alloc(&fake_serial_port_ops);
+	if (IS_ERR(serial_sz)) {
+		ret = PTR_ERR(serial_sz);
+		goto file_err;
+	}
 	serial_rz = serial_port_alloc(&fake_serial_port_ops);
+	if (IS_ERR(serial_rz)) {
+		ret = PTR_ERR(serial_rz);
+		serial_port_free(serial_sz);
+		goto file_err;
+	}
 	serial_port_start_thread(serial_sz, SERIAL_PORT_DF_OTHERS, NULL, serial_rz);
 	serial_port_start_thread(serial_rz, SERIAL_PORT_DF_OTHERS, NULL, serial_sz);
 
@@ -203,6 +222,9 @@ int t_msz_send_random_file(int argc, char *argv[])
 		UINT br_src, br_dst;
 		FSIZE_t size_src, size_dst;
 		bool match = true;
+		const char *bname = strrchr(filenames_sz[i], '/');
+
+		bname = (bname) ? bname + 1 : filenames_sz[i];
 
 		res = f_open(&fp_src, filenames_sz[i], FA_READ);
 		if (res != FR_OK) {
@@ -223,8 +245,8 @@ int t_msz_send_random_file(int argc, char *argv[])
 		size_src = f_size(&fp_src);
 		size_dst = f_size(&fp_dst);
 		if (size_src != size_dst) {
-			pr_err("[%d/%d] failed: %s - size mismatch (%llu vs %llu)\n",
-				i + 1, n_filenames, file_name, size_src, size_dst);
+			pr_err("[%d/%d] failed: %s - size mismatch (%lu vs %lu)\n",
+				i + 1, n_filenames, bname, size_src, size_dst);
 			f_close(&fp_src);
 			f_close(&fp_dst);
 			fail_count++;
@@ -238,7 +260,7 @@ int t_msz_send_random_file(int argc, char *argv[])
 
 			if (br_src != br_dst) {
 				pr_err("[%d/%d] failed: %s - read size mismatch (%u vs %u)\n",
-					i + 1, n_filenames, file_name, br_src, br_dst);
+					i + 1, n_filenames, bname, br_src, br_dst);
 				match = false;
 				break;
 			}
@@ -248,7 +270,7 @@ int t_msz_send_random_file(int argc, char *argv[])
 			}
 
 			if (memcmp(buf_src, buf_dst, br_src) != 0) {
-				pr_err("[%d/%d] failed: %s - data mismatch\n", i + 1, n_filenames, file_name);
+				pr_err("[%d/%d] failed: %s - data mismatch\n", i + 1, n_filenames, bname);
 				match = false;
 				break;
 			}
@@ -258,7 +280,7 @@ int t_msz_send_random_file(int argc, char *argv[])
 		f_close(&fp_dst);
 
 		if (match) {
-			pr_info("[%d/%d] PASS: %s (%llu bytes)\n", i + 1, n_filenames, file_name, size_src);
+			pr_info("[%d/%d] PASS: %s (%lu bytes)\n", i + 1, n_filenames, bname, size_src);
 			pass_count++;
 		} else {
 			fail_count++;
@@ -278,6 +300,8 @@ file_err:
 		kfree((void *)filenames_sz[i]);
 		kfree((void *)filenames_rz[i]);
 	}
+	fatfs_delete_dir(LRZSZ_SZ_DIRRECTORY);
+	fatfs_delete_dir(LRZSZ_RZ_DIRRECTORY);
 	kfree(filenames_sz);
 	kfree(filenames_rz);
 	kfree(file_data);

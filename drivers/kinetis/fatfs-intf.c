@@ -63,7 +63,7 @@ static int fatfs_error_to_linux_error(FRESULT fr)
  * @param path: Directory path to create (e.g., "0:/lrzsz/sz")
  * @return: 0 on success, negative error code on failure
  */
-static int fatfs_create_dirs(const char *path)
+int fatfs_create_dirs(const char *path)
 {
 	char buffer[FATFS_BUFFER_SIZE];
 	char *p;
@@ -72,6 +72,7 @@ static int fatfs_create_dirs(const char *path)
 	int path_len;
 	int level_len;
 	FRESULT res;
+	FILINFO fno;
 
 	if (!path || strlen(path) == 0) {
 		return -EINVAL;
@@ -114,10 +115,25 @@ static int fatfs_create_dirs(const char *path)
 		memcpy(full_path, buffer, path_len + level_len);
 		full_path[path_len + level_len] = '\0';
 
-		/* Try to create directory, ignore if already exists */
-		res = f_mkdir(full_path);
-		if (res != FR_OK && res != FR_EXIST) {
-			pr_err("Failed to create directory %s: %d\n", full_path, res);
+		/* Check if directory already exists */
+		res = f_stat(full_path, &fno);
+		if (res == FR_OK) {
+			/* Directory exists, check if it's actually a directory */
+			if (!(fno.fattrib & AM_DIR)) {
+				pr_err("%s exists but is not a directory\n", full_path);
+				return -ENOTDIR;
+			}
+			/* Directory exists, skip creation */
+		} else if (res == FR_NO_FILE) {
+			/* Directory does not exist, create it */
+			res = f_mkdir(full_path);
+			if (res != FR_OK) {
+				pr_err("Failed to create directory %s: %d\n", full_path, res);
+				return fatfs_error_to_linux_error(res);
+			}
+		} else {
+			/* Other error */
+			pr_err("Failed to stat directory %s: %d\n", full_path, res);
 			return fatfs_error_to_linux_error(res);
 		}
 
@@ -309,6 +325,93 @@ out:
 	}
 
 	return ret;
+}
+
+int fatfs_delete_dir(const char *dir_path)
+{
+	FRESULT res;
+	DIR dir;
+	FILINFO fno;
+	char buffer[FATFS_BUFFER_SIZE];
+	char entry_path[FATFS_BUFFER_SIZE];
+
+	if (!dir_path) {
+		pr_err("Invalid parameter: dir_path is NULL\n");
+		return -EINVAL;
+	}
+
+	if (snprintf(buffer, sizeof(buffer), "%s", dir_path) >= sizeof(buffer)) {
+		pr_err("Directory path too long: %s\n", dir_path);
+		return -ENAMETOOLONG;
+	}
+
+	/* Open directory */
+	res = f_opendir(&dir, buffer);
+	if (res != FR_OK) {
+		if (res == FR_NO_PATH) {
+			/* Directory doesn't exist, nothing to delete */
+			return 0;
+		}
+		pr_err("Failed to open directory %s: %d\n", buffer, res);
+		return fatfs_error_to_linux_error(res);
+	}
+
+	/* Delete all entries in the directory */
+	while (1) {
+		res = f_readdir(&dir, &fno);
+		if (res != FR_OK) {
+			pr_err("Failed to read directory %s: %d\n", buffer, res);
+			f_closedir(&dir);
+			return fatfs_error_to_linux_error(res);
+		}
+
+		/* End of directory */
+		if (fno.fname[0] == '\0') {
+			break;
+		}
+
+		/* Skip "." and ".." */
+		if (strcmp(fno.fname, ".") == 0 || strcmp(fno.fname, "..") == 0) {
+			continue;
+		}
+
+		/* Build full path */
+		if (snprintf(entry_path, sizeof(entry_path), "%s/%s", buffer, fno.fname) >= sizeof(entry_path)) {
+			pr_err("Entry path too long: %s/%s\n", buffer, fno.fname);
+			f_closedir(&dir);
+			return -ENAMETOOLONG;
+		}
+
+		/* Delete file or directory */
+		if (fno.fattrib & AM_DIR) {
+			/* Recursively delete subdirectory */
+			res = f_unlink(entry_path);
+			if (res != FR_OK) {
+				pr_err("Failed to delete directory %s: %d\n", entry_path, res);
+				f_closedir(&dir);
+				return fatfs_error_to_linux_error(res);
+			}
+		} else {
+			/* Delete file */
+			res = f_unlink(entry_path);
+			if (res != FR_OK) {
+				pr_err("Failed to delete file %s: %d\n", entry_path, res);
+				f_closedir(&dir);
+				return fatfs_error_to_linux_error(res);
+			}
+		}
+	}
+
+	f_closedir(&dir);
+
+	/* Delete the empty directory itself */
+	res = f_unlink(buffer);
+	if (res != FR_OK) {
+		pr_err("Failed to delete directory %s: %d\n", buffer, res);
+		return fatfs_error_to_linux_error(res);
+	}
+
+	return 0;
 }
 
 int fatfs_delete_file(char *file_path, char *file_name)

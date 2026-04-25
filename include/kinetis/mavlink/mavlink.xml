@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<mavlink>
+    <version>3</version>
+    <dialect>253</dialect>
+
+    <enums>
+        <enum name="MAV_MOTOR_DIRECTION">
+            <description>Motor direction</description>
+            <entry name="STOP" value="0"/>
+            <entry name="FORWARD" value="1"/>
+            <entry name="REVERSE" value="2"/>
+        </enum>
+        <enum name="MAV_MOTOR_STATUS">
+            <description>Motor status</description>
+            <entry name="STOPPED" value="0"/>
+            <entry name="RUNNING" value="1"/>
+            <entry name="FAULT" value="2"/>
+        </enum>
+        <enum name="MAV_ACK_RESULT">
+            <description>Acknowledge result</description>
+            <entry name="OK" value="0"/>
+            <entry name="ERROR" value="1"/>
+            <entry name="INVALID_PARAM" value="2"/>
+            <entry name="MOTOR_FAULT" value="3"/>
+        </enum>
+    </enums>
+
+    <messages>
+        <message id="50000" name="MOTOR_CONTROL">
+            <description>Motor control command from master to slave</description>
+            <field name="target_id" type="uint8_t">Target motor ID (0-3), 255 for all motors</field>
+            <field name="speed" type="int32_t">Target speed in RPM</field>
+            <field name="direction" type="uint8_t">Direction: 0=stop, 1=forward, 2=reverse</field>
+        </message>
+        <message id="50001" name="MOTOR_STATUS">
+            <description>Motor status feedback from slave to master</description>
+            <field name="motor_id" type="uint8_t">Motor ID (0-3)</field>
+            <field name="current_speed" type="int32_t">Current speed in RPM</field>
+            <field name="direction" type="uint8_t">Current direction: 0=stop, 1=forward, 2=reverse</field>
+            <field name="status" type="uint8_t">Motor status: 0=stopped, 1=running, 2=fault</field>
+        </message>
+        <message id="50002" name="MOTOR_ACK">
+            <description>Acknowledgement from slave to master</description>
+            <field name="motor_id" type="uint8_t">Motor ID (0-3)</field>
+            <field name="ack_result" type="uint8_t">Acknowledge result: 0=OK, 1=ERROR, 2=INVALID_PARAM, 3=MOTOR_FAULT</field>
+        </message>
+    </messages>
+</mavlink>

@@ -160,6 +160,19 @@ sz_init(struct serial_port *serial, size_t readnum, size_t bufsize, int no_timeo
 	return sz;
 }
 
+static void
+sz_free(sz_t *sz)
+{
+	if (!sz) {
+		return;
+	}
+	if (sz->zm) {
+		zm_free(sz->zm);
+	}
+	kfree(sz->input_f);
+	kfree(sz);
+}
+
 static int sz_transmit_file_by_zmodem (sz_t *sz, struct zm_fileinfo *zi, const char *buf, size_t blen);
 static int sz_getnak (sz_t *sz);
 static int sz_transmit_pathname (sz_t *sz, struct zm_fileinfo *);
@@ -323,9 +336,10 @@ size_t zmodem_send(struct serial_port *serial,
 	} else {
 		pr_info(_("Transfer complete"));
 	}
-	/*NOTREACHED*/
 
-	return 0u;
+	sz_free(sz);
+
+	return 0;
 }
 
 static int
@@ -1161,11 +1175,12 @@ again:
 			 * header." */
 			crc = 0xFFFFFFFFL;
 			if (!sz->mm_addr) {
+				UINT br;
 				sz->mm_size = f_size(sz->input_f);
 				sz->mm_addr = kmalloc(sz->mm_size, GFP_KERNEL);
 				if (sz->mm_addr != NULL) {
+					f_read(sz->input_f, sz->mm_addr, sz->mm_size, &br);
 					f_close (sz->input_f);
-					sz->input_f = NULL;
 				}
 			}
 			if (sz->mm_addr) {
@@ -1262,8 +1277,9 @@ sz_transmit_file_contents_by_zmodem (sz_t *sz, struct zm_fileinfo *zi)
 		sz->mm_size = f_size(sz->input_f);
 		sz->mm_addr = kmalloc(sz->mm_size, GFP_KERNEL);
 		if (sz->mm_addr != NULL) {
+			UINT br;
+			f_read(sz->input_f, sz->mm_addr, sz->mm_size, &br);
 			f_close (sz->input_f);
-			sz->input_f = NULL;
 		}
 	}
 
@@ -1499,6 +1515,10 @@ gotack:
 		case ZRINIT:
 			/* If the receiver is satisfied with the file,
 			 * it returns ZRINIT. */
+			if (sz->mm_addr) {
+				kfree(sz->mm_addr);
+				sz->mm_addr = NULL;
+			}
 			return OK;
 		case ZSKIP:
 			if (sz->input_f) {

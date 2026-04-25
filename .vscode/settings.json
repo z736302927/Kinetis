@@ -111,5 +111,31 @@
   "command": "multiCommand.commentAtFirstColumn",
   "when": "editorTextFocus && editorHasSelection",
   "C_Cpp.default.compilerPath": "E:/Plugin/mingw64/bin/gcc.exe",
-  "codingcopilot.enableCompletionLanguage": {}
+  "codingcopilot.enableCompletionLanguage": {},
+  "astyle.csharp.enable": true,
+  "astyle.java.enable": true,
+  "astyle.cmd_options": [
+    "--style=linux", // Linux内核风格
+    "--indent=force-tab=4", // 强制使用tab缩进4个字符
+    "--attach-closing-while", // while循环的闭合括号附加
+    "--indent-col1-comments", // 缩进第一列注释
+    "--max-continuation-indent=100", // 最大续行缩进100
+    "--pad-comma", // 逗号后加空格
+    "--pad-include", // include后加空格
+    "--squeeze-lines=1", // 删除多余空行
+    "--break-after-logical", // 逻辑运算符后换行
+    "--indent-preproc-define", // 缩进预处理定义
+    "--pad-oper", // 操作符加空格
+    "--break-one-line-headers", // 单行头换行
+    "--pad-header", // 头文件加空格
+    "--indent-after-parens", // 括号后缩进
+    "--unpad-paren", // 删除括号多余空格
+    "--add-braces", // 添加大括号
+    // "---remove-braces",        // 移除大括号（已注释）
+    "--align-pointer=name", // 指针对齐方式
+    "--align-reference=name", // 引用对齐方式
+    "--suffix=none", // 不创建备份文件
+  ],
+  "astyle.additional_languages": [],
+  "astyle.executable": "E:/Plugin/astyle.exe",
 }

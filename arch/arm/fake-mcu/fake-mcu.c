@@ -452,33 +452,24 @@ int main(int argc, char **argv)
 
 	setvbuf(stdout, NULL, _IONBF, 0);
 
+	/* Kernel and subsystem initialization */
 	ret = fake_mcu_glue_func();
 	if (ret)
 		goto err;
 
-//     test_memory_allocator();
+	ret = board_init();
+	if (ret)
+		goto err;
 
-//	ret = fmu_init();
-//	if (ret)
-//		goto err;
+	pr_info("|-----------------------------------------|\n");
+	pr_info("|  Kinetis system has been setup.         |\n");
+	pr_info("|  Project: %-30s|\n", PROJECT_NAME);
+	pr_info("|-----------------------------------------|\n");
 
-	pr_info("|---------------------------------|\n");
-	pr_info("666, Kineits system has been setup.\n");
-	pr_info("|---------------------------------|\n");
-
-	/* USER CODE END 2 */
-
-	/* Infinite loop */
-	/* USER CODE BEGIN WHILE */
-	while (1) {
-		/* USER CODE END WHILE */
-		ret = k_test_case_schedule();
-		if (ret)
-			break;
-		/* USER CODE BEGIN 3 */
-	}
+	return app_main();
 
 err:
 	pr_err("system crash, error code: %s(%d)\n",
 		errname(ret), ret);
+	return ret;
 }

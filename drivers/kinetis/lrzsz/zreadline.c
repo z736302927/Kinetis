@@ -56,6 +56,16 @@ zreadline_init(struct serial_port *serial, size_t readnum, size_t bufsize, int n
 	return zr;
 }
 
+void
+zreadline_free(zreadline_t *zr)
+{
+	if (!zr) {
+		return;
+	}
+	kfree(zr->readline_buffer);
+	kfree(zr);
+}
+
 int
 zreadline_getc(zreadline_t *zr, int timeout)
 {

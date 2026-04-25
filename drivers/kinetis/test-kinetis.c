@@ -346,6 +346,11 @@ int t_msz_send_specified_file(int argc, char *argv[]);
 int t_msz_send_random_file(int argc, char *argv[]);
 #endif
 
+#ifdef DESIGN_VERIFICATION_MAVLINK
+int t_mavlink_master_slave_sim(int argc, char *argv[]);
+int t_mavlink_msg_pack_parse(int argc, char *argv[]);
+#endif
+
 static int t_function(int argc, char **argv)
 {
 	pr_err("ToDo, please implement this function.");
@@ -693,6 +698,10 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"lrzsz.sz",                   t_msz_send_specified_file},
 	{"lrzsz.random-sz",                   t_msz_send_random_file},
 #endif
+#ifdef DESIGN_VERIFICATION_MAVLINK
+	{"mavlink.master-slave-sim",   t_mavlink_master_slave_sim},
+	{"mavlink.msg-pack-parse",     t_mavlink_msg_pack_parse},
+#endif
 };
 
 static int idle_task_init(void)
@@ -722,7 +731,7 @@ static int idle_task_init(void)
 	}
 
 	int argc = 2;
-	char *argv[] = {"msz", "1"};
+	char *argv[] = {"msz", "3"};
 	t_msz_send_random_file(argc, argv);
 
 	return 0;
@@ -733,8 +742,8 @@ err:
 
 static void idle_task_exit(void)
 {
-	// button_task_exit();
-	// 	switch_task_init();
+	button_task_exit();
+	switch_task_init();
 }
 
 static void idle_task_schedule(void)
