@@ -1,4 +1,5 @@
-PROJECT ?= persistence-of-vision
+# PROJECT ?= persistence-of-vision
+PROJECT ?= verification
 BUILD_DIR = output
 
 # Detect OS

@@ -730,9 +730,10 @@ static int idle_task_init(void)
 		goto err;
 	}
 
-	int argc = 2;
-	char *argv[] = {"msz", "3"};
-	t_msz_send_random_file(argc, argv);
+// 	int argc = 2;
+// 	char *argv[] = {"msz", "3"};
+// 	t_msz_send_random_file(argc, argv);
+	t_mavlink_master_slave_sim(0, NULL);
 
 	return 0;
 err:

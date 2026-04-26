@@ -4,7 +4,7 @@ import sys
 
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    xml_path = os.path.join(script_dir, '..', 'include', 'kinetis', 'mavlink', 'mavlink.xml')
+    xml_path = os.path.join(script_dir, '..', 'include', 'kinetis', 'mavlink', 'mavlink_dialect.xml')
     out_dir = os.path.join(script_dir, '..', 'include', 'kinetis', 'mavlink')
 
     xml_path = os.path.normpath(xml_path)
