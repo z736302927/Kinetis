@@ -60,7 +60,11 @@ struct serial_port {
 
 	struct serial_port_ops *ops;
 
+	char *name;
+
 };
+
+#define SP_NAME(sp)  ((sp)->name ? (sp)->name : "?")
 
 #define SERIAL_PORT_DF_NONE 	1
 #define SERIAL_PORT_DF_SELF 	2
@@ -70,7 +74,7 @@ void serial_port_start_thread(struct serial_port *serial, u8 oneself,
 	u32(*sim_callback)(char *request, char *response, void *context),
 	void *private);
 void serial_port_stop_thread(struct serial_port *serial);
-struct serial_port *serial_port_alloc(struct serial_port_ops *ops);
+struct serial_port *serial_port_alloc(struct serial_port_ops *ops, const char *name);
 void serial_port_free(struct serial_port *serial);
 void serial_port_clear_rx(struct serial_port *serial);
 int serial_port_receive_bytes(struct serial_port *serial_port, char *buffer, int size, u32 timeout_ms);

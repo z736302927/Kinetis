@@ -3,6 +3,8 @@
 
 #include <linux/types.h>
 
+int fatfs_build_path(char *buffer, size_t buffer_size,
+	const char *file_path, const char *file_name);
 u32 fatfs_get_flash_size(void);
 int fatfs_create_dirs(const char *path);
 int fatfs_find_file(char *file_path, char *file_name);

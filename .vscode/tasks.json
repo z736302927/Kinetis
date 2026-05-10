@@ -2,6 +2,22 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "type": "shell",
+            "label": "Makefile Build",
+            "command": "make",
+            "args": [
+                "compile"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/scripts"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build",
+            "detail": "使用 Makefile 编译项目"
+        },
+        {
             "type": "cppbuild",
             "label": "Build with Makefile Configuration",
             "command": "E:/Plugin/mingw64/bin/gcc.exe",
@@ -30,12 +46,14 @@
                 "arch\\arm\\include\\generated\\uapi",
                 "-I",
                 "arch\\arm\\mach-stm32",
+                "-I",
+                "projects\\$(PROJECT)",
                 "-include",
                 "generated\\deconfig.h",
                 "-include",
                 "kinetis\\step-debug.h",
-                "-DFOUR_AXIS_FLIGHT",
-                "-DFOUR_AXIS_FLIGHT_VERSION=\\\"1.0.0\\\"",
+                "-include",
+                "projects\\persistence-of-vision\\project.h",
                 "-D__KERNEL__",
                 "-DCONFIG_FAKE_LIB",
                 "-DCONFIG_SIMULATION",
@@ -477,6 +495,20 @@
                 "drivers\\kinetis\\lrzsz\\zm.c",
                 "-g",
                 "drivers\\kinetis\\lrzsz\\zreadline.c",
+                "-g",
+                "drivers\\kinetis\\mavlink\\mavlink.c",
+                "-g",
+                "projects\\persistence-of-vision\\hall.c",
+                "-g",
+                "projects\\persistence-of-vision\\motor.c",
+                "-g",
+                "projects\\persistence-of-vision\\pid.c",
+                "-g",
+                "projects\\persistence-of-vision\\project.c",
+                "-g",
+                "projects\\persistence-of-vision\\rotor.c",
+                "-g",
+                "projects\\persistence-of-vision\\stator.c",
                 "-o",
                 "E:\\Code\\Kinetis\\.vscode\\output\\kinetis.exe"
             ],

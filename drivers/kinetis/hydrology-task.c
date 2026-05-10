@@ -43,7 +43,12 @@ void link_packet(struct tim_task *task)
 	hydrology_device_process(NULL, 0, HYDROLOGY_M1, LINK_REPORT);
 }
 
-static void test_packet(void)
+static struct rtc_task rtc_test_task;
+static struct rtc_task rtc_timer_task;
+static struct rtc_task rtc_add_task;
+static struct rtc_task rtc_hour_task;
+
+static void test_packet(struct rtc_task *task)
 {
 	struct hydrology_element element;
 	struct hydrology_element_info element_table[] = {
@@ -72,21 +77,21 @@ static void test_packet(void)
 	}
 }
 
-static void timer_report_packet(void)
+static void timer_report_packet(struct rtc_task *task)
 {
 	pr_err("[%s] Send %s packet\n",
 		get_rtc_string(&fake_rtc),
 		hydrology_type_string(TIMER_REPORT));
 }
 
-static void add_report_packet(void)
+static void add_report_packet(struct rtc_task *task)
 {
 	pr_err("[%s] Send %s packet\n",
 		get_rtc_string(&fake_rtc),
 		hydrology_type_string(ADD_REPORT));
 }
 
-static void hour_packet(void)
+static void hour_packet(struct rtc_task *task)
 {
 	pr_err("[%s] Send %s packet\n",
 		get_rtc_string(&fake_rtc),
@@ -95,8 +100,8 @@ static void hour_packet(void)
 
 void hydrology_task_exit(void)
 {
-	tim_task_drop(g_hydrology.collecte_data);
-	tim_task_drop(g_hydrology.link_pkt);
+	tim_task_drop(&g_hydrology.collecte_data);
+	tim_task_drop(&g_hydrology.link_pkt);
 	rtc_task_drop(test_packet);
 	rtc_task_drop(timer_report_packet);
 	rtc_task_drop(add_report_packet);
@@ -169,12 +174,22 @@ int hydrology_task_init(void)
 		}
 	}
 
-	g_hydrology.collecte_data = tim_task_add("measure temperature humidit",
+	g_hydrology.collecte_data.name = "measure temperature humidit";
+	ret = tim_task_add(&g_hydrology.collecte_data, "measure temperature humidit",
 		60 * 1000, true, false, measure_temperature_humidit);
-	g_hydrology.link_pkt = tim_task_add("link packet",
-		40 * 1000, true, false, link_packet);
+	if (ret) {
+		pr_err("collect data task creation failed: %d\n", ret);
+		return ret;
+	}
 
-	rtc_task_add(0, 0, 0, 0, 1, 0, true, test_packet);
+	ret = tim_task_add(&g_hydrology.link_pkt, "link packet",
+		40 * 1000, true, false, link_packet);
+	if (ret) {
+		pr_err("link packet task creation failed: %d\n", ret);
+		return ret;
+	}
+
+	rtc_task_add(&rtc_test_task, 0, 0, 0, 0, 1, 0, true, test_packet);
 
 	ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
 			HYDROLOGY_PA_TI, &interval, 1);
@@ -192,21 +207,20 @@ int hydrology_task_init(void)
 		pr_err("Failed to write interval timer, error code: %d\n", ret);
 		/* Continue with the value anyway */
 	}
-	rtc_task_add(0, 0, 0, 0, interval, 0, true, timer_report_packet);
+	rtc_task_add(&rtc_timer_task, 0, 0, 0, 0, interval, 0, true, timer_report_packet);
 
 	ret = fatfs_read_store_info(HYDROLOGY_FILE_PATH, HYDROLOGY_D_FILE_E_DATA,
 			HYDROLOGY_PA_AI, &interval, 1);
 	if (ret) {
 		pr_err("Failed to read add interval timer, error code: %d\n", ret);
-		/* Use default value if read fails */
 		interval = 0;
 	}
 
 	if (interval != 0) {
-		rtc_task_add(0, 0, 0, 0, interval, 0, true, add_report_packet);
+		rtc_task_add(&rtc_add_task, 0, 0, 0, 0, interval, 0, true, add_report_packet);
 	}
 
-	rtc_task_add(0, 0, 0, 1, 0, 0, true, hour_packet);
+	rtc_task_add(&rtc_hour_task, 0, 0, 0, 1, 0, 0, true, hour_packet);
 
 	return 0;
 }

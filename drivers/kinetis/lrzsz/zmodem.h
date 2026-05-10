@@ -115,7 +115,7 @@ size_t zmodem_send(struct serial_port *serial,
 		   u32 flags);
 
 int lrzsz_rz(struct serial_port *serial, const char *directory);
-int lrzsz_sz();
+int lrzsz_sz(struct serial_port *serial, int n_filenames, const char **filenames);
 
 #ifdef __cplusplus
 }

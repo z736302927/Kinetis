@@ -18,7 +18,7 @@
   * @step 4:  Call function Multi_Button_Test once in function main.
   */
 
-static struct tim_task *button_task;
+static struct tim_task button_task;
 static bool button_task_running = false;
 
 static void button_task_callback(struct tim_task *task)
@@ -30,26 +30,23 @@ int button_task_init(void)
 {
 	int ret;
 
-	if (button_task_running) {
+	if (button_task_running)
 		return 0;
-	}
 
-	button_task = tim_task_add("button_task",
-			5, true, false, button_task_callback);
-	if (!IS_ERR_OR_NULL(button_task)) {
+	ret = tim_task_add(&button_task, "button_task",
+		5, true, false, button_task_callback);
+	if (ret == 0)
 		button_task_running = true;
-	}
 
 	return ret;
 }
 
 void button_task_exit(void)
 {
-	if (!button_task_running) {
+	if (!button_task_running)
 		return;
-	}
 
-	tim_task_drop(button_task);
+	tim_task_drop(&button_task);
 	button_task_running = false;
 }
 

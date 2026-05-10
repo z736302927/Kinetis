@@ -37,6 +37,17 @@ static void complete_cb(const char *filename, int result, size_t size, u64 date)
 	}
 }
 
+int lrzsz_sz(struct serial_port *serial, int n_filenames, const char **filenames)
+{
+	size_t bytes = zmodem_send(serial, n_filenames, filenames,
+			tick_cb,
+			complete_cb,
+			0,
+			RZSZ_FLAGS_NONE);
+	pr_err("Sent %zu bytes.\n", bytes);
+	return 0;
+}
+
 int t_msz_send_specified_file(int argc, char *argv[])
 {
 	struct serial_port *serial;
@@ -69,7 +80,7 @@ int t_msz_send_specified_file(int argc, char *argv[])
 		return 0;
 	}
 
-	serial = serial_port_alloc(&fake_serial_port_ops);
+	serial = serial_port_alloc(&fake_serial_port_ops, NULL);
 	if (IS_ERR(serial)) {
 		ret = PTR_ERR(serial);
 		goto file_err;
@@ -183,12 +194,12 @@ int t_msz_send_random_file(int argc, char *argv[])
 	kfree(file_data);
 	file_data = NULL;
 
-	serial_sz = serial_port_alloc(&fake_serial_port_ops);
+	serial_sz = serial_port_alloc(&fake_serial_port_ops, NULL);
 	if (IS_ERR(serial_sz)) {
 		ret = PTR_ERR(serial_sz);
 		goto file_err;
 	}
-	serial_rz = serial_port_alloc(&fake_serial_port_ops);
+	serial_rz = serial_port_alloc(&fake_serial_port_ops, NULL);
 	if (IS_ERR(serial_rz)) {
 		ret = PTR_ERR(serial_rz);
 		serial_port_free(serial_sz);

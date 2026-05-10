@@ -148,7 +148,7 @@ int fatfs_create_dirs(const char *path)
 	return 0;
 }
 
-static int fatfs_build_path(char *buffer, size_t buffer_size,
+int fatfs_build_path(char *buffer, size_t buffer_size,
 	const char *file_path, const char *file_name)
 {
 	int written;

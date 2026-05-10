@@ -8,10 +8,31 @@
       "args": [],
       "stopAtEntry": false,
       "externalConsole": true,
-      "cwd": "e:/Code/Kinetis/arch/arm/fake-mcu",
-      "program": "E:\\Code\\Kinetis\\.vscode\\output\\kinetis.exe",
+      "cwd": "${workspaceFolder}/arch/arm/fake-mcu",
+      "program": "${workspaceFolder}/.vscode/output/kinetis.exe",
+      "preLaunchTask": "Build with Makefile Configuration",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
+    },
+    {
+      "name": "Makefile Debug",
+      "type": "cppdbg",
+      "request": "launch",
+      "args": [],
+      "stopAtEntry": false,
+      "externalConsole": true,
+      "cwd": "${workspaceFolder}",
+      "program": "${workspaceFolder}/scripts/output/persistence-of-vision.exe",
+      "MIMode": "gdb",
+      "miDebuggerPath": "gdb",
+      "preLaunchTask": "Makefile Build",
       "setupCommands": [
         {
           "description": "Enable pretty-printing for gdb",

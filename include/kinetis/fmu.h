@@ -164,8 +164,8 @@ struct fmu_rc {
 	u16 channel_aux5;
 	u16 channel_aux6;
 
-	struct tim_task *conv_data_task;
-	struct tim_task *detect_task;
+	struct tim_task conv_data_task;
+	struct tim_task detect_task;
 
 	struct fmu_rc_sbus sbus;
 };

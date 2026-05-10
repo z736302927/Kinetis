@@ -4,45 +4,129 @@
     <dialect>253</dialect>
 
     <enums>
+        <enum name="MAV_IMAGE_ACTION">
+            <description>Image playback actions</description>
+            <entry name="MAV_IMAGE_ACTION_REPLAY" value="0"/>
+            <entry name="MAV_IMAGE_ACTION_NEXT" value="1"/>
+            <entry name="MAV_IMAGE_ACTION_PREVIOUS" value="2"/>
+            <entry name="MAV_IMAGE_ACTION_PLAY_INDEX" value="3"/>
+        </enum>
         <enum name="MAV_MOTOR_DIRECTION">
             <description>Motor direction</description>
-            <entry name="STOP" value="0"/>
-            <entry name="FORWARD" value="1"/>
-            <entry name="REVERSE" value="2"/>
+            <entry name="MAV_MOTOR_DIRECTION_STOP" value="0"/>
+            <entry name="MAV_MOTOR_DIRECTION_FORWARD" value="1"/>
+            <entry name="MAV_MOTOR_DIRECTION_REVERSE" value="2"/>
         </enum>
         <enum name="MAV_MOTOR_STATUS">
             <description>Motor status</description>
-            <entry name="STOPPED" value="0"/>
-            <entry name="RUNNING" value="1"/>
-            <entry name="FAULT" value="2"/>
+            <entry name="MAV_MOTOR_STATUS_STOPPED" value="0"/>
+            <entry name="MAV_MOTOR_STATUS_RUNNING" value="1"/>
+            <entry name="MAV_MOTOR_STATUS_FAULT" value="2"/>
         </enum>
         <enum name="MAV_ACK_RESULT">
             <description>Acknowledge result</description>
-            <entry name="OK" value="0"/>
-            <entry name="ERROR" value="1"/>
-            <entry name="INVALID_PARAM" value="2"/>
-            <entry name="MOTOR_FAULT" value="3"/>
+            <entry name="MAV_ACK_RESULT_OK" value="0"/>
+            <entry name="MAV_ACK_RESULT_ERROR" value="1"/>
+            <entry name="MAV_ACK_RESULT_INVALID_PARAM" value="2"/>
+            <entry name="MAV_ACK_RESULT_MOTOR_FAULT" value="3"/>
+        </enum>
+        <enum name="MAV_SYSTEM_STATUS">
+            <description>System status</description>
+            <entry name="MAV_SYSTEM_STATUS_BOOTING" value="0"/>
+            <entry name="MAV_SYSTEM_STATUS_STANDBY" value="1"/>
+            <entry name="MAV_SYSTEM_STATUS_ACTIVE" value="2"/>
+            <entry name="MAV_SYSTEM_STATUS_FAULT" value="3"/>
+        </enum>
+        <enum name="MAV_FILE_TRANSFER_DIR">
+            <description>File transfer direction</description>
+            <entry name="MAV_FILE_TRANSFER_DIR_UPLOAD" value="0"/>
+            <entry name="MAV_FILE_TRANSFER_DIR_DOWNLOAD" value="1"/>
+        </enum>
+        <enum name="MAV_FILE_TRANSFER_STATE">
+            <description>File transfer state</description>
+            <entry name="MAV_FILE_TRANSFER_STATE_IDLE" value="0"/>
+            <entry name="MAV_FILE_TRANSFER_STATE_TRANSFERRING" value="1"/>
+            <entry name="MAV_FILE_TRANSFER_STATE_COMPLETED" value="2"/>
+            <entry name="MAV_FILE_TRANSFER_STATE_CANCELLED" value="3"/>
+            <entry name="MAV_FILE_TRANSFER_STATE_ERROR" value="4"/>
         </enum>
     </enums>
 
     <messages>
+        <!-- Motor Control (id: 50000-50003) -->
         <message id="50000" name="MOTOR_CONTROL">
             <description>Motor control command from master to slave</description>
             <field name="target_id" type="uint8_t">Target motor ID (0-3), 255 for all motors</field>
             <field name="speed" type="int32_t">Target speed in RPM</field>
-            <field name="direction" type="uint8_t">Direction: 0=stop, 1=forward, 2=reverse</field>
+            <field name="direction" type="uint8_t" enum="MAV_MOTOR_DIRECTION">0=stop, 1=forward, 2=reverse</field>
         </message>
-        <message id="50001" name="MOTOR_STATUS">
-            <description>Motor status feedback from slave to master</description>
+        <message id="50001" name="MOTOR_STATUS_QUERY">
+            <description>Motor status query request from master to slave</description>
+            <field name="motor_id" type="uint8_t">Target motor ID (0-3), 255 for all motors</field>
+        </message>
+        <message id="50002" name="MOTOR_STATUS">
+            <description>Motor status response from slave to master</description>
             <field name="motor_id" type="uint8_t">Motor ID (0-3)</field>
             <field name="current_speed" type="int32_t">Current speed in RPM</field>
-            <field name="direction" type="uint8_t">Current direction: 0=stop, 1=forward, 2=reverse</field>
-            <field name="status" type="uint8_t">Motor status: 0=stopped, 1=running, 2=fault</field>
+            <field name="direction" type="uint8_t" enum="MAV_MOTOR_DIRECTION">0=stop, 1=forward, 2=reverse</field>
+            <field name="status" type="uint8_t" enum="MAV_MOTOR_STATUS">0=stopped, 1=running, 2=fault</field>
         </message>
-        <message id="50002" name="MOTOR_ACK">
+        <message id="50003" name="MOTOR_ACK">
             <description>Acknowledgement from slave to master</description>
             <field name="motor_id" type="uint8_t">Motor ID (0-3)</field>
-            <field name="ack_result" type="uint8_t">Acknowledge result: 0=OK, 1=ERROR, 2=INVALID_PARAM, 3=MOTOR_FAULT</field>
+            <field name="ack_result" type="uint8_t" enum="MAV_ACK_RESULT">0=OK, 1=ERROR, 2=INVALID_PARAM, 3=MOTOR_FAULT</field>
+        </message>
+
+        <!-- Image Control (id: 50004-50005) -->
+        <message id="50004" name="IMAGE_CONTROL">
+            <description>Image playback control from stator to rotor</description>
+            <field name="action" type="uint8_t" enum="MAV_IMAGE_ACTION">0=replay, 1=next, 2=previous, 3=play_index</field>
+            <field name="image_index" type="uint16_t">Image index to play (for action=PLAY_INDEX)</field>
+        </message>
+        <message id="50005" name="IMAGE_ACK">
+            <description>Acknowledge for image control command</description>
+            <field name="action" type="uint8_t" enum="MAV_IMAGE_ACTION">Copied from IMAGE_CONTROL.action</field>
+            <field name="ack_result" type="uint8_t">0=OK, 1=invalid_index</field>
+        </message>
+
+        <!-- System (id: 50006) -->
+        <message id="50006" name="SYSTEM_HEARTBEAT">
+            <description>Periodic system status heartbeat</description>
+            <field name="status" type="uint8_t" enum="MAV_SYSTEM_STATUS">0=booting, 1=standby, 2=active, 3=fault</field>
+            <field name="uptime_s" type="uint32_t">System uptime in seconds</field>
+            <field name="error_count" type="uint16_t">Total runtime error count</field>
+        </message>
+
+        <!-- File Transfer - ZMODEM (id: 50010-50014) -->
+        <message id="50010" name="FILE_TRANSFER_START">
+            <description>Initiate ZMODEM file transfer request</description>
+            <field name="direction" type="uint8_t" enum="MAV_FILE_TRANSFER_DIR">0=upload(to device), 1=download(from device)</field>
+            <field name="file_size" type="uint32_t">File size in bytes (0 = unknown)</field>
+            <field name="filename" type="char[64]">Target filename (null-terminated)</field>
+        </message>
+        <message id="50011" name="FILE_TRANSFER_ACK">
+            <description>Response to file transfer request</description>
+            <field name="direction" type="uint8_t" enum="MAV_FILE_TRANSFER_DIR">Echoed from request</field>
+            <field name="result" type="uint8_t">0=ready, 1=denied, 2=no_space, 3=not_found, 4=busy</field>
+            <field name="file_size" type="uint32_t">Actual file size in bytes (0 for upload)</field>
+        </message>
+        <message id="50012" name="FILE_TRANSFER_PROGRESS">
+            <description>File transfer progress update</description>
+            <field name="state" type="uint8_t" enum="MAV_FILE_TRANSFER_STATE">0=idle, 1=transferring, 2=completed, 3=cancelled, 4=error</field>
+            <field name="bytes_transferred" type="uint32_t">Bytes transferred so far</field>
+            <field name="total_bytes" type="uint32_t">Total file size</field>
+            <field name="error_code" type="uint8_t">0=none, 1=timeout, 2=crc_err, 3=proto_err</field>
+        </message>
+        <message id="50013" name="FILE_TRANSFER_CANCEL">
+            <description>Cancel file transfer in progress</description>
+            <field name="direction" type="uint8_t" enum="MAV_FILE_TRANSFER_DIR">Direction of transfer to cancel</field>
+        </message>
+        <message id="50014" name="FILE_TRANSFER_LIST">
+            <description>List available files for download (multiple messages for multi-file)</description>
+            <field name="file_count" type="uint8_t">Total number of files available</field>
+            <field name="list_index" type="uint8_t">Index of this entry (0-based)</field>
+            <field name="file_size" type="uint32_t">File size in bytes</field>
+            <field name="filename" type="char[32]">Filename (null-terminated)</field>
         </message>
     </messages>
 </mavlink>

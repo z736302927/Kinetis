@@ -57,12 +57,12 @@ extern void link_packet(struct tim_task *task);
 
 void hydrology_disable_link_packet(void)
 {
-	tim_task_drop(g_hydrology.link_pkt);
+	tim_task_drop(&g_hydrology.link_pkt);
 }
 
 void hydrology_enable_link_packet(void)
 {
-	g_hydrology.link_pkt = tim_task_add("link packet",
+	tim_task_add(&g_hydrology.link_pkt, "link packet",
 		40 * 1000, true, false, link_packet);
 }
 

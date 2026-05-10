@@ -117,22 +117,21 @@ int rc_module_init(struct fmu_rc *rc)
 		return -ENODATA;
 	}
 
-	rc->conv_data_task = tim_task_add("rc convert data",
+	ret = tim_task_add(&rc->conv_data_task, "rc convert data",
 			5, true, true, rc_process_data);
-	if (IS_ERR_OR_NULL(rc->conv_data_task)) {
-		return PTR_ERR(rc->conv_data_task);
-	}
-	rc->detect_task = tim_task_add("rc detect signal",
+	if (ret)
+		return ret;
+
+	ret = tim_task_add(&rc->detect_task, "rc detect signal",
 			1000, true, true, rc_detect_signal);
-	if (IS_ERR_OR_NULL(rc->detect_task)) {
-		return PTR_ERR(rc->detect_task);
-	}
+	if (ret)
+		return ret;
 
 	return 0;
 }
 
 void rc_module_exit(struct fmu_rc *rc)
 {
-	tim_task_drop(rc->conv_data_task);
-	tim_task_drop(rc->detect_task);
+	tim_task_drop(&rc->conv_data_task);
+	tim_task_drop(&rc->detect_task);
 }

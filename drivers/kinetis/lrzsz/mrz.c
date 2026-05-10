@@ -48,7 +48,7 @@ t_mrz(int argc, char *argv[])
 {
 	struct serial_port *serial;
 
-	serial = serial_port_alloc(&fake_serial_port_ops);
+	serial = serial_port_alloc(&fake_serial_port_ops, NULL);
 	if (IS_ERR(serial)) {
 		return PTR_ERR(serial);
 	}
@@ -76,7 +76,7 @@ int t_mrz_receive_specified_file(int argc, char *argv[])
 		return ret;
 	}
 
-	serial = serial_port_alloc(&fake_serial_port_ops);
+	serial = serial_port_alloc(&fake_serial_port_ops, NULL);
 	if (IS_ERR(serial)) {
 		return PTR_ERR(serial);
 	}
@@ -204,12 +204,12 @@ int t_mrz_receive_random_file(int argc, char *argv[])
 	kfree(file_data);
 	file_data = NULL;
 
-	serial_sz = serial_port_alloc(&fake_serial_port_ops);
+	serial_sz = serial_port_alloc(&fake_serial_port_ops, NULL);
 	if (IS_ERR(serial_sz)) {
 		ret = PTR_ERR(serial_sz);
 		goto file_err;
 	}
-	serial_rz = serial_port_alloc(&fake_serial_port_ops);
+	serial_rz = serial_port_alloc(&fake_serial_port_ops, NULL);
 	if (IS_ERR(serial_rz)) {
 		ret = PTR_ERR(serial_rz);
 		serial_port_free(serial_sz);

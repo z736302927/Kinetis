@@ -115,7 +115,7 @@ void serial_port_stop_thread(struct serial_port *serial)
 	}
 }
 
-struct serial_port *serial_port_alloc(struct serial_port_ops *ops)
+struct serial_port *serial_port_alloc(struct serial_port_ops *ops, const char *name)
 {
 	struct serial_port *serial;
 
@@ -123,6 +123,9 @@ struct serial_port *serial_port_alloc(struct serial_port_ops *ops)
 	if (serial == NULL) {
 		return ERR_PTR(-ENOMEM);
 	}
+
+	if (name)
+		serial->name = kstrdup(name, GFP_KERNEL);
 
 	serial->rx_complete = false;
 	serial->ops = ops;
@@ -134,6 +137,8 @@ void serial_port_free(struct serial_port *serial)
 {
 	serial_port_stop_thread(serial);
 
+	if (serial->name)
+		kfree(serial->name);
 	kfree(serial);
 }
 
@@ -211,6 +216,7 @@ int serial_port_receive_bytes(struct serial_port *serial, char *buffer, int size
 
 int serial_port_transmit_bytes(struct serial_port *serial, const u8 *data, u16 size)
 {
+	char prefix[64];
 	u16 tx_size;
 
 	if (size >= SERIAL_PORT_BUFFER_SIZE) {
@@ -220,7 +226,8 @@ int serial_port_transmit_bytes(struct serial_port *serial, const u8 *data, u16 s
 
 	memcpy(serial->tx_buffer, data, size);
 	serial->transmited_size = size;
-	print_hex_dump(KERN_DEBUG, "serial port tx: ", DUMP_PREFIX_OFFSET,
+	snprintf(prefix, sizeof(prefix), "sp-%s tx: ", SP_NAME(serial));
+	print_hex_dump(KERN_DEBUG, prefix, DUMP_PREFIX_OFFSET,
 		16, 1,
 		serial->tx_buffer, serial->transmited_size, false);
 
@@ -230,11 +237,13 @@ int serial_port_transmit_bytes(struct serial_port *serial, const u8 *data, u16 s
 
 int serial_port_transmit_byte(struct serial_port *serial, u8 byte)
 {
+	char prefix[64];
 	u16 tx_size;
 
 	serial->tx_buffer[0] = byte;
 	serial->transmited_size = 1;
-	print_hex_dump(KERN_DEBUG, "serial port tx: ", DUMP_PREFIX_OFFSET,
+	snprintf(prefix, sizeof(prefix), "sp-%s tx: ", SP_NAME(serial));
+	print_hex_dump(KERN_DEBUG, prefix, DUMP_PREFIX_OFFSET,
 		16, 1,
 		serial->tx_buffer, serial->transmited_size, false);
 
@@ -398,7 +407,7 @@ int t_serial_port_interactive(int argc, char **argv)
 	char at_ack[SERIAL_PORT_BUFFER_SIZE];
 	int ret;
 
-	serial = serial_port_alloc(&fake_serial_port_ops);
+	serial = serial_port_alloc(&fake_serial_port_ops, NULL);
 	serial_port_start_thread(serial, SERIAL_PORT_DF_SELF, serial_port_callback, fake_at_commands);
 
 	for (int i = 0; i < ARRAY_SIZE(fake_at_commands); i++) {
