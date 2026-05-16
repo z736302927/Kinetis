@@ -50,6 +50,13 @@
             <entry name="MAV_FILE_TRANSFER_STATE_CANCELLED" value="3"/>
             <entry name="MAV_FILE_TRANSFER_STATE_ERROR" value="4"/>
         </enum>
+        <enum name="MAV_BOOTLOADER_CMD">
+            <description>Bootloader commands from host to device</description>
+            <entry name="MAV_BL_CMD_PREPARE_UPDATE" value="0"/>
+            <entry name="MAV_BL_CMD_START_APP" value="1"/>
+            <entry name="MAV_BL_CMD_RESET" value="2"/>
+            <entry name="MAV_BL_CMD_QUERY_INFO" value="3"/>
+        </enum>
     </enums>
 
     <messages>
@@ -127,6 +134,20 @@
             <field name="list_index" type="uint8_t">Index of this entry (0-based)</field>
             <field name="file_size" type="uint32_t">File size in bytes</field>
             <field name="filename" type="char[32]">Filename (null-terminated)</field>
+        </message>
+
+        <!-- Bootloader (id: 50015-50016) -->
+        <message id="50015" name="BOOTLOADER_UPDATE_CMD">
+            <description>Host to device: initiate or control firmware update</description>
+            <field name="command" type="uint8_t" enum="MAV_BOOTLOADER_CMD">0=PREPARE, 1=START_APP, 2=RESET, 3=QUERY_INFO</field>
+            <field name="firmware_size" type="uint32_t">Expected firmware size in bytes (0 for non-update commands)</field>
+            <field name="firmware_crc32" type="uint32_t">Expected firmware CRC32 (0 for non-update commands)</field>
+            <field name="filename" type="char[32]">Target firmware filename on filesystem (null-terminated)</field>
+        </message>
+        <message id="50016" name="BOOTLOADER_ACK">
+            <description>Device to host: acknowledge a bootloader command</description>
+            <field name="command" type="uint8_t" enum="MAV_BOOTLOADER_CMD">Echoed command from request</field>
+            <field name="result" type="uint8_t">0=accepted, 1=denied, 2=error, 3=invalid_cmd</field>
         </message>
     </messages>
 </mavlink>

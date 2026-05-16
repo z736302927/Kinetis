@@ -12,6 +12,8 @@
 #include "config.h"
 #include "hall.h"
 
+struct flash_ops;
+
 #define POV_IMG_MAGIC       0x504F5621  /* "POV!" */
 #define POV_IMG_VERSION     1
 
@@ -55,6 +57,8 @@ struct pov_rotor {
 	struct serial_port *motor_port;  /* ↔ stator (MAVLink) */
 	struct serial_port *app_port;    /* ↔ phone  (ZMODEM) */
 
+	struct flash_ops *flash;
+
 	struct rgb_tricolor rgb_strip[POV_SPI_GROUPS][POV_LEDS_PER_GROUP];
 };
 
@@ -62,9 +66,10 @@ int pov_create_fake_images(const char *path);
 
 /**
  * @brief Allocate and initialize rotor device
+ * @param flash: Flash operations for persisting bootloader config
  * @return Pointer to rotor instance, or NULL on failure
  */
-struct pov_rotor *pov_rotor_alloc(void);
+struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash);
 
 /**
  * @brief Free rotor instance and all owned resources

@@ -205,6 +205,21 @@ static void mavlink_print_decoded_log(const char *name, const mavlink_message_t 
 			 p.file_size, p.filename);
 		break;
 	}
+	case MAVLINK_MSG_ID_BOOTLOADER_UPDATE_CMD: {
+		mavlink_bootloader_update_cmd_t p;
+		mavlink_msg_bootloader_update_cmd_decode(msg, &p);
+		pr_debug("%s: BL_UPDATE_CMD  cmd:%u size:%u crc:0x%08x name:%s\n",
+			 name, p.command, p.firmware_size,
+			 p.firmware_crc32, p.filename);
+		break;
+	}
+	case MAVLINK_MSG_ID_BOOTLOADER_ACK: {
+		mavlink_bootloader_ack_t p;
+		mavlink_msg_bootloader_ack_decode(msg, &p);
+		pr_debug("%s: BL_ACK  cmd:%u result:%u\n",
+			 name, p.command, p.result);
+		break;
+	}
 	default:
 		pr_debug("%s: MSG id:%u len:%u seq:%u\n",
 			 name, msg->msgid, msg->len, msg->seq);
@@ -454,6 +469,27 @@ int mavlink_receive_and_process(struct mavlink_device *mav, u32 timeout_ms)
 			break;
 		}
 
+		case MAVLINK_MSG_ID_BOOTLOADER_UPDATE_CMD: {
+			mavlink_bootloader_update_cmd_t cmd;
+
+			mavlink_msg_bootloader_update_cmd_decode(&mav->rx_msg, &cmd);
+			pr_info("BL UPDATE_CMD cmd=%d size=%u crc=0x%08x name=%s\n",
+				cmd.command, cmd.firmware_size,
+				cmd.firmware_crc32, cmd.filename);
+
+			mav->bl.pending = 1;
+			mav->bl.command = cmd.command;
+			mav->bl.firmware_size = cmd.firmware_size;
+			mav->bl.firmware_crc32 = cmd.firmware_crc32;
+			mav->bl.filename[sizeof(mav->bl.filename) - 1] = '\0';
+			strncpy(mav->bl.filename, cmd.filename,
+				sizeof(mav->bl.filename) - 1);
+
+			mavlink_send_bootloader_ack(mav, cmd.command,
+						    MAV_BL_ACK_ACCEPTED);
+			break;
+		}
+
 		default:
 			pr_debug("Unknown message id=%d\n", mav->rx_msg.msgid);
 			mav->rx_errors++;
@@ -680,6 +716,47 @@ int mavlink_send_heartbeat(struct mavlink_device *mav, u8 status,
 
 	mavlink_msg_system_heartbeat_encode(mav->sysid, mav->compid,
 					    &msg, &payload);
+
+	return mavlink_send_encoded_data(mav, &msg);
+}
+
+int mavlink_send_bootloader_update(struct mavlink_device *mav, u8 command,
+				   u32 firmware_size, u32 firmware_crc32,
+				   const char *filename, u32 timeout_ms)
+{
+	mavlink_bootloader_update_cmd_t payload;
+	mavlink_message_t msg;
+	size_t len;
+	int ret;
+
+	payload.command = command;
+	payload.firmware_size = firmware_size;
+	payload.firmware_crc32 = firmware_crc32;
+	len = strnlen(filename, sizeof(payload.filename) - 1);
+	memcpy(payload.filename, filename, len);
+	payload.filename[len] = '\0';
+
+	mavlink_msg_bootloader_update_cmd_encode(mav->sysid, mav->compid,
+						 &msg, &payload);
+
+	ret = mavlink_send_encoded_data(mav, &msg);
+	if (ret < 0)
+		return ret;
+
+	return mavlink_receive_and_process(mav, timeout_ms);
+}
+
+int mavlink_send_bootloader_ack(struct mavlink_device *mav, u8 command,
+				u8 result)
+{
+	mavlink_bootloader_ack_t payload;
+	mavlink_message_t msg;
+
+	payload.command = command;
+	payload.result = result;
+
+	mavlink_msg_bootloader_ack_encode(mav->sysid, mav->compid,
+					  &msg, &payload);
 
 	return mavlink_send_encoded_data(mav, &msg);
 }

@@ -53,7 +53,11 @@ struct pov_stator *pov_stator_alloc(void)
 		return NULL;
 	}
 
+#if KINETIS_FAKE_SIM
 	stator->motor_port = serial_port_alloc(&fake_serial_port_ops, "stator-motor");
+#else
+	stator->motor_port = serial_port_alloc(&real_serial_port_ops, "stator-motor");
+#endif
 	if (!stator->motor_port) {
 		goto err;
 	}
@@ -63,7 +67,11 @@ struct pov_stator *pov_stator_alloc(void)
 		goto err_free_port;
 	}
 
+#if KINETIS_FAKE_SIM
 	stator->hall = hall_alloc_dev(POV_DISPLAY_COLS, hall_read_rotated_time);
+#else
+	stator->hall = hall_alloc_dev(POV_DISPLAY_COLS, NULL /* real HAL callback */);
+#endif
 	if (!stator->hall) {
 		goto err_free_mavlink;
 	}

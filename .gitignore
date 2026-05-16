@@ -14,3 +14,4 @@ include/kinetis/mavlink/mavlink_sha256.h
 include/kinetis/mavlink/mavlink_types.h
 include/kinetis/mavlink/protocol.h
 include/kinetis/mavlink/mavlink_dialect/*
+.codebuddy/*

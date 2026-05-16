@@ -18,6 +18,9 @@
 #include "rotor.h"
 #include "stator.h"
 
+#include "../../drivers/kinetis/bootloader/bootloader.h"
+
+#if KINETIS_FAKE_SIM
 #include <pthread.h>
 #include <unistd.h>
 
@@ -204,6 +207,34 @@ static void *phone_thread_func(void *arg)
 	return NULL;
 }
 
+/*********************************************************************
+ * Mock flash ops for simulation (project-level; real HW provides its own)
+ *********************************************************************/
+static int project_flash_erase(u32 addr, u32 size)
+{
+	memset((void *)addr, 0xFF, size);
+	return 0;
+}
+
+static int project_flash_write(u32 addr, const u8 *data, u32 size)
+{
+	memcpy((void *)addr, data, size);
+	return 0;
+}
+
+static int project_flash_read(u32 addr, u8 *buf, u32 size)
+{
+	memcpy(buf, (const void *)addr, size);
+	return 0;
+}
+
+static struct flash_ops g_project_flash_ops = {
+	.erase  = project_flash_erase,
+	.write  = project_flash_write,
+	.read   = project_flash_read,
+};
+#endif /* KINETIS_FAKE_SIM */
+
 int board_init(void)
 {
 	pr_info("==== %s v%s ====\n", PROJECT_NAME, PROJECT_VERSION);
@@ -218,14 +249,20 @@ int app_main(void)
 {
 	struct pov_rotor *rotor = NULL;
 	struct pov_stator *stator = NULL;
+#if KINETIS_FAKE_SIM
 	static pthread_t timer_thread;
 	static pthread_t phone_thread;
+#endif
 	int ret = 0;
 
 #if POV_RUN_MODE == POV_RUN_HOST
 	pr_info("pov: running as rotor (rotating end)\n");
 
-	rotor = pov_rotor_alloc();
+#if KINETIS_FAKE_SIM
+	rotor = pov_rotor_alloc(&g_project_flash_ops);
+#else
+	rotor = pov_rotor_alloc(&real_flash_ops);
+#endif
 	if (!rotor) {
 		pr_err("pov: failed to allocate rotor\n");
 		return -ENOMEM;
@@ -238,6 +275,7 @@ int app_main(void)
 		return -ENOMEM;
 	}
 
+#if KINETIS_FAKE_SIM
 	serial_port_start_thread(rotor->motor_port, SERIAL_PORT_DF_OTHERS,
 		NULL, stator->motor_port);
 	serial_port_start_thread(stator->motor_port, SERIAL_PORT_DF_OTHERS,
@@ -264,15 +302,18 @@ int app_main(void)
 		goto out;
 	}
 	mdelay(1000);
+#endif /* KINETIS_FAKE_SIM */
 
 	ret = pov_rotor_display(rotor);
 
+#if KINETIS_FAKE_SIM
 	/* Shutdown threads */
 	phone_thread_switch = 0;
 	pthread_join(phone_thread, NULL);
 
 	stator_thread_switch = 0;
 	pthread_join(timer_thread, NULL);
+#endif /* KINETIS_FAKE_SIM */
 
 out:
 	pov_rotor_free(rotor);

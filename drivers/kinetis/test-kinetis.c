@@ -351,6 +351,12 @@ int t_mavlink_master_slave_sim(int argc, char *argv[]);
 int t_mavlink_msg_pack_parse(int argc, char *argv[]);
 #endif
 
+#ifdef DESIGN_VERIFICATION_BOOTLOADER
+int t_bootloader_init_sim(int argc, char *argv[]);
+int t_bootloader_full_update(int argc, char *argv[]);
+int t_bootloader_benchmark(int argc, char *argv[]);
+#endif
+
 static int t_function(int argc, char **argv)
 {
 	pr_err("ToDo, please implement this function.");
@@ -701,6 +707,11 @@ struct test_case_typedef kinetis_case_table[] = {
 #ifdef DESIGN_VERIFICATION_MAVLINK
 	{"mavlink.master-slave-sim",   t_mavlink_master_slave_sim},
 	{"mavlink.msg-pack-parse",     t_mavlink_msg_pack_parse},
+#endif
+#ifdef DESIGN_VERIFICATION_BOOTLOADER
+	{"bootloader.init-sim",       t_bootloader_init_sim},
+	{"bootloader.full-update",    t_bootloader_full_update},
+	{"bootloader.benchmark",      t_bootloader_benchmark},
 #endif
 };
 

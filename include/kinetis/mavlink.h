@@ -64,6 +64,12 @@ extern "C" {
 #define MAV_FT_ERR_CRC             2
 #define MAV_FT_ERR_PROTOCOL        3
 
+/* Bootloader ack result */
+#define MAV_BL_ACK_ACCEPTED        0
+#define MAV_BL_ACK_DENIED          1
+#define MAV_BL_ACK_ERROR           2
+#define MAV_BL_ACK_INVALID_CMD     3
+
 /* System status aliases (mapped from MAV_SYSTEM_STATUS_*) */
 #define MAV_SYS_BOOTING            MAV_SYSTEM_STATUS_BOOTING
 #define MAV_SYS_STANDBY            MAV_SYSTEM_STATUS_STANDBY
@@ -93,6 +99,14 @@ struct mavlink_ft_state {
 	u32 transferred;     /* Bytes transferred so far */
 };
 
+struct mavlink_bl_cmd {
+	u8 pending;          /* 1 = update command received, app should process it */
+	u8 command;          /* MAV_BL_CMD_PREPARE_UPDATE / START_APP / RESET / QUERY_INFO */
+	u32 firmware_size;   /* Expected firmware size */
+	u32 firmware_crc32;  /* Expected firmware CRC32 */
+	char filename[32];   /* Target firmware filename */
+};
+
 struct mavlink_device {
 	struct serial_port *serial;
 	u8 sysid;
@@ -106,6 +120,9 @@ struct mavlink_device {
 
 	/* File transfer - ZMODEM */
 	struct mavlink_ft_state ft;
+
+	/* Bootloader */
+	struct mavlink_bl_cmd bl;
 
 	/* System status */
 	u8 sys_status;       /* MAV_SYS_* */
@@ -140,54 +157,23 @@ int mavlink_send_image_ack(struct mavlink_device *dev, u8 action, u8 ack_result)
 int mavlink_send_image_control(struct mavlink_device *dev, u8 action, u16 image_index);
 int mavlink_query_motor_status(struct mavlink_device *dev, u8 motor_id, u32 timeout_ms);
 
-/**
- * @brief Request to start a file transfer (master side).
- * @param dev: MAVLink device
- * @param direction: MAV_FT_UPLOAD or MAV_FT_DOWNLOAD
- * @param filename: Target filename (max 63 chars)
- * @param file_size: File size in bytes (0 = unknown)
- * @param timeout_ms: Response timeout
- * @return 0 if slave accepted transfer, negative on error
- * @note After successful ack, the device enters ZMODEM passthrough mode.
- *       Call mavlink_ft_exit_passthrough() when transfer completes.
- */
 int mavlink_send_ft_start(struct mavlink_device *dev, u8 direction,
 	const char *filename, u32 file_size, u32 timeout_ms);
 
-/**
- * @brief Send file transfer progress update.
- */
 int mavlink_send_ft_progress(struct mavlink_device *dev, u8 state,
 	u32 transferred, u32 total_bytes, u8 error_code);
 int mavlink_send_ft_ack(struct mavlink_device *dev, u8 direction,
 	u8 result, u32 file_size);
 
-/**
- * @brief Cancel an ongoing file transfer.
- */
 int mavlink_send_ft_cancel(struct mavlink_device *dev, u8 direction);
 
-/**
- * @brief Send file listing response.
- */
 int mavlink_send_ft_list(struct mavlink_device *dev, u8 file_count,
 	u8 list_index, u32 file_size, const char *filename);
 
-/**
- * @brief Enter ZMODEM passthrough mode on the serial port.
- *        All serial data is forwarded to/from the ZMODEM stack.
- * @return 0 on success
- */
 int mavlink_ft_enter_passthrough(struct mavlink_device *dev);
 
-/**
- * @brief Exit ZMODEM passthrough mode.
- */
 void mavlink_ft_exit_passthrough(struct mavlink_device *dev);
 
-/**
- * @brief Check whether ZMODEM passthrough is active.
- */
 static inline int mavlink_ft_is_active(struct mavlink_device *dev)
 {
 	return dev->ft.active;
@@ -196,6 +182,11 @@ static inline int mavlink_ft_is_active(struct mavlink_device *dev)
 int mavlink_send_heartbeat(struct mavlink_device *dev, u8 status,
 	u32 uptime_s, u16 error_count);
 
+int mavlink_send_bootloader_update(struct mavlink_device *dev, u8 command,
+	u32 firmware_size, u32 firmware_crc32, const char *filename,
+	u32 timeout_ms);
+int mavlink_send_bootloader_ack(struct mavlink_device *dev, u8 command, u8 result);
+
 int mavlink_receive_and_process(struct mavlink_device *dev, u32 timeout_ms);
 int mavlink_start_rx_thread(struct mavlink_device *dev);
 void mavlink_stop_rx_thread(struct mavlink_device *dev);
@@ -203,5 +194,8 @@ void mavlink_stop_rx_thread(struct mavlink_device *dev);
 #ifdef __cplusplus
 }
 #endif
+
+/* Bootloader alias */
+#define MAV_BL_CMD_PREPARE       MAV_BL_CMD_PREPARE_UPDATE
 
 #endif /* KINETIS_MAVLINK_H */

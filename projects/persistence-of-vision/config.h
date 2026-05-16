@@ -3,9 +3,13 @@
 
 #include <kinetis/mavlink.h>
 
-#define FAKE_IMAGE_COUNT               3
 #define POV_IMAGE_PATH                 "0:/pov_images"
+#define POV_FIRMWARE_PATH              "0:/firmware"
 #define APP_IMAGE_PATH                 "0:/app_images"
+
+#if KINETIS_FAKE_SIM
+#define FAKE_IMAGE_COUNT               3
+#endif
 
 #define POV_DISPLAY_COLS               720
 #define POV_LED_COUNT                  256

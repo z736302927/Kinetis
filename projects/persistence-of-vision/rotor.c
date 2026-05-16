@@ -19,7 +19,9 @@
 #include <kinetis/basic-timer.h>
 #include <kinetis/fatfs-intf.h>
 #include <kinetis/mavlink.h>
+#include <kinetis/serial-port.h>
 #include "../../drivers/kinetis/lrzsz/zmodem.h"
+#include "../../drivers/kinetis/bootloader/bootloader.h"
 
 #include "rotor.h"
 
@@ -63,6 +65,7 @@ static int pov_set_rgb(struct pov_rotor *rotor)
 	return 0;
 }
 
+#if KINETIS_FAKE_SIM
 int pov_create_fake_images(const char *path)
 {
 	struct pov_image_header header;
@@ -136,6 +139,7 @@ out:
 	kfree(buf);
 	return ret;
 }
+#endif /* KINETIS_FAKE_SIM */
 
 int pov_scan_images(struct pov_rotor *pov)
 {
@@ -297,7 +301,7 @@ static void set_fsm_state(struct pov_rotor *rotor, enum pov_fsm_state new_state)
 	rotor->state = new_state;
 }
 
-static int pov_zmodem_receive(struct pov_rotor *rotor)
+static int pov_receive_image_files(struct pov_rotor *rotor)
 {
 	int ret;
 
@@ -628,7 +632,7 @@ void pov_rotor_free(struct pov_rotor *rotor)
 	kfree(rotor);
 }
 
-struct pov_rotor *pov_rotor_alloc(void)
+struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash)
 {
 	struct pov_rotor *rotor;
 	int ret;
@@ -643,8 +647,14 @@ struct pov_rotor *pov_rotor_alloc(void)
 		return NULL;
 	}
 
+	rotor->flash = flash;
+
 	/* Port to stator (MAVLink motor control) */
+#if KINETIS_FAKE_SIM
 	rotor->motor_port = serial_port_alloc(&fake_serial_port_ops, "rotor-motor");
+#else
+	rotor->motor_port = serial_port_alloc(&real_serial_port_ops, "rotor-motor");
+#endif
 	if (!rotor->motor_port) {
 		goto free_dev;
 	}
@@ -655,7 +665,11 @@ struct pov_rotor *pov_rotor_alloc(void)
 	}
 
 	/* Port to phone (MAVLink + ZMODEM file transfer) */
+#if KINETIS_FAKE_SIM
 	rotor->app_port = serial_port_alloc(&fake_serial_port_ops, "rotor-app");
+#else
+	rotor->app_port = serial_port_alloc(&real_serial_port_ops, "rotor-app");
+#endif
 	if (!rotor->app_port) {
 		goto free_dev;
 	}
@@ -665,7 +679,11 @@ struct pov_rotor *pov_rotor_alloc(void)
 		goto free_dev;
 	}
 
+#if KINETIS_FAKE_SIM
 	rotor->hall = hall_alloc_dev(POV_DISPLAY_COLS, hall_read_rotated_time);
+#else
+	rotor->hall = hall_alloc_dev(POV_DISPLAY_COLS, NULL /* real HAL callback */);
+#endif
 	if (!rotor->hall) {
 		goto free_dev;
 	}
@@ -699,7 +717,7 @@ static void pov_check_phone_cmd(struct pov_rotor *rotor)
 			rotor->app_mavlink->ft.total_bytes);
 
 		rotor->app_mavlink->ft.state = MAV_FT_IDLE;
-		pov_zmodem_receive(rotor);
+		pov_receive_image_files(rotor);
 		set_fsm_state(rotor, POV_STATE_DISPLAYING);
 		return;
 	}
@@ -781,6 +799,41 @@ static void pov_check_phone_cmd(struct pov_rotor *rotor)
 		pr_debug("cmd: heartbeat\n");
 		break;
 
+	/* ─── Bootloader ──────────────────────────────────── */
+	case MAVLINK_MSG_ID_BOOTLOADER_UPDATE_CMD: {
+		struct bootloader_config bl_cfg;
+
+		pr_info("cmd: bootloader update — cmd=%d size=%u name=%s\n",
+			rotor->app_mavlink->bl.command,
+			rotor->app_mavlink->bl.firmware_size,
+			rotor->app_mavlink->bl.filename);
+
+		/* Build config to persist across reset */
+		memset(&bl_cfg, 0, sizeof(bl_cfg));
+		bl_cfg.magic = BOOTLOADER_MAGIC;
+		bl_cfg.version = 1;
+		bl_cfg.mode = BL_MODE_UPDATE;
+		bl_cfg.firmware_size = rotor->app_mavlink->bl.firmware_size;
+		bl_cfg.firmware_crc32 = rotor->app_mavlink->bl.firmware_crc32;
+
+		if (!rotor->flash) {
+			pr_err("No flash ops configured, cannot enter update mode\n");
+			break;
+		}
+
+		if (rotor->flash->erase(CONFIG_BASE_ADDR, sizeof(bl_cfg)) < 0 ||
+		    rotor->flash->write(CONFIG_BASE_ADDR, (const u8 *)&bl_cfg, sizeof(bl_cfg)) < 0) {
+			pr_err("Failed to write boot config to flash\n");
+			break;
+		}
+
+		pr_info("Boot flag set to UPDATE mode, resetting...\n");
+
+		/* In production: board-level system_reset would be called here.
+		 * In simulation we just return (effective reset via main loop). */
+		break;
+	}
+
 	default:
 		pr_debug("cmd: unhandled msgid=%u\n",
 			rotor->app_mavlink->rx_msg.msgid);
@@ -801,10 +854,12 @@ int pov_rotor_display(struct pov_rotor *rotor)
 {
 	int ret;
 
+#if KINETIS_FAKE_SIM
 	ret = pov_create_fake_images(POV_IMAGE_PATH);
 	if (ret < 0) {
 		goto out;
 	}
+#endif
 
 	ret = pov_scan_images(rotor);
 	if (ret < 0) {
