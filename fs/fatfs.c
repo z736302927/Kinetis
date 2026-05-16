@@ -1747,7 +1747,7 @@ int t_fatfs_speed(int argc, char **argv)
 
 	/* Parse file size (optional) */
 	if (argc > 2) {
-		file_size_kb = strtoul(argv[2], NULL, 10);
+		file_size_kb = simple_strtoul(argv[2], NULL, 10);
 		if (file_size_kb == 0) {
 			pr_info("Invalid file size: %s\n", argv[2]);
 			return -EINVAL;

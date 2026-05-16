@@ -1,4 +1,4 @@
-﻿
+
 #include <linux/printk.h>
 #include <linux/console.h>
 #include <linux/platform_device.h>
@@ -7,22 +7,81 @@
 #include <linux/spi/flash.h>
 #include <linux/spi/w25qxxx.h>
 #include <linux/i2c.h>
+#include <linux/errname.h>
+#include <linux/random.h>
+#include <linux/prandom.h>
+#include <linux/utsname.h>
+
+#include <kinetis/ano_protocol.h>
+#include <kinetis/tim-task.h>
+#include "kinetis/rtc-task.h"
+#include <kinetis/memory_allocator.h>
+#include <kinetis/real-time-clock.h>
 
 #include "kinetis-core.h"
+
 #include "stdio.h"
+
 #include "usart.h"
 #include "tim.h"
-//#include "spi.h"
+#include "spi.h"
 
-struct task_struct init_task;
+DEFINE_RWLOCK(tasklist_lock);
+DEFINE_SPINLOCK(mmlist_lock);
+
+struct uts_namespace init_uts_ns = {
+	.kref = {
+		.refcount = ATOMIC_INIT(1),
+	},
+	.name = {
+		.sysname = "FakeOS",
+		.nodename = "fake-device",
+		.release = "1.0.0",
+		.version = "#1 Mon Jan 1 00:00:00 UTC 2024",
+		.machine = "arm-fake-mcu",
+		.domainname = "(none)",
+	},
+	.user_ns = NULL,
+	.ucounts = NULL,
+	.ns = {
+		.inum = 0,
+		.ops = NULL,
+	},
+};
+struct nsproxy init_nsproxy = {
+	.count = ATOMIC_INIT(1),
+	.uts_ns = &init_uts_ns,
+};
+struct task_struct init_task = {
+	.nsproxy = &init_nsproxy
+};
+bool static_key_initialized = true;
+
+/* Fake system state for embedded systems */
+enum system_states system_state = SYSTEM_BOOTING;
+
+/* Fake interrupt registers for entropy collection */
+DEFINE_PER_CPU(struct pt_regs *, __irq_regs);
+
+/* Fake CPU masks for uniprocessor system */
+struct cpumask __cpu_possible_mask;
+struct cpumask __cpu_online_mask;
+struct cpumask __cpu_present_mask;
+struct cpumask __cpu_active_mask;
+atomic_t __num_online_cpus = ATOMIC_INIT(1);
+
+unsigned long read_chip_timer(void)
+{
+	
+}
+struct delay_timer fake_delay_timer = {
+	.freq = 1000000,
+	.read_current_timer = read_chip_timer
+};
+unsigned long lpj_fine;
 
 #define STM32_SERIAL_NAME "ttySTM"
 
-/**
-  * @brief  Retargets the C library printf function to the USART.
-  * @param  None
-  * @retval None
-  */
 int fputc(int ch, FILE *f)
 {
 	/* Place your implementation of fputc here */
@@ -35,6 +94,15 @@ int fputc(int ch, FILE *f)
 int _putc(int ch)
 {
 	return HAL_UART_Transmit(&huart1, (u8 *)&ch, 1, 100);
+}
+
+int _puts(char *string, int cnt)
+{
+	/* Output cnt characters from string to console */
+	if (string && cnt > 0) {
+		return HAL_UART_Transmit(&huart1, (u8 *)string, cnt, 100);
+	}
+	return 0;
 }
 
 /*
@@ -157,8 +225,12 @@ int __init gpio_beeper_platform_driver_init(void);
 void __exit gpio_beeper_platform_driver_exit(void);
 int __init leds_init(void);
 void __exit leds_exit(void);
-int __init inv_mpu_driver_init(void);
-void __exit inv_mpu_driver_exit(void);
+int __init bmi088_accel_driver_init(void);
+void __exit bmi088_accel_driver_exit(void);
+int __init bmi088_gyro_driver_init(void);
+void __exit bmi088_gyro_driver_exit(void);
+int __init ak8975_driver_init(void);
+void __exit ak8975_driver_exit(void);
 
 struct platform_device stm32_pinctrl_device = {
 	.name	= "stm32h743-pinctrl",
@@ -235,16 +307,54 @@ int stm32h7_glue_func(void)
 	struct stm32f4_i2c_dev *stm32f4_i2c_priv;
     struct i2c_client *client_mpu6050;
     struct i2c_client *client_at24;
+	u64 entropy[16];
+	struct tm ts;
 	int ret = 0;
 
 //	cm_backtrace_init("CmBacktrace", "V1.0.0", "V0.1.0");
+
+	/* Initialize CPU masks for uniprocessor system */
+	cpumask_set_cpu(0, &__cpu_possible_mask);
+	cpumask_set_cpu(0, &__cpu_online_mask);
+	cpumask_set_cpu(0, &__cpu_present_mask);
+	cpumask_set_cpu(0, &__cpu_active_mask);
+
+	register_current_timer_delay(&fake_delay_timer);
+
+	prandom_init_early();
 
 	ret = initialize_ptr_random();
 	if (ret)
 		return ret;
 
+	init_timers();
+
 	timekeeping_init();
 	HAL_TIM_Base_Start_IT(&htim2);
+
+	ret = rand_initialize();
+	if (ret)
+		return ret;
+
+	/* Add enough entropy to initialize CRNG in fake environment */
+	/* CRNG requires at least 64 bytes (CRNG_INIT_CNT_THRESH) */
+	rtc_calendar_get(&fake_rtc, &ts, KRTC_FORMAT_BIN);
+	for (int i = 0; i < 16; i++) {
+		u64 ts_val = (u64)(ts.tm_year * 365ULL * 86400ULL +
+				    ts.tm_mon * 30ULL * 86400ULL +
+				    ts.tm_mday * 86400ULL +
+				    ts.tm_hour * 3600ULL +
+				    ts.tm_min * 60ULL +
+				    ts.tm_sec);
+		entropy[i] = 0x1234567890abcdefULL ^ ts_val * (i + 1);
+	}
+	add_device_randomness(entropy, sizeof(entropy));
+
+	if (rng_is_initialized()) {
+		pr_info("RNG is initialized and ready\n");
+	} else {
+		pr_info("RNG is not yet initialized\n");
+	}
 
 	register_console(&stm32_console);
 
@@ -278,116 +388,142 @@ int stm32h7_glue_func(void)
 	if (ret)
 		return ret;
 
-	ret = input_init();
-	if (ret)
-		return ret;
-
-	ret = iio_init();
-	if (ret)
-		return ret;
-
-	ret = gpiolib_dev_init();
-	if (ret)
-		return ret;
-
-	ret = spi_init();
-	if (ret)
-		return ret;
-
-	ret = i2c_init();
-	if (ret)
-		return ret;
-
-	ret = init_mtd();
-	if (ret)
-		return ret;
-
-	ret = nvmem_init();
-	if (ret)
-		return ret;
-
-	ret = at24_init();
-	if (ret)
-		return ret;
-
-	ret = stm32h743_pinctrl_init();
-	if (ret)
-		return ret;
-
-	ret = platform_device_register(&stm32_pinctrl_device);
-	if (ret)
-		return ret;
-
+// 	ret = input_init();
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = iio_init();
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = gpiolib_dev_init();
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = spi_init();
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = i2c_init();
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = init_mtd();
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = nvmem_init();
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = at24_init();
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = stm32h743_pinctrl_init();
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = platform_device_register(&stm32_pinctrl_device);
+// 	if (ret)
+// 		return ret;
+// 
 //	ret = stm32_usart_init();
 //	if (ret)
 //		return ret;
-
-	ret = platform_device_register(&stm32_usart_device);
-	if (ret)
-		return ret;
-
-	ret = stm32f4_i2c_driver_init();
-	if (ret)
-		return ret;
-
-	ret = platform_device_register(&stm32f4_i2c_device);
-	if (ret)
-		return ret;
-
-	ret = i2c_register_board_info(1, fire_i2c_board_info,
-								  ARRAY_SIZE(fire_i2c_board_info));
-	if (ret)
-		pr_warn("%s: i2c info registration failed: %d\n",
-				__func__, ret);
-
-	stm32f4_i2c_priv = platform_get_drvdata(&stm32f4_i2c_device);
-    if (IS_ERR(stm32f4_i2c_priv))
-        return -ENODEV;
-	client_at24 = i2c_new_client_device(&stm32f4_i2c_priv->adap, &fire_i2c_board_info[0]);
-    if (IS_ERR(client_at24))
-        return -ENODEV;
-	client_mpu6050 = i2c_new_client_device(&stm32f4_i2c_priv->adap, &fire_i2c_board_info[1]);
-    if (IS_ERR(client_mpu6050))
-        return -ENODEV;
-
-	ret = inv_mpu_driver_init();
-	if (ret)
-		return ret;
-
-	ret = spi_mem_driver_register(&spi_nor_driver);
-	if (ret)
-		return ret;
-
-	ret = stm32_qspi_driver_init();
-	if (ret)
-		return ret;
-
-	ret = platform_device_register(&stm32_qspi_device);
-	if (ret)
-		return ret;
-
-	ret = spi_register_board_info(w25q256_spi_flash_info,
-								  ARRAY_SIZE(w25q256_spi_flash_info));
-	if (ret)
-		pr_warn("%s: spi info registration failed: %d\n",
-				__func__, ret);
-
-	ret = dht11_driver_init();
-	if (ret)
-		return ret;
-
-	ret = gpio_keys_init();
-	if (ret)
-		return ret;
-
-	ret = gpio_beeper_platform_driver_init();
-	if (ret)
-		return ret;
-
-	ret = leds_init();
-	if (ret)
-		return ret;
+// 
+// 	ret = platform_device_register(&stm32_usart_device);
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = stm32f4_i2c_driver_init();
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = platform_device_register(&stm32f4_i2c_device);
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = i2c_register_board_info(1, fire_i2c_board_info,
+// 								  ARRAY_SIZE(fire_i2c_board_info));
+// 	if (ret)
+// 		pr_warn("%s: i2c info registration failed: %d\n",
+// 				__func__, ret);
+// 
+// 	stm32f4_i2c_priv = platform_get_drvdata(&stm32f4_i2c_device);
+//     if (IS_ERR(stm32f4_i2c_priv))
+//         return -ENODEV;
+// 	client_at24 = i2c_new_client_device(&stm32f4_i2c_priv->adap, &fire_i2c_board_info[0]);
+//     if (IS_ERR(client_at24))
+//         return -ENODEV;
+// 	client_mpu6050 = i2c_new_client_device(&stm32f4_i2c_priv->adap, &fire_i2c_board_info[1]);
+//     if (IS_ERR(client_mpu6050))
+//         return -ENODEV;
+// 
+// 	ret = inv_mpu_driver_init();
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = spi_mem_driver_register(&spi_nor_driver);
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = stm32_qspi_driver_init();
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = platform_device_register(&stm32_qspi_device);
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = spi_register_board_info(w25q256_spi_flash_info,
+// 								  ARRAY_SIZE(w25q256_spi_flash_info));
+// 	if (ret)
+// 		pr_warn("%s: spi info registration failed: %d\n",
+// 				__func__, ret);
+// 
+// 	ret = dht11_driver_init();
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = gpio_keys_init();
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = gpio_beeper_platform_driver_init();
+// 	if (ret)
+// 		return ret;
+// 
+// 	ret = leds_init();
+// 	if (ret)
+// 		return ret;
 
 	return 0;
+}
+
+int main(int argc, char **argv)
+{
+	int ret;
+
+	/* Kernel and subsystem initialization */
+	ret = stm32h7_glue_func();
+	if (ret)
+		goto err;
+
+	ret = board_init();
+	if (ret)
+		goto err;
+
+	pr_info("|-----------------------------------------|\n");
+	pr_info("|  Kinetis system has been setup.         |\n");
+	pr_info("|  Project: %-30s|\n", PROJECT_NAME);
+	pr_info("|-----------------------------------------|\n");
+
+	return app_main();
+
+err:
+	pr_err("system crash, error code: %s(%d)\n",
+		errname(ret), ret);
+	return ret;
 }
 

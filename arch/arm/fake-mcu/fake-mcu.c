@@ -31,14 +31,8 @@ typedef struct {
     long long QuadPart;
 } LARGE_INTEGER;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 int QueryPerformanceCounter(LARGE_INTEGER *lpPerformanceCount);
 int QueryPerformanceFrequency(LARGE_INTEGER *lpFrequency);
-#ifdef __cplusplus
-}
-#endif
 #endif
 
 #ifdef CONFIG_FAKE_LIB

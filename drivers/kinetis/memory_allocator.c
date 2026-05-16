@@ -6,6 +6,7 @@
 #include <linux/printk.h>
 #include <linux/limits.h>
 #include <linux/string.h>
+#include <linux/kernel.h>
 
 #else
 // Custom logging system (for kernel and user space)
