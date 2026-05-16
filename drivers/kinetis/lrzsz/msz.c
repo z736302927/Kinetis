@@ -104,6 +104,7 @@ file_err:
 	return 0;
 }
 
+#ifdef KINETIS_FAKE_SIM
 static void *lrzsz_rz_sim_thread(void *data)
 {
 	struct serial_port *serial = (struct serial_port *)data;
@@ -319,3 +320,4 @@ file_err:
 
 	return ret;
 }
+#endif

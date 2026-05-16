@@ -115,24 +115,11 @@ int led_config_color(u32 unique_id, enum led_color color)
 #include "kinetis/test-kinetis.h"
 #include "kinetis/tim-task.h"
 
-#if MCU_PLATFORM_STM32
-#include "stm32f4xx_hal.h"
-
-static void led_hal_set(u8 red, u8 green, u8 blue)
-{
-	if (red == 255) {
-		HAL_GPIO_WritePin(led->group, led->num, GPIO_PIN_SET);
-	} else if (red == 0) {
-		HAL_GPIO_WritePin(led->group, led->num, GPIO_PIN_RESET);
-	}
-}
-#elif KINETIS_FAKE_SIM
-
+#if KINETIS_FAKE_SIM
 static void led_hal_set(u8 red, u8 green, u8 blue)
 {
 	pr_info("LED color configured to R:%d G:%d B:%d", red, green, blue);
 }
-#else
 #endif
 
 int t_led_add(int argc, char **argv)

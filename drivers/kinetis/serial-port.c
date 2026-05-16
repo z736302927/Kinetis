@@ -12,23 +12,12 @@
 #include "kinetis/hc-05.h"
 #include "kinetis/design_verification.h"
 
-#include <unistd.h>
-
 #define pr_fmt(fmt) "serial-port: " fmt
 
 #define CONFIG_SERIAL_PORT_RING_BUFFER	1
 
-/* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
-
-/**
-  * @step 1:  Modify the corresponding function according to the modified area and the corresponding function name.
-  * @step 2:  According to the example in structure serial_port_1, design the function you need and initialize it in the main function.
-  * @step 3:  You need to provide an ms timer for function basic_timer_get_ms.
-  * @step 4:  For receiving data, you need to put it in like a ring, using interrupts or DMA.
-  * @step 5:  Finally, you can process the received data in function serial_port_rx_buffer_Process.Note: maximum 256 bytes received.
-  */
-
-/* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
+#ifdef KINETIS_FAKE_SIM
+#include <unistd.h>
 
 void *serial_port_copy_to_self(void *para)
 {
@@ -114,6 +103,7 @@ void serial_port_stop_thread(struct serial_port *serial)
 		serial->thread = 0;
 	}
 }
+#endif
 
 struct serial_port *serial_port_alloc(struct serial_port_ops *ops, const char *name)
 {
@@ -135,7 +125,9 @@ struct serial_port *serial_port_alloc(struct serial_port_ops *ops, const char *n
 
 void serial_port_free(struct serial_port *serial)
 {
+#ifdef KINETIS_FAKE_SIM
 	serial_port_stop_thread(serial);
+#endif
 
 	if (serial->name)
 		kfree(serial->name);
@@ -292,6 +284,7 @@ void serial_port_send_break(struct serial_port *serial)
 #ifdef DESIGN_VERIFICATION_SERIALPORT
 #include "kinetis/test-kinetis.h"
 
+#ifdef KINETIS_FAKE_SIM
 static const struct virtual_at_command fake_at_commands[] = {
 	{
 		.request = "AT",
@@ -424,5 +417,6 @@ int t_serial_port_interactive(int argc, char **argv)
 
 	return 0;
 }
+#endif /* KINETIS_FAKE_SIM */
 
 #endif

@@ -24,6 +24,9 @@
 #include "w25qxxx.h"
 #include "hydrology.h"
 
+#include "stdio.h"
+
+
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 /**

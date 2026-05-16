@@ -11,7 +11,9 @@ extern "C" {
 
 #include <linux/types.h>
 
+#ifdef KINETIS_FAKE_SIM
 #include <pthread.h>
+#endif
 
 /**
  * @brief I2C master device structure
@@ -61,9 +63,11 @@ struct iic_slave {
 	bool detect_stop;
 	bool byte_received;
 
+#ifdef KINETIS_FAKE_SIM
 	/* Thread control variables */
 	bool thread_running;
 	pthread_t thread;
+#endif
 };
 
 struct iic_slave *iic_slave_soft_init(char *name, u8 slave_addr, u8 *buffer, u32 buffer_size);
@@ -83,7 +87,7 @@ int iic_master_port_multi_receive(struct iic_master *master, u8 slave_addr, u16 
 	u8 *pdata, u8 length);
 int iic_master_soft_init(struct iic_master *master);
 
-extern struct iic_master fake_iic_master;
+extern struct iic_master general_iic_master;
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

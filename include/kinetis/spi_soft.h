@@ -10,7 +10,9 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include <linux/types.h>
 
+#ifdef KINETIS_FAKE_SIM
 #include <pthread.h>
+#endif
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -62,10 +64,12 @@ struct spi_slave {
 	u32 buffer_size;
 	u8 index;
 
+#ifdef KINETIS_FAKE_SIM
 	/* Thread control variables */
 	bool thread_running;
 	pthread_t miso_thread;
 	pthread_t mosi_thread;
+#endif
 };
 
 int spi_master_soft_init(struct spi_master *master, u8 cpol, u8 cpha, u8 bit_order, u8 speed);
@@ -75,7 +79,7 @@ struct spi_slave *spi_slave_soft_init(char *name, u8 cpol, u8 cpha, u8 bit_order
 	u8 *buffer, u32 buffer_size);
 void spi_slave_soft_exit(struct spi_slave *device);
 
-extern struct spi_master fake_spi_master;
+extern struct spi_master general_spi_master;
 
 #ifdef __cplusplus
 }

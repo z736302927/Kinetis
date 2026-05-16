@@ -16,7 +16,9 @@
 #include "kinetis/idebug.h"
 #include "kinetis/design_verification.h"
 
+#ifdef KINETIS_FAKE_SIM
 #include <pthread.h>
+#endif
 #include <math.h>
 
 /* Register addresses */
@@ -168,6 +170,7 @@ struct max77752_device {
 	u8 last_charge_status;
 	s16 last_temperature;
 
+#ifdef KINETIS_FAKE_SIM
 	/* Slave support for testing */
 	struct iic_slave *iic_slave;
 	struct spi_slave *spi_slave;
@@ -175,6 +178,7 @@ struct max77752_device {
 
 	/* Randomization thread support */
 	bool thread_running;
+#endif
 };
 
 u8 max77752_is_device_present(struct max77752_device *dev)
@@ -727,6 +731,7 @@ static const struct regmap_config max77752_regmap_config = {
 	.cache_type = REGCACHE_NONE,
 };
 
+#ifdef KINETIS_FAKE_SIM
 /* Box-Muller transform for Gaussian noise */
 static float max77752_gaussian_noise(float mean, float std_dev)
 {
@@ -902,6 +907,7 @@ static void max77752_stop_reg_random(struct max77752_device *dev)
 	dev->thread_running = false;
 	pthread_join(reg_thread, NULL);
 }
+#endif
 
 struct max77752_device *max77752_init(enum regmap_user_bus_type bus_type, void *bus_master)
 {
@@ -933,16 +939,6 @@ struct max77752_device *max77752_init(enum regmap_user_bus_type bus_type, void *
 		return ERR_PTR(PTR_ERR(dev->regmap));
 	}
 
-	/* Allocate memory for slave registers */
-	dev->slave_regs = kmalloc(max77752_regmap_config.max_register + 1, GFP_KERNEL);
-	if (!dev->slave_regs) {
-		pr_err("max77752: failed to allocate slave register memory\n");
-		regmap_exit(dev->regmap);
-		kfree(dev);
-		return ERR_PTR(-ENOMEM);
-	}
-	memset(dev->slave_regs, 0, max77752_regmap_config.max_register + 1);
-
 	/* Initialize default values */
 	dev->device_present = 0;
 	dev->init_complete = 0;
@@ -965,6 +961,17 @@ struct max77752_device *max77752_init(enum regmap_user_bus_type bus_type, void *
 	dev->charge_done_callback = NULL;
 	dev->low_battery_callback = NULL;
 	dev->thermal_fault_callback = NULL;
+
+#ifdef KINETIS_FAKE_SIM
+	/* Allocate memory for slave registers */
+	dev->slave_regs = kmalloc(max77752_regmap_config.max_register + 1, GFP_KERNEL);
+	if (!dev->slave_regs) {
+		pr_err("max77752: failed to allocate slave register memory\n");
+		regmap_exit(dev->regmap);
+		kfree(dev);
+		return ERR_PTR(-ENOMEM);
+	}
+	memset(dev->slave_regs, 0, max77752_regmap_config.max_register + 1);
 
 	/* Initialize slave registers for simulation */
 	dev->slave_regs[MAX77752_REG_DEV_ID] = 0x1B;
@@ -1033,6 +1040,7 @@ struct max77752_device *max77752_init(enum regmap_user_bus_type bus_type, void *
 			return ERR_PTR(PTR_ERR(dev->iic_slave));
 		}
 	}
+#endif
 
 	pr_info("Initializing max77752 power management chip...\n");
 
@@ -1079,6 +1087,7 @@ struct max77752_device *max77752_init(enum regmap_user_bus_type bus_type, void *
  */
 void max77752_exit(struct max77752_device *dev)
 {
+#ifdef KINETIS_FAKE_SIM
 	/* Stop randomization thread before cleanup */
 	max77752_stop_reg_random(dev);
 
@@ -1087,6 +1096,7 @@ void max77752_exit(struct max77752_device *dev)
 	if (dev->spi_slave)
 		spi_slave_soft_exit(dev->spi_slave);
 	kfree(dev->slave_regs);
+#endif
 	regmap_exit(dev->regmap);
 	kfree(dev);
 }
@@ -1125,7 +1135,7 @@ int t_max77752_initialize(int argc, char **argv)
 
 	if (on_off) {
 		pr_info("starting max77752 slave with %s mode", bus_type ? "spi" : "i2c");
-		max77752_dev = max77752_init(bus_type, bus_type == REGMAP_BUS_IIC_SOFT ? (void *)&fake_iic_master : (void *)&fake_spi_master);
+		max77752_dev = max77752_init(bus_type, bus_type == REGMAP_BUS_IIC_SOFT ? (void *)&general_iic_master : (void *)&general_spi_master);
 		if (IS_ERR_OR_NULL(max77752_dev)) {
 			return -EINVAL;
 		}

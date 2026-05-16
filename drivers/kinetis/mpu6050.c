@@ -18,6 +18,9 @@
 #include "kinetis/random-gene.h"
 #include "kinetis/test-kinetis.h"
 
+#ifdef KINETIS_FAKE_SIM
+#include <pthread.h>
+#endif
 #include <math.h>
 
 #define X_AXIS                          0x00
@@ -170,6 +173,7 @@ struct mpu6050_device {
 	/* Configuration */
 	mpu6050_config_t config;
 
+#ifdef KINETIS_FAKE_SIM
 	/* Slave support for testing */
 	struct iic_slave *iic_slave;
 	struct spi_slave *spi_slave;
@@ -177,6 +181,7 @@ struct mpu6050_device {
 
 	/* Randomization thread support */
 	bool thread_running;
+#endif
 };
 
 u8 mpu6050_read_gyro_selftest_reg(struct mpu6050_device *dev, u8 axis)
@@ -2349,6 +2354,7 @@ static const struct regmap_config mpu6050_regmap_config = {
 	.cache_type = REGCACHE_NONE,
 };
 
+#ifdef KINETIS_FAKE_SIM
 /* Box-Muller transform for Gaussian noise */
 static float mpu6050_gaussian_noise(float mean, float std_dev)
 {
@@ -2501,6 +2507,7 @@ static void mpu6050_stop_reg_random(struct mpu6050_device *dev)
 	dev->thread_running = false;
 	pthread_join(reg_thread, NULL);
 }
+#endif
 
 struct mpu6050_device *mpu6050_init(enum regmap_user_bus_type bus_type, void *bus_master)
 {
@@ -2528,6 +2535,8 @@ struct mpu6050_device *mpu6050_init(enum regmap_user_bus_type bus_type, void *bu
 		return NULL;
 	}
 
+
+#ifdef KINETIS_FAKE_SIM
 	/* Allocate register space for slave simulation */
 	dev->slave_regs = kmalloc(mpu6050_regmap_config.max_register + 1, GFP_KERNEL);
 	if (!dev->slave_regs) {
@@ -2566,6 +2575,7 @@ struct mpu6050_device *mpu6050_init(enum regmap_user_bus_type bus_type, void *bu
 
 	/* Start randomization thread (MUST be after slave is initialized) */
 	mpu6050_start_reg_random(dev);
+#endif
 
 	/* Initialize default configuration */
 	dev->gyro_scale = 131.0f;   /* LSB/°/s for ±250°/s */
@@ -2617,6 +2627,7 @@ struct mpu6050_device *mpu6050_init(enum regmap_user_bus_type bus_type, void *bu
 
 void mpu6050_exit(struct mpu6050_device *dev)
 {
+#ifdef KINETIS_FAKE_SIM
 	/* Stop randomization thread before cleanup */
 	mpu6050_stop_reg_random(dev);
 
@@ -2624,8 +2635,9 @@ void mpu6050_exit(struct mpu6050_device *dev)
 		iic_slave_soft_exit(dev->iic_slave);
 	if (dev->spi_slave)
 		spi_slave_soft_exit(dev->spi_slave);
-	regmap_exit(dev->regmap);
 	kfree(dev->slave_regs);
+#endif
+	regmap_exit(dev->regmap);
 	kfree(dev);
 }
 
@@ -2662,7 +2674,7 @@ int t_mpu6050_initialize(int argc, char **argv)
 
 	if (on_off) {
 		pr_info("starting mpu6050 slave with %s mode", bus_type ? "spi" : "i2c");
-		mpu6050_dev = mpu6050_init(bus_type, bus_type == REGMAP_BUS_IIC_SOFT ? (void *)&fake_iic_master : (void *)&fake_spi_master);
+		mpu6050_dev = mpu6050_init(bus_type, bus_type == REGMAP_BUS_IIC_SOFT ? (void *)&general_iic_master : (void *)&general_spi_master);
 		if (IS_ERR_OR_NULL(mpu6050_dev)) {
 			return -EINVAL;
 		}

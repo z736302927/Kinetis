@@ -1636,6 +1636,7 @@ struct hc_05_device *hc_05_alloc()
 		return ERR_PTR(-ENOMEM);
 	}
 
+#ifdef KINETIS_FAKE_SIM
 	strcpy(device->name, "HC-05-Default");
 	strcpy(device->password, "1234");
 	device->baudrate = 9600;
@@ -1668,6 +1669,10 @@ struct hc_05_device *hc_05_alloc()
 		kfree(device);
 		return ERR_PTR(ret);
 	}
+#else
+	/* TODO: Real hardware init - user should fill real serial_port_ops here */
+	device->serial = NULL;
+#endif
 
 	pr_info("hc-05 device allocated and initialized\n");
 	return device;
@@ -1680,10 +1685,12 @@ void hc_05_exit(struct hc_05_device *device)
 		return;
 	}
 
+#ifdef KINETIS_FAKE_SIM
 	if (device->serial != NULL) {
 		serial_port_free(device->serial);
 		device->serial = NULL;
 	}
+#endif
 
 	kfree(device);
 	pr_info("hc-05 device freed\n");

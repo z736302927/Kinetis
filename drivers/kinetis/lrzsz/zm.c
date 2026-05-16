@@ -34,6 +34,7 @@
 
 #include <linux/printk.h>
 #include <linux/slab.h>
+#include <linux/ctype.h>
 
 #include "kinetis/serial-port.h"
 
@@ -359,7 +360,7 @@ zm_put_escaped_string(zm_t *zm, const char *s, size_t count)
 			t++;
 		}
 		if (t != s) {
-			fwrite(s, (size_t)(t - s), 1, stdout);
+			serial_port_transmit_bytes(zm->serial, (const u8 *)s, (size_t)(t - s));
 			zm->lastsent = t[-1];
 			s = t;
 		}

@@ -12,6 +12,7 @@
 #include "fatfs/diskio.h"     /* Declarations of disk functions */
 #include "fatfs/ff_gen_drv.h"
 #include "fatfs/drivers/fake_ram_diskio.h"
+#include "fatfs/drivers/sd_diskio.h"
 #include "fatfs/ff.h"         /* FatFs API and configuration */
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
@@ -40,7 +41,11 @@ int fatfs_init(void)
 	int ret;
 
 	/*## FatFS: Link the SD driver ###########################*/
+#ifdef KINETIS_FAKE_SIM
 	ret = FATFS_LinkDriver(&fake_ram_disk_driver, disk_path);
+#else
+	ret = FATFS_LinkDriver(&SD_Driver, disk_path);
+#endif
 
 	/* additional user code for init */
 	if (ret == 0) {

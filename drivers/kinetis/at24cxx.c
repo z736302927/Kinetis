@@ -31,7 +31,7 @@
   * @step 5:
   */
 
-static struct iic_master *at24cxx_iic = &fake_iic_master;
+static struct iic_master *at24cxx_iic = &general_iic_master;
 
 static inline void at24cxx_port_multi_transmit(u8 addr, u8 *pdata, u32 length)
 {

@@ -5,6 +5,7 @@ PROJECT ?= persistence-of-vision
 #   SIMULATION (default) - Build native executable for Windows/Linux
 #   CHIP                 - Build firmware (.elf + .hex + .bin)
 PLATFORM ?= SIMULATION
+CHIP_SRC_DIR ?= .
 
 BUILD_DIR = output
 
@@ -30,7 +31,7 @@ OPT = -O0 -g3
 endif
 
 # Compiler flags
-COMMON_FLAGS = --std=gnu17 -xc -fdata-sections -ffunction-sections -fdiagnostics-color=always
+COMMON_FLAGS = --std=gnu17 -fdata-sections -ffunction-sections -fdiagnostics-color=always
 # COMMON_FLAGS += -fsanitize=address -fsanitize=undefined -Wall
 WARN_FLAGS = -w -Wextra -Wno-unused-parameter
 CFLAGS_BASE = $(COMMON_FLAGS) $(WARN_FLAGS) $(OPT)
@@ -38,8 +39,11 @@ CFLAGS_BASE = $(COMMON_FLAGS) $(WARN_FLAGS) $(OPT)
 # Source files
 ifeq ($(PLATFORM),CHIP)
 C_SOURCES += $(wildcard ../arch/arm/mach-stm32/stm32h7.c)
+C_SOURCES += $(wildcard ../fs/fatfs/drivers/sd_diskio.c)
+C_SOURCES += $(wildcard ../fs/fatfs/drivers/bsp_driver_sd.c)
 else
 C_SOURCES += $(wildcard ../arch/arm/fake-mcu/*.c)
+C_SOURCES += $(wildcard ../fs/fatfs/drivers/fake_ram_diskio.c)
 endif
 C_SOURCES += $(wildcard ../arch/arm/lib/*.c)
 C_SOURCES += $(wildcard ../arch/arm/mm/*.c)
@@ -173,10 +177,10 @@ C_SOURCES += $(wildcard ../lib/sha1.c)
 C_SOURCES += $(wildcard ../mm/*.c)
 C_SOURCES += $(wildcard ../fs/*.c)
 C_SOURCES += $(wildcard ../fs/fatfs/*.c)
-C_SOURCES += $(wildcard ../fs/fatfs/drivers/fake_ram_diskio.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/*.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/lrzsz/*.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/mavlink/*.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/bootloader/*.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/bootloader/*.c)
 #C_SOURCES += $(wildcard ../drivers/kinetis/flight/*.c)
 C_SOURCES += $(wildcard ../projects/$(PROJECT)/*.c)
@@ -185,7 +189,6 @@ C_SOURCES += $(wildcard ../projects/$(PROJECT)/*.c)
 # CHIP HAL sources (only used when PLATFORM=CHIP)
 # Set CHIP_SRC_DIR to the path containing Core/ and Drivers/ directories
 ifeq ($(PLATFORM),CHIP)
-CHIP_SRC_DIR ?= .
 C_SOURCES += \
     $(CHIP_SRC_DIR)/Core/Src/main.c \
     $(CHIP_SRC_DIR)/Core/Src/stm32h7xx_it.c \
@@ -230,7 +233,23 @@ C_SOURCES += \
     $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim_ex.c \
     $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart.c \
     $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.c \
-    $(CHIP_SRC_DIR)/Core/Src/system_stm32h7xx.c
+    $(CHIP_SRC_DIR)/Core/Src/system_stm32h7xx.c \
+    $(CHIP_SRC_DIR)/Core/Src/gpio.c \
+    $(CHIP_SRC_DIR)/Core/Src/dma.c \
+    $(CHIP_SRC_DIR)/Core/Src/fmc.c \
+    $(CHIP_SRC_DIR)/Core/Src/i2c.c \
+    $(CHIP_SRC_DIR)/Core/Src/mdma.c \
+    $(CHIP_SRC_DIR)/Core/Src/quadspi.c \
+    $(CHIP_SRC_DIR)/Core/Src/rng.c \
+    $(CHIP_SRC_DIR)/Core/Src/rtc.c \
+    $(CHIP_SRC_DIR)/Core/Src/sdmmc.c \
+    $(CHIP_SRC_DIR)/Core/Src/spi.c \
+    $(CHIP_SRC_DIR)/Core/Src/tim.c \
+    $(CHIP_SRC_DIR)/Core/Src/usart.c \
+
+S_SOURCES += $(CHIP_SRC_DIR)/startup_stm32h743xx.s
+else
+S_SOURCES =
 endif
 
 # Exclude unnecessary files
@@ -269,10 +288,20 @@ C_INCLUDES += -I../arch/arm/include/generated/
 C_INCLUDES += -I../arch/arm/include/generated/uapi/
 C_INCLUDES += -I../arch/arm/mach-stm32
 C_INCLUDES += -I../projects/$(PROJECT)
-C_INCLUDES += -include generated/deconfig.h
-C_INCLUDES += -include kinetis/step-debug.h
-C_INCLUDES += -include project.h
+
+C_DEFINE_INCLUDES  = -include generated/deconfig.h
+C_DEFINE_INCLUDES += -include kinetis/step-debug.h
+C_DEFINE_INCLUDES += -include project.h
 # Add other necessary include directories...
+
+# CHIP HAL includes
+ifeq ($(PLATFORM),CHIP)
+C_INCLUDES += -I$(CHIP_SRC_DIR)/Core/Inc
+C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Inc
+C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Inc/Legacy
+C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/CMSIS/Device/ST/STM32H7xx/Include
+C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/CMSIS/Include
+endif
 
 # CHIP HAL includes
 ifeq ($(PLATFORM),CHIP)
@@ -312,7 +341,14 @@ HEADERS += $(wildcard ../arch/arm/mach-stm32/*.h)
 # Toolchain
 ifeq ($(PLATFORM),CHIP)
     PREFIX = arm-none-eabi-
+# Toolchain
+ifeq ($(PLATFORM),CHIP)
+    PREFIX = arm-none-eabi-
     ifdef GCC_PATH
+		CC = $(GCC_PATH)/$(PREFIX)gcc
+		AS = $(GCC_PATH)/$(PREFIX)gcc -x assembler-with-cpp
+		CP = $(GCC_PATH)/$(PREFIX)objcopy
+		SZ = $(GCC_PATH)/$(PREFIX)size
 		CC = $(GCC_PATH)/$(PREFIX)gcc
 		AS = $(GCC_PATH)/$(PREFIX)gcc -x assembler-with-cpp
 		CP = $(GCC_PATH)/$(PREFIX)objcopy
@@ -322,7 +358,19 @@ ifeq ($(PLATFORM),CHIP)
 		AS = $(PREFIX)gcc -x assembler-with-cpp
 		CP = $(PREFIX)objcopy
 		SZ = $(PREFIX)size
+		CC = $(PREFIX)gcc
+		AS = $(PREFIX)gcc -x assembler-with-cpp
+		CP = $(PREFIX)objcopy
+		SZ = $(PREFIX)size
     endif
+    HEX = $(CP) -O ihex
+    BIN = $(CP) -O binary -S
+    # CHIP architecture flags
+    CPU = -mcpu=cortex-m7
+    FPU = -mfpu=fpv5-d16
+    FLOAT-ABI = -mfloat-abi=hard
+    MCU = $(CPU) -mthumb $(FPU) $(FLOAT-ABI)
+    CHIP_ARCH_CFLAGS = $(MCU) -fno-short-enums
     HEX = $(CP) -O ihex
     BIN = $(CP) -O binary -S
     # CHIP architecture flags
@@ -347,15 +395,42 @@ else
     SZ = echo  # no size needed
     CHIP_ARCH_CFLAGS =
 endif
+    # Simulation: use local compiler
+    ifeq ($(DETECTED_OS),Windows)
+        ifdef GCC_PATH
+        	CC = $(GCC_PATH)/gcc
+        else
+        	CC = gcc
+        endif
+    else
+        CC = gcc
+    endif
+    AS = $(CC)
+    CP = echo  # no objcopy needed
+    SZ = echo  # no size needed
+    CHIP_ARCH_CFLAGS =
+endif
 
+# Final target
+ifeq ($(PLATFORM),CHIP)
+TARGET = $(BUILD_DIR)/$(PROJECT)
+else
 # Final target
 ifeq ($(PLATFORM),CHIP)
 TARGET = $(BUILD_DIR)/$(PROJECT)
 else
 TARGET = $(BUILD_DIR)/$(PROJECT).exe
 endif
+endif
 
 # Macros for gcc
+ifeq ($(PLATFORM),CHIP)
+C_DEFS = \
+    -D__KERNEL__ \
+    -DUSE_HAL_DRIVER \
+    -DSTM32H743xx \
+    -DUSE_PWR_LDO_SUPPLY
+else
 ifeq ($(PLATFORM),CHIP)
 C_DEFS = \
     -D__KERNEL__ \
@@ -367,6 +442,7 @@ C_DEFS =  \
     -D__KERNEL__ \
     -DCONFIG_FAKE_LIB \
     -DCONFIG_SIMULATION \
+    -DKINETIS_FAKE_SIM=1 \
     -DUSE_HAL_DRIVER \
     -DSTM32F407xx
 endif
@@ -375,30 +451,38 @@ endif
 DEPFLAGS = -MMD -MP
 
 # Compiler flags
-CFLAGS = $(CHIP_ARCH_CFLAGS) $(C_DEFS) $(C_INCLUDES) $(CFLAGS_BASE) -fdata-sections -ffunction-sections
+CFLAGS = $(CHIP_ARCH_CFLAGS) $(C_DEFS) $(C_INCLUDES) $(C_DEFINE_INCLUDES) $(CFLAGS_BASE) -fdata-sections -ffunction-sections
 
 # Linker configuration
 ifeq ($(PLATFORM),CHIP)
 LDSCRIPT = $(CHIP_SRC_DIR)/STM32H743XX_FLASH.ld
 LIBS = -lc -lm -lnosys
 LIBDIR =
-LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(PROJECT).map,--cref -Wl,--gc-sections
+LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(PROJECT).map,--cref -Wl,--gc-sections -Wl,--no-enum-size-warning
 else
 LIBS = -lm
 LIBDIR =
+LIBDIR =
 LDFLAGS = -Wl,-Map=$(BUILD_DIR)/$(PROJECT).map,--cref -Wl,--gc-sections
+endif
 endif
 
 # Object files - maintain directory structure to avoid name conflicts
 # Convert each source path to corresponding object path with same directory structure
 # Handle ../-prefixed paths (Kinetis tree)
 C_OBJS = $(patsubst ..%.c,$(BUILD_DIR)/obj%.o,$(filter ..%.c,$(C_SOURCES)))
-# Handle ./-prefixed paths (e.g. CHIP sources when CHIP_SRC_DIR=.)
-C_OBJS += $(patsubst ./%.c,$(BUILD_DIR)/obj/%.o,$(filter ./%.c,$(C_SOURCES)))
+# Handle $(CHIP_SRC_DIR)/-prefixed paths (STM32 HAL sources)
+C_OBJS += $(patsubst $(CHIP_SRC_DIR)/%.c,$(BUILD_DIR)/obj/chip/%.o,$(filter $(CHIP_SRC_DIR)/%.c,$(C_SOURCES)))
 OBJS = $(C_OBJS)
 
+# Handle CHIP assembly sources (startup file)
+S_OBJS = $(patsubst $(CHIP_SRC_DIR)/%.s,$(BUILD_DIR)/obj/chip/%.o,$(S_SOURCES))
+OBJS += $(S_OBJS)
+
+# Create directory mapping for each source file
 # Create directory mapping for each source file
 vpath %.c $(sort $(dir $(C_SOURCES)))
+vpath %.s $(CHIP_SRC_DIR)
 
 # OS-specific commands
 ifeq ($(DETECTED_OS),Windows)
@@ -423,10 +507,15 @@ endif
 ifeq ($(PLATFORM),CHIP)
 all: $(TARGET).elf $(TARGET).hex $(TARGET).bin
 else
+# Default target
+ifeq ($(PLATFORM),CHIP)
+all: $(TARGET).elf $(TARGET).hex $(TARGET).bin
+else
 all: $(TARGET)
 	@$(ECHO) "Build completed: $(TARGET)"
 	@$(ECHO) "Auto-running program..."
 	@$(MAKE) run
+endif
 endif
 
 # Compile only - build without running (simulation only)
@@ -434,8 +523,14 @@ ifeq ($(PLATFORM),CHIP)
 compile:
 	@$(ECHO) "Use 'make all' for CHIP builds"
 else
+# Compile only - build without running (simulation only)
+ifeq ($(PLATFORM),CHIP)
+compile:
+	@$(ECHO) "Use 'make all' for CHIP builds"
+else
 compile: $(TARGET)
 	@$(ECHO) "Compilation completed: $(TARGET)"
+endif
 endif
 
 # Create necessary directories
@@ -449,6 +544,7 @@ $(BUILD_DIR)/obj:
 
 # Create object files from C sources with dependency tracking
 # Maintain full directory structure to avoid name conflicts
+# Two pattern rules: first matches ../-prefixed paths, second matches ./-prefixed paths
 # Two pattern rules: first matches ../-prefixed paths, second matches ./-prefixed paths
 $(BUILD_DIR)/obj/%.o: ../%.c | $(BUILD_DIR)/obj
 ifeq ($(DETECTED_OS),Windows)
@@ -481,11 +577,57 @@ endif
 	@$(ECHO) "Compiling C: $< -> $@"
 	@$(CC) -c $(CFLAGS) $(DEPFLAGS) -o $@ $<
 
+# Compile CHIP HAL C sources — do NOT use C_DEFINE_INCLUDES to avoid Newlib conflicts
+# with linux/types.h POSIX type definitions (fd_set, dev_t, ino_t, daddr_t, etc.)
+$(BUILD_DIR)/obj/chip/%.o: $(CHIP_SRC_DIR)/%.c | $(BUILD_DIR)/obj
+ifeq ($(DETECTED_OS),Windows)
+	@if not exist $(subst /,\,$(dir $@)) ( \
+		$(ECHO) "Creating directory: $(dir $@)" && \
+		mkdir $(subst /,\,$(dir $@)) \
+	)
+else
+	@if [ ! -d "$(dir $@)" ]; then \
+		$(ECHO) "Creating directory: $(dir $@)" && \
+		mkdir -p $(dir $@); \
+	fi
+endif
+	@$(ECHO) "Compiling C: $< -> $@"
+	@$(CC) -c $(CHIP_ARCH_CFLAGS) $(C_DEFS) $(C_INCLUDES) $(CFLAGS_BASE) -fdata-sections -ffunction-sections $(DEPFLAGS) -o $@ $<
+
+# Assemble CHIP startup file — also without C_DEFINE_INCLUDES
+$(BUILD_DIR)/obj/chip/%.o: %.s | $(BUILD_DIR)/obj
+ifeq ($(DETECTED_OS),Windows)
+	@if not exist $(subst /,\,$(dir $@)) ( \
+		$(ECHO) "Creating directory: $(dir $@)" && \
+		mkdir $(subst /,\,$(dir $@)) \
+	)
+else
+	@if [ ! -d "$(dir $@)" ]; then \
+		$(ECHO) "Creating directory: $(dir $@)" && \
+		mkdir -p $(dir $@); \
+	fi
+endif
+	@$(ECHO) "Assembling: $< -> $@"
+	@$(CC) -c $(CHIP_ARCH_CFLAGS) $(C_DEFS) $(C_INCLUDES) $(CFLAGS_BASE) $(DEPFLAGS) -o $@ $<
+
 # Link object files to create executable
 $(TARGET): $(OBJS) | $(BUILD_DIR)
 #	@$(ECHO) "Linking: $(words $(OBJS)) object files -> $@"
 #	@$(ECHO) "Command: $(CC) $(OBJS) $(LDFLAGS) -o $@ $(LIBS)"
 	@$(CC) $(OBJS) $(LDFLAGS) -o $@ $(LIBS)
+
+# CHIP: .elf target
+ifeq ($(PLATFORM),CHIP)
+$(TARGET).elf: $(OBJS) | $(BUILD_DIR)
+	@$(CC) $(OBJS) $(LDFLAGS) -o $@
+	$(SZ) $@
+
+$(BUILD_DIR)/%.hex: $(BUILD_DIR)/%.elf
+	$(HEX) $< $@
+
+$(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf
+	$(BIN) $< $@
+endif
 
 # CHIP: .elf target
 ifeq ($(PLATFORM),CHIP)
@@ -513,16 +655,23 @@ ifeq ($(PLATFORM),CHIP)
 run:
 	@$(ECHO) "Run not supported for CHIP target"
 else
+# Run target (simulation only)
+ifeq ($(PLATFORM),CHIP)
+run:
+	@$(ECHO) "Run not supported for CHIP target"
+else
 run: $(TARGET)
 	@$(RUN_CMD)
 #	@$(ECHO) "Running $(TARGET) and saving output to $(BUILD_DIR)/$(PROJECT).log..."
 #	-@$(RUN_CMD) > $(BUILD_DIR)/$(PROJECT).log 2>&1 || $(ECHO) "Program finished with exit code: $$?"
 #	@$(ECHO) "Output saved to $(BUILD_DIR)/$(PROJECT).log"
 endif
+endif
 
 # Debug target - show detailed information
 debug:
 	@$(ECHO) "=== Debug Information ==="
+	@$(ECHO) "Platform: $(PLATFORM)"
 	@$(ECHO) "Platform: $(PLATFORM)"
 	@$(ECHO) "OS: $(DETECTED_OS)"
 	@$(ECHO) "CC: $(CC)"
@@ -536,6 +685,7 @@ print-sources:
 	@$(ECHO) "C Sources:"
 ifeq ($(DETECTED_OS),Windows)
 	@for %%i in $(C_SOURCES) do @$(ECHO)   %%i
+	@for %%i in $(C_SOURCES) do @$(ECHO)   %%i
 else
 	@for src in $(C_SOURCES); do $(ECHO) "  $$src"; done
 endif
@@ -544,6 +694,7 @@ endif
 print-objects:
 	@$(ECHO) "Object files:"
 ifeq ($(DETECTED_OS),Windows)
+	@for %%i in $(OBJS) do @$(ECHO)   %%i
 	@for %%i in $(OBJS) do @$(ECHO)   %%i
 else
 	@for obj in $(OBJS); do $(ECHO) "  $$obj"; done
@@ -566,6 +717,7 @@ print-vars:
 print-headers:
 	@$(ECHO) "Header files:"
 ifeq ($(DETECTED_OS),Windows)
+	@for %%i in $(HEADERS) do @$(ECHO)   %%i
 	@for %%i in $(HEADERS) do @$(ECHO)   %%i
 else
 	@for hdr in $(HEADERS); do $(ECHO) "  $$hdr"; done
@@ -691,6 +843,6 @@ print-cmd:
 # Include dependency files
 # Include auto-generated dependency files (.d files) for each object file
 # The - before include prevents make from failing if the files don't exist yet
--include $(C_OBJS:.o=.d)
+-include $(C_OBJS:.o=.d) $(S_OBJS:.o=.d)
 
 .PHONY: all compile clean run debug print-sources print-objects print-os print-vars check-sources test-dirs create-dirs test-cmd print-cmd print-headers check-deps analyze-deps

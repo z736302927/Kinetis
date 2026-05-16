@@ -9,8 +9,6 @@
 #include <kinetis/design_verification.h>
 #include <kinetis/real-time-clock.h>
 
-#include <time.h>
-
 #define HOURS24                         0x00
 
 bool rtc_is_leap_year(u16 year)
@@ -147,6 +145,8 @@ u8 rtc_get_time_format(struct rtc_device *dev)
 #include "kinetis/test-kinetis.h"
 
 #ifdef KINETIS_FAKE_SIM
+
+#include <time.h>
 
 void fake_rtc_calendar_get(struct tm *rtc, u8 format)
 {

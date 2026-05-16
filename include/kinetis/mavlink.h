@@ -1,6 +1,8 @@
 #ifndef KINETIS_MAVLINK_H
 #define KINETIS_MAVLINK_H
 
+#define _POSIX_C_SOURCE 200809L
+
 #include <kinetis/serial-port.h>
 
 #undef current
@@ -8,7 +10,9 @@
 #undef OK
 #include <kinetis/mavlink/mavlink_dialect/mavlink.h>
 
+#ifdef KINETIS_FAKE_SIM
 #include <pthread.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -134,9 +138,12 @@ struct mavlink_device {
 	u32 rx_count;
 	u32 rx_errors;
 
+#ifdef KINETIS_FAKE_SIM
 	/* Thread control */
 	volatile u8 thread_running;
 	pthread_t rx_thread;
+#endif
+
 	mavlink_status_t rx_status;
 	mavlink_message_t rx_msg;
 

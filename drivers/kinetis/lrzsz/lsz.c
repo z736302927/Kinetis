@@ -1241,10 +1241,12 @@ again:
 			 * lastsync==bytcnt
 			 */
 			if (!sz->mm_addr)
-				if (rxpos && f_lseek(sz->input_f, (long) rxpos) != FR_OK) {
-					int er = errno;
-					pr_debug("f_lseek failed: %s", strerror(er));
-					return ERROR;
+				if (rxpos) {
+					FRESULT res = f_lseek(sz->input_f, (long) rxpos);
+					if (res != FR_OK) {
+						pr_debug("f_lseek failed: %d", res);
+						return ERROR;
+					}
 				}
 			if (rxpos) {
 				zi->bytes_skipped = rxpos;

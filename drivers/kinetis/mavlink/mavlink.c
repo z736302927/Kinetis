@@ -4,7 +4,6 @@
  */
 #define pr_fmt(fmt) "MAVLink: " fmt
 
-#include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/printk.h>
 #include <linux/errno.h>
@@ -273,8 +272,10 @@ void mavlink_free(struct mavlink_device *mav)
 	if (!mav)
 		return;
 
+#ifdef KINETIS_FAKE_SIM
 	if (mav->thread_running)
 		mavlink_stop_rx_thread(mav);
+#endif
 
 	kfree(mav->name);
 	kfree(mav);
@@ -761,11 +762,9 @@ int mavlink_send_bootloader_ack(struct mavlink_device *mav, u8 command,
 	return mavlink_send_encoded_data(mav, &msg);
 }
 
-/**
- * @brief Background RX thread: continuously poll serial and process messages.
- *
- * The thread exits when mav->thread_running is cleared.
- */
+#ifdef DESIGN_VERIFICATION_MAVLINK
+
+#ifdef KINETIS_FAKE_SIM
 static void *mavlink_rx_thread_func(void *arg)
 {
 	struct mavlink_device *mav = (struct mavlink_device *)arg;
@@ -803,8 +802,6 @@ void mavlink_stop_rx_thread(struct mavlink_device *mav)
 	mav->thread_running = 0;
 	pthread_join(mav->rx_thread, NULL);
 }
-
-#ifdef DESIGN_VERIFICATION_MAVLINK
 
 int t_mavlink_master_slave_sim(int argc, char *argv[])
 {
@@ -932,5 +929,6 @@ out:
 	pr_info("MAVLink message packing/parsing test completed\n");
 	return ret;
 }
+#endif
 
 #endif /* DESIGN_VERIFICATION_MAVLINK */

@@ -50,7 +50,13 @@ typedef uint64_t u64;
 #endif
 
 // Static memory pool size
+#ifdef KINETIS_FAKE_SIM
 #define STATIC_POOL_SIZE (1024 * 1024)
+#else
+extern unsigned char _memory_pool_start[];
+extern unsigned char _memory_pool_end[];
+#define STATIC_POOL_SIZE ((u32)((unsigned long)_memory_pool_end - (unsigned long)_memory_pool_start))
+#endif
 #define MAX_BLOCKS 256
 
 // Memory alignment macros (fixed for 64-bit addresses)
@@ -67,7 +73,11 @@ typedef struct {
 } memory_block_detailed;
 
 // Static memory pool
+#ifdef KINETIS_FAKE_SIM
 static unsigned char memory_pool[STATIC_POOL_SIZE];
+#else
+#define memory_pool ((unsigned char *)_memory_pool_start)
+#endif
 static memory_block_detailed blocks[MAX_BLOCKS];
 static int block_count = 0;
 static u32 memory_used = 0;

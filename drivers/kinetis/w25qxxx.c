@@ -16,7 +16,9 @@
 
 #include "w25qxxx.h"
 
+#ifdef KINETIS_FAKE_SIM
 #include <pthread.h>
+#endif
 
 static inline void w25qxxx_port_transmit(struct w25qxxx_device *dev, u8 tmp)
 {
@@ -219,21 +221,23 @@ struct w25qxxx_status {
 
 struct w25qxxx_device {
 	struct spi_master *spi;
-	struct spi_slave *spi_slave;
-	u8 *slave_regs;
 
 	u8 id;
 	u32 max_addr;
 	struct list_head list;
 
 	struct w25qxxx_status status;
-
+#ifdef KINETIS_FAKE_SIM
+	struct spi_slave *spi_slave;
+	u8 *slave_regs;
 	bool thread_running;
+#endif
 };
 
 static u32 w25q128_max_addr = 0xFFFFFF;
 static u32 w25q256_max_addr = 0x1FFFFFF;
 
+#ifdef KINETIS_FAKE_SIM
 /* SPI Simulation constants */
 #define W25Q_FLASH_SIZE_128        (16 * 1024 * 1024)  /* 16MB for W25Q128 */
 #define W25Q_FLASH_SIZE_256        (32 * 1024 * 1024)  /* 32MB for W25Q256 */
@@ -318,6 +322,7 @@ void w25qxxx_stop_reg_random(struct w25qxxx_device *dev)
 	dev->thread_running = false;
 	pthread_join(w25q_reg_thread, NULL);
 }
+#endif
 
 void w25qxxx_transmit_cmd(struct w25qxxx_device *dev, u8 cmd)
 {
@@ -1770,6 +1775,7 @@ struct w25qxxx_device *w25qxxx_alloc_device(u8 id, struct spi_master *spi)
 	}
 	dev->spi = spi;
 
+#ifdef KINETIS_FAKE_SIM
 	/* Allocate slave register buffer for SPI simulation */
 	dev->slave_regs = kmalloc(0x10000, GFP_KERNEL);  /* 64KB buffer */
 	if (!dev->slave_regs) {
@@ -1797,13 +1803,16 @@ struct w25qxxx_device *w25qxxx_alloc_device(u8 id, struct spi_master *spi)
 		ret = PTR_ERR(dev->spi_slave);
 		goto err;
 	}
+#endif
 
 	ret = w25qxxx_init(dev);
 	if (ret) {
+#ifdef KINETIS_FAKE_SIM
 		spi_slave_soft_exit(dev->spi_slave);
 		w25qxxx_stop_reg_random(dev);
 		kfree(dev->slave_regs);
 		dev->slave_regs = NULL;
+#endif
 		goto err;
 	}
 	list_add(&dev->list, &w25qxxx_list);
@@ -1817,6 +1826,7 @@ err:
 
 void w25qxxx_free_device(struct w25qxxx_device *dev)
 {
+#ifdef KINETIS_FAKE_SIM
 	if (dev->spi_slave) {
 		spi_slave_soft_exit(dev->spi_slave);
 	}
@@ -1824,6 +1834,7 @@ void w25qxxx_free_device(struct w25qxxx_device *dev)
 	w25qxxx_stop_reg_random(dev);
 
 	kfree(dev->slave_regs);
+#endif
 	kfree(dev);
 }
 
@@ -1856,7 +1867,7 @@ int t_w25qxxx_device_init(int argc, char **argv)
 		}
 	}
 
-	dev = w25qxxx_alloc_device(w25qxxx, &fake_spi_master);
+	dev = w25qxxx_alloc_device(w25qxxx, &general_spi_master);
 	if (!dev) {
 		return -ENOMEM;
 	}

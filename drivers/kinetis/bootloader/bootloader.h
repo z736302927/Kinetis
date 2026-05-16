@@ -78,8 +78,8 @@ struct bootloader_ops {
 	void (*disable_cache)(void);
 	void (*set_stack_pointer)(u32 pointer);
 	void (*redirect_isr_table)(u32 address);
-	struct flash_ops *flash;
 	void (*system_reset)(void);
+	struct flash_ops *flash;
 };
 
 /*********************************************************************
@@ -133,7 +133,9 @@ struct bootloader_context {
  * @return Bootloader context pointer on success, NULL on failure
  */
 struct bootloader_context *bootloader_init(u8 *config_addr,
-					    struct bootloader_ops *ops);
+					    struct bootloader_ops *chip_ops,
+						struct flash_ops *flash_ops,
+						struct serial_port_ops *serial_ops);
 
 /**
  * @brief Free bootloader context and all owned resources
@@ -146,7 +148,7 @@ void bootloader_free(struct bootloader_context *bl_ctx);
  * @return 0 on success (never returns normally in production),
  *         negative error code on failure after max retries
  */
-int bootloader_flow(void);
+int bootloader_flow(struct bootloader_context *bl_ctx);
 
 #ifdef __cplusplus
 }

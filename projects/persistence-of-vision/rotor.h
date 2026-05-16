@@ -69,7 +69,8 @@ int pov_create_fake_images(const char *path);
  * @param flash: Flash operations for persisting bootloader config
  * @return Pointer to rotor instance, or NULL on failure
  */
-struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash);
+struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash, struct serial_port_ops *motor_serial_ops, struct serial_port_ops *app_serial_ops,
+	u32(*read_rotated_time)(struct hall_device *dev));
 
 /**
  * @brief Free rotor instance and all owned resources

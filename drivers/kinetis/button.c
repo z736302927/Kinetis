@@ -101,6 +101,7 @@ int button_add(u32 unique_id, u8(*pin_level)(struct button *), u8 active_level,
 
 	list_add_tail(&button->list, &button_head);
 
+#ifdef KINETIS_FAKE_SIM
 	button->sim_state.unique_id = unique_id;
 	button->sim_state.press_time = 0;
 	button->sim_state.release_time = 0;
@@ -111,6 +112,7 @@ int button_add(u32 unique_id, u8(*pin_level)(struct button *), u8 active_level,
 	button->sim_state.start = true;
 	button->sim_state.next_event = NONE_PRESS;
 	button->sim_state.next_state = PRESS_IDLE;
+#endif
 
 	return 0;
 }
@@ -127,11 +129,10 @@ void button_drop(u32 unique_id)
 
 	list_for_each_entry_safe(button, tmp, &button_head, list) {
 		if (button->unique_id == unique_id) {
-			button->sim_state.start = false;
 			while (1) {
 				tim_task_loop();
 
-				if (button->state == PRESS_IDLE && button->sim_state.next_state == PRESS_IDLE) {
+				if (button->state == PRESS_IDLE) {
 					break;
 				}
 

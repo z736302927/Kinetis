@@ -13,7 +13,9 @@ extern "C" {
 
 #include "kinetis/core_common.h"
 
+#ifdef KINETIS_FAKE_SIM
 #include <pthread.h>
+#endif
 
 #define SERIAL_PORT_BUFFER_SIZE 256
 
@@ -47,11 +49,13 @@ struct serial_port {
 
 	struct list_head list;
 
+#ifdef KINETIS_FAKE_SIM
 	u32(*sim_callback)(char *request, char *response, void *context);
 	void *private;
 
 	u8 thread_switch;
 	pthread_t thread;
+#endif
 
 	u32 baud_rate;		/* Current baud rate: 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, etc */
 	u8 parity;		/* Current parity: 0=None, 1=Odd, 2=Even */

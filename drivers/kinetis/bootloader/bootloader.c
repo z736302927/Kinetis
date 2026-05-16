@@ -1,4 +1,4 @@
-#define pr_fmt(fmt) "Bootloader: " fmt
+#define pr_fmt(fmt) "bootloader: " fmt
 
 #include <linux/crc32.h>
 #include <linux/printk.h>
@@ -11,6 +11,7 @@
 #include <kinetis/led.h>
 #include <kinetis/serial-port.h>
 #include "kinetis/design_verification.h"
+#include "kinetis/fatfs-intf.h"
 
 #include "../fs/fatfs/ff.h"
 
@@ -24,17 +25,19 @@ typedef void (*firmware_entry)(void);
 /**
  * @brief Initialize bootloader context
  * @param config_addr: Pointer to bootloader config region in flash
- * @param ops: Platform operations structure (must not be NULL)
+ * @param chip_ops: Platform operations structure (must not be NULL)
  * @return Bootloader context pointer on success, NULL on failure
  * @note Allocates serial port and MAVLink device internally.
  *       Caller must eventually call bootloader_free() to release resources.
  */
 struct bootloader_context *bootloader_init(u8 *config_addr,
-					    struct bootloader_ops *ops)
+					    struct bootloader_ops *chip_ops,
+						struct flash_ops *flash_ops,
+						struct serial_port_ops *serial_ops)
 {
 	struct bootloader_context *bl_ctx;
 
-	if (!ops) {
+	if (!chip_ops || !flash_ops || !serial_ops) {
 		pr_err("bootloader ops cannot be NULL\n");
 		return NULL;
 	}
@@ -45,13 +48,10 @@ struct bootloader_context *bootloader_init(u8 *config_addr,
 	}
 
 	bl_ctx->config_addr = config_addr;
-	bl_ctx->ops = ops;
+	bl_ctx->ops = chip_ops;
+	bl_ctx->ops->flash = flash_ops;
 
-#if KINETIS_FAKE_SIM
-	bl_ctx->app_port = serial_port_alloc(&fake_serial_port_ops, "bootloader-app");
-#else
-	bl_ctx->app_port = serial_port_alloc(&real_serial_port_ops, "bootloader-app");
-#endif
+	bl_ctx->app_port = serial_port_alloc(serial_ops, "bootloader-app");
 	if (!bl_ctx->app_port) {
 		kfree(bl_ctx);
 		return NULL;
@@ -109,7 +109,7 @@ static void set_fsm_state(struct bootloader_context *bl_ctx, enum bootloader_fsm
 
 static int write_firmware_to_chip(struct bootloader_context *bl_ctx)
 {
-	FIL f;
+	FIL fp;
 	u32 total_size = 0;
 	u32 calc_crc32 = ~0;
 	u8 *buf = NULL;
@@ -127,7 +127,7 @@ static int write_firmware_to_chip(struct bootloader_context *bl_ctx)
 			? bl_ctx->app_mavlink->bl.filename
 			: BL_FIRMWARE_PATH;
 
-	ret = f_open(&f, firmware_path, FA_READ);
+	ret = f_open(&fp, firmware_path, FA_READ);
 	if (ret != FR_OK) {
 		pr_err("FS: failed to open '%s' (ret=%d)\n",
 		       firmware_path, ret);
@@ -138,7 +138,7 @@ static int write_firmware_to_chip(struct bootloader_context *bl_ctx)
 	buf = kmalloc(BL_FLASH_CHUNK, GFP_KERNEL);
 	if (!buf) {
 		pr_err("FS: failed to allocate buffer\n");
-		f_close(&f);
+		f_close(&fp);
 		return -ENOMEM;
 	}
 
@@ -147,7 +147,7 @@ static int write_firmware_to_chip(struct bootloader_context *bl_ctx)
 	pr_info("FS: computing CRC32 of '%s'...\n", firmware_path);
 
 	while (1) {
-		ret = f_read(&f, buf, sizeof(buf), &br);
+		ret = f_read(&fp, buf, sizeof(buf), &br);
 		if (ret != FR_OK || br == 0)
 			break;
 		calc_crc32 = crc32(calc_crc32, buf, br);
@@ -191,11 +191,11 @@ static int write_firmware_to_chip(struct bootloader_context *bl_ctx)
 	}
 
 	pr_info("Flash: writing %u bytes...\n", total_size);
-	f_lseek(&f, 0);
+	f_lseek(&fp, 0);
 	offset = 0;
 
 	while (1) {
-		ret = f_read(&f, buf, sizeof(buf), &br);
+		ret = f_read(&fp, buf, sizeof(buf), &br);
 		if (ret != FR_OK || br == 0)
 			break;
 
@@ -221,7 +221,7 @@ static int write_firmware_to_chip(struct bootloader_context *bl_ctx)
 
 cleanup:
 	kfree(buf);
-	f_close(&f);
+	f_close(&fp);
 	return ret;
 }
 
@@ -334,11 +334,15 @@ static void jump_to_firmware(struct bootloader_context *bl_ctx)
 	bl_ctx->ops->redirect_isr_table(FIRMWARE_BASE_ADDR);
 
 	/* Jump to FIRMWARE reset handler */
+#ifdef KINETIS_FAKE_SIM
+	pr_info("simulation: firmware jump skipped (reset=0x%08x)\n", reset_vector);
+	return;
+#else
 	firmware();
-
 	/* Should never reach here */
 	while (1)
 		;
+#endif
 }
 
 /**
@@ -369,7 +373,7 @@ static int verify_flash_crc(struct bootloader_context *bl_ctx)
 		if (ret < 0) {
 			pr_err("Verify: flash_read failed at 0x%x (%d)\n",
 			       FIRMWARE_BASE_ADDR + offset, ret);
-			goto out;
+			goto err;
 		}
 
 		calc_crc32 = crc32(calc_crc32, buf, chunk);
@@ -385,7 +389,7 @@ static int verify_flash_crc(struct bootloader_context *bl_ctx)
 		ret = -EIO;
 	}
 
-out:
+err:
 	kfree(buf);
 	return ret;
 }
@@ -435,15 +439,9 @@ static void check_server_cmd(struct bootloader_context *bl_ctx)
  *       forever handling firmware updates (WAIT_CMD / ERROR retry).
  *       After max retries (3) the function exits with -EIO.
  */
-int bootloader_flow(void)
+int bootloader_flow(struct bootloader_context *bl_ctx)
 {
-	struct bootloader_context *bl_ctx;
 	int ret;
-
-	bl_ctx = bootloader_init((u8 *)CONFIG_BASE_ADDR, NULL /* ops */);
-	if (!bl_ctx) {
-		return -ENOMEM;
-	}
 
 	set_fsm_state(bl_ctx, BL_STATE_CHECK_MODE);
 
@@ -527,11 +525,16 @@ int bootloader_flow(void)
 			ret = write_config_to_flash(bl_ctx);
 			if (ret < 0)
 				pr_err("Failed to write config, jumping anyway...\n");
+#ifdef KINETIS_FAKE_SIM
+			pr_info("simulation: update complete, returning\n");
+			bootloader_free(bl_ctx);
+			return 0;
+#else
 			pr_info("Jumping to new firmware...\n");
-
 			/* Free bootloader context before jump, we won't be back */
 			bootloader_free(bl_ctx);
 			jump_to_firmware(bl_ctx);
+#endif
 			break;
 
 		case BL_STATE_ERROR:
@@ -540,7 +543,7 @@ int bootloader_flow(void)
 				pr_err("Max retries reached (%d), aborting\n",
 				       bl_ctx->retry_count);
 				ret = -EIO;
-				goto out_free;
+				goto err_free;
 			}
 			pr_warn("Update failed (retry %d/3), waiting for retry...\n",
 				bl_ctx->retry_count);
@@ -555,7 +558,7 @@ int bootloader_flow(void)
 
 	return 0;
 
-out_free:
+err_free:
 	bootloader_free(bl_ctx);
 	pr_err("Bootloader failed with ret=%d\n", ret);
 	return ret;
@@ -565,15 +568,17 @@ out_free:
 
 #include <linux/random.h>
 
-#include <kinetis/design_verification.h>
-#include <kinetis/test-kinetis.h>
+#include "../lrzsz/zmodem.h"
 
 /* ─── Mock Flash ──────────────────────────────────────────── */
-#define MOCK_FLASH_SIZE      (1u * 1024u * 1024u)   /* 1MB simulated flash */
-#define FW_TEST_FILE         "0:/firmware/test_fw.bin"
-#define FW_TEST_SIZE         (64u * 1024u)          /* 64KB fake firmware */
+#define MOCK_FLASH_SIZE      (512u * 1024u)   /* 512KB simulated flash */
+#define FIRMWARE_SIZE        (256u * 1024u)   /* default firmware size (256KB) */
 
-static u8 *g_mock_flash;
+#define BL_COMPUTER_DIR		"0:/computer"
+#define BL_FIRMWARE_DIR     "0:/firmware"
+#define BL_FIRMWARE_NAME    "firmware.bin"
+
+static u8 *mock_flash_addr;
 
 static int mock_flash_erase(u32 addr, u32 size)
 {
@@ -583,7 +588,8 @@ static int mock_flash_erase(u32 addr, u32 size)
 		pr_err("mock_erase: addr 0x%x+%u > %u\n", addr, size, MOCK_FLASH_SIZE);
 		return -EINVAL;
 	}
-	memset(g_mock_flash + addr, 0xFF, size);
+	memset(mock_flash_addr + addr, 0xFF, size);
+
 	return 0;
 }
 
@@ -593,7 +599,8 @@ static int mock_flash_write(u32 addr, const u8 *data, u32 size)
 		pr_err("mock_write: addr 0x%x+%u > %u\n", addr, size, MOCK_FLASH_SIZE);
 		return -EINVAL;
 	}
-	memcpy(g_mock_flash + addr, data, size);
+	memcpy(mock_flash_addr + addr, data, size);
+
 	return 0;
 }
 
@@ -603,228 +610,222 @@ static int mock_flash_read(u32 addr, u8 *buf, u32 size)
 		pr_err("mock_read: addr 0x%x+%u > %u\n", addr, size, MOCK_FLASH_SIZE);
 		return -EINVAL;
 	}
-	memcpy(buf, g_mock_flash + addr, size);
+	memcpy(buf, mock_flash_addr + addr, size);
+
 	return 0;
 }
 
-static void mock_disable_irq(void) { }
-static void mock_cleanup_hw_resource(void) { }
-static void mock_disable_cache(void) { }
-static void mock_set_stack_pointer(u32 ptr) { }
-static void mock_redirect_isr_table(u32 addr) { }
+static void mock_disable_irq(void)
+{
+	pr_info("mock disable irq called (ignored in sim)\n");
+}
+static void mock_cleanup_hw_resource(void)
+{
+	pr_info("mock cleanup hw resource called (ignored in sim)\n");
+}
+static void mock_disable_cache(void)
+{
+	pr_info("mock disable cache called (ignored in sim)\n");
+}
+static void mock_set_stack_pointer(u32 ptr)
+{
+	pr_info("mock set stack pointer called (ptr=0x%08x, ignored in sim)\n", ptr);
+}
+static void mock_redirect_isr_table(u32 addr)
+{
+	pr_info("mock redirect isr table called (addr=0x%08x, ignored in sim)\n", addr);
+}
 static void mock_system_reset(void)
 {
 	pr_info("mock system reset called (ignored in sim)\n");
 }
 
-static struct flash_ops g_mock_flash_ops = {
+static struct flash_ops mock_flash_ops = {
 	.erase                = mock_flash_erase,
 	.write                = mock_flash_write,
 	.read                 = mock_flash_read,
 };
 
-static struct bootloader_ops g_mock_bl_ops = {
+static struct bootloader_ops mock_bl_ops = {
 	.disable_irq          = mock_disable_irq,
 	.cleanup_hw_resource  = mock_cleanup_hw_resource,
 	.disable_cache        = mock_disable_cache,
 	.set_stack_pointer    = mock_set_stack_pointer,
 	.redirect_isr_table   = mock_redirect_isr_table,
-	.flash                = &g_mock_flash_ops,
 	.system_reset         = mock_system_reset,
 };
 
-/* ─── Helper: write a fake firmware to FatFS and mock flash ─ */
-static int prepare_fake_firmware(void)
+/* ─── PC simulation thread (MAVLink cmd + ZMODEM) ───── */
+struct bl_sz_arg {
+	struct serial_port *serial;
+	u32 fw_size;
+	u32 fw_crc32;
+	char fw_path[128];
+};
+
+static void *bl_computer_thread(void *data)
 {
-	FRESULT res;
-	FIL f;
-	UINT bw;
-	u8 *buf = NULL;
-	int ret = 0;
+	struct bl_sz_arg *arg = (struct bl_sz_arg *)data;
+	struct mavlink_device *pc_mav;
+	int ret;
 
-	buf = kmalloc(FW_TEST_SIZE, GFP_KERNEL);
-	if (!buf)
-		return -ENOMEM;
-
-	/* Fill with random data */
-	get_random_bytes(buf, FW_TEST_SIZE);
-
-	/* Write first 8 bytes as a fake vector table */
-	*(u32 *)&buf[0] = 0x20001000;                         /* stack in SRAM */
-	*(u32 *)&buf[4] = FIRMWARE_BASE_ADDR + 0x100;         /* reset in flash */
-
-	res = f_open(&f, FW_TEST_FILE, FA_CREATE_ALWAYS | FA_WRITE);
-	if (res != FR_OK) {
-		pr_err("failed to create '%s': %d\n", FW_TEST_FILE, res);
-		ret = -EIO;
-		goto out;
+	pc_mav = mavlink_init(arg->serial, 2, 0, "pc-sim");
+	if (!pc_mav) {
+		pr_err("pc-sim: failed to init mavlink\n");
+		return NULL;
 	}
 
-	res = f_write(&f, buf, FW_TEST_SIZE, &bw);
-	if (res != FR_OK || bw != FW_TEST_SIZE) {
-		pr_err("write failed: %d (bw=%u)\n", res, bw);
-		ret = -EIO;
-	}
-	f_close(&f);
+	/* Step 1: Send MAVLink prepare update cmd */
+	pr_info("pc-sim: sending MAVLink BOOTLOADER_UPDATE_CMD...\n");
+	ret = mavlink_send_bootloader_update(pc_mav,
+		MAV_BL_CMD_PREPARE_UPDATE,
+		arg->fw_size, arg->fw_crc32,
+		arg->fw_path, 1000);
+	if (ret < 0)
+		pr_warn("pc-sim: mavlink returned %d (may still be OK)\n", ret);
 
-out:
-	kfree(buf);
-	return ret;
+	/* Step 2: Wait for bootloader to enter RECEIVE + lrzsz_rz */
+	mdelay(200);
+
+	/* Step 3: Send firmware via ZMODEM */
+	pr_info("pc-sim: sending firmware via ZMODEM...\n");
+	zmodem_send(arg->serial, 1, arg->fw_path,
+			NULL, NULL, 0, RZSZ_FLAGS_NONE);
+	pr_info("pc-sim: firmware send complete\n");
+
+	mavlink_free(pc_mav);
+	return NULL;
 }
 
-/* ─── Test 1: Init / Free cycle ──────────────────────────── */
-int t_bootloader_init_sim(int argc, char *argv[])
-{
-	struct bootloader_context *bl_ctx;
-	int ret = PASS;
-
-	pr_info("=== Bootloader Init/Free Test ===\n");
-
-	g_mock_flash = kzalloc(MOCK_FLASH_SIZE, GFP_KERNEL);
-	if (!g_mock_flash) {
-		pr_err("failed to allocate mock flash\n");
-		return FAIL;
-	}
-
-	/* NULL ops should fail */
-	bl_ctx = bootloader_init((u8 *)CONFIG_BASE_ADDR, NULL);
-	if (bl_ctx) {
-		pr_err("expected NULL for NULL ops\n");
-		ret = FAIL;
-		goto out;
-	}
-	pr_info("NULL ops check: PASS\n");
-
-	/* Valid ops should succeed */
-	bl_ctx = bootloader_init((u8 *)CONFIG_BASE_ADDR, &g_mock_bl_ops);
-	if (!bl_ctx) {
-		pr_err("bootloader_init failed\n");
-		ret = FAIL;
-		goto out;
-	}
-	pr_info("bootloader_init: PASS (ctx=%p)\n", bl_ctx);
-
-	bootloader_free(bl_ctx);
-	pr_info("bootloader_free: PASS\n");
-
-out:
-	kfree(g_mock_flash);
-	g_mock_flash = NULL;
-	pr_info("=== Init/Free %s ===\n", ret ? "FAIL" : "PASS");
-	return ret;
-}
-
-/* ─── Test 2: Full update simulation ─────────────────────── */
 int t_bootloader_full_update(int argc, char *argv[])
 {
 	struct bootloader_context *bl_ctx;
+	struct serial_port *serial_computer = NULL;
+	struct bl_sz_arg sz_arg;
 	struct bootloader_config *cfg;
-	int ret = PASS;
+	pthread_t thread = 0;
+	u8 *file_buf = NULL;
+	u32 fw_size = FIRMWARE_SIZE;
+	u32 fw_crc32;
+	char computer_fw_path[64];
+	char firmware_fw_path[64];
+	int ret = 0;
 
-	pr_info("=== Bootloader Full Update Test ===\n");
-
-	g_mock_flash = kzalloc(MOCK_FLASH_SIZE, GFP_KERNEL);
-	if (!g_mock_flash) {
-		pr_err("failed to allocate mock flash\n");
-		return FAIL;
+	/* ── Parse args ─────────────────────────────────── */
+	if (argc > 1) {
+		fw_size = simple_strtol(argv[1], NULL, 10);
+		if (fw_size < 1024 || fw_size > MOCK_FLASH_SIZE / 2)
+			return -EINVAL;
 	}
 
-	if (prepare_fake_firmware() < 0) {
-		pr_err("prepare_fake_firmware failed\n");
-		ret = FAIL;
-		goto out;
-	}
-	pr_info("fake firmware created (%d bytes)\n", FW_TEST_SIZE);
+	snprintf(computer_fw_path, sizeof(computer_fw_path),
+		 "%s/%s", BL_COMPUTER_DIR, BL_FIRMWARE_NAME);
+	snprintf(firmware_fw_path, sizeof(firmware_fw_path),
+		 "%s/%s", BL_FIRMWARE_PATH, BL_FIRMWARE_NAME);
 
-	bl_ctx = bootloader_init((u8 *)CONFIG_BASE_ADDR, &g_mock_bl_ops);
+	pr_info("=== Bootloader Full Update Test (FW size: %u) ===\n", fw_size);
+
+	/* ── 1. Mock flash ─────────────────────────────── */
+	mock_flash_addr = kzalloc(MOCK_FLASH_SIZE, GFP_KERNEL);
+	if (!mock_flash_addr)
+		return -ENOMEM;
+
+	/* ── 2. Firmware file on computer side ──────────── */
+	ret = fatfs_create_dirs(BL_COMPUTER_DIR);
+	if (ret)
+		goto err;
+
+	file_buf = kzalloc(fw_size, GFP_KERNEL);
+	if (!file_buf) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	get_random_bytes(file_buf, fw_size);
+	*(u32 *)&file_buf[0] = 0x20001000;                 /* stack */
+	*(u32 *)&file_buf[4] = FIRMWARE_BASE_ADDR + 0x100; /* reset */
+	fw_crc32 = crc32(~0, file_buf, fw_size) ^ ~0;
+
+	ret = fatfs_write_store_info(BL_COMPUTER_DIR, BL_FIRMWARE_NAME,
+				     0, file_buf, fw_size);
+	kfree(file_buf);
+	file_buf = NULL;
+	if (ret)
+		goto err;
+
+	pr_info("firmware: %s (%u bytes, CRC32=0x%08x)\n",
+		computer_fw_path, fw_size, fw_crc32);
+
+	/* ── 3. Bootloader init ────────────────────────── */
+	bl_ctx = bootloader_init((u8 *)CONFIG_BASE_ADDR, &mock_bl_ops,
+				 &mock_flash_ops, &fake_serial_port_ops);
 	if (!bl_ctx) {
-		pr_err("bootloader_init failed\n");
-		ret = FAIL;
-		goto out;
+		ret = -ENOMEM;
+		goto err;
 	}
 
-	/* Set boot flag so FSM sees UPDATE mode */
 	cfg = (struct bootloader_config *)bl_ctx->config_addr;
-
 	cfg->magic = BOOTLOADER_MAGIC;
 	cfg->version = 1;
 	cfg->mode = BL_MODE_UPDATE;
-
 	memcpy(&bl_ctx->config, bl_ctx->config_addr,
 	       sizeof(struct bootloader_config));
 
-	/* Erased flash should not have a valid firmware vector table */
-	pr_info("is_firmware_valid (before write) = %d\n",
+	pr_info("is_firmware_valid (before) = %d\n",
 		is_firmware_valid(bl_ctx));
+
+	/* ── 4. Serial port pair ───────────────────────── */
+	serial_computer = serial_port_alloc(&fake_serial_port_ops,
+					    "bl-computer");
+	if (IS_ERR(serial_computer)) {
+		ret = PTR_ERR(serial_computer);
+		goto err_free_bl;
+	}
+	serial_port_start_thread(serial_computer, SERIAL_PORT_DF_OTHERS,
+				 NULL, bl_ctx->app_port);
+	serial_port_start_thread(bl_ctx->app_port, SERIAL_PORT_DF_OTHERS,
+				 NULL, serial_computer);
+
+	/* ── 5. Start PC simulation thread ─────────────── */
+	memset(&sz_arg, 0, sizeof(sz_arg));
+	sz_arg.serial = serial_computer;
+	sz_arg.fw_size = fw_size;
+	sz_arg.fw_crc32 = fw_crc32;
+	strncpy(sz_arg.fw_path, computer_fw_path, sizeof(sz_arg.fw_path) - 1);
+
+	ret = pthread_create(&thread, NULL, bl_computer_thread, &sz_arg);
+	if (ret != 0) {
+		pr_err("failed to create thread: %d\n", ret);
+		goto err_free_serial;
+	}
+
+	/* ── 6. Run bootloader FSM ─────────────────────── */
+	ret = bootloader_flow(bl_ctx);
+
+	pthread_join(thread, NULL);
+	thread = 0;
 
 	pr_info("=== Full Update %s ===\n", ret ? "FAIL" : "PASS");
 
-	bootloader_free(bl_ctx);
-
-out:
-	kfree(g_mock_flash);
-	g_mock_flash = NULL;
+	/* ── Cleanup ───────────────────────────────────── */
+	serial_port_free(serial_computer);
+	fatfs_delete_file(NULL, computer_fw_path);
+	fatfs_delete_dir(BL_COMPUTER_DIR);
+	fatfs_delete_dir(BL_FIRMWARE_PATH);
+	kfree(mock_flash_addr);
+	mock_flash_addr = NULL;
 	return ret;
-}
 
-/* ─── Test 3: Flash write benchmark ──────────────────────── */
-int t_bootloader_benchmark(int argc, char *argv[])
-{
-	u32 size = FW_TEST_SIZE;
-	int ret = PASS;
-
-	if (argc > 1)
-		size = simple_strtoul(argv[1], NULL, 10);
-
-	pr_info("=== Bootloader Flash Benchmark (%u bytes) ===\n", size);
-
-	g_mock_flash = kzalloc(MOCK_FLASH_SIZE, GFP_KERNEL);
-	if (!g_mock_flash) {
-		pr_err("failed to allocate mock flash\n");
-		return FAIL;
-	}
-
-	u8 *buf = kmalloc(size, GFP_KERNEL);
-	if (!buf) {
-		pr_err("failed to allocate test buffer\n");
-		kfree(g_mock_flash);
-		return FAIL;
-	}
-	get_random_bytes(buf, size);
-
-	/* Erase entire mock flash */
-	mock_flash_erase(0, MOCK_FLASH_SIZE);
-	pr_info("flash erased (%u bytes)\n", MOCK_FLASH_SIZE);
-
-	/* Benchmark: sequential write */
-	mock_flash_write(FIRMWARE_BASE_ADDR, buf, size);
-
-	/* Verify by read-back */
-	u8 *verify_buf = kmalloc(size, GFP_KERNEL);
-	if (!verify_buf) {
-		pr_err("failed to allocate verify buffer\n");
-		kfree(buf);
-		kfree(g_mock_flash);
-		return FAIL;
-	}
-
-	mock_flash_read(FIRMWARE_BASE_ADDR, verify_buf, size);
-
-	if (memcmp(buf, verify_buf, size) != 0) {
-		pr_err("data mismatch after write/read!\n");
-		ret = FAIL;
-	} else {
-		pr_info("data integrity: PASS\n");
-	}
-
-	u32 crc = crc32(~0, buf, size) ^ ~0;
-	pr_info("CRC32 of %u bytes: 0x%08x\n", size, crc);
-
-	kfree(verify_buf);
-	kfree(buf);
-	kfree(g_mock_flash);
-	g_mock_flash = NULL;
-	pr_info("=== Benchmark %s ===\n", ret ? "FAIL" : "PASS");
+err_free_serial:
+	serial_port_free(serial_computer);
+err_free_bl:
+	bootloader_free(bl_ctx);
+err:
+	kfree(file_buf);
+	fatfs_delete_file(NULL, computer_fw_path);
+	fatfs_delete_dir(BL_COMPUTER_DIR);
+	kfree(mock_flash_addr);
+	mock_flash_addr = NULL;
 	return ret;
 }
 

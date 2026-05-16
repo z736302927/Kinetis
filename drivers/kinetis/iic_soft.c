@@ -9,13 +9,14 @@
 #include <linux/errno.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
-#include <stdbool.h>
-
-#include <unistd.h>
 
 #include "kinetis/iic_soft.h"
 #include "kinetis/idebug.h"
 #include "kinetis/design_verification.h"
+
+#ifdef KINETIS_FAKE_SIM
+#include <unistd.h>
+#endif
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
@@ -936,166 +937,8 @@ int fake_iic_init(void)
 {
 	return 0;
 }
-#else
-static void scl_low()
-{
-#if MCU_PLATFORM_STM32
-	if (iic == IIC_SW_1) {
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
-	} else if (iic == IIC_SW_2) {
-		HAL_GPIO_WritePin(GPIOH, GPIO_PIN_6, GPIO_PIN_RESET);
-	}
-#else
-#endif
-}
 
-static void scl_high()
-{
-#if MCU_PLATFORM_STM32
-	if (iic == IIC_SW_1) {
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_SET);
-	} else if (iic == IIC_SW_2) {
-		HAL_GPIO_WritePin(GPIOH, GPIO_PIN_6, GPIO_PIN_SET);
-	}
-#else
-#endif
-}
-
-static void sda_low()
-{
-#if MCU_PLATFORM_STM32
-	if (iic == IIC_SW_1) {
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
-	} else if (iic == IIC_SW_2) {
-		HAL_GPIO_WritePin(GPIOI, GPIO_PIN_3, GPIO_PIN_RESET);
-	}
-#else
-#endif
-}
-
-static void sda_high()
-{
-#if MCU_PLATFORM_STM32
-	if (iic == IIC_SW_1) {
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
-	} else if (iic == IIC_SW_2) {
-		HAL_GPIO_WritePin(GPIOI, GPIO_PIN_3, GPIO_PIN_SET);
-	}
-#else
-#endif
-}
-
-static void sda_in()
-{
-#if MCU_PLATFORM_STM32
-	GPIO_InitTypeDef gpio = {
-		.Pull = GPIO_PULLUP,
-		.Speed = GPIO_SPEED_FREQ_VERY_HIGH
-	};
-	/*
-	 * It doesn't have to switch direction in
-	 * open drain mode.
-	 */
-	if (iic == IIC_SW_1) {
-		gpio.Pin = GPIO_PIN_9;
-		gpio.Mode = GPIO_MODE_INPUT;
-		HAL_GPIO_Init(GPIOB, &gpio);
-	} else if (iic == IIC_SW_2) {
-		gpio.Pin = GPIO_PIN_3;
-		gpio.Mode = GPIO_MODE_INPUT;
-		HAL_GPIO_Init(GPIOI, &gpio);
-	}
-#else
-#endif
-}
-
-static void sda_out()
-{
-#if MCU_PLATFORM_STM32
-	GPIO_InitTypeDef gpio = {
-		.Pull = GPIO_PULLUP,
-		.Speed = GPIO_SPEED_FREQ_VERY_HIGH
-	};
-	/*
-	 * It doesn't have to switch direction in
-	 * open drain mode.
-	 */
-	if (iic == IIC_SW_1) {
-		gpio.Pin = GPIO_PIN_9;
-		gpio.Mode = GPIO_MODE_OUTPUT_OD;
-		HAL_GPIO_Init(GPIOB, &gpio);
-	} else if (iic == IIC_SW_2) {
-		gpio.Pin = GPIO_PIN_3;
-		gpio.Mode = GPIO_MODE_OUTPUT_OD;
-		HAL_GPIO_Init(GPIOI, &gpio);
-	}
-#else
-#endif
-}
-
-static int sda_read()
-{
-#if MCU_PLATFORM_STM32
-	if (iic == IIC_SW_1) {
-		return HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_9);
-	} else if (iic == IIC_SW_2) {
-		return HAL_GPIO_ReadPin(GPIOI, GPIO_PIN_3);
-	}
-#else
-	return 0;
-#endif
-}
-
-void iic_master_soft_init()
-{
-#if MCU_PLATFORM_STM32
-	GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-	/* GPIO Ports Clock Enable */
-	__HAL_RCC_GPIOB_CLK_ENABLE();
-
-	/*Configure GPIO pin : PF6 */
-	GPIO_InitStruct.Pin = GPIO_PIN_8;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-	GPIO_InitStruct.Pin = GPIO_PIN_9;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_SET);
-	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
-#else
-#endif
-}
-
-void stm32_iic_master_transmit(u8 slave_addr, u16 reg,
-	u8 *pdata, u8 length)
-{
-#if MCU_PLATFORM_STM32
-	HAL_I2C_Mem_Write_DMA(&hi2c1, (u16)slave_addr, reg, I2C_MEMADD_SIZE_8BIT,
-		pdata, length);
-#else
-#endif
-}
-
-void stm32_master_receive(u8 slave_addr, u16 reg,
-	u8 *pdata, u8 length)
-{
-#if MCU_PLATFORM_STM32
-	HAL_I2C_Mem_Read_DMA(&hi2c1, (u16)(slave_addr), reg, I2C_MEMADD_SIZE_8BIT,
-		pdata, length);
-#else
-#endif
-}
-#endif
-
-struct iic_master fake_iic_master = {
+struct iic_master general_iic_master = {
 	.init = fake_iic_init,
 	.sda_out = fake_sda_out,
 	.sda_in = fake_sda_in,
@@ -1107,6 +950,7 @@ struct iic_master fake_iic_master = {
 	.write_bytes = NULL,
 	.read_bytes = NULL,
 };
+#endif
 
 int t_iic_slave_basic(int argc, char **argv)
 {
@@ -1119,7 +963,7 @@ int t_iic_slave_basic(int argc, char **argv)
 
 	pr_info("=== i2c slave basic test ===\n");
 
-	iic_master_soft_init(&fake_iic_master);
+	iic_master_soft_init(&general_iic_master);
 
 	device = iic_slave_soft_init("iic_test", 0x48, test_buffer, ARRAY_SIZE(test_buffer));
 	if (IS_ERR(device)) {
@@ -1127,14 +971,14 @@ int t_iic_slave_basic(int argc, char **argv)
 		return FAIL;
 	}
 
-	ret = iic_master_port_multi_transmit(&fake_iic_master, 0x48, 0, write_test_data, 3);
+	ret = iic_master_port_multi_transmit(&general_iic_master, 0x48, 0, write_test_data, 3);
 	if (ret) {
 		pr_err("master write operation failed: %d\n", ret);
 		iic_slave_soft_exit(device);
 		return FAIL;
 	}
 
-	ret = iic_master_port_multi_receive(&fake_iic_master, 0x48, 0, read_test_data, 3);
+	ret = iic_master_port_multi_receive(&general_iic_master, 0x48, 0, read_test_data, 3);
 	if (ret) {
 		pr_err("master read operation failed: %d\n", ret);
 		iic_slave_soft_exit(device);
@@ -1165,10 +1009,10 @@ int t_iic_transfer_byte(int argc, char **argv)
 
 	pr_info("=== i2c transfer byte test ===\n");
 
-	iic_master_soft_init(&fake_iic_master);
+	iic_master_soft_init(&general_iic_master);
 
 	for (i = 0; i < ARRAY_SIZE(test_values); i++) {
-		ret = iic_master_port_transmit(&fake_iic_master, 0x48, 0, test_values[i]);
+		ret = iic_master_port_transmit(&general_iic_master, 0x48, 0, test_values[i]);
 		if (ret) {
 			pr_err("transmit failed for 0x%02X: %d\n", test_values[i], ret);
 			return FAIL;
@@ -1191,7 +1035,7 @@ int t_iic_transfer_bytes(int argc, char **argv)
 
 	pr_info("=== i2c transfer bytes test ===\n");
 
-	iic_master_soft_init(&fake_iic_master);
+	iic_master_soft_init(&general_iic_master);
 
 	/* Test different buffer sizes */
 	for (i = 0; i < ARRAY_SIZE(test_sizes); i++) {
@@ -1204,14 +1048,14 @@ int t_iic_transfer_bytes(int argc, char **argv)
 		}
 
 		/* Transmit data */
-		ret = iic_master_port_multi_transmit(&fake_iic_master, 0x48, 0, write_buffer, size);
+		ret = iic_master_port_multi_transmit(&general_iic_master, 0x48, 0, write_buffer, size);
 		if (ret) {
 			pr_err("transmit failed for size %d: %d\n", size, ret);
 			return FAIL;
 		}
 
 		/* Receive data */
-		ret = iic_master_port_multi_receive(&fake_iic_master, 0x48, 0, read_buffer, size);
+		ret = iic_master_port_multi_receive(&general_iic_master, 0x48, 0, read_buffer, size);
 		if (ret) {
 			pr_err("receive failed for size %d: %d\n", size, ret);
 			return FAIL;
@@ -1233,11 +1077,11 @@ int t_iic_edge_cases(int argc, char **argv)
 
 	pr_info("=== i2c edge cases test ===\n");
 
-	iic_master_soft_init(&fake_iic_master);
+	iic_master_soft_init(&general_iic_master);
 
 	/* Test 1: Single byte */
 	write_buffer[0] = 0xAA;
-	ret = iic_master_port_multi_transmit(&fake_iic_master, 0x48, 0, write_buffer, 1);
+	ret = iic_master_port_multi_transmit(&general_iic_master, 0x48, 0, write_buffer, 1);
 	if (ret) {
 		pr_err("single byte transmit failed: %d\n", ret);
 		return FAIL;
@@ -1245,7 +1089,7 @@ int t_iic_edge_cases(int argc, char **argv)
 	pr_info("single byte test passed\n");
 
 	/* Test 2: Zero length (should succeed) */
-	ret = iic_master_port_multi_transmit(&fake_iic_master, 0x48, 0, write_buffer, 0);
+	ret = iic_master_port_multi_transmit(&general_iic_master, 0x48, 0, write_buffer, 0);
 	if (ret != 0) {
 		pr_err("zero length should succeed\n");
 		return FAIL;
@@ -1253,7 +1097,7 @@ int t_iic_edge_cases(int argc, char **argv)
 	pr_info("zero length test passed\n");
 
 	/* Test 3: NULL buffer (should fail) */
-	ret = iic_master_port_multi_transmit(&fake_iic_master, 0x48, 0, NULL, 4);
+	ret = iic_master_port_multi_transmit(&general_iic_master, 0x48, 0, NULL, 4);
 	if (ret != -EINVAL) {
 		pr_err("null buffer should fail\n");
 		return FAIL;
@@ -1273,7 +1117,7 @@ int t_iic_edge_cases(int argc, char **argv)
 	write_buffer[1] = 0xFF;
 	write_buffer[2] = 0x55;
 	write_buffer[3] = 0xAA;
-	ret = iic_master_port_multi_transmit(&fake_iic_master, 0x48, 0, write_buffer, 4);
+	ret = iic_master_port_multi_transmit(&general_iic_master, 0x48, 0, write_buffer, 4);
 	if (ret) {
 		pr_err("boundary values test failed: %d\n", ret);
 		return FAIL;
@@ -1295,7 +1139,7 @@ int t_iic_performance(int argc, char **argv)
 
 	pr_info("=== i2c performance test ===\n");
 
-	iic_master_soft_init(&fake_iic_master);
+	iic_master_soft_init(&general_iic_master);
 
 	/* Prepare test data */
 	for (i = 0; i < ARRAY_SIZE(write_buffer); i++) {
@@ -1304,7 +1148,7 @@ int t_iic_performance(int argc, char **argv)
 
 	/* Perform multiple iterations */
 	for (i = 0; i < iterations; i++) {
-		ret = iic_master_port_multi_transmit(&fake_iic_master, 0x48, 0, write_buffer, 32);
+		ret = iic_master_port_multi_transmit(&general_iic_master, 0x48, 0, write_buffer, 32);
 		if (ret == 0) {
 			success_count++;
 		}
@@ -1329,7 +1173,7 @@ int t_iic_stress(int argc, char **argv)
 
 	pr_info("=== i2c stress test ===\n");
 
-	iic_master_soft_init(&fake_iic_master);
+	iic_master_soft_init(&general_iic_master);
 
 	/* Test rapid data transfer */
 	for (i = 0; i < 30; i++) {
@@ -1339,7 +1183,7 @@ int t_iic_stress(int argc, char **argv)
 			write_buffer[j] = (u8)((i + j) & 0xFF);
 		}
 
-		ret = iic_master_port_multi_transmit(&fake_iic_master, 0x48, 0, write_buffer, size);
+		ret = iic_master_port_multi_transmit(&general_iic_master, 0x48, 0, write_buffer, size);
 		if (ret) {
 			pr_err("stress test iteration %d failed: %d\n", i, ret);
 			return FAIL;
@@ -1363,12 +1207,12 @@ int t_iic_read_write_reg(int argc, char **argv)
 
 	pr_info("=== i2c read write reg test ===\n");
 
-	iic_master_soft_init(&fake_iic_master);
+	iic_master_soft_init(&general_iic_master);
 
 	/* Test write to register */
 	for (i = 0; i < ARRAY_SIZE(test_data); i++) {
 		reg_addr = i;
-		ret = iic_master_port_transmit(&fake_iic_master, 0x48, reg_addr, test_data[i]);
+		ret = iic_master_port_transmit(&general_iic_master, 0x48, reg_addr, test_data[i]);
 		if (ret) {
 			pr_err("register 0x%02X write failed: %d\n", reg_addr, ret);
 			return FAIL;
@@ -1379,7 +1223,7 @@ int t_iic_read_write_reg(int argc, char **argv)
 	/* Test read from register */
 	for (i = 0; i < ARRAY_SIZE(test_data); i++) {
 		reg_addr = i;
-		ret = iic_master_port_receive(&fake_iic_master, 0x48, reg_addr, &read_data[i]);
+		ret = iic_master_port_receive(&general_iic_master, 0x48, reg_addr, &read_data[i]);
 		if (ret) {
 			pr_err("register 0x%02X read failed: %d\n", reg_addr, ret);
 			return FAIL;
@@ -1389,7 +1233,7 @@ int t_iic_read_write_reg(int argc, char **argv)
 
 	/* Test with different register addresses */
 	for (reg_addr = 0x00; reg_addr < 0x10; reg_addr++) {
-		ret = iic_master_port_transmit(&fake_iic_master, 0x48, reg_addr, 0x55);
+		ret = iic_master_port_transmit(&general_iic_master, 0x48, reg_addr, 0x55);
 		if (ret) {
 			pr_err("register 0x%02X write failed: %d\n", reg_addr, ret);
 			return FAIL;
@@ -1410,7 +1254,7 @@ int t_iic_boundary_large(int argc, char **argv)
 
 	pr_info("=== i2c boundary large test ===\n");
 
-	iic_master_soft_init(&fake_iic_master);
+	iic_master_soft_init(&general_iic_master);
 
 	/* Prepare test data */
 	for (i = 0; i < ARRAY_SIZE(large_buffer); i++) {
@@ -1421,13 +1265,13 @@ int t_iic_boundary_large(int argc, char **argv)
 	for (i = 0; i < ARRAY_SIZE(large_sizes); i++) {
 		int size = large_sizes[i];
 
-		ret = iic_master_port_multi_transmit(&fake_iic_master, 0x48, 0, large_buffer, size);
+		ret = iic_master_port_multi_transmit(&general_iic_master, 0x48, 0, large_buffer, size);
 		if (ret) {
 			pr_err("large buffer %d bytes failed: %d\n", size, ret);
 			return FAIL;
 		}
 
-		ret = iic_master_port_multi_receive(&fake_iic_master, 0x48, 0, read_buffer, size);
+		ret = iic_master_port_multi_receive(&general_iic_master, 0x48, 0, read_buffer, size);
 		if (ret) {
 			pr_err("large buffer %d bytes receive failed: %d\n", size, ret);
 			return FAIL;
@@ -1449,14 +1293,14 @@ int t_iic_address_modes(int argc, char **argv)
 
 	pr_info("=== i2c address modes test ===\n");
 
-	iic_master_soft_init(&fake_iic_master);
+	iic_master_soft_init(&general_iic_master);
 
 	/* Test 8-bit addressing mode */
 	for (i = 0; i < ARRAY_SIZE(write_buffer); i++) {
 		write_buffer[i] = (u8)(i & 0xFF);
 	}
 
-	ret = iic_master_port_multi_transmit(&fake_iic_master, 0x48, 0, write_buffer, 5);
+	ret = iic_master_port_multi_transmit(&general_iic_master, 0x48, 0, write_buffer, 5);
 	if (ret) {
 		pr_err("8-bit addressing failed: %d\n", ret);
 		return FAIL;
@@ -1465,7 +1309,7 @@ int t_iic_address_modes(int argc, char **argv)
 
 	/* Test with different addresses */
 	for (i = 0; i < 5; i++) {
-		ret = iic_master_port_transmit(&fake_iic_master, 0x48 + i, 0, write_buffer[i]);
+		ret = iic_master_port_transmit(&general_iic_master, 0x48 + i, 0, write_buffer[i]);
 		if (ret) {
 			pr_err("address 0x%02X failed: %d\n", 0x48 + i, ret);
 			return FAIL;
@@ -1484,13 +1328,13 @@ int t_iic_start_stop(int argc, char **argv)
 
 	pr_info("=== i2c start stop test ===\n");
 
-	iic_master_soft_init(&fake_iic_master);
+	iic_master_soft_init(&general_iic_master);
 
 	/* Test repeated start/stop conditions */
 	for (i = 0; i < 10; i++) {
 		write_buffer[0] = (u8)(i & 0xFF);
 
-		ret = iic_master_port_multi_transmit(&fake_iic_master, 0x48, 0, write_buffer, 1);
+		ret = iic_master_port_multi_transmit(&general_iic_master, 0x48, 0, write_buffer, 1);
 		if (ret) {
 			pr_err("iteration %d failed: %d\n", i, ret);
 			return FAIL;

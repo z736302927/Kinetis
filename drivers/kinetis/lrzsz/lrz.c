@@ -28,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/delay.h>
+#include <linux/ctype.h>
 
 #include <kinetis/fatfs.h>
 
@@ -823,7 +824,7 @@ rz_process_header(rz_t *rz, char *name, struct zm_fileinfo *zi)
 		}
 	}
 	if (f_open(rz->fout, name_static, openmode) != FR_OK) {
-		pr_err(_("cannot open %s: %s"), name_static, strerror(errno));
+		pr_err(_("cannot open %s"), name_static);
 		return ERROR;
 	}
 buffer_it:
@@ -1468,7 +1469,7 @@ rz_closeit(rz_t *rz, struct zm_fileinfo *zi)
 	}
 	ret = f_close(rz->fout);
 	if (ret) {
-		pr_err(_("file close error: %s"), strerror(errno));
+		pr_err(_("file close error: %d"), ret);
 		/* this may be any sort of error, including random data corruption */
 
 		f_unlink(rz->pathname);
@@ -1476,10 +1477,44 @@ rz_closeit(rz_t *rz, struct zm_fileinfo *zi)
 	}
 	if (zi->modtime) {
 		FILINFO fno;
-		struct tm *tm = localtime(&zi->modtime);
+		u32 t = (u32)zi->modtime;
+		u16 year;
+		u8 month, day, hour, minute, second;
+		u8 mdays[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
-		fno.fdate = (tm->tm_year - 80) << 9 | (tm->tm_mon + 1) << 5 | tm->tm_mday;
-		fno.ftime = tm->tm_hour << 11 | tm->tm_min << 5 | tm->tm_sec / 2;
+		/* Convert Unix timestamp to FatFS date/time format */
+		/* Calculate year, month, day from Unix timestamp */
+		u32 j = t / 86400, d, sec_of_day;
+		u8 yoff = 0;
+		while (j >= 365 && yoff < 200) {
+			if ((yoff % 4) == 0 && (yoff % 100 != 0 || yoff % 400 == 0)) {
+				j -= 366;
+			} else {
+				j -= 365;
+			}
+			yoff++;
+		}
+		year = 1980 + yoff;
+
+		if ((yoff % 4) == 0 && (yoff % 100 != 0 || yoff % 400 == 0)) {
+			mdays[1] = 29;
+		}
+		d = j;
+		month = 1;
+		while (month <= 12 && d >= mdays[month - 1]) {
+			d -= mdays[month - 1];
+			month++;
+		}
+		day = (u8)d + 1;
+
+		/* Calculate hour, minute, second */
+		sec_of_day = t % 86400;
+		hour = (u8)(sec_of_day / 3600);
+		minute = (u8)((sec_of_day % 3600) / 60);
+		second = (u8)(sec_of_day % 60);
+
+		fno.fdate = ((year - 1980) << 9) | (month << 5) | day;
+		fno.ftime = (hour << 11) | (minute << 5) | (second >> 1);
 		f_utime(rz->pathname, &fno);
 	}
 	/* Map Unix file permissions to FatFS file attributes */
@@ -1524,7 +1559,7 @@ exec2(rz_t *rz, const char *s)
 		++s;
 	}
 	io_mode(rz->zm->serial, 0);
-	pr_crit("execl: %s", strerror(errno));
+	pr_crit("execl");
 }
 
 /*

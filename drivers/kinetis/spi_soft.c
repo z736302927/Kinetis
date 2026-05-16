@@ -13,28 +13,15 @@
 #include "kinetis/idebug.h"
 #include "kinetis/design_verification.h"
 
+#ifdef KINETIS_FAKE_SIM
 #include <unistd.h>
-
-/* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
+#endif
 
 /*
  * Note: This file now uses pthread instead of kernel threads.
  * When compiling, make sure to link with the pthread library:
  * gcc -lpthread ... (or add -lpthread to your Makefile LDFLAGS)
  */
-
-/**
-  * @step 1:  Modify the corresponding function according to the modified area and the corresponding function name.
-  * @step 2:  Modify the read-write function of SPI corresponding pin in the header file.
-  * @step 3:  Configure SPI mode (CPOL/CPHA) and bit order.
-  */
-
-#if MCU_PLATFORM_STM32
-#include "stm32f4xx_hal.h"
-#else
-#endif
-
-/* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
 void spi_master_soft_delay(u32 ticks)
 {
@@ -775,7 +762,7 @@ static int spi_sck_high(void)
 
 /* Master instances for both simulation and hardware */
 #ifdef KINETIS_FAKE_SIM
-struct spi_master fake_spi_master = {
+struct spi_master general_spi_master = {
 	.cs_low = fake_spi_cs_low,
 	.cs_high = fake_spi_cs_high,
 	.mosi_low = fake_spi_mosi_low,
@@ -789,19 +776,6 @@ struct spi_master fake_spi_master = {
 };
 
 struct spi_slave *fake_spi_device;
-#else
-struct spi_master spi_master_1 = {
-	.cs_low = spi_cs_low,
-	.cs_high = spi_cs_high,
-	.mosi_low = spi_mosi_low,
-	.mosi_high = spi_mosi_high,
-	.miso_read = spi_miso_read,
-	.sck_low = spi_sck_low,
-	.sck_high = spi_sck_high,
-	.write_bytes = NULL,
-	.read_bytes = NULL,
-	.init = spi_master_soft_init,
-};
 #endif
 
 int t_spi_system_init(int argc, char **argv)
@@ -837,7 +811,7 @@ int t_spi_system_init(int argc, char **argv)
 		return FAIL;
 	}
 
-	spi_master_soft_init(&fake_spi_master, fake_spi_device->cpol, fake_spi_device->cpha, fake_spi_device->bit_order, speed);
+	spi_master_soft_init(&general_spi_master, fake_spi_device->cpol, fake_spi_device->cpha, fake_spi_device->bit_order, speed);
 
 	return 0;
 }
@@ -870,13 +844,13 @@ int t_spi_loopback(int argc, char **argv)
 	}
 	get_random_bytes(write_data, transfer_length);
 
-	ret = spi_master_port_transmit(&fake_spi_master, 0, write_data, transfer_length);
+	ret = spi_master_port_transmit(&general_spi_master, 0, write_data, transfer_length);
 	if (ret) {
 		pr_err("master write operation failed: %d\n", ret);
 		goto err;
 	}
 
-	ret = spi_master_port_receive(&fake_spi_master, 0, read_data, transfer_length);
+	ret = spi_master_port_receive(&general_spi_master, 0, read_data, transfer_length);
 	if (ret) {
 		pr_err("master read operation failed: %d\n", ret);
 		goto err;
@@ -918,9 +892,9 @@ int t_spi_set_mode(int argc, char **argv)
 	if (argc > 4)
 		speed = simple_strtoul(argv[4], &argv[4], 10);
 
-	spi_soft_set_mode(&fake_spi_master, fake_spi_device, cpol, cpha);
-	spi_soft_set_bit_order(&fake_spi_master, fake_spi_device, bit_order);
-	spi_soft_set_speed(&fake_spi_master, speed);
+	spi_soft_set_mode(&general_spi_master, fake_spi_device, cpol, cpha);
+	spi_soft_set_bit_order(&general_spi_master, fake_spi_device, bit_order);
+	spi_soft_set_speed(&general_spi_master, speed);
 
 	pr_info("spi mode set to cpol=%d, cpha=%d, bit_order=%d, speed=%d\n", cpol, cpha, bit_order, speed);
 
@@ -937,7 +911,7 @@ int t_spi_edge_cases(int argc, char **argv)
 
 	/* Test 1: Single byte */
 	write_buffer[0] = 0xAA;
-	ret = spi_master_port_transmit(&fake_spi_master, 0, write_buffer, 1);
+	ret = spi_master_port_transmit(&general_spi_master, 0, write_buffer, 1);
 	if (ret) {
 		pr_err("single byte transmit failed: %d\n", ret);
 		return FAIL;
@@ -945,7 +919,7 @@ int t_spi_edge_cases(int argc, char **argv)
 	pr_info("single byte test passed\n");
 
 	/* Test 2: Zero length (should succeed) */
-	ret = spi_master_port_transmit(&fake_spi_master, 0, write_buffer, 0);
+	ret = spi_master_port_transmit(&general_spi_master, 0, write_buffer, 0);
 	if (ret != 0) {
 		pr_err("zero length should succeed\n");
 		return FAIL;
@@ -953,7 +927,7 @@ int t_spi_edge_cases(int argc, char **argv)
 	pr_info("zero length test passed\n");
 
 	/* Test 3: NULL buffer (should fail) */
-	ret = spi_master_port_transmit(&fake_spi_master, 0, NULL, 4);
+	ret = spi_master_port_transmit(&general_spi_master, 0, NULL, 4);
 	if (ret != -EINVAL) {
 		pr_err("null buffer should fail\n");
 		return FAIL;
@@ -973,7 +947,7 @@ int t_spi_edge_cases(int argc, char **argv)
 	write_buffer[1] = 0xFF;
 	write_buffer[2] = 0x55;
 	write_buffer[3] = 0xAA;
-	ret = spi_master_port_transmit(&fake_spi_master, 0, write_buffer, 4);
+	ret = spi_master_port_transmit(&general_spi_master, 0, write_buffer, 4);
 	if (ret) {
 		pr_err("boundary values test failed: %d\n", ret);
 		return FAIL;
@@ -1022,7 +996,7 @@ int t_spi_performance(int argc, char **argv)
 	/* Perform multiple iterations */
 	for (i = 0; i < iterations; i++) {
 		/* Test write performance */
-		ret = spi_master_port_transmit(&fake_spi_master, 0, write_buffer,
+		ret = spi_master_port_transmit(&general_spi_master, 0, write_buffer,
 						ARRAY_SIZE(write_buffer));
 		if (ret == 0) {
 			success_count++;
@@ -1030,7 +1004,7 @@ int t_spi_performance(int argc, char **argv)
 		}
 
 		/* Test read performance */
-		ret = spi_master_port_receive(&fake_spi_master, 0, read_buffer,
+		ret = spi_master_port_receive(&general_spi_master, 0, read_buffer,
 					       ARRAY_SIZE(read_buffer));
 		if (ret == 0) {
 			success_count++;
@@ -1108,7 +1082,7 @@ int t_spi_stress(int argc, char **argv)
 			write_buffer[j] = (u8)((i + j) & 0xFF);
 		}
 
-		ret = spi_master_port_transmit(&fake_spi_master, 0, write_buffer, size);
+		ret = spi_master_port_transmit(&general_spi_master, 0, write_buffer, size);
 		if (ret) {
 			pr_err("stress test iteration %d failed: %d\n", i, ret);
 			return FAIL;
@@ -1134,7 +1108,7 @@ int t_spi_read_write_reg(int argc, char **argv)
 	pr_info("=== spi read write reg test ===\n");
 
 	/* Test write to register */
-	ret = spi_master_port_transmit(&fake_spi_master, reg_addr, test_data, ARRAY_SIZE(test_data));
+	ret = spi_master_port_transmit(&general_spi_master, reg_addr, test_data, ARRAY_SIZE(test_data));
 	if (ret) {
 		pr_err("register write failed: %d\n", ret);
 		return FAIL;
@@ -1142,7 +1116,7 @@ int t_spi_read_write_reg(int argc, char **argv)
 	pr_info("register write succeeded\n");
 
 	/* Test read from register */
-	ret = spi_master_port_receive(&fake_spi_master, reg_addr, read_data, ARRAY_SIZE(read_data));
+	ret = spi_master_port_receive(&general_spi_master, reg_addr, read_data, ARRAY_SIZE(read_data));
 	if (ret) {
 		pr_err("register read failed: %d\n", ret);
 		return FAIL;
@@ -1151,7 +1125,7 @@ int t_spi_read_write_reg(int argc, char **argv)
 
 	/* Test with different register addresses */
 	for (reg_addr = 0x00; reg_addr < 0x10; reg_addr++) {
-		ret = spi_master_port_transmit(&fake_spi_master, reg_addr, test_data, 2);
+		ret = spi_master_port_transmit(&general_spi_master, reg_addr, test_data, 2);
 		if (ret) {
 			pr_err("register 0x%02X write failed: %d\n", reg_addr, ret);
 			return FAIL;
@@ -1181,13 +1155,13 @@ int t_spi_boundary_large(int argc, char **argv)
 	for (i = 0; i < ARRAY_SIZE(large_sizes); i++) {
 		int size = large_sizes[i];
 
-		ret = spi_master_port_transmit(&fake_spi_master, 0, large_buffer, size);
+		ret = spi_master_port_transmit(&general_spi_master, 0, large_buffer, size);
 		if (ret) {
 			pr_err("large buffer %d bytes failed: %d\n", size, ret);
 			return FAIL;
 		}
 
-		ret = spi_master_port_receive(&fake_spi_master, 0, read_buffer, size);
+		ret = spi_master_port_receive(&general_spi_master, 0, read_buffer, size);
 		if (ret) {
 			pr_err("large buffer %d bytes receive failed: %d\n", size, ret);
 			return FAIL;

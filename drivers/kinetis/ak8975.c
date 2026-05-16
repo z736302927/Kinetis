@@ -16,7 +16,9 @@
 #include "kinetis/random-gene.h"
 #include "kinetis/test-kinetis.h"
 
+#ifdef KINETIS_FAKE_SIM
 #include <pthread.h>
+#endif
 #include <math.h>
 
 #define AK8975_CAD0                    0
@@ -82,6 +84,7 @@
 #define POWER_ON_DELAY_MS               10
 #define MODE_SWITCH_DELAY_MS            1
 
+#ifdef KINETIS_FAKE_SIM
 /* Simulation thread constants */
 #define AK8975_UPDATE_PERIOD_MS        10     /* Update period: 100ms (10Hz) */
 #define MAGNETIC_MIN_UT                -600    /* Minimum: -600 µT */
@@ -89,17 +92,20 @@
 #define MAGNETIC_NOISE_STDEV           5       /* Magnetic noise standard deviation (µT) */
 #define TEMP_MIN_C                    -20     /* Minimum: -20°C */
 #define TEMP_MAX_C                    +50     /* Maximum: +50°C */
+#endif
 
 struct ak8975_device {
 	struct regmap *regmap;
 
 	u8 asa_values[3];
 
+#ifdef KINETIS_FAKE_SIM
 	struct iic_slave *iic_slave;
 	struct spi_slave *spi_slave;
 	u8 *slave_regs;
 
 	bool thread_running;
+#endif
 };
 
 void ak8975_enter_power_down_mode(struct ak8975_device *dev)
@@ -437,6 +443,7 @@ void ak8975_compensated_magnetic_measurements(struct ak8975_device *dev, u16 *pd
 	pdata[2] = ak8975_temperature_compensated_measurement(raw_data[2], temperature_data);
 }
 
+#ifdef KINETIS_FAKE_SIM
 static void *ak8975_reg_random_thread(void *arg)
 {
 	struct ak8975_device *dev = (struct ak8975_device *)arg;
@@ -621,6 +628,7 @@ void ak8975_stop_reg_random(struct ak8975_device *dev)
 	dev->thread_running = false;
 	pthread_join(reg_thread, NULL);
 }
+#endif
 
 static const struct regmap_range ak8975_volatile_ranges[] = {
 	regmap_reg_range(ST1, ST2),  /* ST1, HXL-HZH, ST2 */
@@ -663,6 +671,7 @@ struct ak8975_device *ak8975_init(enum regmap_user_bus_type bus_type, void *bus_
 		return NULL;
 	}
 
+#ifdef KINETIS_FAKE_SIM
 	dev->slave_regs = kmalloc(ak8975_regmap_config.max_register + 1, GFP_KERNEL);
 	if (!dev->slave_regs) {
 		return ERR_PTR(-ENOMEM);
@@ -692,6 +701,7 @@ struct ak8975_device *ak8975_init(enum regmap_user_bus_type bus_type, void *bus_
 			return NULL;
 		}
 	}
+#endif
 
 	ak8975_enter_fuse_rom_access_mode(dev);
 	ak8975_sensitivity_adjustment_values(dev, dev->asa_values);
@@ -704,6 +714,7 @@ struct ak8975_device *ak8975_init(enum regmap_user_bus_type bus_type, void *bus_
 
 void ak8975_exit(struct ak8975_device *dev)
 {
+#ifdef KINETIS_FAKE_SIM
 	ak8975_stop_reg_random(dev);
 
 	if (dev->iic_slave) {
@@ -715,6 +726,7 @@ void ak8975_exit(struct ak8975_device *dev)
 	}
 
 	kfree(dev->slave_regs);
+#endif
 	kfree(dev);
 }
 
@@ -751,7 +763,7 @@ int t_ak8975_initialize(int argc, char **argv)
 
 	if (on_off) {
 		pr_info("starting ak8975 slave with %s mode", bus_type ? "spi" : "i2c");
-		ak8975_dev = ak8975_init(bus_type, bus_type == REGMAP_BUS_IIC_SOFT ? (void *)&fake_iic_master : (void *)&fake_spi_master);
+		ak8975_dev = ak8975_init(bus_type, bus_type == REGMAP_BUS_IIC_SOFT ? (void *)&general_iic_master : (void *)&general_spi_master);
 		if (IS_ERR_OR_NULL(ak8975_dev)) {
 			return -EINVAL;
 		}

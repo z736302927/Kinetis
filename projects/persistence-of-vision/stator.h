@@ -56,7 +56,8 @@ struct pov_stator {
  *
  * @return Pointer to allocated stator instance, or NULL on error
  */
-struct pov_stator *pov_stator_alloc(void);
+struct pov_stator *pov_stator_alloc(struct serial_port_ops *motor_serial_ops,
+	u32(*read_rotated_time)(struct hall_device *dev));
 
 /**
  * @brief Free stator instance and all owned resources

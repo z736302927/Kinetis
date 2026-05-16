@@ -43,7 +43,8 @@ static void process_motor_commands(struct tim_task *task)
 	}
 }
 
-struct pov_stator *pov_stator_alloc(void)
+struct pov_stator *pov_stator_alloc(struct serial_port_ops *motor_serial_ops,
+	u32(*read_rotated_time)(struct hall_device *dev))
 {
 	struct pov_stator *stator;
 	int ret;
@@ -53,11 +54,7 @@ struct pov_stator *pov_stator_alloc(void)
 		return NULL;
 	}
 
-#if KINETIS_FAKE_SIM
-	stator->motor_port = serial_port_alloc(&fake_serial_port_ops, "stator-motor");
-#else
-	stator->motor_port = serial_port_alloc(&real_serial_port_ops, "stator-motor");
-#endif
+	stator->motor_port = serial_port_alloc(motor_serial_ops, "stator-motor");
 	if (!stator->motor_port) {
 		goto err;
 	}
@@ -67,11 +64,7 @@ struct pov_stator *pov_stator_alloc(void)
 		goto err_free_port;
 	}
 
-#if KINETIS_FAKE_SIM
-	stator->hall = hall_alloc_dev(POV_DISPLAY_COLS, hall_read_rotated_time);
-#else
-	stator->hall = hall_alloc_dev(POV_DISPLAY_COLS, NULL /* real HAL callback */);
-#endif
+	stator->hall = hall_alloc_dev(POV_DISPLAY_COLS, read_rotated_time);
 	if (!stator->hall) {
 		goto err_free_mavlink;
 	}

@@ -52,7 +52,6 @@ t_mrz(int argc, char *argv[])
 	if (IS_ERR(serial)) {
 		return PTR_ERR(serial);
 	}
-	serial_port_start_thread(serial, SERIAL_PORT_DF_OTHERS, NULL, NULL);
 
 	size_t bytes = zmodem_receive(serial, NULL, /* use current directory */
 			approver_cb, /* receive everything */
@@ -103,9 +102,10 @@ int lrzsz_rz(struct serial_port *serial, const char *directory)
 			0,
 			RZSZ_FLAGS_NONE);
 	pr_err("Received %zu bytes.\n", bytes);
-	return 0;
+	return (bytes > 0) ? (int)bytes : -EIO;
 }
 
+#ifdef KINETIS_FAKE_SIM
 struct sz_thread_arg {
 	struct serial_port *serial;
 	int n_filenames;
@@ -333,3 +333,4 @@ file_err:
 
 	return ret;
 }
+#endif

@@ -11,7 +11,9 @@
 #include "kinetis/idebug.h"
 #include "kinetis/design_verification.h"
 
+#ifdef KINETIS_FAKE_SIM
 #include <pthread.h>
+#endif
 #include <math.h>
 
 /* Register addresses */
@@ -54,11 +56,13 @@ struct max30205_device {
 	float max_temperature;
 	u8 device_present;
 
+#ifdef KINETIS_FAKE_SIM
 	struct iic_slave *iic_slave;
 	struct spi_slave *spi_slave;
 	u8 *slave_regs;
 
 	bool thread_running;
+#endif
 };
 
 /* Device detection */
@@ -278,6 +282,7 @@ static const struct regmap_config max30205_regmap_config = {
 	.cache_type = REGCACHE_NONE,
 };
 
+#ifdef KINETIS_FAKE_SIM
 /* Box-Muller transform for Gaussian noise */
 static float max30205_gaussian_noise(float mean, float std_dev)
 {
@@ -425,6 +430,7 @@ static void max30205_stop_reg_random(struct max30205_device *dev)
 	dev->thread_running = false;
 	pthread_join(reg_thread, NULL);
 }
+#endif
 
 struct max30205_device *max30205_init(enum regmap_user_bus_type bus_type, void *bus_master)
 {
@@ -452,6 +458,7 @@ struct max30205_device *max30205_init(enum regmap_user_bus_type bus_type, void *
 		return NULL;
 	}
 
+#ifdef KINETIS_FAKE_SIM
 	dev->slave_regs = kmalloc(max30205_regmap_config.max_register + 1, GFP_KERNEL);
 	if (!dev->slave_regs) {
 		pr_err("Failed to allocate register memory");
@@ -503,6 +510,7 @@ struct max30205_device *max30205_init(enum regmap_user_bus_type bus_type, void *
 
 	pr_info("Initial temperature = %.2f°C",
 		((float)(dev->slave_regs[MAX30205_REG_TEMP] << 8 | dev->slave_regs[MAX30205_REG_TEMP + 1])) * 0.00390625f);
+#endif
 
 	dev->device_present = max30205_is_device_present(dev);
 	if (!dev->device_present) {
@@ -531,14 +539,16 @@ struct max30205_device *max30205_init(enum regmap_user_bus_type bus_type, void *
 
 void max30205_exit(struct max30205_device *dev)
 {
+#ifdef KINETIS_FAKE_SIM
 	max30205_stop_reg_random(dev);
 
 	if (dev->iic_slave)
 		iic_slave_soft_exit(dev->iic_slave);
 	if (dev->spi_slave)
 		spi_slave_soft_exit(dev->spi_slave);
-	regmap_exit(dev->regmap);
 	kfree(dev->slave_regs);
+#endif
+	regmap_exit(dev->regmap);
 	kfree(dev);
 }
 
@@ -576,7 +586,7 @@ int t_max30205_initialize(int argc, char **argv)
 
 	if (on_off) {
 		pr_info("starting max30205 slave with %s mode", bus_type ? "spi" : "i2c");
-		max30205_dev = max30205_init(bus_type, bus_type == REGMAP_BUS_IIC_SOFT ? (void *)&fake_iic_master : (void *)&fake_spi_master);
+		max30205_dev = max30205_init(bus_type, bus_type == REGMAP_BUS_IIC_SOFT ? (void *)&general_iic_master : (void *)&general_spi_master);
 		if (IS_ERR_OR_NULL(max30205_dev)) {
 			return -EINVAL;
 		}

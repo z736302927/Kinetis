@@ -632,7 +632,8 @@ void pov_rotor_free(struct pov_rotor *rotor)
 	kfree(rotor);
 }
 
-struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash)
+struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash, struct serial_port_ops *motor_serial_ops, struct serial_port_ops *app_serial_ops,
+	u32(*read_rotated_time)(struct hall_device *dev))
 {
 	struct pov_rotor *rotor;
 	int ret;
@@ -650,11 +651,7 @@ struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash)
 	rotor->flash = flash;
 
 	/* Port to stator (MAVLink motor control) */
-#if KINETIS_FAKE_SIM
-	rotor->motor_port = serial_port_alloc(&fake_serial_port_ops, "rotor-motor");
-#else
-	rotor->motor_port = serial_port_alloc(&real_serial_port_ops, "rotor-motor");
-#endif
+	rotor->motor_port = serial_port_alloc(motor_serial_ops, "rotor-motor");
 	if (!rotor->motor_port) {
 		goto free_dev;
 	}
@@ -665,11 +662,7 @@ struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash)
 	}
 
 	/* Port to phone (MAVLink + ZMODEM file transfer) */
-#if KINETIS_FAKE_SIM
-	rotor->app_port = serial_port_alloc(&fake_serial_port_ops, "rotor-app");
-#else
-	rotor->app_port = serial_port_alloc(&real_serial_port_ops, "rotor-app");
-#endif
+	rotor->app_port = serial_port_alloc(app_serial_ops, "rotor-app");
 	if (!rotor->app_port) {
 		goto free_dev;
 	}
@@ -679,11 +672,7 @@ struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash)
 		goto free_dev;
 	}
 
-#if KINETIS_FAKE_SIM
-	rotor->hall = hall_alloc_dev(POV_DISPLAY_COLS, hall_read_rotated_time);
-#else
-	rotor->hall = hall_alloc_dev(POV_DISPLAY_COLS, NULL /* real HAL callback */);
-#endif
+	rotor->hall = hall_alloc_dev(POV_DISPLAY_COLS, read_rotated_time);
 	if (!rotor->hall) {
 		goto free_dev;
 	}

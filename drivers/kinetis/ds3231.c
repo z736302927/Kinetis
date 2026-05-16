@@ -17,7 +17,9 @@
 #include "kinetis/design_verification.h"
 
 #include <math.h>
+#ifdef KINETIS_FAKE_SIM
 #include <pthread.h>
+#endif
 
 #define DS3231_HOURS24                  0x00
 #define DS3231_HOURS12                  0x01
@@ -155,11 +157,13 @@ struct ds3231_device {
 	struct regmap *regmap;
 	u8 time_mode;
 	u8 time_region;
+#ifdef KINETIS_FAKE_SIM
 	struct iic_slave *iic_slave;
 	struct spi_slave *spi_slave;
 	u8 *slave_regs;
 
 	bool thread_running;
+#endif
 };
 
 void ds3231_get_time(struct ds3231_device *dev, u8 *pdata, u8 format)
@@ -1300,6 +1304,7 @@ static const struct regmap_config ds3231_regmap_config = {
 	.cache_type = REGCACHE_NONE,
 };
 
+#ifdef KINETIS_FAKE_SIM
 /* Box-Muller transform for Gaussian noise */
 static float ds3231_gaussian_noise(float mean, float std_dev)
 {
@@ -1428,6 +1433,7 @@ void ds3231_stop_reg_random(struct ds3231_device *dev)
 	dev->thread_running = false;
 	pthread_join(reg_thread, NULL);
 }
+#endif
 
 struct ds3231_device *ds3231_init(enum regmap_user_bus_type bus_type, void *bus_master)
 {
@@ -1457,6 +1463,7 @@ struct ds3231_device *ds3231_init(enum regmap_user_bus_type bus_type, void *bus_
 		return NULL;
 	}
 
+#ifdef KINETIS_FAKE_SIM
 	/* Allocate register space for slave simulation */
 	dev->slave_regs = kmalloc(ds3231_regmap_config.max_register + 1, GFP_KERNEL);
 	if (!dev->slave_regs) {
@@ -1498,6 +1505,7 @@ struct ds3231_device *ds3231_init(enum regmap_user_bus_type bus_type, void *bus_
 			return NULL;
 		}
 	}
+#endif
 
 	/* Initialize default time mode and region */
 	dev->time_mode = DS3231_HOURS24;
@@ -1531,6 +1539,7 @@ struct ds3231_device *ds3231_init(enum regmap_user_bus_type bus_type, void *bus_
 
 void ds3231_exit(struct ds3231_device *dev)
 {
+#ifdef KINETIS_FAKE_SIM
 	ds3231_stop_reg_random(dev);
 
 	if (dev->iic_slave) {
@@ -1541,8 +1550,9 @@ void ds3231_exit(struct ds3231_device *dev)
 		spi_slave_soft_exit(dev->spi_slave);
 	}
 
-	regmap_exit(dev->regmap);
 	kfree(dev->slave_regs);
+#endif
+	regmap_exit(dev->regmap);
 	kfree(dev);
 }
 
@@ -1579,7 +1589,7 @@ int t_ds3231_initialize(int argc, char **argv)
 
 	if (on_off) {
 		pr_info("starting ds3231 slave with %s mode", bus_type ? "spi" : "i2c");
-		ds3231_dev = ds3231_init(bus_type, bus_type == REGMAP_BUS_IIC_SOFT ? (void *)&fake_iic_master : (void *)&fake_spi_master);
+		ds3231_dev = ds3231_init(bus_type, bus_type == REGMAP_BUS_IIC_SOFT ? (void *)&general_iic_master : (void *)&general_spi_master);
 		if (IS_ERR_OR_NULL(ds3231_dev)) {
 			return -EINVAL;
 		}

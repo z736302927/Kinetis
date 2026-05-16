@@ -5,7 +5,6 @@
 #define PROJECT_NAME        "Persistence-of-Vision"
 #define PROJECT_VERSION     "0.1.0"
 
-#define KINETIS_FAKE_SIM    1
 #define MCU_PLATFORM_STM32  0
 
 int board_init(void);

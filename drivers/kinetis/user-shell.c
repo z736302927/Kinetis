@@ -5,16 +5,19 @@
 #include <linux/printk.h>
 
 #include "kinetis/user-shell.h"
+
 #include <stdio.h>
+#ifdef KINETIS_FAKE_SIM
 #include <pthread.h>
 #include <unistd.h>
+
+static pthread_t input_thread;
+#endif
 
 /* Input line buffer for storing complete user input */
 static char user_input_buffer[SHELL_INPUT_BUFFER_SIZE];
 static u16 user_input_length = 0;
 static bool user_input_ready = false;
-
-static pthread_t input_thread;
 
 /* The following program is modified by the hardware device, otherwise the driver cannot run. */
 
@@ -49,8 +52,9 @@ void *pthread_shell_input(void *para)
 			}
 		}
 
-		// Small delay to prevent CPU overuse
+#ifdef KINETIS_FAKE_SIM
 		usleep(1000);
+#endif
 	}
 
 	return NULL;
@@ -63,8 +67,10 @@ void shell_init_async(void)
 	user_input_length = 0;
 	user_input_ready = false;
 
+#ifdef KINETIS_FAKE_SIM
 	// Create input thread to continuously read from stdin
 	pthread_create(&input_thread, NULL, pthread_shell_input, NULL);
+#endif
 }
 
 /**
