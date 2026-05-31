@@ -11,8 +11,8 @@
   * @step 5:
   */
 
-static volatile u32 timer_tick_ss;
-static volatile u32 timer_tick_us;
+static volatile u32 timer_tick_ss = 0;
+static volatile u32 timer_tick_us = 0;
 
 #define TIMER_US_PER_SEC 			1000000
 #define TIMER_INTERRUPT_PERIOD		1000  // 1 ms

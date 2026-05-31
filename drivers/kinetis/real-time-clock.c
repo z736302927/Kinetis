@@ -181,7 +181,7 @@ u8 fake_rtc_get_time_format(void)
 	return 0;
 }
 
-struct rtc_device fake_rtc = {
+struct rtc_device general_rtc = {
 	.backup_reg_write = NULL,
 	.backup_reg_read = NULL,
 	.calendar_set = NULL,
@@ -411,14 +411,14 @@ int t_rtc_set_clock(int argc, char **argv)
 		rtc.tm_wday = simple_strtoul(argv[7], &argv[7], 10);
 	}
 
-	return rtc_calendar_set(&fake_rtc, &rtc, KRTC_FORMAT_BIN);
+	return rtc_calendar_set(&general_rtc, &rtc, KRTC_FORMAT_BIN);
 }
 
 int t_rtc_get_clock(int argc, char **argv)
 {
 	struct tm rtc;
 
-	rtc_calendar_get(&fake_rtc, &rtc, KRTC_FORMAT_BIN);
+	rtc_calendar_get(&general_rtc, &rtc, KRTC_FORMAT_BIN);
 
 	return 0;
 }
@@ -551,9 +551,9 @@ int t_rtc_backup(int argc, char **argv)
 	for (i = 0; i < 5; i++) {
 		u32 backup_value;
 
-		rtc_backup_reg_write(&fake_rtc);
+		rtc_backup_reg_write(&general_rtc);
 
-		rtc_backup_reg_read(&fake_rtc, &read_values[i]);
+		rtc_backup_reg_read(&general_rtc, &read_values[i]);
 
 		if (read_values[i] == 0x32F2) { // Default value + written value
 			pr_info("backup test %d: 0x%08x", i + 1, read_values[i]);

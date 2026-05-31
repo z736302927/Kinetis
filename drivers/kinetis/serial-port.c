@@ -4,6 +4,7 @@
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/iopoll.h>
+#include <linux/irqflags.h>
 
 #include "kinetis/serial-port.h"
 #include "kinetis/basic-timer.h"
@@ -19,6 +20,11 @@
 #ifdef KINETIS_FAKE_SIM
 #include <unistd.h>
 
+static u16 serial_port_available_space(struct serial_port *serial)
+{
+	return (serial->consumer + SERIAL_PORT_BUFFER_SIZE - serial->producer - 1) % SERIAL_PORT_BUFFER_SIZE;
+}
+
 void *serial_port_copy_to_self(void *para)
 {
 	struct serial_port *serial = (struct serial_port *)para;
@@ -32,6 +38,10 @@ void *serial_port_copy_to_self(void *para)
 			response[0] = '\0';
 			resp_len = serial->sim_callback(serial->tx_buffer, response, serial->private);
 
+			while (serial_port_available_space(serial) < resp_len) {
+				usleep(10);
+			}
+
 			index = serial->producer;
 			for (i = 0; i < resp_len; i++) {
 				serial->rx_buffer[index] = response[i];
@@ -39,9 +49,9 @@ void *serial_port_copy_to_self(void *para)
 			}
 			serial->ops->update_producer(serial);
 			serial->transmited_size = 0;
+		} else {
+			usleep(10);
 		}
-
-		usleep(1000);
 	}
 
 	return NULL;
@@ -55,8 +65,15 @@ void *serial_port_copy_to_others(void *para)
 	while (serial_boy->thread_switch) {
 		if (serial_boy->transmited_size > 0) {
 			u16 size = serial_boy->transmited_size;
-			u16 pos = serial_girl->producer;
-			u16 tail = SERIAL_PORT_BUFFER_SIZE - pos;
+			u16 pos;
+			u16 tail;
+
+			while (serial_port_available_space(serial_girl) < size) {
+				usleep(10);
+			}
+
+			pos = serial_girl->producer;
+			tail = SERIAL_PORT_BUFFER_SIZE - pos;
 
 			if (size <= tail) {
 				memcpy(serial_girl->rx_buffer + pos, serial_boy->tx_buffer, size);
@@ -66,9 +83,9 @@ void *serial_port_copy_to_others(void *para)
 			}
 			serial_girl->producer = (pos + size) % SERIAL_PORT_BUFFER_SIZE;
 			serial_boy->transmited_size = 0;
+		} else {
+			usleep(10);
 		}
-
-		usleep(1000);
 	}
 
 	return NULL;
@@ -120,6 +137,10 @@ struct serial_port *serial_port_alloc(struct serial_port_ops *ops, const char *n
 	serial->rx_complete = false;
 	serial->ops = ops;
 
+	if (serial->ops->init) {
+		serial->ops->init(serial);
+	}
+
 	return serial;
 }
 
@@ -136,8 +157,12 @@ void serial_port_free(struct serial_port *serial)
 
 void serial_port_extract_data(struct serial_port *serial)
 {
+	unsigned long flags;
+
+	local_irq_save(flags);
 	serial->received_size = (serial->producer + SERIAL_PORT_BUFFER_SIZE - serial->consumer) % SERIAL_PORT_BUFFER_SIZE;
 	serial->rx_complete = (serial->received_size > 0);
+	local_irq_restore(flags);
 }
 
 void serial_port_clear_rx(struct serial_port *serial)
@@ -191,12 +216,19 @@ int serial_port_receive_bytes(struct serial_port *serial, char *buffer, int size
 	}
 
 	if (serial->rx_complete) {
+		unsigned long __flags;
+
+		local_irq_save(__flags);
 		for (int i = 0; i < serial->received_size; i++) {
 			buffer[i] = serial->rx_buffer[serial->consumer];
 			serial->rx_buffer[serial->consumer] = '\0';
 			serial->consumer = (serial->consumer + 1) % SERIAL_PORT_BUFFER_SIZE;
 		}
+		if (serial->ops->receive_callback) {
+			serial->ops->receive_callback(serial);
+		}
 		serial->rx_complete = false;
+		local_irq_restore(__flags);
 #ifndef CONFIG_SERIAL_PORT_RING_BUFFER
 		serial->producer = 0;
 		serial->consumer = 0;
@@ -219,12 +251,14 @@ int serial_port_transmit_bytes(struct serial_port *serial, const u8 *data, u16 s
 	memcpy(serial->tx_buffer, data, size);
 	serial->transmited_size = size;
 	snprintf(prefix, sizeof(prefix), "sp-%s tx: ", SP_NAME(serial));
-	print_hex_dump(KERN_DEBUG, prefix, DUMP_PREFIX_OFFSET,
-		16, 1,
-		serial->tx_buffer, serial->transmited_size, false);
+// 	print_hex_dump(KERN_DEBUG, prefix, DUMP_PREFIX_OFFSET,
+// 		16, 1,
+// 		serial->tx_buffer, serial->transmited_size, false);
 
-	/* Wait for data to be transmitted (transmited_size goes to 0) */
-	return readw_poll_timeout(&serial->transmited_size, tx_size, tx_size == 0, 100, 100000);
+	if (serial->ops->transmit_bytes)
+		return serial->ops->transmit_bytes(serial->tx_buffer, size);
+
+	return 0;
 }
 
 int serial_port_transmit_byte(struct serial_port *serial, u8 byte)
@@ -235,12 +269,14 @@ int serial_port_transmit_byte(struct serial_port *serial, u8 byte)
 	serial->tx_buffer[0] = byte;
 	serial->transmited_size = 1;
 	snprintf(prefix, sizeof(prefix), "sp-%s tx: ", SP_NAME(serial));
-	print_hex_dump(KERN_DEBUG, prefix, DUMP_PREFIX_OFFSET,
-		16, 1,
-		serial->tx_buffer, serial->transmited_size, false);
+// 	print_hex_dump(KERN_DEBUG, prefix, DUMP_PREFIX_OFFSET,
+// 		16, 1,
+// 		serial->tx_buffer, serial->transmited_size, false);
 
-	/* Wait for data to be transmitted (transmited_size goes to 0) */
-	return readw_poll_timeout(&serial->transmited_size, tx_size, tx_size == 0, 100, 100000);
+	if (serial->ops->transmit_bytes)
+		return serial->ops->transmit_bytes(serial->tx_buffer, 1);
+
+	return 0;
 }
 
 int serial_port_data_available(struct serial_port *serial)
@@ -307,8 +343,6 @@ static const struct virtual_at_command fake_at_commands[] = {
 static int fake_serial_transmit_bytes(const u8 *data, u16 size)
 {
 	pr_debug("fake tx: %u bytes", size);
-	print_hex_dump(KERN_DEBUG, "fake serial tx: ", DUMP_PREFIX_OFFSET,
-		16, 1, data, size, false);
 	return 0;
 }
 

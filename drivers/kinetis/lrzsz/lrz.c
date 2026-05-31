@@ -31,7 +31,6 @@
 #include <linux/ctype.h>
 
 #include <kinetis/fatfs.h>
-
 #include "kinetis/serial-port.h"
 
 #include "zglobal.h"

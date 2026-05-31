@@ -7,9 +7,7 @@
 #define POV_FIRMWARE_PATH              "0:/firmware"
 #define APP_IMAGE_PATH                 "0:/app_images"
 
-#if KINETIS_FAKE_SIM
 #define FAKE_IMAGE_COUNT               3
-#endif
 
 #define POV_DISPLAY_COLS               720
 #define POV_LED_COUNT                  256
@@ -70,13 +68,13 @@
  * PI Controller Parameters (Q8.8 fixed-point)
  *********************************************************************/
 
-#define SLAVE_PID_KP                   512     /* Kp=2.0 */
-#define SLAVE_PID_KI                   128     /* Ki=0.5, already includes Ts=10ms */
-#define SLAVE_PID_KD                   2560    /* Kd=10.0, already includes 1/Ts */
-#define SLAVE_PID_OUTPUT_MAX           25600   /* 100% */
+#define SLAVE_PID_KP                   768     /* Kp=3.0   — 略提升，快速响应 */
+#define SLAVE_PID_KI                   38      /* Ki=0.15  — 缓积，防过冲 */
+#define SLAVE_PID_KD                   26      /* Kd=0.1   — 轻柔阻尼，不再暴力 */
+#define SLAVE_PID_OUTPUT_MAX           10000   /* 对应 motor_set_pwm 上限 */
 #define SLAVE_PID_OUTPUT_MIN           0
-#define SLAVE_PID_INTEGRAL_MAX         12800   /* 50% */
-#define SLAVE_PID_INTEGRAL_MIN         (-12800)
+#define SLAVE_PID_INTEGRAL_MAX         5000    /* 稳态 bias ~3000, 留余量 */
+#define SLAVE_PID_INTEGRAL_MIN         (-1000) /* 允许轻微负向，防止过冲后积分卡住 */
 
 #define SLAVE_TARGET_RPM               900
 #define SLAVE_PWM_FREQ_HZ              1000

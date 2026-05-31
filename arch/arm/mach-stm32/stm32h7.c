@@ -17,14 +17,11 @@
 #include "kinetis/rtc-task.h"
 #include <kinetis/memory_allocator.h>
 #include <kinetis/real-time-clock.h>
+#include <kinetis/basic-timer.h>
 
 #include "kinetis-core.h"
 
-#include "stdio.h"
-
-#include "usart.h"
-#include "tim.h"
-#include "spi.h"
+#include "gpio.h"
 
 DEFINE_RWLOCK(tasklist_lock);
 DEFINE_SPINLOCK(mmlist_lock);
@@ -70,40 +67,13 @@ struct cpumask __cpu_present_mask;
 struct cpumask __cpu_active_mask;
 atomic_t __num_online_cpus = ATOMIC_INIT(1);
 
-unsigned long read_chip_timer(void)
-{
-	
-}
-struct delay_timer fake_delay_timer = {
+unsigned long read_chip_timer(void);
+
+struct delay_timer general_delay_timer = {
 	.freq = 1000000,
 	.read_current_timer = read_chip_timer
 };
 unsigned long lpj_fine;
-
-#define STM32_SERIAL_NAME "ttySTM"
-
-int fputc(int ch, FILE *f)
-{
-	/* Place your implementation of fputc here */
-	/* e.g. write a character to the USART3 and Loop until the end of transmission */
-	HAL_UART_Transmit(&huart1, (u8 *)&ch, 1, 100);
-
-	return ch;
-}
-
-int _putc(int ch)
-{
-	return HAL_UART_Transmit(&huart1, (u8 *)&ch, 1, 100);
-}
-
-int _puts(char *string, int cnt)
-{
-	/* Output cnt characters from string to console */
-	if (string && cnt > 0) {
-		return HAL_UART_Transmit(&huart1, (u8 *)string, cnt, 100);
-	}
-	return 0;
-}
 
 /*
  * SPI Devices:
@@ -296,8 +266,8 @@ static int fill_stm32_dt(void)
 	kineits->dt.gpio.base[6] = (void *)GPIOG;
 	kineits->dt.gpio.base[7] = (void *)GPIOH;
 	kineits->dt.gpio.base[8] = (void *)GPIOI;
-	kineits->dt.gpio.base[9] = (void *)GPIOJ;
-	kineits->dt.gpio.base[10] = (void *)GPIOK;
+// 	kineits->dt.gpio.base[9] = (void *)GPIOJ;
+// 	kineits->dt.gpio.base[10] = (void *)GPIOK;
 
 	return 0;
 }
@@ -319,7 +289,7 @@ int stm32h7_glue_func(void)
 	cpumask_set_cpu(0, &__cpu_present_mask);
 	cpumask_set_cpu(0, &__cpu_active_mask);
 
-	register_current_timer_delay(&fake_delay_timer);
+	register_current_timer_delay(&general_delay_timer);
 
 	prandom_init_early();
 
@@ -330,7 +300,7 @@ int stm32h7_glue_func(void)
 	init_timers();
 
 	timekeeping_init();
-	HAL_TIM_Base_Start_IT(&htim2);
+// 	HAL_TIM_Base_Start_IT(&htim2);
 
 	ret = rand_initialize();
 	if (ret)
@@ -338,7 +308,7 @@ int stm32h7_glue_func(void)
 
 	/* Add enough entropy to initialize CRNG in fake environment */
 	/* CRNG requires at least 64 bytes (CRNG_INIT_CNT_THRESH) */
-	rtc_calendar_get(&fake_rtc, &ts, KRTC_FORMAT_BIN);
+	rtc_calendar_get(&general_rtc, &ts, KRTC_FORMAT_BIN);
 	for (int i = 0; i < 16; i++) {
 		u64 ts_val = (u64)(ts.tm_year * 365ULL * 86400ULL +
 				    ts.tm_mon * 30ULL * 86400ULL +
@@ -505,12 +475,12 @@ int main(int argc, char **argv)
 {
 	int ret;
 
-	/* Kernel and subsystem initialization */
-	ret = stm32h7_glue_func();
+	ret = board_init();
 	if (ret)
 		goto err;
 
-	ret = board_init();
+	/* Kernel and subsystem initialization */
+	ret = stm32h7_glue_func();
 	if (ret)
 		goto err;
 
@@ -519,7 +489,7 @@ int main(int argc, char **argv)
 	pr_info("|  Project: %-30s|\n", PROJECT_NAME);
 	pr_info("|-----------------------------------------|\n");
 
-	return app_main();
+	ret = app_main();
 
 err:
 	pr_err("system crash, error code: %s(%d)\n",

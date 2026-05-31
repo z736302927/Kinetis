@@ -355,9 +355,7 @@ int t_mavlink_msg_pack_parse(int argc, char *argv[]);
 #endif
 
 #ifdef DESIGN_VERIFICATION_BOOTLOADER
-int t_bootloader_init_sim(int argc, char *argv[]);
-int t_bootloader_full_update(int argc, char *argv[]);
-int t_bootloader_benchmark(int argc, char *argv[]);
+int t_bootloader_flow_test(int argc, char *argv[]);
 #endif
 
 static int t_function(int argc, char **argv)
@@ -712,9 +710,7 @@ struct test_case_typedef kinetis_case_table[] = {
 	{"mavlink.msg-pack-parse",     t_mavlink_msg_pack_parse},
 #endif
 #ifdef DESIGN_VERIFICATION_BOOTLOADER
-	{"bootloader.init-sim",       t_bootloader_init_sim},
-	{"bootloader.full-update",    t_bootloader_full_update},
-	{"bootloader.benchmark",      t_bootloader_benchmark},
+	{"bootloader.full-update",    t_bootloader_flow_test},
 #endif
 };
 
@@ -747,7 +743,7 @@ static int idle_task_init(void)
 // 	int argc = 2;
 // 	char *argv[] = {"msz", "3"};
 // 	t_msz_send_random_file(argc, argv);
-	t_mavlink_master_slave_sim(0, NULL);
+// 	t_bootloader_flow_test(0, NULL);
 
 	return 0;
 err:

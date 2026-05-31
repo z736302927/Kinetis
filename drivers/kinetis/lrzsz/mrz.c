@@ -43,6 +43,20 @@ static void complete_cb(const char *filename, int result, size_t size, u64 date)
 	}
 }
 
+int lrzsz_rz(struct serial_port *serial, const char *directory)
+{
+	size_t bytes = zmodem_receive(serial, directory, /* use specified directory */
+			approver_cb, /* receive everything */
+			tick_cb,
+			complete_cb,
+			0,
+			RZSZ_FLAGS_NONE);
+	pr_err("Received %zu bytes.\n", bytes);
+	return (bytes > 0) ? (int)bytes : -EIO;
+}
+
+#ifdef KINETIS_FAKE_SIM
+
 int
 t_mrz(int argc, char *argv[])
 {
@@ -92,20 +106,6 @@ int t_mrz_receive_specified_file(int argc, char *argv[])
 
 	return ret;
 }
-
-int lrzsz_rz(struct serial_port *serial, const char *directory)
-{
-	size_t bytes = zmodem_receive(serial, directory, /* use specified directory */
-			approver_cb, /* receive everything */
-			tick_cb,
-			complete_cb,
-			0,
-			RZSZ_FLAGS_NONE);
-	pr_err("Received %zu bytes.\n", bytes);
-	return (bytes > 0) ? (int)bytes : -EIO;
-}
-
-#ifdef KINETIS_FAKE_SIM
 struct sz_thread_arg {
 	struct serial_port *serial;
 	int n_filenames;

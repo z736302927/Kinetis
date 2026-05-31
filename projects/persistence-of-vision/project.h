@@ -17,8 +17,6 @@
 #define POV_RUN_HOST          0
 #define POV_RUN_SLAVE         1
 
-#define POV_RUN_MODE          POV_RUN_HOST
-
 int board_init(void);
 int app_main(void);
 

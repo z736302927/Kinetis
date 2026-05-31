@@ -1,11 +1,9 @@
 PROJECT ?= persistence-of-vision
 # PROJECT ?= verification
 
-# Platform target selection
-#   SIMULATION (default) - Build native executable for Windows/Linux
-#   CHIP                 - Build firmware (.elf + .hex + .bin)
 PLATFORM ?= SIMULATION
-CHIP_SRC_DIR ?= .
+
+PLATFORM_MK ?= fake.mk
 
 BUILD_DIR = output
 
@@ -36,15 +34,9 @@ COMMON_FLAGS = --std=gnu17 -fdata-sections -ffunction-sections -fdiagnostics-col
 WARN_FLAGS = -w -Wextra -Wno-unused-parameter
 CFLAGS_BASE = $(COMMON_FLAGS) $(WARN_FLAGS) $(OPT)
 
+-include ../projects/$(PROJECT)/$(PLATFORM_MK)
+
 # Source files
-ifeq ($(PLATFORM),CHIP)
-C_SOURCES += $(wildcard ../arch/arm/mach-stm32/stm32h7.c)
-C_SOURCES += $(wildcard ../fs/fatfs/drivers/sd_diskio.c)
-C_SOURCES += $(wildcard ../fs/fatfs/drivers/bsp_driver_sd.c)
-else
-C_SOURCES += $(wildcard ../arch/arm/fake-mcu/*.c)
-C_SOURCES += $(wildcard ../fs/fatfs/drivers/fake_ram_diskio.c)
-endif
 C_SOURCES += $(wildcard ../arch/arm/lib/*.c)
 C_SOURCES += $(wildcard ../arch/arm/mm/*.c)
 C_SOURCES += $(wildcard ../kernel/irq/*.c)
@@ -181,76 +173,9 @@ C_SOURCES += $(wildcard ../drivers/kinetis/*.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/lrzsz/*.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/mavlink/*.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/bootloader/*.c)
-C_SOURCES += $(wildcard ../drivers/kinetis/bootloader/*.c)
 #C_SOURCES += $(wildcard ../drivers/kinetis/flight/*.c)
 C_SOURCES += $(wildcard ../projects/$(PROJECT)/*.c)
 # Add other necessary source files...
-
-# CHIP HAL sources (only used when PLATFORM=CHIP)
-# Set CHIP_SRC_DIR to the path containing Core/ and Drivers/ directories
-ifeq ($(PLATFORM),CHIP)
-C_SOURCES += \
-    $(CHIP_SRC_DIR)/Core/Src/main.c \
-    $(CHIP_SRC_DIR)/Core/Src/stm32h7xx_it.c \
-    $(CHIP_SRC_DIR)/Core/Src/stm32h7xx_hal_msp.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_nor.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_sram.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_nand.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_qspi.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rtc.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rtc_ex.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_mmc.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_mmc_ex.c \
-    $(CHIP_SRC_DIR)/Core/Src/sysmem.c \
-    $(CHIP_SRC_DIR)/Core/Src/syscalls.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_cortex.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rcc_ex.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_flash.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_flash_ex.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_gpio.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_hsem.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_dma.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_dma_ex.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_mdma.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pwr.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_pwr_ex.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_i2c.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_i2c_ex.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_exti.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_ll_fmc.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_sdram.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_ll_delayblock.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rng.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_rng_ex.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_ll_sdmmc.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_sd.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_sd_ex.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_spi.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_spi_ex.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim_ex.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart.c \
-    $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_uart_ex.c \
-    $(CHIP_SRC_DIR)/Core/Src/system_stm32h7xx.c \
-    $(CHIP_SRC_DIR)/Core/Src/gpio.c \
-    $(CHIP_SRC_DIR)/Core/Src/dma.c \
-    $(CHIP_SRC_DIR)/Core/Src/fmc.c \
-    $(CHIP_SRC_DIR)/Core/Src/i2c.c \
-    $(CHIP_SRC_DIR)/Core/Src/mdma.c \
-    $(CHIP_SRC_DIR)/Core/Src/quadspi.c \
-    $(CHIP_SRC_DIR)/Core/Src/rng.c \
-    $(CHIP_SRC_DIR)/Core/Src/rtc.c \
-    $(CHIP_SRC_DIR)/Core/Src/sdmmc.c \
-    $(CHIP_SRC_DIR)/Core/Src/spi.c \
-    $(CHIP_SRC_DIR)/Core/Src/tim.c \
-    $(CHIP_SRC_DIR)/Core/Src/usart.c \
-
-S_SOURCES += $(CHIP_SRC_DIR)/startup_stm32h743xx.s
-else
-S_SOURCES =
-endif
 
 # Exclude unnecessary files
 EXCLUDE_SOURCES += ../drivers/pinctrl/devicetree.c
@@ -294,24 +219,6 @@ C_DEFINE_INCLUDES += -include kinetis/step-debug.h
 C_DEFINE_INCLUDES += -include project.h
 # Add other necessary include directories...
 
-# CHIP HAL includes
-ifeq ($(PLATFORM),CHIP)
-C_INCLUDES += -I$(CHIP_SRC_DIR)/Core/Inc
-C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Inc
-C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Inc/Legacy
-C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/CMSIS/Device/ST/STM32H7xx/Include
-C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/CMSIS/Include
-endif
-
-# CHIP HAL includes
-ifeq ($(PLATFORM),CHIP)
-C_INCLUDES += -I$(CHIP_SRC_DIR)/Core/Inc
-C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Inc
-C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Inc/Legacy
-C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/CMSIS/Device/ST/STM32H7xx/Include
-C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/CMSIS/Include
-endif
-
 # Define header directories for dependency tracking
 HEADER_DIRS += ../include
 HEADER_DIRS += ../include/uapi
@@ -319,7 +226,6 @@ HEADER_DIRS += ../arch/arm/include
 HEADER_DIRS += ../arch/arm/include/uapi
 HEADER_DIRS += ../arch/arm/include/generated
 HEADER_DIRS += ../arch/arm/include/generated/uapi
-HEADER_DIRS += ../arch/arm/mach-stm32
 HEADER_DIRS += ../projects/$(PROJECT)
 
 # Find all header files in include directories and subdirectories
@@ -336,116 +242,23 @@ HEADERS += $(wildcard ../arch/arm/include/uapi/*.h)
 HEADERS += $(wildcard ../arch/arm/include/uapi/*/*.h)
 HEADERS += $(wildcard ../arch/arm/include/generated/*.h)
 HEADERS += $(wildcard ../arch/arm/include/generated/uapi/*.h)
-HEADERS += $(wildcard ../arch/arm/mach-stm32/*.h)
+
+C_DEFS += -D_POSIX_C_SOURCE=200809L
 
 # Toolchain
-ifeq ($(PLATFORM),CHIP)
-    PREFIX = arm-none-eabi-
-# Toolchain
-ifeq ($(PLATFORM),CHIP)
-    PREFIX = arm-none-eabi-
-    ifdef GCC_PATH
-		CC = $(GCC_PATH)/$(PREFIX)gcc
-		AS = $(GCC_PATH)/$(PREFIX)gcc -x assembler-with-cpp
-		CP = $(GCC_PATH)/$(PREFIX)objcopy
-		SZ = $(GCC_PATH)/$(PREFIX)size
-		CC = $(GCC_PATH)/$(PREFIX)gcc
-		AS = $(GCC_PATH)/$(PREFIX)gcc -x assembler-with-cpp
-		CP = $(GCC_PATH)/$(PREFIX)objcopy
-		SZ = $(GCC_PATH)/$(PREFIX)size
-    else
-		CC = $(PREFIX)gcc
-		AS = $(PREFIX)gcc -x assembler-with-cpp
-		CP = $(PREFIX)objcopy
-		SZ = $(PREFIX)size
-		CC = $(PREFIX)gcc
-		AS = $(PREFIX)gcc -x assembler-with-cpp
-		CP = $(PREFIX)objcopy
-		SZ = $(PREFIX)size
-    endif
-    HEX = $(CP) -O ihex
-    BIN = $(CP) -O binary -S
-    # CHIP architecture flags
-    CPU = -mcpu=cortex-m7
-    FPU = -mfpu=fpv5-d16
-    FLOAT-ABI = -mfloat-abi=hard
-    MCU = $(CPU) -mthumb $(FPU) $(FLOAT-ABI)
-    CHIP_ARCH_CFLAGS = $(MCU) -fno-short-enums
-    HEX = $(CP) -O ihex
-    BIN = $(CP) -O binary -S
-    # CHIP architecture flags
-    CPU = -mcpu=cortex-m7
-    FPU = -mfpu=fpv5-d16
-    FLOAT-ABI = -mfloat-abi=hard
-    MCU = $(CPU) -mthumb $(FPU) $(FLOAT-ABI)
-    CHIP_ARCH_CFLAGS = $(MCU) -fno-short-enums
+ifdef GCC_PATH
+	CC = $(GCC_PATH)/$(PREFIX)gcc
+	AS = $(GCC_PATH)/$(PREFIX)gcc -x assembler-with-cpp
+	CP = $(GCC_PATH)/$(PREFIX)objcopy
+	SZ = $(GCC_PATH)/$(PREFIX)size
 else
-    # Simulation: use local compiler
-    ifeq ($(DETECTED_OS),Windows)
-        ifdef GCC_PATH
-        	CC = $(GCC_PATH)/gcc
-        else
-        	CC = gcc
-        endif
-    else
-        CC = gcc
-    endif
-    AS = $(CC)
-    CP = echo  # no objcopy needed
-    SZ = echo  # no size needed
-    CHIP_ARCH_CFLAGS =
+	CC = $(PREFIX)gcc
+	AS = $(PREFIX)gcc -x assembler-with-cpp
+	CP = $(PREFIX)objcopy
+	SZ = $(PREFIX)size
 endif
-    # Simulation: use local compiler
-    ifeq ($(DETECTED_OS),Windows)
-        ifdef GCC_PATH
-        	CC = $(GCC_PATH)/gcc
-        else
-        	CC = gcc
-        endif
-    else
-        CC = gcc
-    endif
-    AS = $(CC)
-    CP = echo  # no objcopy needed
-    SZ = echo  # no size needed
-    CHIP_ARCH_CFLAGS =
-endif
-
-# Final target
-ifeq ($(PLATFORM),CHIP)
-TARGET = $(BUILD_DIR)/$(PROJECT)
-else
-# Final target
-ifeq ($(PLATFORM),CHIP)
-TARGET = $(BUILD_DIR)/$(PROJECT)
-else
-TARGET = $(BUILD_DIR)/$(PROJECT).exe
-endif
-endif
-
-# Macros for gcc
-ifeq ($(PLATFORM),CHIP)
-C_DEFS = \
-    -D__KERNEL__ \
-    -DUSE_HAL_DRIVER \
-    -DSTM32H743xx \
-    -DUSE_PWR_LDO_SUPPLY
-else
-ifeq ($(PLATFORM),CHIP)
-C_DEFS = \
-    -D__KERNEL__ \
-    -DUSE_HAL_DRIVER \
-    -DSTM32H743xx \
-    -DUSE_PWR_LDO_SUPPLY
-else
-C_DEFS =  \
-    -D__KERNEL__ \
-    -DCONFIG_FAKE_LIB \
-    -DCONFIG_SIMULATION \
-    -DKINETIS_FAKE_SIM=1 \
-    -DUSE_HAL_DRIVER \
-    -DSTM32F407xx
-endif
+HEX = $(CP) -O ihex
+BIN = $(CP) -O binary -S
 
 # Dependency flags for automatic header dependency tracking
 DEPFLAGS = -MMD -MP
@@ -453,29 +266,15 @@ DEPFLAGS = -MMD -MP
 # Compiler flags
 CFLAGS = $(CHIP_ARCH_CFLAGS) $(C_DEFS) $(C_INCLUDES) $(C_DEFINE_INCLUDES) $(CFLAGS_BASE) -fdata-sections -ffunction-sections
 
-# Linker configuration
-ifeq ($(PLATFORM),CHIP)
-LDSCRIPT = $(CHIP_SRC_DIR)/STM32H743XX_FLASH.ld
-LIBS = -lc -lm -lnosys
-LIBDIR =
-LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(PROJECT).map,--cref -Wl,--gc-sections -Wl,--no-enum-size-warning
-else
-LIBS = -lm
-LIBDIR =
-LIBDIR =
-LDFLAGS = -Wl,-Map=$(BUILD_DIR)/$(PROJECT).map,--cref -Wl,--gc-sections
-endif
-endif
-
 # Object files - maintain directory structure to avoid name conflicts
 # Convert each source path to corresponding object path with same directory structure
 # Handle ../-prefixed paths (Kinetis tree)
 C_OBJS = $(patsubst ..%.c,$(BUILD_DIR)/obj%.o,$(filter ..%.c,$(C_SOURCES)))
-# Handle $(CHIP_SRC_DIR)/-prefixed paths (STM32 HAL sources)
+# Handle $(CHIP_SRC_DIR)/-prefixed paths
 C_OBJS += $(patsubst $(CHIP_SRC_DIR)/%.c,$(BUILD_DIR)/obj/chip/%.o,$(filter $(CHIP_SRC_DIR)/%.c,$(C_SOURCES)))
 OBJS = $(C_OBJS)
 
-# Handle CHIP assembly sources (startup file)
+# Handle assembly sources (startup file)
 S_OBJS = $(patsubst $(CHIP_SRC_DIR)/%.s,$(BUILD_DIR)/obj/chip/%.o,$(S_SOURCES))
 OBJS += $(S_OBJS)
 
@@ -507,31 +306,15 @@ endif
 ifeq ($(PLATFORM),CHIP)
 all: $(TARGET).elf $(TARGET).hex $(TARGET).bin
 else
-# Default target
-ifeq ($(PLATFORM),CHIP)
-all: $(TARGET).elf $(TARGET).hex $(TARGET).bin
-else
 all: $(TARGET)
 	@$(ECHO) "Build completed: $(TARGET)"
 	@$(ECHO) "Auto-running program..."
 	@$(MAKE) run
 endif
-endif
 
-# Compile only - build without running (simulation only)
-ifeq ($(PLATFORM),CHIP)
-compile:
-	@$(ECHO) "Use 'make all' for CHIP builds"
-else
-# Compile only - build without running (simulation only)
-ifeq ($(PLATFORM),CHIP)
-compile:
-	@$(ECHO) "Use 'make all' for CHIP builds"
-else
+# Compile only - build without running
 compile: $(TARGET)
 	@$(ECHO) "Compilation completed: $(TARGET)"
-endif
-endif
 
 # Create necessary directories
 $(BUILD_DIR):
@@ -544,7 +327,6 @@ $(BUILD_DIR)/obj:
 
 # Create object files from C sources with dependency tracking
 # Maintain full directory structure to avoid name conflicts
-# Two pattern rules: first matches ../-prefixed paths, second matches ./-prefixed paths
 # Two pattern rules: first matches ../-prefixed paths, second matches ./-prefixed paths
 $(BUILD_DIR)/obj/%.o: ../%.c | $(BUILD_DIR)/obj
 ifeq ($(DETECTED_OS),Windows)
@@ -577,8 +359,7 @@ endif
 	@$(ECHO) "Compiling C: $< -> $@"
 	@$(CC) -c $(CFLAGS) $(DEPFLAGS) -o $@ $<
 
-# Compile CHIP HAL C sources — do NOT use C_DEFINE_INCLUDES to avoid Newlib conflicts
-# with linux/types.h POSIX type definitions (fd_set, dev_t, ino_t, daddr_t, etc.)
+# Compile CHIP HAL C sources
 $(BUILD_DIR)/obj/chip/%.o: $(CHIP_SRC_DIR)/%.c | $(BUILD_DIR)/obj
 ifeq ($(DETECTED_OS),Windows)
 	@if not exist $(subst /,\,$(dir $@)) ( \
@@ -594,7 +375,7 @@ endif
 	@$(ECHO) "Compiling C: $< -> $@"
 	@$(CC) -c $(CHIP_ARCH_CFLAGS) $(C_DEFS) $(C_INCLUDES) $(CFLAGS_BASE) -fdata-sections -ffunction-sections $(DEPFLAGS) -o $@ $<
 
-# Assemble CHIP startup file — also without C_DEFINE_INCLUDES
+# Assemble CHIP startup file
 $(BUILD_DIR)/obj/chip/%.o: %.s | $(BUILD_DIR)/obj
 ifeq ($(DETECTED_OS),Windows)
 	@if not exist $(subst /,\,$(dir $@)) ( \
@@ -629,19 +410,6 @@ $(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf
 	$(BIN) $< $@
 endif
 
-# CHIP: .elf target
-ifeq ($(PLATFORM),CHIP)
-$(TARGET).elf: $(OBJS) | $(BUILD_DIR)
-	@$(CC) $(OBJS) $(LDFLAGS) -o $@
-	$(SZ) $@
-
-$(BUILD_DIR)/%.hex: $(BUILD_DIR)/%.elf
-	$(HEX) $< $@
-
-$(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf
-	$(BIN) $< $@
-endif
-
 # Force rebuild if headers change
 # $(OBJS): $(HEADERS)  # 注释掉这行，让GCC的自动依赖机制来处理真正的依赖关系
 
@@ -655,23 +423,16 @@ ifeq ($(PLATFORM),CHIP)
 run:
 	@$(ECHO) "Run not supported for CHIP target"
 else
-# Run target (simulation only)
-ifeq ($(PLATFORM),CHIP)
-run:
-	@$(ECHO) "Run not supported for CHIP target"
-else
 run: $(TARGET)
 	@$(RUN_CMD)
 #	@$(ECHO) "Running $(TARGET) and saving output to $(BUILD_DIR)/$(PROJECT).log..."
 #	-@$(RUN_CMD) > $(BUILD_DIR)/$(PROJECT).log 2>&1 || $(ECHO) "Program finished with exit code: $$?"
 #	@$(ECHO) "Output saved to $(BUILD_DIR)/$(PROJECT).log"
 endif
-endif
 
 # Debug target - show detailed information
 debug:
 	@$(ECHO) "=== Debug Information ==="
-	@$(ECHO) "Platform: $(PLATFORM)"
 	@$(ECHO) "Platform: $(PLATFORM)"
 	@$(ECHO) "OS: $(DETECTED_OS)"
 	@$(ECHO) "CC: $(CC)"
@@ -685,7 +446,6 @@ print-sources:
 	@$(ECHO) "C Sources:"
 ifeq ($(DETECTED_OS),Windows)
 	@for %%i in $(C_SOURCES) do @$(ECHO)   %%i
-	@for %%i in $(C_SOURCES) do @$(ECHO)   %%i
 else
 	@for src in $(C_SOURCES); do $(ECHO) "  $$src"; done
 endif
@@ -694,7 +454,6 @@ endif
 print-objects:
 	@$(ECHO) "Object files:"
 ifeq ($(DETECTED_OS),Windows)
-	@for %%i in $(OBJS) do @$(ECHO)   %%i
 	@for %%i in $(OBJS) do @$(ECHO)   %%i
 else
 	@for obj in $(OBJS); do $(ECHO) "  $$obj"; done
@@ -717,7 +476,6 @@ print-vars:
 print-headers:
 	@$(ECHO) "Header files:"
 ifeq ($(DETECTED_OS),Windows)
-	@for %%i in $(HEADERS) do @$(ECHO)   %%i
 	@for %%i in $(HEADERS) do @$(ECHO)   %%i
 else
 	@for hdr in $(HEADERS); do $(ECHO) "  $$hdr"; done

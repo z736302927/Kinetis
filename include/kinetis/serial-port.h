@@ -27,8 +27,10 @@ struct virtual_at_command {
 struct serial_port;
 
 struct serial_port_ops {
+	int (*init)(struct serial_port *serial);
 	int (*transmit_bytes)(const u8 *data, u16 size);
 	int (*receive_bytes)(u8 *data, u16 size, u32 timeout_ms);
+	int (*receive_callback)(struct serial_port *serial);
 	void (*update_producer)(struct serial_port *serial);
 	int (*config)(struct serial_port *serial, u32 baud_rate, u8 parity, u8 data_bits, u8 flow_control);
 	void (*irq_disable)(void);

@@ -25,15 +25,14 @@
 
 #include "rotor.h"
 
+int pov_spi_multi_transmit(struct pov_rotor *rotor);
+
 static int pov_set_rgb(struct pov_rotor *rotor)
 {
 	/* Wait for previous transfer to complete */
 	int ret;
 
-	// HAL_SPI_Transmit_DMA(&hspi1, rotor->rgb_strip[0], POV_BYTES_PER_GROUP);
-	// HAL_SPI_Transmit_DMA(&hspi2, rotor->rgb_strip[1], POV_BYTES_PER_GROUP);
-	// HAL_SPI_Transmit_DMA(&hspi3, rotor->rgb_strip[2], POV_BYTES_PER_GROUP);
-	// HAL_SPI_Transmit_DMA(&hspi4, rotor->rgb_strip[3], POV_BYTES_PER_GROUP);
+	ret = pov_spi_multi_transmit(rotor);
 
 	/* Log head/tail of each SPI group for debug */
 	// for (int g = 0; g < POV_SPI_GROUPS; g++) {
@@ -48,24 +47,9 @@ static int pov_set_rgb(struct pov_rotor *rotor)
 	// 		 POV_BYTES_PER_GROUP);
 	// }
 
-	/* Would check:
-	 * if (hdma_spi1_tx.State != HAL_DMA_STATE_READY) all_done = 0;
-	 * ... same for spi2, spi3, spi4
-	 */
-
-	// ret = pov_spi_multi_wait_complete(rotor, 100);
-	// if (ret < 0) {
-	// 	return ret;
-	// }
-	/* Pulse LAT pin: HIGH then LOW */
-	// HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_SET);
-	// udelay(1);  /* Minimum LAT pulse width */
-	// HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, GPIO_PIN_RESET);
-
-	return 0;
+	return ret;
 }
 
-#if KINETIS_FAKE_SIM
 int pov_create_fake_images(const char *path)
 {
 	struct pov_image_header header;
@@ -83,6 +67,7 @@ int pov_create_fake_images(const char *path)
 
 	res = f_mkdir(path);
 	if (res != FR_OK && res != FR_EXIST) {
+		pr_err("mkdir '%s' failed: %d\n", path, res);
 		return -EACCES;
 	}
 
@@ -94,6 +79,12 @@ int pov_create_fake_images(const char *path)
 	for (int i = 0; i < FAKE_IMAGE_COUNT; i++) {
 		snprintf(fullpath, sizeof(fullpath), "%s/%s",
 			path, fake_image_names[i]);
+
+		ret = fatfs_find_file((char *)path, (char *)fake_image_names[i]);
+		if (ret == 0) {
+			pr_info("image already exists, skipping: %s\n", fullpath);
+			continue;
+		}
 
 		res = f_open(&fp, fullpath, FA_CREATE_ALWAYS | FA_WRITE);
 		if (res != FR_OK) {
@@ -139,7 +130,6 @@ out:
 	kfree(buf);
 	return ret;
 }
-#endif /* KINETIS_FAKE_SIM */
 
 int pov_scan_images(struct pov_rotor *pov)
 {
@@ -382,7 +372,10 @@ static int display_image(struct pov_rotor *rotor)
 			return ret;
 		}
 
-		pov_set_rgb(rotor);
+		ret = pov_set_rgb(rotor);
+		if (ret < 0) {
+			return ret;
+		}
 	}
 
 	return 0;
@@ -489,7 +482,7 @@ static int waiting_for_motor_connection(struct pov_rotor *rotor)
 
 	if (payload.status == MAV_SYS_ACTIVE) {
 		pr_info("motor connected!\n");
-		set_fsm_state(rotor, POV_STATE_WAIT_PHONE);
+		set_fsm_state(rotor, POV_STATE_SEND_SPEED);
 		return mavlink_send_heartbeat(rotor->motor_mavlink, MAV_SYS_ACTIVE, 0, 0);
 	}
 
@@ -573,7 +566,7 @@ static int display_loop(struct pov_rotor *rotor)
 	t_start = basic_timer_get_us();
 
 	ret = display_image(rotor);
-	if (ret == -EIO) {
+	if (ret) {
 		goto err;
 	}
 
@@ -843,12 +836,12 @@ int pov_rotor_display(struct pov_rotor *rotor)
 {
 	int ret;
 
-#if KINETIS_FAKE_SIM
+// #if KINETIS_FAKE_SIM
 	ret = pov_create_fake_images(POV_IMAGE_PATH);
 	if (ret < 0) {
 		goto out;
 	}
-#endif
+// #endif
 
 	ret = pov_scan_images(rotor);
 	if (ret < 0) {
@@ -865,6 +858,8 @@ int pov_rotor_display(struct pov_rotor *rotor)
 	if (ret < 0) {
 		goto out;
 	}
+
+	pr_info("waiting for motor connection\n");
 
 	while (1) {
 		switch (rotor->state) {

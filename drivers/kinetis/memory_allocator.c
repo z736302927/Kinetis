@@ -49,14 +49,25 @@ typedef uint64_t u64;
 
 #endif
 
-// Static memory pool size
+// ---------- Memory pool symbols from linker script ----------
+// Numbered pools (_mempool0 … _mempool3) for easy extensibility.
+// mem_init_default() iterates all slots — only non-zero ones are registered.
+// Backward compat: _memory_pool_start/end are PROVIDE aliases to _mempool0_*
 #ifdef KINETIS_FAKE_SIM
-#define STATIC_POOL_SIZE (1024 * 1024)
+#define STATIC_POOL_SIZE (2 * 1024 * 1024)
+static unsigned char memory_pool[STATIC_POOL_SIZE];
 #else
-extern unsigned char _memory_pool_start[];
-extern unsigned char _memory_pool_end[];
+extern unsigned char _mempool0_start[], _mempool0_end[];
+extern unsigned char _mempool1_start[], _mempool1_end[];
+extern unsigned char _mempool2_start[], _mempool2_end[];
+extern unsigned char _mempool3_start[], _mempool3_end[];
+/* Backward compat aliases (PROVIDE'd in linker script) */
+extern unsigned char _memory_pool_start[], _memory_pool_end[];
 #define STATIC_POOL_SIZE ((u32)((unsigned long)_memory_pool_end - (unsigned long)_memory_pool_start))
+#define memory_pool ((unsigned char *)_memory_pool_start)
 #endif
+
+// ---------- Configuration constants ----------
 #define MAX_BLOCKS 256
 
 // Memory alignment macros (fixed for 64-bit addresses)
@@ -64,46 +75,35 @@ extern unsigned char _memory_pool_end[];
 #define ALIGN_DOWN(val, align) ((val) & ~((u64)(align) - 1))
 #define IS_POWER_OF_2(x) ((x) != 0 && ((x) & ((x) - 1)) == 0)
 
-// Improved memory block structure with actual allocation size tracking
+// ---------- Data structures ----------
+
+// Improved memory block structure with region tracking
 typedef struct {
 	void *start;
 	u32 size;           // User requested size
 	u32 actual_size;    // Actual allocated size (including alignment padding)
 	block_status status;
+	u8  region_id;      // Which region this block belongs to
 } memory_block_detailed;
 
-// Static memory pool
-#ifdef KINETIS_FAKE_SIM
-static unsigned char memory_pool[STATIC_POOL_SIZE];
-#else
-#define memory_pool ((unsigned char *)_memory_pool_start)
-#endif
+// Runtime region state
+typedef struct {
+	void    *start;
+	u32      size;
+	const char *name;
+	u32      memory_used;
+} mem_region_t;
+
+// ---------- Global state ----------
 static memory_block_detailed blocks[MAX_BLOCKS];
 static int block_count = 0;
-static u32 memory_used = 0;
 static int initialized = 0;
 static int need_sort = 0;  // Flag to indicate if blocks need sorting
 
-// Initialize memory manager
-void mem_init(void)
-{
-	int i;
-	char pool_size_str[32];
+static mem_region_t g_regions[MAX_MEM_REGIONS];
+static int g_region_count = 0;
 
-	for (i = 0; i < MAX_BLOCKS; i++) {
-		blocks[i].start = NULL;
-		blocks[i].size = 0;
-		blocks[i].actual_size = 0;
-		blocks[i].status = BLOCK_FREE;
-	}
-	block_count = 0;
-	memory_used = 0;
-	need_sort = 0;
-	pr_info("memory allocator initialization");
-	mem_format_size(STATIC_POOL_SIZE, pool_size_str, sizeof(pool_size_str));
-	pr_info("pool initialized with %s (%u bytes)", pool_size_str, STATIC_POOL_SIZE);
-	pr_info("maximum blocks: %d", MAX_BLOCKS);
-}
+// ---------- Internal helpers ----------
 
 // Find free block descriptor
 static int find_free_block(void)
@@ -118,6 +118,8 @@ static int find_free_block(void)
 }
 
 // Sort blocks by address if needed (lazy sorting)
+// Since RAM regions have non-overlapping address ranges, sorting by address
+// naturally groups blocks by region.
 static void ensure_blocks_sorted(void)
 {
 	int i, j;
@@ -145,7 +147,7 @@ static void ensure_blocks_sorted(void)
 }
 
 // Insert a block at the correct position to maintain sorted order
-static void insert_block_sorted(int idx, void *start, u32 size, u32 actual_size)
+static void insert_block_sorted(int idx, int region_id, void *start, u32 size, u32 actual_size)
 {
 	int i, pos;
 
@@ -155,6 +157,7 @@ static void insert_block_sorted(int idx, void *start, u32 size, u32 actual_size)
 		blocks[0].size = size;
 		blocks[0].actual_size = actual_size;
 		blocks[0].status = BLOCK_USED;
+		blocks[0].region_id = (u8)region_id;
 		block_count = 1;
 		need_sort = 0;  // Single element is already sorted
 		return;
@@ -180,6 +183,7 @@ static void insert_block_sorted(int idx, void *start, u32 size, u32 actual_size)
 			blocks[idx].size = size;
 			blocks[idx].actual_size = actual_size;
 			blocks[idx].status = BLOCK_USED;
+			blocks[idx].region_id = (u8)region_id;
 			if (idx >= block_count) {
 				block_count = idx + 1;
 			}
@@ -189,6 +193,7 @@ static void insert_block_sorted(int idx, void *start, u32 size, u32 actual_size)
 			blocks[block_count].size = size;
 			blocks[block_count].actual_size = actual_size;
 			blocks[block_count].status = BLOCK_USED;
+			blocks[block_count].region_id = (u8)region_id;
 			block_count++;
 		}
 	} else {
@@ -201,6 +206,7 @@ static void insert_block_sorted(int idx, void *start, u32 size, u32 actual_size)
 			blocks[idx].size = size;
 			blocks[idx].actual_size = actual_size;
 			blocks[idx].status = BLOCK_USED;
+			blocks[idx].region_id = (u8)region_id;
 
 			// Now we need to re-sort
 			need_sort = 1;
@@ -225,6 +231,7 @@ static void insert_block_sorted(int idx, void *start, u32 size, u32 actual_size)
 				blocks[free_slot].size = size;
 				blocks[free_slot].actual_size = actual_size;
 				blocks[free_slot].status = BLOCK_USED;
+				blocks[free_slot].region_id = (u8)region_id;
 				if (free_slot >= block_count) {
 					block_count = free_slot + 1;
 				}
@@ -240,6 +247,7 @@ static void insert_block_sorted(int idx, void *start, u32 size, u32 actual_size)
 				blocks[pos].size = size;
 				blocks[pos].actual_size = actual_size;
 				blocks[pos].status = BLOCK_USED;
+				blocks[pos].region_id = (u8)region_id;
 				block_count++;
 				if (block_count > MAX_BLOCKS) {
 					block_count = MAX_BLOCKS;
@@ -255,31 +263,21 @@ static void insert_block_sorted(int idx, void *start, u32 size, u32 actual_size)
 	ensure_blocks_sorted();
 }
 
-// Improved: Find suitable space with alignment consideration
-static void *find_fit_aligned(u32 size, u32 alignment)
+// Find suitable space with alignment consideration within a specific region
+static void *find_fit_in_region(int region_id, u32 size, u32 alignment)
 {
-	int i;
-	u64 pool_start = (u64)memory_pool;
-	u64 pool_end = pool_start + STATIC_POOL_SIZE;
+	u64 region_start = (u64)g_regions[region_id].start;
+	u64 region_end = region_start + g_regions[region_id].size;
 	int used_indices[MAX_BLOCKS];
 	int used_count = 0;
+	int i;
 
 	// Ensure blocks are sorted before searching
 	ensure_blocks_sorted();
 
-	// If no blocks allocated, start from aligned address in pool
-	if (block_count == 0) {
-		u64 aligned_start = ALIGN_UP(pool_start, alignment);
-		u64 allocated_end = aligned_start + size;
-
-		if (allocated_end <= pool_end) {
-			return (void *)aligned_start;
-		}
-		return NULL;
-	}
-
+	// Collect only used blocks in this region
 	for (i = 0; i < block_count; i++) {
-		if (blocks[i].status == BLOCK_USED) {
+		if (blocks[i].status == BLOCK_USED && (int)blocks[i].region_id == region_id) {
 			used_indices[used_count++] = i;
 		}
 	}
@@ -289,16 +287,17 @@ static void *find_fit_aligned(u32 size, u32 alignment)
 		u64 gap_start, gap_end, aligned_start, allocated_end;
 
 		if (i == 0) {
-			// Gap before first used block
-			gap_start = pool_start;
+			// Gap before first used block in this region
+			gap_start = region_start;
 		} else {
 			// Gap after previous used block
-			gap_start = (u64)blocks[used_indices[i - 1]].start + blocks[used_indices[i - 1]].actual_size;
+			gap_start = (u64)blocks[used_indices[i - 1]].start
+				+ blocks[used_indices[i - 1]].actual_size;
 		}
 
 		if (i == used_count) {
 			// Gap after last used block
-			gap_end = pool_end;
+			gap_end = region_end;
 		} else {
 			// Gap before next used block
 			gap_end = (u64)blocks[used_indices[i]].start;
@@ -322,26 +321,193 @@ static void *find_fit_aligned(u32 size, u32 alignment)
 	return NULL;
 }
 
-// Custom memory allocation function (with alignment support)
-void *mem_alloc(u32 size)
+// Main initialization with explicit region configuration
+void mem_init_with_config(const mem_region_config *configs, int num_regions)
 {
-	return mem_alloc_aligned(size, 4);  // Default 4-byte alignment
+	int i;
+	char size_str[32];
+
+	for (i = 0; i < MAX_BLOCKS; i++) {
+		blocks[i].start = NULL;
+		blocks[i].size = 0;
+		blocks[i].actual_size = 0;
+		blocks[i].status = BLOCK_FREE;
+		blocks[i].region_id = 0;
+	}
+	block_count = 0;
+	need_sort = 0;
+
+	if (num_regions > MAX_MEM_REGIONS) {
+		num_regions = MAX_MEM_REGIONS;
+		pr_warn("too many regions, truncating to %d", MAX_MEM_REGIONS);
+	}
+	g_region_count = num_regions;
+
+	pr_info("memory allocator initialization with %d region(s)", g_region_count);
+
+	for (i = 0; i < g_region_count; i++) {
+		g_regions[i].start = configs[i].start;
+		g_regions[i].size = configs[i].size;
+		g_regions[i].name = configs[i].name ? configs[i].name : "UNKNOWN";
+		g_regions[i].memory_used = 0;
+
+		mem_format_size(configs[i].size, size_str, sizeof(size_str));
+		pr_info("  region[%d]: '%s' start=%#llx, size=%s (%u bytes)",
+			i, g_regions[i].name,
+			(u64)(unsigned long)configs[i].start,
+			size_str, configs[i].size);
+	}
+
+	pr_info("maximum blocks: %d (shared across all regions)", MAX_BLOCKS);
+
+	initialized = 1;
 }
 
-// Custom memory allocation function (with specified alignment)
-void *mem_alloc_aligned(u32 size, u32 alignment)
+// ====================================================================
+// Initialization — RECOMMENDED: use mem_init_default()
+//
+// mem_init_default() auto-discovers all pool sections from linker symbols.
+// Pools are numbered _mempool0 through _mempool3 (MAX_MEM_REGIONS slots).
+// Only non-zero pools are registered as allocatable regions.
+//
+// To add a new pool:
+//   1. Add ".mempoolN (NOLOAD) : { … } >SOMERAM" to the linker script
+//   2. That's it — C code auto-detects it, no changes needed.
+//
+// No hardcoded addresses needed — the linker script defines everything.
+// ====================================================================
+
+static const char * const _mempool_names[MAX_MEM_REGIONS] = {
+	"POOL0", "POOL1", "POOL2", "POOL3",
+};
+
+// Get pool start/end from linker symbol by index
+static void _mempool_get_bounds(int idx, u32 *start, u32 *end)
+{
+	switch (idx) {
+	case 0:
+		*start = (u32)(unsigned long)_mempool0_start;
+		*end   = (u32)(unsigned long)_mempool0_end;
+		break;
+	case 1:
+		*start = (u32)(unsigned long)_mempool1_start;
+		*end   = (u32)(unsigned long)_mempool1_end;
+		break;
+	case 2:
+		*start = (u32)(unsigned long)_mempool2_start;
+		*end   = (u32)(unsigned long)_mempool2_end;
+		break;
+	case 3:
+		*start = (u32)(unsigned long)_mempool3_start;
+		*end   = (u32)(unsigned long)_mempool3_end;
+		break;
+	default:
+		*start = 0;
+		*end   = 0;
+		break;
+	}
+}
+
+void mem_init_default(void)
+{
+	mem_region_config configs[MAX_MEM_REGIONS];
+	int count = 0;
+	int i;
+
+#ifdef KINETIS_FAKE_SIM
+	configs[count].start = (void *)memory_pool;
+	configs[count].size  = STATIC_POOL_SIZE;
+	configs[count].name  = "SIM-POOL";
+	count++;
+#else
+	u32 start, end, pool_size;
+
+	for (i = 0; i < MAX_MEM_REGIONS; i++) {
+		_mempool_get_bounds(i, &start, &end);
+		pool_size = end - start;
+		if (pool_size > 0) {
+			configs[count].start = (void *)(unsigned long)start;
+			configs[count].size  = pool_size;
+			configs[count].name  = _mempool_names[i];
+			count++;
+		}
+	}
+
+	if (count == 0) {
+		pr_warn("no memory pool sections found in linker script! "
+			"Add .mempool0, .mempool1, … sections to your .ld file.");
+		return;
+	}
+#endif
+
+	mem_init_with_config(configs, count);
+}
+
+// Backward compatible initialization — calls mem_init_default()
+void mem_init(void)
+{
+	mem_init_default();
+}
+
+// ---------- Core allocation logic ----------
+
+// Try to allocate from a specific region; returns NULL on failure
+static void *try_alloc_in_region(int region_id, u32 size, u32 alignment, u32 aligned_size)
 {
 	int block_idx;
 	void *aligned_ptr;
+	u64 region_start, region_end;
+
+	// Check if aligned size would exceed region size
+	if (aligned_size > g_regions[region_id].size) {
+		return NULL;
+	}
+
+	block_idx = find_free_block();
+	if (block_idx == -1) {
+		return NULL;
+	}
+
+	// Find suitable space in this region with alignment consideration
+	aligned_ptr = find_fit_in_region(region_id, aligned_size, alignment);
+	if (aligned_ptr == NULL) {
+		return NULL;
+	}
+
+	// Verify aligned address is within region boundaries
+	region_start = (u64)g_regions[region_id].start;
+	region_end = region_start + g_regions[region_id].size;
+
+	if ((u64)aligned_ptr < region_start || (u64)aligned_ptr >= region_end) {
+		return NULL;
+	}
+
+	// Verify allocation doesn't exceed region end
+	u64 allocated_end = (u64)aligned_ptr + aligned_size;
+	if (allocated_end > region_end) {
+		return NULL;
+	}
+
+	// Insert block in sorted position with region_id
+	insert_block_sorted(block_idx, region_id, aligned_ptr, size, aligned_size);
+
+	// Update per-region memory usage
+	g_regions[region_id].memory_used += aligned_size;
+
+	return aligned_ptr;
+}
+
+// Custom memory allocation function (with alignment support) - tries regions in priority order
+void *mem_alloc_aligned(u32 size, u32 alignment)
+{
+	int r;
+	void *aligned_ptr;
 	u32 aligned_size;
-	u64 pool_start, pool_end;
-	char required_str[32], available_str[32], largest_str[32];
 	char alloc_size_str[32], used_size_str[32], total_size_str[32];
 
 	// Initialize memory manager on first allocation
 	if (!initialized) {
 		mem_init();
-		initialized = 1;
 	}
 
 	if (size == 0) {
@@ -368,24 +534,24 @@ void *mem_alloc_aligned(u32 size, u32 alignment)
 	/* 使用64位计算对齐大小，然后转换为32位 */
 	aligned_size = (u32)ALIGN_UP(size, alignment);
 
-	// Check if aligned size would exceed pool size
-	if (aligned_size > STATIC_POOL_SIZE) {
-		mem_format_size(aligned_size, required_str, sizeof(required_str));
-		mem_format_size(STATIC_POOL_SIZE, available_str, sizeof(available_str));
-		pr_warn("requested size %s exceeds pool size %s", required_str, available_str);
-		return NULL;
+	// Try each region in priority order (0 = highest priority)
+	for (r = 0; r < g_region_count; r++) {
+		aligned_ptr = try_alloc_in_region(r, size, alignment, aligned_size);
+		if (aligned_ptr != NULL) {
+			mem_format_size(size, alloc_size_str, sizeof(alloc_size_str));
+			mem_format_size(mem_get_used(), used_size_str, sizeof(used_size_str));
+			mem_format_size(mem_get_free(), total_size_str, sizeof(total_size_str));
+
+			pr_debug("allocated %s at %#llx (align: %u, region[%d]: %s)",
+				alloc_size_str, (u64)aligned_ptr, alignment, r, g_regions[r].name);
+
+			return aligned_ptr;
+		}
 	}
 
-	block_idx = find_free_block();
-	if (block_idx == -1) {
-		pr_warn("no free block descriptors available");
-		pr_info("maximum blocks: %d, currently used: %d", MAX_BLOCKS, block_count);
-		return NULL;
-	}
-
-	// Find suitable space with alignment consideration
-	aligned_ptr = find_fit_aligned(aligned_size, alignment);
-	if (aligned_ptr == NULL) {
+	// All regions exhausted - allocation failed
+	{
+		char required_str[32], available_str[32], largest_str[32];
 		mem_format_size(aligned_size, required_str, sizeof(required_str));
 		mem_format_size(mem_get_free(), available_str, sizeof(available_str));
 		mem_format_size(mem_get_largest_free_block(), largest_str, sizeof(largest_str));
@@ -393,42 +559,77 @@ void *mem_alloc_aligned(u32 size, u32 alignment)
 		pr_warn("not enough memory for %s (aligned to %u)", required_str, alignment);
 		pr_info("available: %s, required: %s", available_str, required_str);
 		pr_info("largest free block: %s", largest_str);
+
+		// Print per-region status
+		for (r = 0; r < g_region_count; r++) {
+			char rused_str[32], rfree_str[32], rsize_str[32];
+			mem_format_size(g_regions[r].memory_used, rused_str, sizeof(rused_str));
+			mem_format_size(g_regions[r].size - g_regions[r].memory_used, rfree_str, sizeof(rfree_str));
+			mem_format_size(g_regions[r].size, rsize_str, sizeof(rsize_str));
+			pr_info("  region[%d] '%s': %s/%s used", r, g_regions[r].name, rused_str, rsize_str);
+		}
+	}
+
+	return NULL;
+}
+
+// Custom memory allocation function (default 4-byte alignment)
+void *mem_alloc(u32 size)
+{
+	return mem_alloc_aligned(size, 4);  // Default 4-byte alignment
+}
+
+// Allocate from a specific region (with alignment)
+void *mem_alloc_aligned_from_region(int region_id, u32 size, u32 alignment)
+{
+	void *aligned_ptr;
+	u32 aligned_size;
+	char alloc_size_str[32];
+
+	if (!initialized) {
+		mem_init();
+	}
+
+	if (region_id < 0 || region_id >= g_region_count) {
+		pr_warn("invalid region_id %d (max %d)", region_id, g_region_count - 1);
 		return NULL;
 	}
 
-	// Verify aligned address is within pool boundaries
-	pool_start = (u64)memory_pool;
-	pool_end = pool_start + STATIC_POOL_SIZE;
-
-	if ((u64)aligned_ptr < pool_start || (u64)aligned_ptr >= pool_end) {
-		pr_warn("aligned address %#llx is outside pool range [%#llx, %#llx)",
-			(u64)aligned_ptr, pool_start, pool_end);
+	if (size == 0) {
+		pr_warn("malloc called with size 0");
 		return NULL;
 	}
 
-	// Verify allocation doesn't exceed pool end
-	u64 allocated_end = (u64)aligned_ptr + aligned_size;
-	if (allocated_end > pool_end) {
-		pr_warn("allocation would exceed pool boundary (end=%#llx, pool_end=%#llx)",
-			allocated_end, pool_end);
+	if (alignment == 0) {
+		alignment = 1;
+	}
+
+	if (!IS_POWER_OF_2(alignment)) {
+		pr_warn("alignment %u is not a power of 2", alignment);
 		return NULL;
 	}
 
-	// Insert block in sorted position
-	insert_block_sorted(block_idx, aligned_ptr, size, aligned_size);
+	if (size > 0xFFFFFFFF - (alignment - 1)) {
+		pr_warn("size overflow during alignment calculation (size=%u, alignment=%u)", size, alignment);
+		return NULL;
+	}
 
-	// Update memory usage
-	memory_used += aligned_size;
+	aligned_size = (u32)ALIGN_UP(size, alignment);
 
-	// Log allocation
-	mem_format_size(size, alloc_size_str, sizeof(alloc_size_str));
-	mem_format_size(memory_used, used_size_str, sizeof(used_size_str));
-	mem_format_size(STATIC_POOL_SIZE, total_size_str, sizeof(total_size_str));
-	pr_debug("allocated %s at %#llx (align: %u, pool: %s/%s, %d%%)",
-		alloc_size_str, (u64)aligned_ptr, alignment, used_size_str, total_size_str,
-		mem_get_usage_percent());
+	aligned_ptr = try_alloc_in_region(region_id, size, alignment, aligned_size);
+	if (aligned_ptr) {
+		mem_format_size(size, alloc_size_str, sizeof(alloc_size_str));
+		pr_debug("allocated %s at %#llx (align: %u, region[%d]: %s)",
+			alloc_size_str, (u64)aligned_ptr, alignment, region_id, g_regions[region_id].name);
+	}
 
 	return aligned_ptr;
+}
+
+// Allocate from a specific region (default 4-byte alignment)
+void *mem_alloc_from_region(int region_id, u32 size)
+{
+	return mem_alloc_aligned_from_region(region_id, size, 4);
 }
 
 // Custom memory free function
@@ -437,7 +638,8 @@ void mem_free(void *ptr)
 	int i;
 	int j;
 	u32 freed_actual_size;
-	char freed_size_str[32], user_size_str[32], used_size_str[32], total_size_str[32];
+	int region_id = -1;
+	char freed_size_str[32], user_size_str[32];
 
 	if (ptr == NULL) {
 		pr_warn("free called with NULL pointer");
@@ -447,29 +649,38 @@ void mem_free(void *ptr)
 	// Find corresponding block
 	for (i = 0; i < block_count; i++) {
 		if (blocks[i].start == ptr && blocks[i].status == BLOCK_USED) {
+			region_id = (int)blocks[i].region_id;
 			freed_actual_size = blocks[i].actual_size;  // Free the actual allocated size
-			if (memory_used < freed_actual_size) {
-				pr_warn("memory_used underflow on free (used=%u, free=%u)",
-					memory_used, freed_actual_size);
-				memory_used = 0;
-			} else {
-				memory_used -= freed_actual_size;
+
+			// Update per-region memory usage
+			if (region_id >= 0 && region_id < g_region_count) {
+				if (g_regions[region_id].memory_used < freed_actual_size) {
+					pr_warn("region[%d] memory_used underflow on free (used=%u, free=%u)",
+						region_id, g_regions[region_id].memory_used, freed_actual_size);
+					g_regions[region_id].memory_used = 0;
+				} else {
+					g_regions[region_id].memory_used -= freed_actual_size;
+				}
 			}
 
 			mem_format_size(freed_actual_size, freed_size_str, sizeof(freed_size_str));
 			mem_format_size(blocks[i].size, user_size_str, sizeof(user_size_str));
-			mem_format_size(memory_used, used_size_str, sizeof(used_size_str));
-			mem_format_size(STATIC_POOL_SIZE, total_size_str, sizeof(total_size_str));
 
-			pr_debug("freed %s at %#llx (user requested: %s, pool: %s/%s, %d%%)",
-				freed_size_str, (u64)ptr, user_size_str, used_size_str, total_size_str,
-				mem_get_usage_percent());
+			if (region_id >= 0 && region_id < g_region_count) {
+				pr_debug("freed %s at %#llx (user requested: %s, region[%d]: %s)",
+					freed_size_str, (u64)ptr, user_size_str,
+					region_id, g_regions[region_id].name);
+			} else {
+				pr_debug("freed %s at %#llx (user requested: %s)",
+					freed_size_str, (u64)ptr, user_size_str);
+			}
 
 			// Mark as free
 			blocks[i].status = BLOCK_FREE;
 			blocks[i].start = NULL;
 			blocks[i].size = 0;
 			blocks[i].actual_size = 0;
+			blocks[i].region_id = 0;
 
 			// Mark that sorting may be needed
 			need_sort = 1;
@@ -540,7 +751,7 @@ void *mem_realloc_aligned(void *ptr, u32 new_size, u32 alignment)
 	u32 old_size = 0;
 	u32 old_actual_size = 0;
 	u32 copy_size;
-	char old_size_str[32], new_size_str[32], used_size_str[32], total_size_str[32];
+	char old_size_str[32], new_size_str[32];
 
 	if (ptr == NULL) {
 		return mem_alloc_aligned(new_size, alignment);
@@ -555,7 +766,6 @@ void *mem_realloc_aligned(void *ptr, u32 new_size, u32 alignment)
 		alignment = 1;
 	}
 
-	// Check if alignment is power of 2
 	if (!IS_POWER_OF_2(alignment)) {
 		pr_warn("alignment %u is not a power of 2", alignment);
 		return NULL;
@@ -579,9 +789,8 @@ void *mem_realloc_aligned(void *ptr, u32 new_size, u32 alignment)
 	if (new_size <= old_size) {
 		// Only update user requested size, don't change actually allocated memory
 		blocks[i].size = new_size;
-		pr_info("realloc shrink: %u->%u bytes, %#llx->%#llx (align: %u, pool: %u/%d, %d%%)",
-			old_size, new_size, (u64)ptr, (u64)ptr, alignment, memory_used, STATIC_POOL_SIZE,
-			mem_get_usage_percent());
+		pr_info("realloc shrink: %u->%u bytes, %#llx->%#llx (align: %u)",
+			old_size, new_size, (u64)ptr, (u64)ptr, alignment);
 		return ptr;
 	}
 
@@ -602,16 +811,14 @@ void *mem_realloc_aligned(void *ptr, u32 new_size, u32 alignment)
 
 	mem_format_size(old_size, old_size_str, sizeof(old_size_str));
 	mem_format_size(new_size, new_size_str, sizeof(new_size_str));
-	mem_format_size(memory_used, used_size_str, sizeof(used_size_str));
-	mem_format_size(STATIC_POOL_SIZE, total_size_str, sizeof(total_size_str));
 
-	pr_info("realloc expand: %s->%s bytes, %#llx->%#llx (align: %u, pool: %s/%s, %d%%)",
-		old_size_str, new_size_str, (u64)ptr, (u64)new_ptr, alignment, used_size_str, total_size_str,
-		mem_get_usage_percent());
+	pr_info("realloc expand: %s->%s bytes, %#llx->%#llx (align: %u)",
+		old_size_str, new_size_str, (u64)ptr, (u64)new_ptr, alignment);
 	return new_ptr;
 }
 
-// Check address alignment
+// ---------- Alignment utilities ----------
+
 int mem_is_aligned(void *ptr, u32 alignment)
 {
 	if (alignment == 0) {
@@ -620,7 +827,6 @@ int mem_is_aligned(void *ptr, u32 alignment)
 	return ((u64)ptr & (alignment - 1)) == 0;
 }
 
-// Print alignment information for address
 void mem_print_alignment_info(void *ptr)
 {
 	int i;
@@ -637,25 +843,74 @@ void mem_print_alignment_info(void *ptr)
 	}
 }
 
-// Get current memory usage in bytes
+int mem_get_region_count(void)
+{
+	return g_region_count;
+}
+
+const char *mem_get_region_name(int region_id)
+{
+	if (region_id < 0 || region_id >= g_region_count) return NULL;
+	return g_regions[region_id].name;
+}
+
+u32 mem_get_region_size(int region_id)
+{
+	if (region_id < 0 || region_id >= g_region_count) return 0;
+	return g_regions[region_id].size;
+}
+
+u32 mem_get_region_used(int region_id)
+{
+	if (region_id < 0 || region_id >= g_region_count) return 0;
+	return g_regions[region_id].memory_used;
+}
+
+u32 mem_get_region_free(int region_id)
+{
+	if (region_id < 0 || region_id >= g_region_count) return 0;
+	return g_regions[region_id].size - g_regions[region_id].memory_used;
+}
+
 u32 mem_get_used(void)
 {
-	return memory_used;
+	int i;
+	u32 total = 0;
+	for (i = 0; i < g_region_count; i++) {
+		total += g_regions[i].memory_used;
+	}
+	return total;
 }
 
-// Get current free memory in bytes
 u32 mem_get_free(void)
 {
-	return STATIC_POOL_SIZE - memory_used;
+	int i;
+	u32 total = 0;
+	for (i = 0; i < g_region_count; i++) {
+		total += g_regions[i].size - g_regions[i].memory_used;
+	}
+	return total;
 }
 
-// Get memory usage percentage (returns integer percentage)
+u32 mem_get_total(void)
+{
+	int i;
+	u32 total = 0;
+	for (i = 0; i < g_region_count; i++) {
+		total += g_regions[i].size;
+	}
+	return total;
+}
+
+
+
 int mem_get_usage_percent(void)
 {
-	if (STATIC_POOL_SIZE == 0) {
+	u32 total_size = mem_get_total();
+	if (total_size == 0) {
 		return 0;
 	}
-	return (int)((memory_used * 100) / STATIC_POOL_SIZE);
+	return (int)((mem_get_used() * 100) / total_size);
 }
 
 // Get number of used blocks
@@ -687,66 +942,60 @@ int mem_get_free_blocks_count(void)
 	return count;
 }
 
-// Get largest free block size
+// Get largest free contiguous block across all regions
 u32 mem_get_largest_free_block(void)
 {
 	u32 largest = 0;
-	int i;
-	int first_used;
-	int prev_used;
-	u32 first_space;
-	void *next_start;
-	char *prev_end;
-	u32 space;
-	char *last_end;
-	u32 last_space;
+	int r;
 
-	if (block_count == 0) {
-		return STATIC_POOL_SIZE;
-	}
+	for (r = 0; r < g_region_count; r++) {
+		u32 region_largest = 0;
+		int used_indices[MAX_BLOCKS];
+		int used_count = 0;
+		int i;
 
-	// Ensure blocks are sorted
-	ensure_blocks_sorted();
+		ensure_blocks_sorted();
 
-	// Find first used block
-	first_used = -1;
-	for (i = 0; i < block_count; i++) {
-		if (blocks[i].status == BLOCK_USED) {
-			first_used = i;
-			break;
-		}
-	}
-
-	// If no used blocks, entire pool is free
-	if (first_used == -1) {
-		return STATIC_POOL_SIZE;
-	}
-
-	// Check space before first used block
-	first_space = (u32)((u64)blocks[first_used].start - (u64)memory_pool);
-	if (first_space > largest) {
-		largest = first_space;
-	}
-
-	// Check spaces between consecutive used blocks
-	prev_used = first_used;
-	for (i = first_used + 1; i < block_count; i++) {
-		if (blocks[i].status == BLOCK_USED) {
-			next_start = blocks[i].start;
-			prev_end = (char *)blocks[prev_used].start + blocks[prev_used].actual_size;
-			space = (u32)((char *)next_start - prev_end);
-			if (space > largest) {
-				largest = space;
+		// Collect used blocks in this region
+		for (i = 0; i < block_count; i++) {
+			if (blocks[i].status == BLOCK_USED && (int)blocks[i].region_id == r) {
+				used_indices[used_count++] = i;
 			}
-			prev_used = i;
 		}
-	}
 
-	// Check space after last used block
-	last_end = (char *)blocks[prev_used].start + blocks[prev_used].actual_size;
-	last_space = (u32)((char *)memory_pool + STATIC_POOL_SIZE - last_end);
-	if (last_space > largest) {
-		largest = last_space;
+		// If no used blocks in this region, entire region is free
+		if (used_count == 0) {
+			region_largest = g_regions[r].size;
+		} else {
+			// Check space before first used block
+			u64 first_space = (u64)blocks[used_indices[0]].start - (u64)g_regions[r].start;
+			if ((u32)first_space > region_largest) {
+				region_largest = (u32)first_space;
+			}
+
+			// Check spaces between consecutive used blocks
+			for (i = 1; i < used_count; i++) {
+				u64 prev_end = (u64)blocks[used_indices[i - 1]].start
+					+ blocks[used_indices[i - 1]].actual_size;
+				u64 curr_start = (u64)blocks[used_indices[i]].start;
+				u32 gap = (u32)(curr_start - prev_end);
+				if (gap > region_largest) {
+					region_largest = gap;
+				}
+			}
+
+			// Check space after last used block
+			u64 last_end = (u64)blocks[used_indices[used_count - 1]].start
+				+ blocks[used_indices[used_count - 1]].actual_size;
+			u64 after_last = (u64)g_regions[r].start + g_regions[r].size - last_end;
+			if ((u32)after_last > region_largest) {
+				region_largest = (u32)after_last;
+			}
+		}
+
+		if (region_largest > largest) {
+			largest = region_largest;
+		}
 	}
 
 	return largest;
@@ -785,7 +1034,6 @@ void mem_format_size(u32 size, char *buffer, int buffer_size)
 	}
 }
 
-// Print detailed memory statistics
 void mem_print_stats(void)
 {
 	int used_blocks = mem_get_used_blocks_count();
@@ -794,20 +1042,31 @@ void mem_print_stats(void)
 	int usage_percent = mem_get_usage_percent();
 	int fragmentation = mem_get_fragmentation_percent();
 	char total_str[32], used_str[32], free_str[32], largest_str[32];
+	int r;
 
 	// Ensure blocks are sorted for accurate statistics
 	ensure_blocks_sorted();
 
 	pr_info("memory statistics");
-	pr_info("--- pool overview: ---");
-	mem_format_size(STATIC_POOL_SIZE, total_str, sizeof(total_str));
+	pr_info("--- multi-region overview: ---");
+	mem_format_size(mem_get_total(), total_str, sizeof(total_str));
 	mem_format_size(mem_get_used(), used_str, sizeof(used_str));
 	mem_format_size(mem_get_free(), free_str, sizeof(free_str));
 	mem_format_size(largest_free, largest_str, sizeof(largest_str));
 
-	pr_info("total size: %s (%u bytes)", total_str, STATIC_POOL_SIZE);
+	pr_info("total (all regions): %s (%u bytes)", total_str, mem_get_total());
 	pr_info("used: %s (%d%%)", used_str, usage_percent);
 	pr_info("free: %s (%d%%)", free_str, 100 - usage_percent);
+
+	// Per-region details
+	for (r = 0; r < g_region_count; r++) {
+		char rused_str[32], rfree_str[32], rsize_str[32];
+		mem_format_size(g_regions[r].memory_used, rused_str, sizeof(rused_str));
+		mem_format_size(g_regions[r].size - g_regions[r].memory_used, rfree_str, sizeof(rfree_str));
+		mem_format_size(g_regions[r].size, rsize_str, sizeof(rsize_str));
+		pr_info("  region[%d] '%s': %s/%s used, %s free",
+			r, g_regions[r].name, rused_str, rsize_str, rfree_str);
+	}
 
 	pr_info("--- block management: ---");
 	pr_info("used blocks: %d", used_blocks);
@@ -815,18 +1074,16 @@ void mem_print_stats(void)
 	pr_info("largest free block: %s", largest_str);
 	pr_info("fragmentation: %d%%", fragmentation);
 
-	// Add human readable format
 	pr_info("--- human readable format: ---");
 	mem_format_size(mem_get_used(), used_str, sizeof(used_str));
 	mem_format_size(mem_get_free(), free_str, sizeof(free_str));
-	mem_format_size(STATIC_POOL_SIZE, total_str, sizeof(total_str));
+	mem_format_size(mem_get_total(), total_str, sizeof(total_str));
 	mem_format_size(largest_free, largest_str, sizeof(largest_str));
 
 	pr_info("total: %s | used: %s | free: %s", total_str, used_str, free_str);
 	pr_info("largest available block: %s", largest_str);
 }
 
-// Print memory summary with additional details
 void mem_print_summary(void)
 {
 	int used_blocks = mem_get_used_blocks_count();
@@ -839,6 +1096,7 @@ void mem_print_summary(void)
 	char total_str[32], used_str[32], free_str[32];
 	char min_str[32], max_str[32], avg_str[32];
 	char largest_contig_str[32];
+	int r;
 
 	// Ensure blocks are sorted for accurate statistics
 	ensure_blocks_sorted();
@@ -857,12 +1115,19 @@ void mem_print_summary(void)
 	}
 
 	pr_info("memory allocation summary");
-	pr_info("--- pool configuration: ---");
-	mem_format_size(STATIC_POOL_SIZE, total_str, sizeof(total_str));
+	pr_info("--- multi-region configuration: ---");
+	mem_format_size(mem_get_total(), total_str, sizeof(total_str));
 	mem_format_size(mem_get_used(), used_str, sizeof(used_str));
 	mem_format_size(mem_get_free(), free_str, sizeof(free_str));
 
-	pr_info("total pool: %s (%u bytes)", total_str, STATIC_POOL_SIZE);
+	pr_info("total pool: %s (%u bytes) across %d region(s)", total_str, mem_get_total(), g_region_count);
+	for (r = 0; r < g_region_count; r++) {
+		char rsize_str[32];
+		mem_format_size(g_regions[r].size, rsize_str, sizeof(rsize_str));
+		pr_info("  region[%d] '%s': start=%#llx, size=%s",
+			r, g_regions[r].name, (u64)(unsigned long)g_regions[r].start, rsize_str);
+	}
+
 	pr_info("block descriptors: %d total, %d used, %d available",
 		MAX_BLOCKS, block_count, MAX_BLOCKS - block_count);
 
@@ -880,7 +1145,6 @@ void mem_print_summary(void)
 		pr_info("  - block size analysis:");
 		pr_info("    smallest block: %s", min_str);
 		pr_info("    largest block: %s", max_str);
-		// Average block size
 		pr_info("    average block: %s", avg_str);
 
 		mem_format_size(mem_get_largest_free_block(), largest_contig_str, sizeof(largest_contig_str));
@@ -888,7 +1152,7 @@ void mem_print_summary(void)
 		pr_info("  - memory efficiency:");
 		pr_info("    internal fragmentation: %d%%", fragmentation);
 		pr_info("    largest contiguous free: %s", largest_contig_str);
-		// Allocation efficiency
+
 		if (mem_get_used() > 0) {
 			pr_info("    allocation efficiency: %d%%",
 				(int)((total_allocated * 100) / mem_get_used()));
@@ -964,13 +1228,18 @@ void test_memory_allocator(void)
 	char used_str[32], free_str[32], largest_str[32];
 	int i;
 
-	pr_info("static memory allocator with alignment support");
+	pr_info("static memory allocator with multiple region support");
 	pr_info("--- test suite starting ---");
 
 	// Test alignment bug fix first
 	test_alignment_bug_fix();
 
-	// Memory manager will be initialized on first allocation
+	// --- Test 1-12: Backward compatibility tests (same as original) ---
+	// These use the default mem_init() -> single pool from linker symbols
+
+	pr_info("[compat tests] using default single-pool init");
+	// Force re-init for clean test (if already initialized, we need to reset)
+	// Note: In a real test scenario, the user should call mem_init_with_config instead
 
 	// 1. Basic allocation (default 4-byte alignment)
 	pr_info("1 basic allocation test (default 4-byte alignment)");
@@ -1000,7 +1269,6 @@ void test_memory_allocator(void)
 			doubles[i] = 3.14159 * i;
 		}
 		pr_info("doubles array:");
-		// Note: Kernel doesn't support floating point printing, changed to integer representation
 		for (i = 0; i < 5; i++) {
 			pr_cont("%d ", (int)doubles[i]);
 		}

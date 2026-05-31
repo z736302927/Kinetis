@@ -11,8 +11,11 @@
 
 #include "fatfs/diskio.h"     /* Declarations of disk functions */
 #include "fatfs/ff_gen_drv.h"
+#ifdef KINETIS_FAKE_SIM
 #include "fatfs/drivers/fake_ram_diskio.h"
+#else
 #include "fatfs/drivers/sd_diskio.h"
+#endif
 #include "fatfs/ff.h"         /* FatFs API and configuration */
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
@@ -1439,7 +1442,11 @@ int t_fatfs_loopback(int argc, char **argv)
 	uint8_t rtext[100];                                  /* File read buffer */
 
 	/*##-1- Link the  disk I/O driver #######################################*/
+#ifdef KINETIS_FAKE_SIM
 	if (FATFS_LinkDriver(&fake_ram_disk_driver, disk_path) == 0) {
+#else
+	if (FATFS_LinkDriver(&SD_Driver, disk_path) == 0) {
+#endif
 		/*##-2- Register the file system object to the FatFs module ##############*/
 		res = f_mount(&disk_fatfs, (TCHAR const *)disk_path, 0);
 
@@ -1583,7 +1590,7 @@ int t_fatfs_append(int argc, char **argv)
 		return -EACCES;
 
 	/* Append a line */
-	f_printf(&fil, "%s\n", get_rtc_string(&fake_rtc));
+	f_printf(&fil, "%s\n", get_rtc_string(&general_rtc));
 
 	/* Close the file */
 	f_close(&fil);

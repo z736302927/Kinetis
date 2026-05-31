@@ -20,7 +20,7 @@ typedef void (*tim_task_cb)(struct tim_task *);
 struct tim_task {
 	const char *name;
 	ktime_t timeout;
-	u32 interval;
+	u32 interval_ms;
 	tim_task_cb callback;
 	struct list_head list;
 	struct list_head main_list;
@@ -68,6 +68,7 @@ void tim_task_loop(void);
 struct tim_task *tim_task_find_by_name(const char *name);
 struct tim_task *tim_task_find_by_id(u32 task_id);
 int tim_task_set_priority(struct tim_task *task, u32 new_priority);
+int tim_task_set_interval(struct tim_task *task, u32 new_interval);
 void tim_task_cleanup_all(void);
 struct tim_task *tim_task_get_next_task(void);
 

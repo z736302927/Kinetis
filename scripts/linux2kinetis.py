@@ -4,11 +4,12 @@
 可以删除当前文件夹及其子文件夹中所有文件的特定内容
 
 使用示例:
-  python linux2kinetis.py                          # 两者都执行
-  python linux2kinetis.py --mode content           # 只删除文件内容
-  python linux2kinetis.py --mode files             # 只删除指定文件
-  python linux2kinetis.py --mode both --backup     # 两者都执行并备份
-  python linux2kinetis.py --list-rules             # 查看可用规则
+  python linux2kinetis.py                                   # 内容删除+文件删除（默认都执行）
+  python linux2kinetis.py --mode remove-content             # 只移除文件内容（正则匹配）
+  python linux2kinetis.py --mode remove-files               # 只删除指定文件
+  python linux2kinetis.py --mode remove-content --backup    # 只移除文件内容并备份
+  python linux2kinetis.py --mode copy-source --source SRC_DIR --target DST_DIR   # 只复制源码文件
+  python linux2kinetis.py --list-rules                      # 查看可用规则
 """
 
 import os
@@ -389,17 +390,18 @@ def should_skip_path(file_path):
 
 def delete_specific_files(root_dir, verbose=False):
     """
-    删除特定的文件
+    删除特定的文件，并清理删除后留下的空文件夹
     
     Args:
         root_dir: 根目录
         verbose: 是否显示详细信息
     
     Returns:
-        tuple: (删除的文件数, 跳过的文件数, 错误列表)
+        tuple: (删除的文件数, 跳过的文件数, 移除的空文件夹数, 错误列表)
     """
     deleted_files = 0
     skipped_files = 0
+    removed_dirs = 0
     errors = []
     
     print("开始删除特定文件...")
@@ -433,7 +435,24 @@ def delete_specific_files(root_dir, verbose=False):
                     print(f"删除文件: {file_path}")
                     print(f"  错误: {error_msg}")
     
-    return deleted_files, skipped_files, errors
+    # 清理空文件夹（自底向上遍历，确保只删除空目录）
+    for root, dirs, files in os.walk(root_dir, topdown=False):
+        # 跳过排除路径
+        if should_skip_path(root):
+            continue
+        # 跳过根目录自身
+        if root == root_dir:
+            continue
+        try:
+            # 检查目录是否为空（没有子文件也没有子目录）
+            if not os.listdir(root):
+                os.rmdir(root)
+                print(f"移除空文件夹: {root}")
+                removed_dirs += 1
+        except OSError:
+            pass  # 非空或权限问题，忽略
+    
+    return deleted_files, skipped_files, removed_dirs, errors
 
 def list_rules():
     """列出所有可用的规则"""
@@ -606,8 +625,8 @@ def main():
                        help='显示详细信息')
     parser.add_argument('--list-rules', action='store_true', 
                        help='列出所有可用的规则并退出')
-    parser.add_argument('--mode', choices=['content', 'files', 'both', 'copy'], default='both',
-                       help='执行模式: content=只删除内容, files=只删除文件, both=两者都执行, copy=只复制文件 (默认: both)')
+    parser.add_argument('--mode', choices=['remove-content', 'remove-files', 'copy-source'], default=None,
+                       help='执行模式: remove-content=移除匹配的内容行, remove-files=删除指定文件, copy-source=复制源码文件 (默认: 不指定则同时执行内容删除+文件删除)')
     parser.add_argument('--no-copy', action='store_true', 
                        help='不执行文件复制，即使指定了源目录和目标目录')
     
@@ -629,7 +648,7 @@ def main():
         sys.exit(1)
     
     # 检查是否需要执行复制操作
-    if args.mode == 'copy' or (args.source and args.target and not args.no_copy):
+    if args.mode == 'copy-source' or (args.source and args.target and not args.no_copy):
         if not args.source or not args.target:
             print("错误: 复制模式需要指定源目录(--source)和目标目录(--target)")
             sys.exit(1)
@@ -651,7 +670,7 @@ def main():
                 print(f"  {file_path}: {error}")
         
         # 如果是只复制模式，则直接退出
-        if args.mode == 'copy':
+        if args.mode == 'copy-source':
             print("复制模式完成，退出程序")
             return
     
@@ -665,15 +684,19 @@ def main():
                           for ext in args.extensions]
     
     try:
-        # 根据模式决定执行内容
-        if args.mode in ['files', 'both']:
+        # 判断是否需要执行文件删除
+        run_file_delete = (args.mode is None) or (args.mode == 'remove-files')
+        run_content_delete = (args.mode is None) or (args.mode == 'remove-content')
+        
+        if run_file_delete:
             # 执行文件删除
-            deleted_files, skipped_files, delete_errors = delete_specific_files(
+            deleted_files, skipped_files, removed_dirs, delete_errors = delete_specific_files(
                 args.directory, args.verbose
             )
             print("\n" + "="*60)
             print("文件删除完成!")
             print(f"删除文件数: {deleted_files}")
+            print(f"移除空文件夹数: {removed_dirs}")
             print(f"跳过文件数: {skipped_files}")
             
             if delete_errors:
@@ -682,10 +705,10 @@ def main():
                 for file_path, error in delete_errors:
                     print(f"  {file_path}: {error}")
         else:
-            print("跳过文件删除 (mode: content)")
+            print("跳过文件删除 (已选择 remove-content 模式)")
         
         # 处理文件内容
-        if args.mode in ['content', 'both']:
+        if run_content_delete:
             if selected_rules:
                 process_directory(
                     root_dir=args.directory,
@@ -699,7 +722,7 @@ def main():
             else:
                 print("没有找到可用的内容删除规则")
         else:
-            print("跳过内容删除 (mode: files)")
+            print("跳过内容删除 (已选择 remove-files 模式)")
             
     except KeyboardInterrupt:
         print("\n用户中断操作")

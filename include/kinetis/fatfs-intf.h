@@ -17,5 +17,7 @@ int fatfs_read_store_info(char *file_path, char *file_name,
 	long offset, u8 *pdata, int len);
 int fatfs_write_store_info(char *file_path, char *file_name,
 	long offset, u8 *pdata, int len);
+int fatfs_copy_file(char *src_path, char *src_name,
+	char *dst_path, char *dst_name);
 
 #endif /* _FATFS_INTF_H */

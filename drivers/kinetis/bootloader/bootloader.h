@@ -7,39 +7,6 @@
 extern "C" {
 #endif
 
-/*********************************************************************
- * Bootloader Address Layout
- *********************************************************************/
-
-#define ROM_BASE_ADDR            0x08000000u
-#define ROM_TOTAL_SIZE           (1024u * 1024u)
-
-#define CONFIG_BASE_ADDR         0x080F0000u
-#define CONFIG_SIZE              (64u * 1024u)
-
-#define BOOTLOADER_BASE_ADDR     (CONFIG_BASE_ADDR + CONFIG_SIZE)
-#define BOOTLOADER_SIZE          (64u * 1024u)
-
-#define FIRMWARE_BASE_ADDR       (BOOTLOADER_BASE_ADDR + BOOTLOADER_SIZE)
-#define FIRMWARE_MAX_SIZE        (896u * 1024u)
-
-/*********************************************************************
- * Constants
- *********************************************************************/
-
-/* Magic number for config region validation */
-#define BOOTLOADER_MAGIC         0x4B4C4652u   /* "KLFR" */
-
-/* Firmware path on FatFS */
-#define BL_FIRMWARE_PATH         "0:/firmware"
-
-/* Flash read/write chunk size (heap allocated) */
-#define BL_FLASH_CHUNK           4096
-
-/*********************************************************************
- * Enumerations
- *********************************************************************/
-
 enum bootloader_mode {
 	BL_MODE_RUN       = 0x00,
 	BL_MODE_UPDATE    = 0x01,
@@ -58,33 +25,21 @@ enum bootloader_fsm_state {
 	BL_STATE_ERROR
 };
 
-/*********************************************************************
- * Flash Operations (shared by bootloader and application)
- *********************************************************************/
-
 struct flash_ops {
-	int (*erase)(u32 addr, u32 size);
-	int (*write)(u32 addr, const u8 *data, u32 size);
-	int (*read)(u32 addr, u8 *buf, u32 size);
+	int (*erase)(u64 addr, u32 size);
+	int (*write)(u64 addr, const u8 *data, u32 size);
+	int (*read)(u64 addr, u8 *buf, u32 size);
 };
-
-/*********************************************************************
- * Bootloader Platform Operations (function pointer table)
- *********************************************************************/
 
 struct bootloader_ops {
 	void (*disable_irq)(void);
 	void (*cleanup_hw_resource)(void);
 	void (*disable_cache)(void);
-	void (*set_stack_pointer)(u32 pointer);
-	void (*redirect_isr_table)(u32 address);
+	void (*set_stack_pointer)(u64 pointer);
+	void (*redirect_isr_table)(u64 address);
 	void (*system_reset)(void);
 	struct flash_ops *flash;
 };
-
-/*********************************************************************
- * Bootloader Config Structure (stored in flash)
- *********************************************************************/
 
 struct bootloader_config {
 	u32 magic;              /* Magic number: must be BOOTLOADER_MAGIC */
@@ -101,14 +56,13 @@ struct bootloader_config {
 	u8  reserved2[32];      /* Reserved for future use */
 } __packed;
 
-/*********************************************************************
- * Bootloader Context
- *********************************************************************/
-
 struct mavlink_device;
 struct serial_port;
 
 struct bootloader_context {
+	u8 *rom_addr;
+	u8 *config_addr;
+	u8 *firmware_addr;
 	struct bootloader_config config;
 
 	struct mavlink_device *app_mavlink;
@@ -116,15 +70,37 @@ struct bootloader_context {
 
 	struct bootloader_ops *ops;
 
-	u8 *config_addr;
-
 	enum bootloader_fsm_state state;
 	u8 retry_count;          /* Number of consecutive ERROR -> WAIT_CMD cycles */
 };
 
-/*********************************************************************
- * Public API
- *********************************************************************/
+#ifdef KINETIS_FAKE_SIM
+#define ROM_BASE_ADDR            0x08000000u
+#else
+#define ROM_BASE_ADDR            0x00000000u
+#endif
+#define ROM_TOTAL_SIZE           (1024u * 1024u)
+
+#define BOOTLOADER_BASE_ADDR     ROM_BASE_ADDR
+#define BOOTLOADER_SIZE          (64u * 1024u)
+
+#define CONFIG_BASE_ADDR         (BOOTLOADER_BASE_ADDR + BOOTLOADER_SIZE)
+#define CONFIG_SIZE              sizeof(struct bootloader_config)
+
+#define FIRMWARE_BASE_ADDR       (BOOTLOADER_BASE_ADDR + BOOTLOADER_SIZE)
+#define FIRMWARE_MAX_SIZE        (896u * 1024u)
+
+/* Magic number for config region validation */
+#define BOOTLOADER_MAGIC         0x4B4C4652u   /* "KLFR" */
+
+/* Firmware path on FatFS */
+#define BL_FIRMWARE_PATH         "0:/firmware"
+#define BL_BACKUP_PATH         	 "0:/backup"
+#define BL_COMPUTER_PATH		 "0:/computer"
+#define BL_FIRMWARE_NAME    	 "firmware.bin"
+
+/* Flash read/write chunk size (heap allocated) */
+#define BL_FLASH_CHUNK           4096
 
 /**
  * @brief Initialize bootloader context
@@ -132,7 +108,7 @@ struct bootloader_context {
  * @param ops: Platform operations structure (must not be NULL)
  * @return Bootloader context pointer on success, NULL on failure
  */
-struct bootloader_context *bootloader_init(u8 *config_addr,
+struct bootloader_context *bootloader_init(u8 *rom_addr,
 					    struct bootloader_ops *chip_ops,
 						struct flash_ops *flash_ops,
 						struct serial_port_ops *serial_ops);

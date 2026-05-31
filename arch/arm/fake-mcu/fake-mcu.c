@@ -103,7 +103,7 @@ unsigned long read_chip_timer(void)
 	return (unsigned long)(ts.tv_sec * 1000000ULL + ts.tv_nsec / 1000);
 #endif
 }
-struct delay_timer fake_delay_timer = {
+struct delay_timer general_delay_timer = {
 	.freq = 1000000,
 	.read_current_timer = read_chip_timer
 };
@@ -292,7 +292,7 @@ int fake_mcu_glue_func(void)
 	cpumask_set_cpu(0, &__cpu_present_mask);
 	cpumask_set_cpu(0, &__cpu_active_mask);
 
-	register_current_timer_delay(&fake_delay_timer);
+	register_current_timer_delay(&general_delay_timer);
 
 	prandom_init_early();
 

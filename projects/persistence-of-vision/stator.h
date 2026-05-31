@@ -47,7 +47,7 @@ struct pov_stator {
  *
  * Control loop (10ms period):
  *   - Read target_rpm from mavlink dev->motors[0].target_speed
- *   - Read measured_rpm from motor->measured_rpm
+ *   - Read measured_rpm from hall_get_rpm()
  *   - PI update -> PWM duty
  *   - motor_set_pwm()
  *   - Check stability

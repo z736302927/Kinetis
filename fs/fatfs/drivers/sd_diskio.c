@@ -17,14 +17,22 @@
   */
 /* USER CODE END Header */
 
-/* Note: code generation based on sd_diskio_template_bspv1.c v2.1.4
-   as "Use dma template" is disabled. */
+/* Note: code generation based on sd_diskio_template_bspv1.c v2.1.4.
+ *
+ * Polling mode for both read and write.  SDMMC IDMA cannot access DTCM,
+ * but the CPU can read/write the SDMMC FIFO directly via load/store.
+ *
+ * Both paths are IRQ-protected (__disable_irq/__enable_irq):
+ *   Read:  21 MHz — RX FIFO overflow (RXOVERR 0x20) if CPU stolen.
+ *   Write: 12 MHz — TX FIFO underrun (TX_UNDERRUN 0x10) if CPU stolen. */
 
 /* USER CODE BEGIN firstSection */
 /* can be used to modify / undefine following code or add new definitions */
 /* USER CODE END firstSection*/
 
 /* Includes ------------------------------------------------------------------*/
+#include <linux/printk.h>
+
 #include "../ff_gen_drv.h"
 #include "sd_diskio.h"
 
@@ -40,6 +48,12 @@
 #endif
 
 #define SD_DEFAULT_BLOCK_SIZE 512
+
+/* Card-ready poll timeout (counter-based, ~4-5 cycles/iter @ 480 MHz).
+ * Read:  ~2M iterations  ≈  16 ms
+ * Write: ~30M iterations  ≈ 250 ms (card internal programming) */
+#define SD_RDY_TMO_RD     0x200000UL
+#define SD_RDY_TMO_WR     0x1E00000UL
 
 /*
  * Depending on the use case, the SD card initialization could be done at the
@@ -59,9 +73,9 @@ static volatile DSTATUS Stat = STA_NOINIT;
 static DSTATUS SD_CheckStatus(BYTE lun);
 DSTATUS SD_initialize(BYTE);
 DSTATUS SD_status(BYTE);
-DRESULT SD_read(BYTE, BYTE*, DWORD, UINT);
+DRESULT SD_read(BYTE, BYTE*, LBA_t, UINT);
 #if _USE_WRITE == 1
-DRESULT SD_write(BYTE, const BYTE*, DWORD, UINT);
+DRESULT SD_write(BYTE, const BYTE*, LBA_t, UINT);
 #endif /* _USE_WRITE == 1 */
 #if _USE_IOCTL == 1
 DRESULT SD_ioctl(BYTE, BYTE, void*);
@@ -92,6 +106,8 @@ static DSTATUS SD_CheckStatus(BYTE lun)
 
 	if (BSP_SD_GetCardState() == MSD_OK) {
 		Stat &= ~STA_NOINIT;
+	} else {
+		pr_warn("SD: CheckStatus: card not ready (state != MSD_OK)");
 	}
 
 	return Stat;
@@ -110,6 +126,8 @@ DSTATUS SD_initialize(BYTE lun)
 
 	if (BSP_SD_Init() == MSD_OK) {
 		Stat = SD_CheckStatus(lun);
+	} else {
+		pr_err("SD: BSP_SD_Init FAILED");
 	}
 
 #else
@@ -141,19 +159,40 @@ DSTATUS SD_status(BYTE lun)
   * @retval DRESULT: Operation result
   */
 
-DRESULT SD_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
+DRESULT SD_read(BYTE lun, BYTE *buff, LBA_t sector, UINT count)
 {
 	DRESULT res = RES_ERROR;
+	uint32_t tmo;
+
+	/* Polling mode: CPU reads SDMMC FIFO directly into DTCM.
+	 * SDMMC IDMA cannot access DTCM on STM32H7, but CPU load/store
+	 * instructions (via AHB bus) can reach both SDMMC registers (APB2)
+	 * and DTCM (Cortex-M7 TCM interface) simultaneously.
+	 * BSP_SD_ReadBlocks switches to 21 MHz read clock internally.
+	 *
+	 * IRQ-disabled: any DMA/UART/Timer IRQ can steal CPU cycles and
+	 * cause RX FIFO overflow (EC=0x20, SDMMC_RXOVERR).  The same
+	 * approach as SD_write: bracket the transfer with IRQ off. */
+	__disable_irq();
 
 	if (BSP_SD_ReadBlocks((uint32_t *)buff,
 		(uint32_t)(sector),
 		count, SD_TIMEOUT) == MSD_OK) {
 		/* wait until the read operation is finished */
-		while (BSP_SD_GetCardState() != MSD_OK) {
+		tmo = SD_RDY_TMO_RD;
+
+		while (BSP_SD_GetCardState() != MSD_OK && --tmo) {
+		}
+		if (tmo == 0) {
+			pr_err("SD read: card-ready timeout after block transfer, "
+			       "sector=%lu\r\n", sector);
+			__enable_irq();
+			return RES_ERROR;
 		}
 		res = RES_OK;
 	}
 
+	__enable_irq();
 	return res;
 }
 
@@ -170,18 +209,38 @@ DRESULT SD_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
   */
 #if _USE_WRITE == 1
 
-DRESULT SD_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
+DRESULT SD_write(BYTE lun, const BYTE *buff, LBA_t sector, UINT count)
 {
 	DRESULT res = RES_ERROR;
+	uint32_t tmo;
+
+	/* IRQ-disabled polling write.  BSP_SD_WriteBlocks switches to
+	 * 12 MHz write clock internally to prevent TX_UNDERRUN.  Any IRQ
+	 * (UART DMA, timers) can still delay TXFIFOHE handling, so we
+	 * disable IRQ for the duration of the transfer. */
+	__disable_irq();
 
 	if (BSP_SD_WriteBlocks((uint32_t *)buff,
 		(uint32_t)(sector),
-		count, SD_TIMEOUT) == MSD_OK) {
-		/* wait until the Write operation is finished */
-		while (BSP_SD_GetCardState() != MSD_OK) {
-		}
-		res = RES_OK;
+		count, SD_TIMEOUT) != MSD_OK) {
+		__enable_irq();
+		return RES_ERROR;
 	}
+
+	/* Wait in IRQ-disabled region — card state poll sends CMD over
+	 * CMD line via CPU, no SDMMC interrupt needed. */
+	tmo = SD_RDY_TMO_WR;
+	while (BSP_SD_GetCardState() != MSD_OK && --tmo) {
+	}
+	if (tmo == 0) {
+		pr_err("SD write: card-ready timeout after block transfer, "
+		       "sector=%lu, count=%u\r\n", sector, (unsigned int)count);
+		__enable_irq();
+		return RES_ERROR;
+	}
+
+	res = RES_OK;
+	__enable_irq();
 
 	return res;
 }

@@ -27,7 +27,13 @@
 #endif
 
 /* Includes ------------------------------------------------------------------*/
+#if defined(STM32H743xx)
 #include "stm32h7xx_hal.h"
+#elif defined(STM32F407xx)
+#include "stm32f4xx_hal.h"
+#else
+#error "Please select first the target STM32xx device"
+#endif
 
 /* Exported types --------------------------------------------------------*/
 /**

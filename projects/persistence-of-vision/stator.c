@@ -8,6 +8,7 @@
 #include "config.h"
 #include "stator.h"
 #include "motor.h"
+#include "interface.h"
 
 static void report_motor_status(struct tim_task *task)
 {
@@ -24,22 +25,50 @@ static void control_motor(struct tim_task *task)
 	struct pov_stator *stator = container_of(task, struct pov_stator, pid_task);
 	s32 output;
 
-	output = pid_update(&stator->pid, SLAVE_TARGET_RPM - stator->motor.measured_rpm);
+	output = pid_update(&stator->pid, stator->mavlink->motors[STATOR_MOTOR_ID].target_speed - hall_get_rpm(stator->hall));
 	motor_set_pwm(&stator->motor, output);
-	motor_set_direction(&stator->motor, SLAVE_MOTOR_DIR_FORWARD);
+	motor_set_direction(&stator->motor, stator->mavlink->motors[STATOR_MOTOR_ID].direction);
 }
 
 static void process_motor_commands(struct tim_task *task)
 {
 	struct pov_stator *stator = container_of(task, struct pov_stator, process_cmd_task);
+	u32 old_rx = stator->mavlink->rx_count;
 
-	/* Sync mavlink motor state with actual motor for status query responses */
-	stator->mavlink->motors[STATOR_MOTOR_ID].current_speed = stator->motor.measured_rpm;
-	stator->mavlink->motors[STATOR_MOTOR_ID].direction = stator->motor.direction;
-	stator->mavlink->motors[STATOR_MOTOR_ID].status = stator->motor.status;
-
+	/* Process pending MAVLink messages (motor control commands from rotor) */
 	if (serial_port_data_available(stator->motor_port) > 0) {
 		mavlink_receive_and_process(stator->mavlink, 10);
+	}
+
+	/* Only dispatch if a new message was received */
+	if (stator->mavlink->rx_count == old_rx) {
+		return;
+	}
+
+	switch (stator->mavlink->rx_msg.msgid) {
+	case MAVLINK_MSG_ID_MOTOR_CONTROL: {
+		break;
+	}
+
+	case MAVLINK_MSG_ID_MOTOR_STATUS_QUERY: {
+		mavlink_motor_status_query_t query;
+
+		mavlink_msg_motor_status_query_decode(&stator->mavlink->rx_msg, &query);
+		if (query.motor_id >= MAVLINK_MOTOR_COUNT &&
+			query.motor_id != 255) {
+			pr_err("stator: invalid motor_id=%u\n", query.motor_id);
+			break;
+		}
+
+		mavlink_send_motor_status(stator->mavlink, query.motor_id,
+			hall_get_rpm(stator->hall), stator->motor.direction, stator->motor.status);
+		break;
+	}
+
+	default:
+		pr_debug("stator: unhandled msgid=%u\n",
+			stator->mavlink->rx_msg.msgid);
+		break;
 	}
 }
 
@@ -69,10 +98,18 @@ struct pov_stator *pov_stator_alloc(struct serial_port_ops *motor_serial_ops,
 		goto err_free_mavlink;
 	}
 
+	tim_task_add(&stator->hall->fake_pulse_task, "fake_pulse_task",
+		67, true, false, hall_fake_pulse);
+
+	tim_task_add(&stator->motor.sim_task, "motor_sim_task",
+		SLAVE_PID_PERIOD_MS, true, false, motor_simulation);
+
 	pid_init(&stator->pid, SLAVE_PID_KP, SLAVE_PID_KI, SLAVE_PID_KD);
 
+	stator->motor.max_rpm = SLAVE_MOTOR_MAX_RPM;
+
 	tim_task_add(&stator->report_task, "report_task motor status",
-		1000, true, false, report_motor_status);
+		10000, true, false, report_motor_status);
 
 	tim_task_add(&stator->pid_task, "pid_task",
 		10, true, false, control_motor);

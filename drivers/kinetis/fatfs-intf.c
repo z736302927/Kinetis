@@ -689,3 +689,109 @@ int fatfs_get_file_mode(char *file_path, char *file_name, mode_t *mode)
 
 	return 0;
 }
+
+/**
+ * @brief Copy a file from source to destination, overwriting if destination exists
+ * @param src_path: Source directory path
+ * @param src_name: Source file name
+ * @param dst_path: Destination directory path
+ * @param dst_name: Destination file name (if NULL, uses src_name)
+ * @return 0 on success, negative error code on failure
+ */
+int fatfs_copy_file(char *src_path, char *src_name,
+	char *dst_path, char *dst_name)
+{
+	FIL src_fp;
+	FIL dst_fp;
+	FRESULT res;
+	char src_buffer[FATFS_BUFFER_SIZE];
+	char dst_buffer[FATFS_BUFFER_SIZE];
+	u8 copy_buf[512];
+	u32 bytes_read;
+	u32 bytes_written;
+	int ret = 0;
+
+	if (!src_name) {
+		pr_err("Invalid parameter: src_name is NULL\n");
+		return -EINVAL;
+	}
+
+	/* Build source full path */
+	ret = fatfs_build_path(src_buffer, sizeof(src_buffer), src_path, src_name);
+	if (ret < 0) {
+		pr_err("Source path too long: %s%s\n", src_path ? src_path : "", src_name);
+		return ret;
+	}
+
+	/* If dst_name is not provided, use source file name */
+	if (!dst_name)
+		dst_name = src_name;
+
+	/* Build destination full path */
+	ret = fatfs_build_path(dst_buffer, sizeof(dst_buffer), dst_path, dst_name);
+	if (ret < 0) {
+		pr_err("Destination path too long: %s%s\n", dst_path ? dst_path : "", dst_name);
+		return ret;
+	}
+
+	/* Open source file for reading */
+	res = f_open(&src_fp, src_buffer, FA_OPEN_EXISTING | FA_READ);
+	if (res != FR_OK) {
+		pr_err("Failed to open source file %s: %d\n", src_buffer, res);
+		return fatfs_error_to_linux_error(res);
+	}
+
+	/* Open destination file for writing (create / overwrite) */
+	res = f_open(&dst_fp, dst_buffer, FA_CREATE_ALWAYS | FA_WRITE);
+	if (res != FR_OK) {
+		pr_err("Failed to open destination file %s: %d\n", dst_buffer, res);
+		f_close(&src_fp);
+		return fatfs_error_to_linux_error(res);
+	}
+
+	/* Copy data in chunks */
+	while (1) {
+		res = f_read(&src_fp, copy_buf, sizeof(copy_buf), (void *)&bytes_read);
+		if (res != FR_OK) {
+			pr_err("Failed to read from %s: %d\n", src_buffer, res);
+			ret = fatfs_error_to_linux_error(res);
+			break;
+		}
+
+		if (bytes_read == 0) {
+			break;  /* End of file */
+		}
+
+		res = f_write(&dst_fp, copy_buf, bytes_read, (void *)&bytes_written);
+		if (res != FR_OK) {
+			pr_err("Failed to write to %s: %d\n", dst_buffer, res);
+			ret = fatfs_error_to_linux_error(res);
+			break;
+		}
+
+		if (bytes_written != bytes_read) {
+			pr_err("Partial write: requested %d bytes, wrote %d bytes\n",
+				bytes_read, bytes_written);
+			ret = -EIO;
+			break;
+		}
+	}
+
+	/* Close destination file */
+	res = f_close(&dst_fp);
+	if (res != FR_OK) {
+		pr_err("Failed to close destination file %s: %d\n", dst_buffer, res);
+		if (ret == 0)
+			ret = fatfs_error_to_linux_error(res);
+	}
+
+	/* Close source file */
+	res = f_close(&src_fp);
+	if (res != FR_OK) {
+		pr_err("Failed to close source file %s: %d\n", src_buffer, res);
+		if (ret == 0)
+			ret = fatfs_error_to_linux_error(res);
+	}
+
+	return ret;
+}

@@ -68,7 +68,7 @@ static void test_packet(struct rtc_task *task)
 	}
 
 	pr_err("[%s] Send %s packet\n",
-		get_rtc_string(&fake_rtc),
+		get_rtc_string(&general_rtc),
 		hydrology_type_string(TEST_REPORT));
 	hydrology_device_process(element_table, 1, HYDROLOGY_M1, TEST_REPORT);
 
@@ -80,21 +80,21 @@ static void test_packet(struct rtc_task *task)
 static void timer_report_packet(struct rtc_task *task)
 {
 	pr_err("[%s] Send %s packet\n",
-		get_rtc_string(&fake_rtc),
+		get_rtc_string(&general_rtc),
 		hydrology_type_string(TIMER_REPORT));
 }
 
 static void add_report_packet(struct rtc_task *task)
 {
 	pr_err("[%s] Send %s packet\n",
-		get_rtc_string(&fake_rtc),
+		get_rtc_string(&general_rtc),
 		hydrology_type_string(ADD_REPORT));
 }
 
 static void hour_packet(struct rtc_task *task)
 {
 	pr_err("[%s] Send %s packet\n",
-		get_rtc_string(&fake_rtc),
+		get_rtc_string(&general_rtc),
 		hydrology_type_string(HOUR_REPORT));
 }
 

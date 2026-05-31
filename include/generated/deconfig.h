@@ -22,6 +22,7 @@
 #define _TIMEZONE_DEFINED 1
 #define _TM_DEFINED 1
 #define NO_OLDNAMES 1
+#define _CTYPE_DEFINED 1
 
 #include <generated/bounds.h>
 #include <generated/compile.h>

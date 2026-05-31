@@ -37,7 +37,7 @@ extern struct rtc_device chip_rtc;
 extern struct rtc_device ds3231_rtc;
 #endif
 
-extern struct rtc_device fake_rtc;
+extern struct rtc_device general_rtc;
 
 static inline char *get_rtc_string(struct rtc_device *dev)
 {

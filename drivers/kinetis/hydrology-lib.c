@@ -30,7 +30,7 @@ void hydrology_get_time(u8 *time)
 {
 	struct tm rtc;
 
-	rtc_calendar_get(&fake_rtc, &rtc, KRTC_FORMAT_BCD);
+	rtc_calendar_get(&general_rtc, &rtc, KRTC_FORMAT_BCD);
 	time[0] = rtc.tm_year;
 	time[1] = rtc.tm_mon;
 	time[2] = rtc.tm_mday;
@@ -50,7 +50,7 @@ void hydrology_set_time(u8 *time)
 	rtc.tm_min = time[4];
 	rtc.tm_sec = time[5];
 	rtc.tm_wday = 0;
-	rtc_calendar_set(&fake_rtc, &rtc, KRTC_FORMAT_BCD);
+	rtc_calendar_set(&general_rtc, &rtc, KRTC_FORMAT_BCD);
 }
 
 extern void link_packet(struct tim_task *task);

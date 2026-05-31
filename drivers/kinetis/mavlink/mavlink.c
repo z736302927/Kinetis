@@ -314,14 +314,11 @@ int mavlink_receive_and_process(struct mavlink_device *mav, u32 timeout_ms)
 			}
 
 			u8 start = (ctrl.target_id == 255) ? 0 : ctrl.target_id;
-			u8 end = (ctrl.target_id == 255)
-				     ? MAVLINK_MOTOR_COUNT
-				     : ctrl.target_id + 1;
+			u8 end = (ctrl.target_id == 255)  ? MAVLINK_MOTOR_COUNT : ctrl.target_id + 1;
 
 			for (u8 idx = start; idx < end; idx++) {
 				mav->motors[idx].target_speed = ctrl.speed;
-				mav->motors[idx].direction =
-					dir_from_wire(ctrl.direction);
+				mav->motors[idx].direction = dir_from_wire(ctrl.direction);
 				mavlink_send_motor_ack(mav, idx, MAV_ACK_OK);
 			}
 			break;
@@ -333,21 +330,6 @@ int mavlink_receive_and_process(struct mavlink_device *mav, u32 timeout_ms)
 			mavlink_msg_motor_status_query_decode(&mav->rx_msg, &query);
 			pr_debug("MOTOR STATUS QUERY motor_id=%d\n",
 				 query.motor_id);
-
-			if (query.motor_id >= MAVLINK_MOTOR_COUNT &&
-			    query.motor_id != 255)
-				break;
-
-			u8 start = (query.motor_id == 255) ? 0 : query.motor_id;
-			u8 end = (query.motor_id == 255)
-				     ? MAVLINK_MOTOR_COUNT
-				     : query.motor_id + 1;
-
-			for (u8 idx = start; idx < end; idx++)
-				mavlink_send_motor_status(mav, idx,
-					mav->motors[idx].current_speed,
-					mav->motors[idx].direction,
-					mav->motors[idx].status);
 			break;
 		}
 
@@ -356,10 +338,8 @@ int mavlink_receive_and_process(struct mavlink_device *mav, u32 timeout_ms)
 
 			mavlink_msg_motor_status_decode(&mav->rx_msg, &st);
 			if (st.motor_id < MAVLINK_MOTOR_COUNT) {
-				mav->motors[st.motor_id].current_speed =
-					st.current_speed;
-				mav->motors[st.motor_id].direction =
-					st.direction;
+				mav->motors[st.motor_id].current_speed = st.current_speed;
+				mav->motors[st.motor_id].direction = st.direction;
 				mav->motors[st.motor_id].status = st.status;
 			}
 			pr_debug("MOTOR STATUS id=%d speed=%d dir=%d status=%d\n",

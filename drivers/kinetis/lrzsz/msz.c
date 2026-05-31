@@ -45,7 +45,7 @@ int lrzsz_sz(struct serial_port *serial, int n_filenames, const char **filenames
 			0,
 			RZSZ_FLAGS_NONE);
 	pr_err("Sent %zu bytes.\n", bytes);
-	return 0;
+	return bytes;
 }
 
 int t_msz_send_specified_file(int argc, char *argv[])

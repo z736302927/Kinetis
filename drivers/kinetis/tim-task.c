@@ -1,4 +1,4 @@
-#include <generated/deconfig.h>
+
 #include <linux/errno.h>
 #include <linux/jiffies.h>
 #include <linux/ktime.h>
@@ -22,12 +22,12 @@ const char *tim_task_decode(struct tim_task *task)
 {
 	static char buf[DBG_BUF_EN];
 	snprintf(buf, DBG_BUF_EN, "task: %s, interval:%u, timeout:%lld, %s",
-		task->name, task->interval,
+		task->name, task->interval_ms,
 		task->timeout, task->auto_load ? "auto_load" : "");
 	return buf;
 }
 
-int tim_task_add(struct tim_task *tim_task, const char *name, u32 interval,
+int tim_task_add(struct tim_task *tim_task, const char *name, u32 interval_ms,
 	bool auto_load, bool sched, tim_task_cb callback)
 {
 	u32 priority_level = 1;
@@ -35,7 +35,7 @@ int tim_task_add(struct tim_task *tim_task, const char *name, u32 interval,
 	if (!tim_task || !callback)
 		return -EINVAL;
 
-	if (interval == 0 || interval > 3600000)
+	if (interval_ms == 0 || interval_ms > 3600000)
 		return -EINVAL;
 
 	if (tim_task_init == false) {
@@ -45,8 +45,8 @@ int tim_task_add(struct tim_task *tim_task, const char *name, u32 interval,
 	}
 
 	tim_task->callback = callback;
-	tim_task->timeout = ktime_to_ms(ktime_get()) + interval;
-	tim_task->interval = interval;
+	tim_task->timeout = ktime_to_ms(ktime_get()) + interval_ms;
+	tim_task->interval_ms = interval_ms;
 	tim_task->auto_load = auto_load;
 	tim_task->sched = sched;
 	tim_task->name = name;
@@ -109,7 +109,7 @@ void tim_task_loop(void)
 				tim_task->execution_count++;
 
 				if (tim_task->auto_load)
-					tim_task->timeout = ktime_to_ms(ktime_get()) + tim_task->interval;
+					tim_task->timeout = ktime_to_ms(ktime_get()) + tim_task->interval_ms;
 				else
 					tim_task_drop(tim_task);
 			}
@@ -150,6 +150,18 @@ int tim_task_set_priority(struct tim_task *tim_task, u32 new_priority)
 	list_del(&tim_task->list);
 	tim_task->priority = new_priority;
 	list_add_tail(&tim_task->list, &priority_heads[new_priority]);
+	return 0;
+}
+
+int tim_task_set_interval(struct tim_task *tim_task, u32 new_interval)
+{
+	if (!tim_task)
+		return -EINVAL;
+
+	if (new_interval == 0 || new_interval > 3600000)
+		return -EINVAL;
+
+	tim_task->interval_ms = new_interval;
 	return 0;
 }
 

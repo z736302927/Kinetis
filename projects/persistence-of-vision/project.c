@@ -5,6 +5,7 @@
 #include <linux/delay.h>
 #include <linux/random.h>
 #include <linux/string.h>
+#include <linux/iopoll.h>
 
 #include <kinetis/tim-task.h>
 #include <kinetis/serial-port.h>
@@ -13,17 +14,19 @@
 #include <kinetis/iic_soft.h>
 #include <kinetis/spi_soft.h>
 #include <kinetis/real-time-clock.h>
+#include <kinetis/basic-timer.h>
 
 #include "../../drivers/kinetis/lrzsz/zmodem.h"
+#include "../../drivers/kinetis/bootloader/bootloader.h"
 #include "../fs/fatfs/ff.h"
 
 #include "project.h"
 #include "rotor.h"
 #include "stator.h"
+#include "interface.h"
 
-#include "../../drivers/kinetis/bootloader/bootloader.h"
+#include "main.h"
 
-#include "gpio.h"
 
 #if KINETIS_FAKE_SIM
 #include <pthread.h>
@@ -212,175 +215,7 @@ static void *phone_thread_func(void *arg)
 	return NULL;
 }
 
-/*********************************************************************
- * Mock flash ops for simulation (project-level; real HW provides its own)
- *********************************************************************/
-static int project_flash_erase(u32 addr, u32 size)
-{
-	memset((void *)addr, 0xFF, size);
-	return 0;
-}
-
-static int project_flash_write(u32 addr, const u8 *data, u32 size)
-{
-	memcpy((void *)addr, data, size);
-	return 0;
-}
-
-static int project_flash_read(u32 addr, u8 *buf, u32 size)
-{
-	memcpy(buf, (const void *)addr, size);
-	return 0;
-}
-
-static struct flash_ops g_project_flash_ops = {
-	.erase  = project_flash_erase,
-	.write  = project_flash_write,
-	.read   = project_flash_read,
-};
 #endif /* KINETIS_FAKE_SIM */
-
-static void scl_low()
-{
-	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
-}
-
-static void scl_high()
-{
-	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_SET);
-}
-
-static void sda_low()
-{
-	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
-}
-
-static void sda_high()
-{
-	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
-}
-
-static void sda_in()
-{
-	GPIO_InitTypeDef gpio = {
-		.Pull = GPIO_PULLUP,
-		.Speed = GPIO_SPEED_FREQ_VERY_HIGH
-	};
-	/*
-	 * It doesn't have to switch direction in
-	 * open drain mode.
-	 */
-	gpio.Pin = GPIO_PIN_9;
-	gpio.Mode = GPIO_MODE_INPUT;
-	HAL_GPIO_Init(GPIOB, &gpio);
-}
-
-static void sda_out()
-{
-	GPIO_InitTypeDef gpio = {
-		.Pull = GPIO_PULLUP,
-		.Speed = GPIO_SPEED_FREQ_VERY_HIGH
-	};
-	/*
-	 * It doesn't have to switch direction in
-	 * open drain mode.
-	 */
-	gpio.Pin = GPIO_PIN_9;
-	gpio.Mode = GPIO_MODE_OUTPUT_OD;
-	HAL_GPIO_Init(GPIOB, &gpio);
-}
-
-static int sda_read()
-{
-	return HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_9);
-}
-
-static int stm32_iic_master_init()
-{
-	GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-	/* GPIO Ports Clock Enable */
-	__HAL_RCC_GPIOB_CLK_ENABLE();
-
-	/*Configure GPIO pin : PF6 */
-	GPIO_InitStruct.Pin = GPIO_PIN_8;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-	GPIO_InitStruct.Pin = GPIO_PIN_9;
-	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_SET);
-	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
-
-	return 0;
-}
-
-static int stm32_iic_master_transmit(u8 slave_addr, u16 reg,
-	u8 *pdata, u8 length)
-{
-// 	HAL_I2C_Mem_Write_DMA(&hi2c1, (u16)slave_addr, reg, I2C_MEMADD_SIZE_8BIT,
-// 		pdata, length);
-	return 0;
-}
-
-static int stm32_iic_master_receive(u8 slave_addr, u16 reg,
-	u8 *pdata, u8 length)
-{
-// 	HAL_I2C_Mem_Read_DMA(&hi2c1, (u16)(slave_addr), reg, I2C_MEMADD_SIZE_8BIT,
-// 		pdata, length);
-	return 0;
-}
-
-struct iic_master general_iic_master = {
-	.init = stm32_iic_master_init,
-	.sda_out = sda_out,
-	.sda_in = sda_in,
-	.sda_high = sda_high,
-	.sda_low = sda_low,
-	.sda_read = sda_read,
-	.scl_high = scl_high,
-	.scl_low = scl_low,
-	.write_bytes = stm32_iic_master_transmit,
-	.read_bytes = stm32_iic_master_receive,
-};
-
-struct spi_master general_spi_master = {
-// 	.cs_low = spi_cs_low,
-// 	.cs_high = spi_cs_high,
-// 	.mosi_low = spi_mosi_low,
-// 	.mosi_high = spi_mosi_high,
-// 	.miso_read = spi_miso_read,
-// 	.sck_low = spi_sck_low,
-// 	.sck_high = spi_sck_high,
-// 	.write_bytes = NULL,
-// 	.read_bytes = NULL,
-// 	.init = spi_master_init,
-};
-
-static void led_hal_set(u8 red, u8 green, u8 blue)
-{
-	if (red == 255) {
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
-	} else if (red == 0) {
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
-	}
-}
-
-struct rtc_device fake_rtc = {
-// 	.backup_reg_write = NULL,
-// 	.backup_reg_read = NULL,
-// 	.calendar_set = NULL,
-// 	.calendar_get = fake_rtc_calendar_get,
-// 	.set_time_format = fake_rtc_set_time_format,
-// 	.get_time_format = fake_rtc_get_time_format,
-};
 
 int board_init(void)
 {
@@ -388,7 +223,7 @@ int board_init(void)
 	pr_info("Platform: %s\n",
 		MCU_PLATFORM_STM32 ? "STM32" : "Simulated");
 
-	return 0;
+	return stm32_hal_init();
 }
 
 int app_main(void)
@@ -404,11 +239,14 @@ int app_main(void)
 #if POV_RUN_MODE == POV_RUN_HOST
 	pr_info("pov: running as rotor (rotating end)\n");
 
-	rotor = pov_rotor_alloc(NULL, NULL, NULL, NULL);
+	rotor = pov_rotor_alloc(&general_flash_ops, &stm32_usart2_ops, &stm32_usart6_ops, hall_read_rotated_time);
 	if (!rotor) {
 		pr_err("pov: failed to allocate rotor\n");
 		return -ENOMEM;
 	}
+	stm32_serial_port[0] = rotor->motor_port;
+	stm32_serial_port[1] = rotor->app_port;
+	hall_dev = rotor->hall;
 
 #if KINETIS_FAKE_SIM
 	stator = pov_stator_alloc(NULL, NULL);
@@ -464,11 +302,13 @@ out:
 #elif POV_RUN_MODE == POV_RUN_SLAVE
 	pr_info("pov: running as stator (fixed end)\n");
 
-	stator = pov_stator_alloc(NULL, NULL);
+	stator = pov_stator_alloc(&stm32_usart2_ops, hall_read_rotated_time);
 	if (!stator) {
 		pr_err("pov: failed to allocate stator\n");
 		return -ENOMEM;
 	}
+	stm32_serial_port[0] = stator->motor_port;
+	hall_dev = stator->hall;
 
 	/* Keep running until shutdown signal */
 	while (1) {

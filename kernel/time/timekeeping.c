@@ -825,13 +825,16 @@ ktime_t ktime_get(void)
 	unsigned int seq;
 	ktime_t base;
 	u64 nsecs;
+	unsigned long flags;
 
 	WARN_ON(timekeeping_suspended);
 
 	do {
+		local_irq_save(flags);
 		seq = read_seqcount_begin(&tk_core.seq);
 		base = tk->tkr_mono.base;
 		nsecs = timekeeping_get_ns(&tk->tkr_mono);
+		local_irq_restore(flags);
 
 	} while (read_seqcount_retry(&tk_core.seq, seq));
 
