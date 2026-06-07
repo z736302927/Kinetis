@@ -27,6 +27,7 @@
 /* USER CODE END FirstSection */
 /* Includes ------------------------------------------------------------------*/
 #include <linux/printk.h>
+#include <linux/iopoll.h>
 
 #include "bsp_driver_sd.h"
 
@@ -47,6 +48,8 @@
   #define SD_CLKCR_CLKDIV             SDMMC_CLKCR_CLKDIV
   #define SD_HAS_CLOCKBYPASS          0
   #define SD_PERIPH_NAME              "SDMMC"
+  #define SD_HANDLE                   hsd1
+  extern SD_HandleTypeDef             hsd1;
 #elif defined(SDIO)
   /* F4: SDIO peripheral, has ClockBypass member */
   #define SD_INSTANCE                 SDIO
@@ -60,11 +63,19 @@
   #define SD_CLKCR_CLKDIV             SDIO_CLKCR_CLKDIV
   #define SD_HAS_CLOCKBYPASS          1
   #define SD_PERIPH_NAME              "SDIO"
+  #define SD_HANDLE                   hsd
+  extern SD_HandleTypeDef             hsd;
 #else
   #error "Neither SDMMC1 nor SDIO peripheral is defined. Check STM32 HAL headers."
 #endif
 
-extern SD_HandleTypeDef hsd1;
+struct transfer_complete_result {
+	volatile u8 tx_done;
+	volatile u8 rx_done;
+	volatile u8 error;
+};
+
+extern struct transfer_complete_result sd_dma_result;
 
 /* --------------------------------------------------------------------------*/
 /* Fixed clock dividers: read 21 MHz, write 12 MHz                          */
@@ -82,6 +93,9 @@ extern SD_HandleTypeDef hsd1;
  */
 #define SD_READ_CLKDIV   5
 #define SD_WRITE_CLKDIV  10
+
+#define SD_DMA_POLL_DELAY_US    1000U
+#define SD_DMA_POLL_TIMEOUT_US  5000000U
 
 /**
  * @brief  Set SDMMC CLKCR divider on-the-fly, preserving bus width.
@@ -147,20 +161,20 @@ __weak uint8_t BSP_SD_Init(void)
    *         Skip re-init to avoid double HAL_SD_MspInit which would
    *         re-configure PLL2 / GPIO / NVIC and corrupt the active card. */
 #if defined(SDMMC1)
-  if (hsd1.State == HAL_SD_STATE_RESET)
+  if (SD_HANDLE.State == HAL_SD_STATE_RESET)
 #endif
   {
-    hsd1.Instance = SD_INSTANCE;
-    hsd1.Init.ClockEdge   = SD_CLOCK_EDGE_RISING;
+    SD_HANDLE.Instance = SD_INSTANCE;
+    SD_HANDLE.Init.ClockEdge   = SD_CLOCK_EDGE_RISING;
 #if SD_HAS_CLOCKBYPASS
-    hsd1.Init.ClockBypass = SDIO_CLOCK_BYPASS_DISABLE;
+    SD_HANDLE.Init.ClockBypass = SDIO_CLOCK_BYPASS_DISABLE;
 #endif
-    hsd1.Init.ClockPowerSave = SD_CLOCK_POWER_SAVE_DISABLE;
-    hsd1.Init.BusWide     = SD_BUS_WIDE_1B;
-    hsd1.Init.HardwareFlowControl = SD_HARDWARE_FLOW_CONTROL_DISABLE;
-    hsd1.Init.ClockDiv    = 0xFF;   /* ~400 kHz safe for all cards */
+    SD_HANDLE.Init.ClockPowerSave = SD_CLOCK_POWER_SAVE_DISABLE;
+    SD_HANDLE.Init.BusWide     = SD_BUS_WIDE_1B;
+    SD_HANDLE.Init.HardwareFlowControl = SD_HARDWARE_FLOW_CONTROL_DISABLE;
+    SD_HANDLE.Init.ClockDiv    = 0xFF;   /* ~400 kHz safe for all cards */
 
-    sd_state = HAL_SD_Init(&hsd1);
+    sd_state = HAL_SD_Init(&SD_HANDLE);
     if (sd_state != MSD_OK)
     {
       return sd_state;
@@ -168,7 +182,7 @@ __weak uint8_t BSP_SD_Init(void)
   }
 
   /* --- Step 2: Read card type from CSD register --- */
-  HAL_SD_GetCardInfo(&hsd1, &card_info);
+  HAL_SD_GetCardInfo(&SD_HANDLE, &card_info);
 
   switch (card_info.CardType)
   {
@@ -196,28 +210,28 @@ __weak uint8_t BSP_SD_Init(void)
   if (card_info.CardType == CARD_SDSC)
   {
     /* SDSC: stay in 1-bit mode, no negotiation needed */
-    hsd1.Init.BusWide = SD_BUS_WIDE_1B;
+    SD_HANDLE.Init.BusWide = SD_BUS_WIDE_1B;
     pr_info("%s: step3 - SDSC -> 1-bit (fixed)", SD_PERIPH_NAME);
   }
   else
   {
     /* SDHC/SDXC: attempt 4-bit with HAL state sanitized */
-    hsd1.ErrorCode = HAL_SD_ERROR_NONE;
-    hsd1.State     = HAL_SD_STATE_READY;
+    SD_HANDLE.ErrorCode = HAL_SD_ERROR_NONE;
+    SD_HANDLE.State     = HAL_SD_STATE_READY;
 
-    if (HAL_SD_ConfigWideBusOperation(&hsd1, SD_BUS_WIDE_4B) == HAL_OK)
+    if (HAL_SD_ConfigWideBusOperation(&SD_HANDLE, SD_BUS_WIDE_4B) == HAL_OK)
     {
-      hsd1.Init.BusWide = SD_BUS_WIDE_4B;
+      SD_HANDLE.Init.BusWide = SD_BUS_WIDE_4B;
       pr_info("%s: step3 - 4-bit OK", SD_PERIPH_NAME);
     }
     else
     {
       /* Force 1-bit: both card (ACMD6(0)) and controller (CLKCR) */
       SD_CLKREG->CLKCR &= ~((uint32_t)0x0000C000UL);
-      hsd1.ErrorCode = HAL_SD_ERROR_NONE;
-      hsd1.State     = HAL_SD_STATE_READY;
-      HAL_SD_ConfigWideBusOperation(&hsd1, SD_BUS_WIDE_1B);
-      hsd1.Init.BusWide = SD_BUS_WIDE_1B;
+      SD_HANDLE.ErrorCode = HAL_SD_ERROR_NONE;
+      SD_HANDLE.State     = HAL_SD_STATE_READY;
+      HAL_SD_ConfigWideBusOperation(&SD_HANDLE, SD_BUS_WIDE_1B);
+      SD_HANDLE.Init.BusWide = SD_BUS_WIDE_1B;
       pr_info("%s: step3 - 4-bit FAIL, forced 1-bit", SD_PERIPH_NAME);
     }
   }
@@ -226,12 +240,12 @@ __weak uint8_t BSP_SD_Init(void)
    * Write-side switches to CLKDIV=10 (12 MHz) per-op in
    * BSP_SD_WriteBlocks.  No auto-probe — fixed dividers only. */
   sd_set_clkdiv(SD_READ_CLKDIV);
-  hsd1.Init.ClockDiv = SD_READ_CLKDIV;
-  hsd1.ErrorCode = HAL_SD_ERROR_NONE;
-  hsd1.State     = HAL_SD_STATE_READY;
+  SD_HANDLE.Init.ClockDiv = SD_READ_CLKDIV;
+  SD_HANDLE.ErrorCode = HAL_SD_ERROR_NONE;
+  SD_HANDLE.State     = HAL_SD_STATE_READY;
 
-  if      (hsd1.Init.BusWide == SD_BUS_WIDE_8B) bus_str = "8-bit";
-  else if (hsd1.Init.BusWide == SD_BUS_WIDE_4B) bus_str = "4-bit";
+  if      (SD_HANDLE.Init.BusWide == SD_BUS_WIDE_8B) bus_str = "8-bit";
+  else if (SD_HANDLE.Init.BusWide == SD_BUS_WIDE_4B) bus_str = "4-bit";
   else                                              bus_str = "1-bit";
   pr_info("%s: init done - rd=%lu MHz (div=%u), wr=%lu MHz (div=%u), bus=%s",
           SD_PERIPH_NAME,
@@ -282,17 +296,29 @@ __weak uint8_t BSP_SD_ReadBlocks(uint32_t *pData, uint32_t ReadAddr, uint32_t Nu
   /* Switch to read clock (21 MHz) before every read.
    * Card is in Transfer state at this point — safe to change CLKCR. */
   sd_set_clkdiv(SD_READ_CLKDIV);
-  hsd1.ErrorCode = HAL_SD_ERROR_NONE;
-  hsd1.State     = HAL_SD_STATE_READY;
+  SD_HANDLE.ErrorCode = HAL_SD_ERROR_NONE;
+  SD_HANDLE.State     = HAL_SD_STATE_READY;
 
-  if (HAL_SD_ReadBlocks(&hsd1, (uint8_t *)pData, ReadAddr, NumOfBlocks, Timeout) != HAL_OK)
+	/* Polling mode: CPU reads SDMMC FIFO directly into DTCM.
+	 * SDMMC IDMA cannot access DTCM on STM32H7, but CPU load/store
+	 * instructions (via AHB bus) can reach both SDMMC registers (APB2)
+	 * and DTCM (Cortex-M7 TCM interface) simultaneously.
+	 * BSP_SD_ReadBlocks switches to 21 MHz read clock internally.
+	 *
+	 * IRQ-disabled: any DMA/UART/Timer IRQ can steal CPU cycles and
+	 * cause RX FIFO overflow (EC=0x20, SDMMC_RXOVERR).  The same
+	 * approach as SD_write: bracket the transfer with IRQ off. */
+	__disable_irq();
+
+  if (HAL_SD_ReadBlocks(&SD_HANDLE, (uint8_t *)pData, ReadAddr, NumOfBlocks, Timeout) != HAL_OK)
   {
     sd_state = MSD_ERROR;
     pr_err("SD read failed: LBA=%lu, cnt=%lu, State=%d, EC=0x%lx",
            (unsigned long)ReadAddr, (unsigned long)NumOfBlocks,
-           (int)hsd1.State, (unsigned long)hsd1.ErrorCode);
+           (int)SD_HANDLE.State, (unsigned long)SD_HANDLE.ErrorCode);
   }
 
+  __enable_irq();
   return sd_state;
 }
 
@@ -316,17 +342,24 @@ __weak uint8_t BSP_SD_WriteBlocks(uint32_t *pData, uint32_t WriteAddr, uint32_t 
    * Lower clock prevents TX_UNDERRUN in IRQ-disabled polling mode
    * (SDMMC TX FIFO fills via CPU stores, slower than RX FIFO drain). */
   sd_set_clkdiv(SD_WRITE_CLKDIV);
-  hsd1.ErrorCode = HAL_SD_ERROR_NONE;
-  hsd1.State     = HAL_SD_STATE_READY;
+  SD_HANDLE.ErrorCode = HAL_SD_ERROR_NONE;
+  SD_HANDLE.State     = HAL_SD_STATE_READY;
 
-  if (HAL_SD_WriteBlocks(&hsd1, (uint8_t *)pData, WriteAddr, NumOfBlocks, Timeout) != HAL_OK)
+	/* IRQ-disabled polling write.  BSP_SD_WriteBlocks switches to
+	 * 12 MHz write clock internally to prevent TX_UNDERRUN.  Any IRQ
+	 * (UART DMA, timers) can still delay TXFIFOHE handling, so we
+	 * disable IRQ for the duration of the transfer. */
+	__disable_irq();
+
+  if (HAL_SD_WriteBlocks(&SD_HANDLE, (uint8_t *)pData, WriteAddr, NumOfBlocks, Timeout) != HAL_OK)
   {
     sd_state = MSD_ERROR;
     pr_err("SD write failed: LBA=%lu, cnt=%lu, State=%d, EC=0x%lx",
            (unsigned long)WriteAddr, (unsigned long)NumOfBlocks,
-           (int)hsd1.State, (unsigned long)hsd1.ErrorCode);
+           (int)SD_HANDLE.State, (unsigned long)SD_HANDLE.ErrorCode);
   }
 
+  __enable_irq();
   return sd_state;
 }
 
@@ -343,10 +376,36 @@ __weak uint8_t BSP_SD_WriteBlocks(uint32_t *pData, uint32_t WriteAddr, uint32_t 
 __weak uint8_t BSP_SD_ReadBlocks_DMA(uint32_t *pData, uint32_t ReadAddr, uint32_t NumOfBlocks)
 {
   uint8_t sd_state = MSD_OK;
+  u32 val;
+  int ret;
+
+  sd_set_clkdiv(SD_READ_CLKDIV);
+  SD_HANDLE.ErrorCode = HAL_SD_ERROR_NONE;
+  SD_HANDLE.State     = HAL_SD_STATE_READY;
+
+  sd_dma_result.rx_done = 0;
+  sd_dma_result.error   = 0;
 
   /* Read block(s) in DMA transfer mode */
-  if (HAL_SD_ReadBlocks_DMA(&hsd1, (uint8_t *)pData, ReadAddr, NumOfBlocks) != HAL_OK)
+  if (HAL_SD_ReadBlocks_DMA(&SD_HANDLE, (uint8_t *)pData, ReadAddr, NumOfBlocks) != HAL_OK)
   {
+    sd_state = MSD_ERROR;
+    pr_err("SD DMA read failed to start: LBA=%lu, cnt=%lu, State=%d, EC=0x%lx",
+           (unsigned long)ReadAddr, (unsigned long)NumOfBlocks,
+           (int)SD_HANDLE.State, (unsigned long)SD_HANDLE.ErrorCode);
+    return sd_state;
+  }
+
+  /* Wait for DMA Rx-complete interrupt (readl provides memory barrier) */
+  ret = readl_poll_timeout(&sd_dma_result.rx_done, val, val || sd_dma_result.error,
+                           SD_DMA_POLL_DELAY_US, SD_DMA_POLL_TIMEOUT_US);
+  if (ret < 0) {
+    sd_state = MSD_ERROR;
+    pr_err("SD DMA read timeout: LBA=%lu, cnt=%lu, State=%d, EC=0x%lx",
+           (unsigned long)ReadAddr, (unsigned long)NumOfBlocks,
+           (int)SD_HANDLE.State, (unsigned long)SD_HANDLE.ErrorCode);
+    HAL_SD_Abort(&SD_HANDLE);
+  } else if (sd_dma_result.error) {
     sd_state = MSD_ERROR;
   }
 
@@ -366,10 +425,37 @@ __weak uint8_t BSP_SD_ReadBlocks_DMA(uint32_t *pData, uint32_t ReadAddr, uint32_
 __weak uint8_t BSP_SD_WriteBlocks_DMA(uint32_t *pData, uint32_t WriteAddr, uint32_t NumOfBlocks)
 {
   uint8_t sd_state = MSD_OK;
+  u32 val;
+  int ret;
+
+  sd_set_clkdiv(SD_WRITE_CLKDIV);
+  SD_HANDLE.ErrorCode = HAL_SD_ERROR_NONE;
+  SD_HANDLE.State     = HAL_SD_STATE_READY;
+
+  sd_dma_result.tx_done = 0;
+  sd_dma_result.error   = 0;
 
   /* Write block(s) in DMA transfer mode */
-  if (HAL_SD_WriteBlocks_DMA(&hsd1, (uint8_t *)pData, WriteAddr, NumOfBlocks) != HAL_OK)
+  if (HAL_SD_WriteBlocks_DMA(&SD_HANDLE, (uint8_t *)pData, WriteAddr, NumOfBlocks) != HAL_OK)
   {
+    sd_state = MSD_ERROR;
+    pr_err("SD DMA write failed to start: LBA=%lu, cnt=%lu, State=%d, EC=0x%lx",
+           (unsigned long)WriteAddr, (unsigned long)NumOfBlocks,
+           (int)SD_HANDLE.State, (unsigned long)SD_HANDLE.ErrorCode);
+    return sd_state;
+  }
+
+  /* Wait for DMA Tx-complete interrupt (readl provides memory barrier) */
+  ret = readl_poll_timeout(&sd_dma_result.tx_done, val,
+                           val || sd_dma_result.error,
+                           SD_DMA_POLL_DELAY_US, SD_DMA_POLL_TIMEOUT_US);
+  if (ret < 0) {
+    sd_state = MSD_ERROR;
+    pr_err("SD DMA write timeout: LBA=%lu, cnt=%lu, State=%d, EC=0x%lx",
+           (unsigned long)WriteAddr, (unsigned long)NumOfBlocks,
+           (int)SD_HANDLE.State, (unsigned long)SD_HANDLE.ErrorCode);
+    HAL_SD_Abort(&SD_HANDLE);
+  } else if (sd_dma_result.error) {
     sd_state = MSD_ERROR;
   }
 
@@ -389,7 +475,7 @@ __weak uint8_t BSP_SD_Erase(uint32_t StartAddr, uint32_t EndAddr)
 {
   uint8_t sd_state = MSD_OK;
 
-  if (HAL_SD_Erase(&hsd1, StartAddr, EndAddr) != HAL_OK)
+  if (HAL_SD_Erase(&SD_HANDLE, StartAddr, EndAddr) != HAL_OK)
   {
     sd_state = MSD_ERROR;
   }
@@ -411,7 +497,7 @@ __weak uint8_t BSP_SD_Erase(uint32_t StartAddr, uint32_t EndAddr)
   */
 __weak uint8_t BSP_SD_GetCardState(void)
 {
-  return ((HAL_SD_GetCardState(&hsd1) == HAL_SD_CARD_TRANSFER ) ? SD_TRANSFER_OK : SD_TRANSFER_BUSY);
+  return ((HAL_SD_GetCardState(&SD_HANDLE) == HAL_SD_CARD_TRANSFER ) ? SD_TRANSFER_OK : SD_TRANSFER_BUSY);
 }
 
 /**
@@ -422,7 +508,7 @@ __weak uint8_t BSP_SD_GetCardState(void)
 __weak void BSP_SD_GetCardInfo(HAL_SD_CardInfoTypeDef *CardInfo)
 {
   /* Get SD card Information */
-  HAL_SD_GetCardInfo(&hsd1, CardInfo);
+  HAL_SD_GetCardInfo(&SD_HANDLE, CardInfo);
 }
 
 /* USER CODE BEGIN BeforeCallBacksSection */
@@ -443,7 +529,7 @@ void HAL_SD_AbortCallback(SD_HandleTypeDef *hsd)
   * @param hsd: SD handle
   * @retval None
   */
-void HAL_SD_TxCpltCallback(SD_HandleTypeDef *hsd)
+__weak void HAL_SD_TxCpltCallback(SD_HandleTypeDef *hsd)
 {
   BSP_SD_WriteCpltCallback();
 }
@@ -453,7 +539,7 @@ void HAL_SD_TxCpltCallback(SD_HandleTypeDef *hsd)
   * @param hsd: SD handle
   * @retval None
   */
-void HAL_SD_RxCpltCallback(SD_HandleTypeDef *hsd)
+__weak void HAL_SD_RxCpltCallback(SD_HandleTypeDef *hsd)
 {
   BSP_SD_ReadCpltCallback();
 }

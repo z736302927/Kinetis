@@ -21,6 +21,23 @@
 #define STATOR_MOTOR_ID      0       /* Single motor ID */
 #define STATOR_HALL_INDEX    0       /* Single hall sensor */
 
+enum pov_stator_state {
+	STATOR_INIT = 0,       /* Hardware initialized, waiting for first heartbeat task run */
+	STATOR_WAIT_ROTOR,     /* Waiting for rotor heartbeat, motor stopped */
+	STATOR_ACTIVE,         /* Normal operation, PID active */
+	STATOR_SAFE_STOP,      /* Rotor heartbeat lost, motor coasts to stop (PWM=0) */
+};
+
+static inline const char *stator_state_name(enum pov_stator_state s)
+{
+	static const char *names[] = {
+		"INIT", "WAIT_ROTOR", "ACTIVE", "SAFE_STOP"
+	};
+	if ((unsigned)s >= sizeof(names) / sizeof(names[0]))
+		return "?";
+	return names[s];
+}
+
 struct pov_stator {
 	struct serial_port *motor_port;
 	struct mavlink_device *mavlink;
@@ -30,7 +47,10 @@ struct pov_stator {
 
 	u32 uptime_s;
 
-	struct tim_task report_task;
+	enum pov_stator_state state;
+	u64 last_rotor_heartbeat_ms;    /* Last time rotor heartbeat received */
+
+	struct tim_task heartbeat_task; /* Periodic heartbeat send + check (1s) */
 	struct tim_task process_cmd_task;
 	struct tim_task pid_task;
 };
@@ -40,19 +60,20 @@ struct pov_stator {
  *
  * Initialization sequence:
  *   1. Serial port init
- *   2. MAVLink init + RX thread start
+ *   2. MAVLink init
  *   3. Motor + simulation thread start
  *   4. Hall sensor init
  *   5. PI controller init
+ *   6. State machine starts at STATOR_INIT → STATOR_WAIT_ROTOR
  *
- * Control loop (10ms period):
- *   - Read target_rpm from mavlink dev->motors[0].target_speed
- *   - Read measured_rpm from hall_get_rpm()
- *   - PI update -> PWM duty
- *   - motor_set_pwm()
- *   - Check stability
- *   - Send motor_status periodically
- *   - Send heartbeat
+ * State machine:
+ *   INIT → WAIT_ROTOR → ACTIVE → SAFE_STOP → WAIT_ROTOR
+ *   PID only runs in ACTIVE; motor stopped in all other states.
+ *
+ * Periodic tasks:
+ *   - heartbeat_task (1s): send heartbeat + check rotor heartbeat timeout
+ *   - process_cmd_task (100ms): receive MAVLink commands
+ *   - pid_task (10ms): PI control (ACTIVE only)
  *
  * @return Pointer to allocated stator instance, or NULL on error
  */

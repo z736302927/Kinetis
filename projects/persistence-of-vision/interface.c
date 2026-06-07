@@ -8,12 +8,12 @@
 #include <kinetis/real-time-clock.h>
 #include <kinetis/basic-timer.h>
 #include <kinetis/serial-port.h>
-
-#include "../../drivers/kinetis/bootloader/bootloader.h"
+#include "kinetis/bootloader.h"
 
 #include "hall.h"
 #include "rotor.h"
 
+#if KINETIS_FAKE_SIM == 0
 #include "main.h"
 #include "gpio.h"
 #include "i2c.h"
@@ -21,6 +21,7 @@
 #include "usart.h"
 #include "rtc.h"
 #include "tim.h"
+#include "sdmmc.h"
 #include "dma.h"
 
 #include "stdio.h"
@@ -277,7 +278,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, u16 Size)
 {
 	if (huart->Instance == huart2.Instance) {
-		stm32_serial_port[0]->producer = Size % SERIAL_PORT_BUFFER_SIZE;
+		stm32_serial_port[1]->producer = Size % SERIAL_PORT_BUFFER_SIZE;
 	}
 }
 
@@ -287,11 +288,33 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 		pr_err("stm32_uart: DMA error 0x%lx, restarting RX\n", huart->ErrorCode);
 		HAL_UART_AbortReceive(&huart2);
 		HAL_UART_Init(&huart2);
-		HAL_UARTEx_ReceiveToIdle_DMA(&huart2, stm32_serial_port[0]->rx_buffer,
+		HAL_UARTEx_ReceiveToIdle_DMA(&huart2, stm32_serial_port[1]->rx_buffer,
 					     SERIAL_PORT_BUFFER_SIZE);
-		__HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_TC);
+		__HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_TC | DMA_IT_HT);
 		// ATOMIC_CLEAR_BIT(huart2.Instance->CR3, USART_CR3_EIE);
 		stm32_uart_result[1].error = 1;
+	}
+}
+
+struct transfer_complete_result sd_dma_result;
+
+void HAL_SD_TxCpltCallback(SD_HandleTypeDef *hsd)
+{
+	if (hsd->Instance == hsd1.Instance)
+		sd_dma_result.tx_done = 1;
+}
+
+void HAL_SD_RxCpltCallback(SD_HandleTypeDef *hsd)
+{
+	if (hsd->Instance == hsd1.Instance)
+		sd_dma_result.rx_done = 1;
+}
+
+void HAL_SD_ErrorCallback(SD_HandleTypeDef *hsd)
+{
+	if (hsd->Instance == hsd1.Instance) {
+		pr_err("sd_dma: DMA error 0x%lx\n", hsd->ErrorCode);
+		sd_dma_result.error = 1;
 	}
 }
 
@@ -315,12 +338,25 @@ int _putc(int ch)
 
 int _puts(char *string, int cnt)
 {
+	u32 val;
+	int ret;
+
 	/* Output cnt characters from string to console */
 	if (!string || cnt <= 0)
 		return 0;
 
-	if (HAL_UART_Transmit(&huart1, (u8 *)string, cnt, 100) != HAL_OK)
-		return 0;
+	stm32_uart_result[0].tx_done = 0;
+	stm32_uart_result[0].error = 0;
+
+	if (HAL_UART_Transmit_DMA(&huart1, (u8 *)string, cnt) != HAL_OK) {
+		stm32_uart_result[0].error = 1;
+		return -1;
+	}
+
+	ret = readl_poll_timeout(&stm32_uart_result[0].tx_done, val,
+				 val || stm32_uart_result[0].error, 100, 100000);
+	if (ret < 0)
+		return -1;
 
 	return cnt;
 }
@@ -543,8 +579,8 @@ struct spi_master general_spi_master = {
 static int usart2_init(struct serial_port *serial)
 {
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart2, serial->rx_buffer, SERIAL_PORT_BUFFER_SIZE);
-	/* CIRCULAR mode: suppress DMA TC interrupt, rely on USART IDLE only */
-	__HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_TC);
+	/* CIRCULAR mode: suppress DMA TC and HT interrupts, rely on USART IDLE only */
+	__HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_TC | DMA_IT_HT);
 
 	return 0;
 }
@@ -604,7 +640,8 @@ static int usart2_config(struct serial_port *serial, u32 baud_rate,
 	huart2.Init.StopBits     = UART_STOPBITS_1;
 	huart2.Init.Parity       = parity_cfg;
 	huart2.Init.Mode         = UART_MODE_TX_RX;
-	huart2.Init.HwFlowCtl    = flow_control ? UART_HWCONTROL_RTS_CTS : UART_HWCONTROL_NONE;
+	/* flow_control: 0=None, 1=XON/XOFF (handled in software), 2=RTS/CTS */
+	huart2.Init.HwFlowCtl    = (flow_control == 2) ? UART_HWCONTROL_RTS_CTS : UART_HWCONTROL_NONE;
 	huart2.Init.OverSampling = UART_OVERSAMPLING_16;
 #if defined(USART_CR1_UE)
 	huart2.Init.ClockPrescaler = UART_PRESCALER_DIV1;
@@ -623,7 +660,7 @@ static int usart2_config(struct serial_port *serial, u32 baud_rate,
 	serial->rx_complete = false;
 
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart2, serial->rx_buffer, SERIAL_PORT_BUFFER_SIZE);
-	__HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_TC);
+	__HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_TC | DMA_IT_HT);
 
 	pr_info("usart2: configured %lu baud, parity=%u\n",
 		(unsigned long)baud_rate, parity);
@@ -665,17 +702,23 @@ static void usart2_set_tx(u8 state)
 	}
 }
 
-struct serial_port_ops stm32_usart2_ops = {
+static void usart2_update_producer(struct serial_port *serial)
+{
+	serial->producer = (SERIAL_PORT_BUFFER_SIZE - __HAL_DMA_GET_COUNTER(&hdma_usart2_rx)) % SERIAL_PORT_BUFFER_SIZE;
+}
+
+struct serial_port_ops usart2_serial_port_ops = {
 	.init			  = usart2_init,
 	.transmit_bytes   = usart2_transmit_bytes,
 	.receive_callback = usart2_receive_cb,
+	.update_producer  = usart2_update_producer,
 	.config           = usart2_config,
 	.irq_disable      = usart2_irq_disable,
 	.irq_enable       = usart2_irq_enable,
 	.set_tx           = usart2_set_tx,
 };
 
-struct serial_port_ops stm32_usart6_ops = {
+struct serial_port_ops usart6_serial_port_ops = {
 	.init			  = usart2_init,
 	.transmit_bytes   = usart2_transmit_bytes,
 	.receive_callback = usart2_receive_cb,
@@ -687,7 +730,7 @@ struct serial_port_ops stm32_usart6_ops = {
 
 #elif POV_RUN_MODE == POV_RUN_SLAVE
 
-struct serial_port_ops stm32_usart2_ops = {
+struct serial_port_ops usart2_serial_port_ops = {
 	.init			  = usart2_init,
 	.transmit_bytes   = usart2_transmit_bytes,
 	.receive_callback = usart2_receive_cb,
@@ -908,6 +951,170 @@ int pov_spi_multi_transmit(struct pov_rotor *rotor)
 	return 0;
 }
 
+int wiced_platform_init(void)
+{
+	pr_info("HAL layer will do initialization\n");
+
+	return 0;
+}
+
+void wiced_platform_deinit(void)
+{
+	HAL_NVIC_DisableIRQ(SDMMC1_IRQn);
+}
+
+void wiced_platform_reset_wifi(void)
+{
+	HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
+	mdelay(10);
+	HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_SET);
+	mdelay(50);  /* Wait for firmware boot */
+	pr_info("wiced: WiFi chip reset\n");
+}
+
+void wiced_platform_power_wifi(u8 on)
+{
+	if (on) {
+		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_SET);
+	} else {
+		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
+	}
+}
+
+int wiced_platform_oob_irq_pending(void)
+{
+	return (__HAL_GPIO_EXTI_GET_IT(GPIO_PIN_5) != RESET);
+}
+
+void wiced_platform_oob_irq_clear(void)
+{
+	__HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_5);
+}
+
+int wiced_sdio_send_command(u8 cmd, u32 arg, u32 *resp)
+{
+	HAL_StatusTypeDef status;
+	SDMMC_CommandInitTypeDef sdcmd = {0};
+
+	sdcmd.Argument         = arg;
+	sdcmd.CmdIndex         = cmd;
+	sdcmd.Response         = SDMMC_RESPONSE_SHORT;
+	sdcmd.WaitForInterrupt = SDMMC_WAIT_NO;
+	sdcmd.CPSM             = SDMMC_CPSM_ENABLE;
+
+	status = HAL_SD_SendCommand(&hsd1, &sdcmd);
+	if (status != HAL_OK)
+		return -EIO;
+
+	if (resp) {
+		/* Read SDMMC response register */
+		*resp = SDMMC1->RESP1;
+	}
+	return 0;
+}
+
+int wiced_sdio_read_data(u8 *buf, u32 len)
+{
+	HAL_StatusTypeDef status;
+
+	status = HAL_SD_ReadBlocks_DMA(&hsd1, (uint8_t *)buf,
+	                                0, len / 512);
+	if (status != HAL_OK)
+		return -EIO;
+	return 0;
+}
+
+int wiced_sdio_write_data(const u8 *buf, u32 len)
+{
+	HAL_StatusTypeDef status;
+
+	status = HAL_SD_WriteBlocks_DMA(&hsd1, (uint8_t *)buf,
+	                                 0, len / 512);
+	if (status != HAL_OK)
+		return -EIO;
+	return 0;
+}
+
+int wiced_sdio_set_block_size(u16 blk_size)
+{
+	(void)blk_size;
+	return 0;
+}
+
+int wiced_sdio_set_bus_width(u8 width)
+{
+	HAL_SD_ConfigWideBusOperation(&hsd1,
+		(width == 4) ? SDMMC_BUS_WIDE_4B : SDMMC_BUS_WIDE_1B);
+	return 0;
+}
+
+int wiced_sdio_set_clock(u32 freq_hz)
+{
+	/*
+	 * SDIO clock is set during HAL_SD_Init().
+	 * Dynamic frequency change requires re-init of
+	 * the SDMMC peripheral — simplified here.
+	 */
+
+	return 0;
+}
+
+void wiced_sdio_enable_irq(int enable)
+{
+	if (enable)
+		HAL_NVIC_EnableIRQ(SDMMC1_IRQn);
+	else
+		HAL_NVIC_DisableIRQ(SDMMC1_IRQn);
+}
+
+void SDMMC1_IRQHandler(void)
+{
+	HAL_SD_IRQHandler(&hsd1);
+}
+
+/*
+ * The WICED platform layer calls these functions which we
+ * either implement above or stub out.
+ */
+
+void host_platform_init(void)           { wiced_platform_init(); }
+void host_platform_deinit(void)         { wiced_platform_deinit(); }
+void host_platform_reset_wifi(void)     { wiced_platform_reset_wifi(); }
+void host_platform_power_wifi(u8 on)    { wiced_platform_power_wifi(on); }
+
+/* Host RTOS time */
+void host_rtos_systick_handler(void)
+{
+	/* Called from SysTick — already handled by basic_timer */
+}
+
+uint32_t host_rtos_get_time(void)
+{
+	/* Returns milliseconds (used by lwIP) */
+	return (uint32_t)(xTaskGetTickCount ? 0 : 0);
+}
+
+/*
+ * Platform OOB IRQ callback — the WWD SDIO driver calls this
+ * to register its ISR handler.  In our setup the IRQ is
+ * directly wired to SDMMC1_IRQHandler().
+ */
+void host_platform_oob_irq_handler(void)
+{
+	/* Handled by SDMMC1_IRQHandler → HAL_SD_IRQHandler */
+}
+
 #elif POV_RUN_MODE == POV_RUN_SLAVE
+
+#endif
+
+#else
+
+void hall_fake_pulse(struct tim_task *task)
+{
+	struct hall_device *hall_dev = container_of(task, struct hall_device, fake_pulse_task);
+
+	hall_hall_isr(hall_dev, task->interval_ms * 1000);
+}
 
 #endif

@@ -793,13 +793,13 @@ int t_mavlink_master_slave_sim(int argc, char *argv[])
 
 	pr_info("Starting MAVLink master-slave simulation test\n");
 
-	master_port = serial_port_alloc(&fake_serial_port_ops, NULL);
+	master_port = serial_port_alloc(&usart1_serial_port_ops, NULL);
 	if (!master_port) {
 		pr_err("Failed to allocate master serial port\n");
 		return -ENOMEM;
 	}
 
-	slave_port = serial_port_alloc(&fake_serial_port_ops, NULL);
+	slave_port = serial_port_alloc(&usart1_serial_port_ops, NULL);
 	if (!slave_port) {
 		pr_err("Failed to allocate slave serial port\n");
 		ret = -ENOMEM;
@@ -874,7 +874,7 @@ int t_mavlink_msg_pack_parse(int argc, char *argv[])
 
 	pr_info("Starting MAVLink message packing/parsing test\n");
 
-	port = serial_port_alloc(&fake_serial_port_ops, NULL);
+	port = serial_port_alloc(&usart1_serial_port_ops, NULL);
 	if (!port) {
 		pr_err("Failed to allocate serial port\n");
 		return -ENOMEM;

@@ -694,74 +694,7 @@ int fake_spi_init(void)
 	return 0;
 }
 
-#else
-
-static int spi_cs_low(void)
-{
-#if MCU_PLATFORM_STM32
-	HAL_GPIO_WritePin(SPI_Soft_Port_CS_1, SPI_Soft_Pin_CS_1, GPIO_PIN_RESET);
-#else
-#endif
-	return 0;
-}
-
-static int spi_cs_high(void)
-{
-#if MCU_PLATFORM_STM32
-	HAL_GPIO_WritePin(SPI_Soft_Port_CS_1, SPI_Soft_Pin_CS_1, GPIO_PIN_SET);
-#else
-#endif
-	return 0;
-}
-
-static int spi_mosi_low(void)
-{
-#if MCU_PLATFORM_STM32
-	HAL_GPIO_WritePin(SPI_Soft_Port_MOSI_1, SPI_Soft_Pin_MOSI_1, GPIO_PIN_RESET);
-#else
-#endif
-	return 0;
-}
-
-static int spi_mosi_high(void)
-{
-#if MCU_PLATFORM_STM32
-	HAL_GPIO_WritePin(SPI_Soft_Port_MOSI_1, SPI_Soft_Pin_MOSI_1, GPIO_PIN_SET);
-#else
-#endif
-	return 0;
-}
-
-static int spi_miso_read(void)
-{
-#if MCU_PLATFORM_STM32
-	return HAL_GPIO_ReadPin(SPI_Soft_Port_MISO_1, SPI_Soft_Pin_MISO_1);
-#else
-	return 0;
-#endif
-}
-
-static int spi_sck_low(void)
-{
-#if MCU_PLATFORM_STM32
-	HAL_GPIO_WritePin(SPI_Soft_Port_SCK_1, SPI_Soft_Pin_SCK_1, GPIO_PIN_RESET);
-#else
-#endif
-	return 0;
-}
-
-static int spi_sck_high(void)
-{
-#if MCU_PLATFORM_STM32
-	HAL_GPIO_WritePin(SPI_Soft_Port_SCK_1, SPI_Soft_Pin_SCK_1, GPIO_PIN_SET);
-#else
-#endif
-	return 0;
-}
-#endif
-
 /* Master instances for both simulation and hardware */
-#ifdef KINETIS_FAKE_SIM
 struct spi_master general_spi_master = {
 	.cs_low = fake_spi_cs_low,
 	.cs_high = fake_spi_cs_high,
@@ -774,9 +707,9 @@ struct spi_master general_spi_master = {
 	.read_bytes = NULL,
 	.init = fake_spi_init,
 };
+#endif
 
 struct spi_slave *fake_spi_device;
-#endif
 
 int t_spi_system_init(int argc, char **argv)
 {

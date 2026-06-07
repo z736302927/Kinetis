@@ -20,8 +20,9 @@
 #include <kinetis/fatfs-intf.h>
 #include <kinetis/mavlink.h>
 #include <kinetis/serial-port.h>
+#include "kinetis/bootloader.h"
+
 #include "../../drivers/kinetis/lrzsz/zmodem.h"
-#include "../../drivers/kinetis/bootloader/bootloader.h"
 
 #include "rotor.h"
 
@@ -32,8 +33,11 @@ static int pov_set_rgb(struct pov_rotor *rotor)
 	/* Wait for previous transfer to complete */
 	int ret;
 
+#if KINETIS_FAKE_SIM
+	ret = 0;
+#else
 	ret = pov_spi_multi_transmit(rotor);
-
+#endif
 	/* Log head/tail of each SPI group for debug */
 	// for (int g = 0; g < POV_SPI_GROUPS; g++) {
 	// 	const u8 *data = (const u8 *)rotor->rgb_strip[g];
@@ -85,6 +89,7 @@ int pov_create_fake_images(const char *path)
 			pr_info("image already exists, skipping: %s\n", fullpath);
 			continue;
 		}
+		ret = 0;
 
 		res = f_open(&fp, fullpath, FA_CREATE_ALWAYS | FA_WRITE);
 		if (res != FR_OK) {
@@ -467,28 +472,42 @@ static int pov_handle_end_of_image(struct pov_rotor *rotor)
 		rotor->pending_column = sizeof(struct pov_image_header);
 		return 0;
 	}
+
+	return 0;
 }
 
 static int waiting_for_motor_connection(struct pov_rotor *rotor)
 {
-	mavlink_system_heartbeat_t payload;
+	u32 old_rx;
+	u64 now;
 
-	if (serial_port_data_available(rotor->motor_mavlink->serial) == 0) {
-		return -ENODEV;
-	}
+	while (1) {
+		now = basic_timer_get_ms();
 
-	mavlink_receive_and_process(rotor->motor_mavlink, 10);
-	mavlink_msg_system_heartbeat_decode(&rotor->motor_mavlink->rx_msg, &payload);
+		if (now - rotor->last_send_heartbeat_ms >= (u64)POV_HEARTBEAT_INTERVAL_MS) {
+			rotor->last_send_heartbeat_ms = now;
+			mavlink_send_heartbeat(rotor->motor_mavlink, MAV_SYS_ACTIVE, 0, 0);
+		}
 
-	if (payload.status == MAV_SYS_ACTIVE) {
-		pr_info("motor connected!\n");
-		set_fsm_state(rotor, POV_STATE_SEND_SPEED);
-		return mavlink_send_heartbeat(rotor->motor_mavlink, MAV_SYS_ACTIVE, 0, 0);
-	}
+		if (serial_port_data_available(rotor->motor_mavlink->serial) == 0) {
+			continue;
+		}
 
-	if (payload.status == MAV_SYS_FAULT) {
-		pr_err("motor in fault state\n");
-		return -EIO;
+		old_rx = rotor->motor_mavlink->rx_count;
+		mavlink_receive_and_process(rotor->motor_mavlink, 10);
+
+		/* Any message from a stator reporting ACTIVE = handshake success */
+		if (rotor->motor_mavlink->rx_count > old_rx) {
+			if (rotor->motor_mavlink->sys_status == MAV_SYS_ACTIVE) {
+				pr_info("motor connected!\n");
+				rotor->last_stator_heartbeat_ms = basic_timer_get_ms();
+				set_fsm_state(rotor, POV_STATE_SEND_SPEED);
+				return 0;
+			} else if (rotor->motor_mavlink->sys_status == MAV_SYS_FAULT) {
+				pr_err("motor in fault state\n");
+				return -EPIPE;
+			}
+		}
 	}
 
 	return -ENODEV;
@@ -558,10 +577,44 @@ static int set_motor_speed(struct pov_rotor *rotor, u16 rpm)
 	return 0;
 }
 
+static int check_stator_heartbeat(struct pov_rotor *rotor)
+{
+	u32 old_rx = rotor->motor_mavlink->rx_count;
+
+	/* Non-blocking poll (0 ms timeout) — only drains bytes already in buffer */
+	if (serial_port_data_available(rotor->motor_port) > 0)
+		mavlink_receive_and_process(rotor->motor_mavlink, 0);
+
+	/* If any new message arrived and stator reports ACTIVE,
+	 * update heartbeat timestamp. Using sys_status is robust
+	 * against batch messages (sys_status persists across all
+	 * messages in the batch). */
+	if (rotor->motor_mavlink->rx_count > old_rx &&
+	    rotor->motor_mavlink->sys_status == MAV_SYS_ACTIVE)
+		rotor->last_stator_heartbeat_ms = basic_timer_get_ms();
+
+	/* Check timeout */
+	if (basic_timer_get_ms() - rotor->last_stator_heartbeat_ms > (u64)POV_HEARTBEAT_INTERVAL_MS) {
+		pr_warn("stator heartbeat timeout (%llu ms)\n",
+			basic_timer_get_ms() - rotor->last_stator_heartbeat_ms);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
 static int display_loop(struct pov_rotor *rotor)
 {
 	u64 t_start, t_end;
 	int ret;
+
+	/* Check stator alive before each image display cycle */
+	ret = check_stator_heartbeat(rotor);
+	if (ret < 0) {
+		pr_err("stator disconnected during display\n");
+		set_fsm_state(rotor, POV_STATE_ERROR);
+		return ret;
+	}
 
 	t_start = basic_timer_get_us();
 
@@ -669,6 +722,12 @@ struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash, struct serial_port_op
 	if (!rotor->hall) {
 		goto free_dev;
 	}
+
+	/* Init heartbeat tracking: assume stator is alive at startup
+	 * (actual connection is established in WAIT_MOTOR handshake) */
+	rotor->last_stator_heartbeat_ms = basic_timer_get_ms();
+	rotor->last_send_heartbeat_ms = basic_timer_get_ms();
+	mavlink_send_heartbeat(rotor->motor_mavlink, MAV_SYS_ACTIVE, 0, 0);
 
 	return rotor;
 
@@ -785,7 +844,7 @@ static void pov_check_phone_cmd(struct pov_rotor *rotor)
 	case MAVLINK_MSG_ID_BOOTLOADER_UPDATE_CMD: {
 		struct bootloader_config bl_cfg;
 
-		pr_info("cmd: bootloader update — cmd=%d size=%u name=%s\n",
+		pr_info("cmd: bootloader update - cmd=%d size=%u name=%s\n",
 			rotor->app_mavlink->bl.command,
 			rotor->app_mavlink->bl.firmware_size,
 			rotor->app_mavlink->bl.filename);
@@ -834,6 +893,7 @@ skip_cmd:
 
 int pov_rotor_display(struct pov_rotor *rotor)
 {
+	u64 now;
 	int ret;
 
 // #if KINETIS_FAKE_SIM
@@ -888,11 +948,19 @@ int pov_rotor_display(struct pov_rotor *rotor)
 
 		case POV_STATE_ERROR:
 			error_occurred(rotor);
-			goto out;
+			break;
 
 		default:
 			rotor->state = POV_STATE_WAIT_MOTOR;
 			break;
+		}
+
+		now = basic_timer_get_ms();
+
+		if (now - rotor->last_send_heartbeat_ms >= (u64)POV_HEARTBEAT_INTERVAL_MS) {
+			rotor->last_send_heartbeat_ms = now;
+			rotor->downtime_s++;
+			mavlink_send_heartbeat(rotor->motor_mavlink, MAV_SYS_ACTIVE, rotor->downtime_s, 0);
 		}
 	}
 

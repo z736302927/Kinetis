@@ -281,7 +281,7 @@ int stm32h7_glue_func(void)
 	struct tm ts;
 	int ret = 0;
 
-//	cm_backtrace_init("CmBacktrace", "V1.0.0", "V0.1.0");
+	cm_backtrace_init("CmBacktrace", "V1.0.0", "V0.1.0");
 
 	/* Initialize CPU masks for uniprocessor system */
 	cpumask_set_cpu(0, &__cpu_possible_mask);

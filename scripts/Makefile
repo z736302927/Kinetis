@@ -1,5 +1,6 @@
-PROJECT ?= persistence-of-vision
+# PROJECT ?= persistence-of-vision
 # PROJECT ?= verification
+PROJECT ?= bootloader
 
 PLATFORM ?= SIMULATION
 
@@ -46,59 +47,6 @@ C_SOURCES += $(wildcard ../kernel/sched/*.c)
 C_SOURCES += $(wildcard ../kernel/time/*.c)
 C_SOURCES += $(wildcard ../kernel/*.c)
 C_SOURCES += $(wildcard ../drivers/base/*.c)
-C_SOURCES += $(wildcard ../drivers/char/random.c)
-C_SOURCES += $(wildcard ../drivers/pinctrl/*.c)
-C_SOURCES += $(wildcard ../drivers/pinctrl/stm32.c)
-C_SOURCES += $(wildcard ../drivers/pinctrl/pinctrl-stm32h743.c)
-C_SOURCES += $(wildcard ../drivers/gpio/gpiolib-devres.c)
-C_SOURCES += $(wildcard ../drivers/gpio/gpiolib-legacy.c)
-C_SOURCES += $(wildcard ../drivers/gpio/gpiolib.c)
-# C_SOURCES += $(wildcard ../drivers/mtd/mtdcore.c)
-# C_SOURCES += $(wildcard ../drivers/mtd/mtdpart.c)
-# C_SOURCES += $(wildcard ../drivers/mtd/spi-nor/spi-nor-core.c)
-# C_SOURCES += $(wildcard ../drivers/mtd/spi-nor/sfdp.c)
-# C_SOURCES += $(wildcard ../drivers/mtd/spi-nor/winbond.c)
-# C_SOURCES += $(wildcard ../drivers/spi/spi-core.c)
-# C_SOURCES += $(wildcard ../drivers/spi/spi-mem.c)
-# C_SOURCES += $(wildcard ../drivers/spi/spi-stm32-qspi.c)
-# C_SOURCES += $(wildcard ../drivers/i2c/i2c-boardinfo.c)
-# C_SOURCES += $(wildcard ../drivers/i2c/i2c-core-base.c)
-# C_SOURCES += $(wildcard ../drivers/i2c/i2c-core-slave.c)
-# C_SOURCES += $(wildcard ../drivers/i2c/i2c-core-smbus.c)
-# C_SOURCES += $(wildcard ../drivers/i2c/i2c-mux.c)
-# C_SOURCES += $(wildcard ../drivers/i2c/algos/i2c-algo-bit.c)
-# C_SOURCES += $(wildcard ../drivers/i2c/mux/i2c-mux-gpio.c)
-# C_SOURCES += $(wildcard ../drivers/i2c/mux/i2c-mux-pinctrl.c)
-# C_SOURCES += $(wildcard ../drivers/i2c/mux/i2c-mux-reg.c)
-# C_SOURCES += $(wildcard ../drivers/i2c/busses/i2c-stm32f4.c)
-# C_SOURCES += $(wildcard ../drivers/misc/eeprom/at24.c)
-# C_SOURCES += $(wildcard ../drivers/iio/humidity/dht11.c)
-# C_SOURCES += $(wildcard ../drivers/iio/imu/inv_mpu6050/inv_mpu_acpi.c)
-# C_SOURCES += $(wildcard ../drivers/iio/imu/inv_mpu6050/inv_mpu_aux.c)
-# C_SOURCES += $(wildcard ../drivers/iio/imu/inv_mpu6050/inv_mpu_core.c)
-# C_SOURCES += $(wildcard ../drivers/iio/imu/inv_mpu6050/inv_mpu_12c.c)
-# C_SOURCES += $(wildcard ../drivers/iio/imu/inv_mpu6050/inv_mpu_magn.c)
-# C_SOURCES += $(wildcard ../drivers/iio/imu/inv_mpu6050/inv_mpu_ring.c)
-# C_SOURCES += $(wildcard ../drivers/iio/imu/inv_mpu6050/inv_mpu_trigger.c)
-# C_SOURCES += $(wildcard ../drivers/iio/imu/bmi160/*.c)
-# C_SOURCES += $(wildcard ../drivers/iio/imu/magnetometer/ak8975.c)
-# C_SOURCES += $(wildcard ../drivers/iio/industrialio-buffer.c)
-# C_SOURCES += $(wildcard ../drivers/iio/industrialio-core.c)
-# C_SOURCES += $(wildcard ../drivers/iio/inkern.c)
-# C_SOURCES += $(wildcard ../drivers/input/keyboard/gpio_keys.c)
-# C_SOURCES += $(wildcard ../drivers/input/keyboard/gpio_keys_polled.c)
-# C_SOURCES += $(wildcard ../drivers/input/misc/gpio-beeper.c)
-# C_SOURCES += $(wildcard ../drivers/input/input.c)
-# C_SOURCES += $(wildcard ../drivers/input/input-poller.c)
-# C_SOURCES += $(wildcard ../drivers/input/ff-core.c)
-# C_SOURCES += $(wildcard ../drivers/input/ff-memless.c)
-# C_SOURCES += $(wildcard ../drivers/input/input-mt.c)
-# C_SOURCES += $(wildcard ../drivers/leds/led-class.c)
-# C_SOURCES += $(wildcard ../drivers/leds/led-class-flash.c)
-# C_SOURCES += $(wildcard ../drivers/leds/led-class-multicolor.c)
-# C_SOURCES += $(wildcard ../drivers/leds/led-core.c)
-# C_SOURCES += $(wildcard ../drivers/leds/led-triggers.c)
-# C_SOURCES += $(wildcard ../drivers/leds/trigger/ledtrig-heartbeat.c)
 C_SOURCES += $(wildcard ../drivers/base/regmap/regmap.c)
 C_SOURCES += $(wildcard ../drivers/base/regmap/regmap-12c.c)
 C_SOURCES += $(wildcard ../drivers/base/regmap/regmap-spl.c)
@@ -106,6 +54,13 @@ C_SOURCES += $(wildcard ../drivers/base/regmap/regcache.c)
 C_SOURCES += $(wildcard ../drivers/base/regmap/regcache-flat.c)
 C_SOURCES += $(wildcard ../drivers/base/regmap/regcache-lzo.c)
 C_SOURCES += $(wildcard ../drivers/base/regmap/regcache-rbtree.c)
+C_SOURCES += $(wildcard ../drivers/char/random.c)
+C_SOURCES += $(wildcard ../drivers/pinctrl/*.c)
+C_SOURCES += $(wildcard ../drivers/pinctrl/stm32.c)
+C_SOURCES += $(wildcard ../drivers/pinctrl/pinctrl-stm32h743.c)
+C_SOURCES += $(wildcard ../drivers/gpio/gpiolib-devres.c)
+C_SOURCES += $(wildcard ../drivers/gpio/gpiolib-legacy.c)
+C_SOURCES += $(wildcard ../drivers/gpio/gpiolib.c)
 C_SOURCES += $(wildcard ../drivers/tty/serdev/*.c)
 C_SOURCES += $(wildcard ../drivers/tty/serial/*.c)
 C_SOURCES += $(wildcard ../drivers/tty/*.c)
@@ -169,17 +124,25 @@ C_SOURCES += $(wildcard ../lib/sha1.c)
 C_SOURCES += $(wildcard ../mm/*.c)
 C_SOURCES += $(wildcard ../fs/*.c)
 C_SOURCES += $(wildcard ../fs/fatfs/*.c)
-C_SOURCES += $(wildcard ../drivers/kinetis/*.c)
-C_SOURCES += $(wildcard ../drivers/kinetis/lrzsz/*.c)
-C_SOURCES += $(wildcard ../drivers/kinetis/mavlink/*.c)
-C_SOURCES += $(wildcard ../drivers/kinetis/bootloader/*.c)
-#C_SOURCES += $(wildcard ../drivers/kinetis/flight/*.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/basic-timer.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/delay.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/memory_allocator.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/random-gene.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/real-time-clock.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/regmap-user-bus.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/rtc-task.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/tim-task.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/serial-port.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/iic_soft.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/spi_soft.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/step-debug.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/trans-speed.c)
 C_SOURCES += $(wildcard ../projects/$(PROJECT)/*.c)
 # Add other necessary source files...
 
 # Exclude unnecessary files
-EXCLUDE_SOURCES += ../drivers/pinctrl/devicetree.c
-EXCLUDE_SOURCES += ../drivers/tty/tty_audit.c
+EXCLUDE_SOURCES += $(wildcard ../drivers/pinctrl/devicetree.c)
+EXCLUDE_SOURCES += $(wildcard ../drivers/tty/tty_audit.c)
 EXCLUDE_SOURCES += $(wildcard ../lib/crc-t10dif.c)
 EXCLUDE_SOURCES += $(wildcard ../lib/crc32test.c)
 EXCLUDE_SOURCES += $(wildcard ../lib/crc64.c)
@@ -187,20 +150,12 @@ EXCLUDE_SOURCES += $(wildcard ../lib/dump_stack.c)
 EXCLUDE_SOURCES += $(wildcard ../lib/libcrc32c.c)
 EXCLUDE_SOURCES += $(wildcard ../lib/list-test.c)
 EXCLUDE_SOURCES += $(wildcard ../lib/rbtree_test.c)
-# EXCLUDE_SOURCES += ../lib/checksum.c
-EXCLUDE_SOURCES += ../arch/arm/lib/csumpartial.c
-EXCLUDE_SOURCES += ../mm/dmapool.c
-# EXCLUDE_SOURCES += $(wildcard ../lib/iov_iter.c)
-# EXCLUDE_SOURCES += $(wildcard ../lib/klist.c)
-# EXCLUDE_SOURCES += $(wildcard ../lib/refcount.c)
-# EXCLUDE_SOURCES += $(wildcard ../lib/strncpy_from_user.c)
-# EXCLUDE_SOURCES += $(wildcard ../lib/strnlen_user.c)
-# EXCLUDE_SOURCES += $(wildcard ../lib/vsprintf.c)
+EXCLUDE_SOURCES += $(wildcard ../arch/arm/lib/csumpartial.c)
+EXCLUDE_SOURCES += $(wildcard ../mm/dmapool.c)
 EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/flight/filter.c)
 EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/flight/fmu_task.c)
 EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/chinese.c)
 EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/kinetis-module-boot.c)
-EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/ustp.c)
 
 C_SOURCES := $(filter-out $(EXCLUDE_SOURCES),$(C_SOURCES))
 
@@ -243,8 +198,6 @@ HEADERS += $(wildcard ../arch/arm/include/uapi/*/*.h)
 HEADERS += $(wildcard ../arch/arm/include/generated/*.h)
 HEADERS += $(wildcard ../arch/arm/include/generated/uapi/*.h)
 
-C_DEFS += -D_POSIX_C_SOURCE=200809L
-
 # Toolchain
 ifdef GCC_PATH
 	CC = $(GCC_PATH)/$(PREFIX)gcc
@@ -274,8 +227,9 @@ C_OBJS = $(patsubst ..%.c,$(BUILD_DIR)/obj%.o,$(filter ..%.c,$(C_SOURCES)))
 C_OBJS += $(patsubst $(CHIP_SRC_DIR)/%.c,$(BUILD_DIR)/obj/chip/%.o,$(filter $(CHIP_SRC_DIR)/%.c,$(C_SOURCES)))
 OBJS = $(C_OBJS)
 
-# Handle assembly sources (startup file)
-S_OBJS = $(patsubst $(CHIP_SRC_DIR)/%.s,$(BUILD_DIR)/obj/chip/%.o,$(S_SOURCES))
+# Handle assembly sources
+S_OBJS = $(patsubst $(CHIP_SRC_DIR)/%.s,$(BUILD_DIR)/obj/chip/%.o,$(filter $(CHIP_SRC_DIR)/%.s,$(S_SOURCES)))
+S_OBJS += $(patsubst ..%.s,$(BUILD_DIR)/obj%.o,$(filter ..%.s,$(S_SOURCES)))
 OBJS += $(S_OBJS)
 
 # Create directory mapping for each source file
@@ -377,6 +331,22 @@ endif
 
 # Assemble CHIP startup file
 $(BUILD_DIR)/obj/chip/%.o: %.s | $(BUILD_DIR)/obj
+ifeq ($(DETECTED_OS),Windows)
+	@if not exist $(subst /,\,$(dir $@)) ( \
+		$(ECHO) "Creating directory: $(dir $@)" && \
+		mkdir $(subst /,\,$(dir $@)) \
+	)
+else
+	@if [ ! -d "$(dir $@)" ]; then \
+		$(ECHO) "Creating directory: $(dir $@)" && \
+		mkdir -p $(dir $@); \
+	fi
+endif
+	@$(ECHO) "Assembling: $< -> $@"
+	@$(CC) -c $(CHIP_ARCH_CFLAGS) $(C_DEFS) $(C_INCLUDES) $(CFLAGS_BASE) $(DEPFLAGS) -o $@ $<
+
+# Assemble project tree .s files (../ prefixed)
+$(BUILD_DIR)/obj/%.o: ../%.s | $(BUILD_DIR)/obj
 ifeq ($(DETECTED_OS),Windows)
 	@if not exist $(subst /,\,$(dir $@)) ( \
 		$(ECHO) "Creating directory: $(dir $@)" && \

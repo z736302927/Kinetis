@@ -64,9 +64,9 @@ static volatile DSTATUS Stat = STA_NOINIT;
 /* Private function prototypes -----------------------------------------------*/
 DSTATUS FAKE_RAM_DISK_initialize(BYTE);
 DSTATUS FAKE_RAM_DISK_status(BYTE);
-DRESULT FAKE_RAM_DISK_read(BYTE, BYTE *, DWORD, UINT);
+DRESULT FAKE_RAM_DISK_read(BYTE, BYTE *, LBA_t, UINT);
 #if _USE_WRITE == 1
-DRESULT FAKE_RAM_DISK_write(BYTE, const BYTE *, DWORD, UINT);
+DRESULT FAKE_RAM_DISK_write(BYTE, const BYTE *, LBA_t, UINT);
 #endif /* _USE_WRITE == 1 */
 #if _USE_IOCTL == 1
 DRESULT FAKE_RAM_DISK_ioctl(BYTE, BYTE, void *);
@@ -119,7 +119,7 @@ DSTATUS FAKE_RAM_DISK_status(BYTE lun)
   * @param  count: Number of sectors to read (1..128)
   * @retval DRESULT: Operation result
   */
-DRESULT FAKE_RAM_DISK_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
+DRESULT FAKE_RAM_DISK_read(BYTE lun, BYTE *buff, LBA_t sector, UINT count)
 {
     uint32_t size = BLOCK_SIZE * count;
     uint8_t *addr = &FAKE_RAM_DEVICE_ADDR[sector * BLOCK_SIZE];
@@ -147,7 +147,7 @@ DRESULT FAKE_RAM_DISK_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
   * @retval DRESULT: Operation result
   */
 #if _USE_WRITE == 1
-DRESULT FAKE_RAM_DISK_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
+DRESULT FAKE_RAM_DISK_write(BYTE lun, const BYTE *buff, LBA_t sector, UINT count)
 {
     uint32_t size = BLOCK_SIZE * count;
     uint8_t *addr = &FAKE_RAM_DEVICE_ADDR[sector * BLOCK_SIZE];

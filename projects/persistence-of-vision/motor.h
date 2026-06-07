@@ -19,11 +19,6 @@ struct motor_controller {
 
 	s32 sim_rpm_fixed;       /* Q8.8 low-pass filter state for RPM simulation */
 	struct tim_task sim_task;
-
-#if KINETIS_FAKE_SIM
-	u8 thread_running;
-	pthread_t thread;
-#endif
 };
 
 int motor_set_pwm(struct motor_controller *motor, u16 duty);

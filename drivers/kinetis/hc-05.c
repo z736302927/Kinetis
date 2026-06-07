@@ -1655,7 +1655,7 @@ struct hc_05_device *hc_05_alloc()
 	device->enapwd = 0;
 	device->initialized = true;
 
-	device->serial = serial_port_alloc(&fake_serial_port_ops, NULL);
+	device->serial = serial_port_alloc(&usart1_serial_port_ops, NULL);
 	if (IS_ERR(device->serial)) {
 		ret = PTR_ERR(device->serial);
 		kfree(device);

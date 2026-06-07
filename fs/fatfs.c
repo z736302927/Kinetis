@@ -61,7 +61,7 @@ int fatfs_init(void)
 			pr_info("No filesystem found, creating FAT filesystem...\n");
 
 			/* Create filesystem */
-			opt.fmt = FM_FAT;      // 或直接指定 FM_FAT16
+			opt.fmt = FM_FAT | FM_SFD;      // 或直接指定 FM_FAT16, 单一分区，适用于SD卡等
 			opt.n_fat = 2;         // 标准配置：两个FAT表
 			opt.align = 0;         // 数据区从紧随FAT表后开始（无特殊对齐）
 			opt.n_root = 512;      // **FAT16特有**：根目录可容纳512个条目

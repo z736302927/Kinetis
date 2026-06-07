@@ -377,6 +377,8 @@ void mem_init_with_config(const mem_region_config *configs, int num_regions)
 // No hardcoded addresses needed — the linker script defines everything.
 // ====================================================================
 
+#ifndef KINETIS_FAKE_SIM
+
 static const char * const _mempool_names[MAX_MEM_REGIONS] = {
 	"POOL0", "POOL1", "POOL2", "POOL3",
 };
@@ -407,6 +409,8 @@ static void _mempool_get_bounds(int idx, u32 *start, u32 *end)
 		break;
 	}
 }
+
+#endif /* !KINETIS_FAKE_SIM */
 
 void mem_init_default(void)
 {
@@ -504,6 +508,8 @@ void *mem_alloc_aligned(u32 size, u32 alignment)
 	void *aligned_ptr;
 	u32 aligned_size;
 	char alloc_size_str[32], used_size_str[32], total_size_str[32];
+	char rused_str[32], rsize_str[32];
+	u32 utilization;
 
 	// Initialize memory manager on first allocation
 	if (!initialized) {
@@ -538,12 +544,17 @@ void *mem_alloc_aligned(u32 size, u32 alignment)
 	for (r = 0; r < g_region_count; r++) {
 		aligned_ptr = try_alloc_in_region(r, size, alignment, aligned_size);
 		if (aligned_ptr != NULL) {
-			mem_format_size(size, alloc_size_str, sizeof(alloc_size_str));
-			mem_format_size(mem_get_used(), used_size_str, sizeof(used_size_str));
-			mem_format_size(mem_get_free(), total_size_str, sizeof(total_size_str));
+			u32 region_used = mem_get_region_used(r);
+			u32 region_size = mem_get_region_size(r);
 
-			pr_debug("allocated %s at %#llx (align: %u, region[%d]: %s)",
-				alloc_size_str, (u64)aligned_ptr, alignment, r, g_regions[r].name);
+			mem_format_size(size, alloc_size_str, sizeof(alloc_size_str));
+			mem_format_size(region_used, rused_str, sizeof(rused_str));
+			mem_format_size(region_size, rsize_str, sizeof(rsize_str));
+			utilization = region_size > 0 ? (region_used * 100) / region_size : 0;
+
+			pr_debug("allocated %s at %#llx (align: %u, region[%d]: %s, used: %s/%s, %u%%)",
+				alloc_size_str, (u64)aligned_ptr, alignment, r, g_regions[r].name,
+				rused_str, rsize_str, utilization);
 
 			return aligned_ptr;
 		}
@@ -585,6 +596,8 @@ void *mem_alloc_aligned_from_region(int region_id, u32 size, u32 alignment)
 	void *aligned_ptr;
 	u32 aligned_size;
 	char alloc_size_str[32];
+	char rused_str[32], rsize_str[32];
+	u32 utilization;
 
 	if (!initialized) {
 		mem_init();
@@ -618,9 +631,16 @@ void *mem_alloc_aligned_from_region(int region_id, u32 size, u32 alignment)
 
 	aligned_ptr = try_alloc_in_region(region_id, size, alignment, aligned_size);
 	if (aligned_ptr) {
+		u32 region_used = mem_get_region_used(region_id);
+		u32 region_size = mem_get_region_size(region_id);
+
 		mem_format_size(size, alloc_size_str, sizeof(alloc_size_str));
-		pr_debug("allocated %s at %#llx (align: %u, region[%d]: %s)",
-			alloc_size_str, (u64)aligned_ptr, alignment, region_id, g_regions[region_id].name);
+		mem_format_size(region_used, rused_str, sizeof(rused_str));
+		mem_format_size(region_size, rsize_str, sizeof(rsize_str));
+		utilization = region_size > 0 ? (region_used * 100) / region_size : 0;
+		pr_debug("allocated %s at %#llx (align: %u, region[%d]: %s, used: %s/%s, %u%%)",
+			alloc_size_str, (u64)aligned_ptr, alignment, region_id, g_regions[region_id].name,
+			rused_str, rsize_str, utilization);
 	}
 
 	return aligned_ptr;

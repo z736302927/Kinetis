@@ -164,20 +164,9 @@ DRESULT SD_read(BYTE lun, BYTE *buff, LBA_t sector, UINT count)
 	DRESULT res = RES_ERROR;
 	uint32_t tmo;
 
-	/* Polling mode: CPU reads SDMMC FIFO directly into DTCM.
-	 * SDMMC IDMA cannot access DTCM on STM32H7, but CPU load/store
-	 * instructions (via AHB bus) can reach both SDMMC registers (APB2)
-	 * and DTCM (Cortex-M7 TCM interface) simultaneously.
-	 * BSP_SD_ReadBlocks switches to 21 MHz read clock internally.
-	 *
-	 * IRQ-disabled: any DMA/UART/Timer IRQ can steal CPU cycles and
-	 * cause RX FIFO overflow (EC=0x20, SDMMC_RXOVERR).  The same
-	 * approach as SD_write: bracket the transfer with IRQ off. */
-	__disable_irq();
-
-	if (BSP_SD_ReadBlocks((uint32_t *)buff,
+	if (BSP_SD_ReadBlocks_DMA((uint32_t *)buff,
 		(uint32_t)(sector),
-		count, SD_TIMEOUT) == MSD_OK) {
+		count) == MSD_OK) {
 		/* wait until the read operation is finished */
 		tmo = SD_RDY_TMO_RD;
 
@@ -186,13 +175,11 @@ DRESULT SD_read(BYTE lun, BYTE *buff, LBA_t sector, UINT count)
 		if (tmo == 0) {
 			pr_err("SD read: card-ready timeout after block transfer, "
 			       "sector=%lu\r\n", sector);
-			__enable_irq();
 			return RES_ERROR;
 		}
 		res = RES_OK;
 	}
 
-	__enable_irq();
 	return res;
 }
 
@@ -214,16 +201,9 @@ DRESULT SD_write(BYTE lun, const BYTE *buff, LBA_t sector, UINT count)
 	DRESULT res = RES_ERROR;
 	uint32_t tmo;
 
-	/* IRQ-disabled polling write.  BSP_SD_WriteBlocks switches to
-	 * 12 MHz write clock internally to prevent TX_UNDERRUN.  Any IRQ
-	 * (UART DMA, timers) can still delay TXFIFOHE handling, so we
-	 * disable IRQ for the duration of the transfer. */
-	__disable_irq();
-
-	if (BSP_SD_WriteBlocks((uint32_t *)buff,
+	if (BSP_SD_WriteBlocks_DMA((uint32_t *)buff,
 		(uint32_t)(sector),
-		count, SD_TIMEOUT) != MSD_OK) {
-		__enable_irq();
+		count) != MSD_OK) {
 		return RES_ERROR;
 	}
 
@@ -235,12 +215,10 @@ DRESULT SD_write(BYTE lun, const BYTE *buff, LBA_t sector, UINT count)
 	if (tmo == 0) {
 		pr_err("SD write: card-ready timeout after block transfer, "
 		       "sector=%lu, count=%u\r\n", sector, (unsigned int)count);
-		__enable_irq();
 		return RES_ERROR;
 	}
 
 	res = RES_OK;
-	__enable_irq();
 
 	return res;
 }

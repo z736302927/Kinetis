@@ -42,9 +42,8 @@
 
 #define POV_MAVLINK_CHAN               MAVLINK_COMM_0
 
-#define POV_HEARTBEAT_INTERVAL_MS      1000
+#define POV_HEARTBEAT_INTERVAL_MS      5000
 #define POV_STATUS_INTERVAL_MS         100
-#define POV_SLAVE_TIMEOUT_MS           3000
 #define POV_CMD_RETRY_INTERVAL_MS      500
 #define POV_CMD_MAX_RETRIES            3
 
@@ -95,5 +94,18 @@
 
 #define SLAVE_SYSID                    2
 #define SLAVE_COMPID                   0
+
+#define WIFI_SSID                     "YOUR_HOME_WIFI"       /* Home WiFi SSID */
+#define WIFI_PASSWORD                 "YOUR_PASSWORD"         /* Home WiFi password */
+#define WIFI_HTTP_PORT                80
+#define WIFI_LOG_HOST                 "192.168.1.100"        /* PC IP for log streaming */
+#define WIFI_LOG_PORT                 8888
+#define WIFI_LOG_BUFFER_SIZE          2048
+#define WIFI_POLL_INTERVAL_MS         50
+
+/* Static IP fallback (when DHCP fails) */
+#define WIFI_STATIC_IP                MAKE_IPV4_ADDRESS(192, 168, 100, 128)
+#define WIFI_STATIC_GW                MAKE_IPV4_ADDRESS(192, 168, 100, 1)
+#define WIFI_STATIC_NETMASK           MAKE_IPV4_ADDRESS(255, 255, 255, 0)
 
 #endif

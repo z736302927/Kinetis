@@ -6,6 +6,7 @@
 #include <linux/random.h>
 #include <linux/string.h>
 #include <linux/iopoll.h>
+#include <fake-mcu/interface.h>
 
 #include <kinetis/tim-task.h>
 #include <kinetis/serial-port.h>
@@ -15,9 +16,9 @@
 #include <kinetis/spi_soft.h>
 #include <kinetis/real-time-clock.h>
 #include <kinetis/basic-timer.h>
+#include "kinetis/bootloader.h"
 
 #include "../../drivers/kinetis/lrzsz/zmodem.h"
-#include "../../drivers/kinetis/bootloader/bootloader.h"
 #include "../fs/fatfs/ff.h"
 
 #include "project.h"
@@ -25,8 +26,9 @@
 #include "stator.h"
 #include "interface.h"
 
+#if KINETIS_FAKE_SIM == 0
 #include "main.h"
-
+#endif
 
 #if KINETIS_FAKE_SIM
 #include <pthread.h>
@@ -56,7 +58,7 @@ static void *phone_thread_func(void *arg)
 	u32 operation;
 	int ret;
 
-	phone_port = serial_port_alloc(&fake_serial_port_ops, "phone");
+	phone_port = serial_port_alloc(&usart1_serial_port_ops, "phone");
 	if (!phone_port) {
 		return NULL;
 	}
@@ -223,7 +225,11 @@ int board_init(void)
 	pr_info("Platform: %s\n",
 		MCU_PLATFORM_STM32 ? "STM32" : "Simulated");
 
+#if KINETIS_FAKE_SIM
+	return 0;
+#else
 	return stm32_hal_init();
+#endif
 }
 
 int app_main(void)
@@ -239,17 +245,59 @@ int app_main(void)
 #if POV_RUN_MODE == POV_RUN_HOST
 	pr_info("pov: running as rotor (rotating end)\n");
 
-	rotor = pov_rotor_alloc(&general_flash_ops, &stm32_usart2_ops, &stm32_usart6_ops, hall_read_rotated_time);
+#if KINETIS_FAKE_SIM == 0
+	rotor = pov_rotor_alloc(&general_flash_ops, &usart2_serial_port_ops, &usart6_serial_port_ops, hall_read_rotated_time);
 	if (!rotor) {
 		pr_err("pov: failed to allocate rotor\n");
 		return -ENOMEM;
 	}
-	stm32_serial_port[0] = rotor->motor_port;
-	stm32_serial_port[1] = rotor->app_port;
+	stm32_serial_port[1] = rotor->motor_port;
+	stm32_serial_port[2] = rotor->app_port;
 	hall_dev = rotor->hall;
 
-#if KINETIS_FAKE_SIM
-	stator = pov_stator_alloc(NULL, NULL);
+// 	/* ── Initialize WiFi (AP6181) ── */
+// 	{
+// 		struct wifi_config wifi_cfg = {
+// 			.ssid          = WIFI_SSID,
+// 			.password      = WIFI_PASSWORD,
+// 			.http_port     = WIFI_HTTP_PORT,
+// 			.log_host      = WIFI_LOG_HOST,
+// 			.log_port      = WIFI_LOG_PORT,
+// 			.use_dhcp      = 1,
+// 		};
+// 		struct wifi_manager_device *wifi;
+// 
+// 		wifi = wifi_manager_init(&wifi_cfg);
+// 		if (wifi) {
+// 			rotor->wifi = wifi;
+// 			pr_info("pov: WiFi manager initialized\n");
+// 
+// 			/* Connect to AP (blocking, ~10-30s) */
+// 			wifi_manager_connect(wifi);
+// 
+// 			/* Create log sender and HTTP server
+// 			 * after WiFi is connected */
+// 			if (wifi_manager_get_state(wifi) ==
+// 			    WIFI_STATE_CONNECTED) {
+// 				/* TODO: wire log_sender and http_server
+// 				 * into wifi_manager device for poll-driven
+// 				 * operation */
+// 				pr_info("pov: WiFi services ready\n");
+// 			}
+// 		} else {
+// 			pr_warn("pov: WiFi init failed, "
+// 				"continuing without WiFi\n");
+// 			rotor->wifi = NULL;
+// 		}
+// 	}
+
+#else
+	rotor = pov_rotor_alloc(&general_flash_ops, &usart1_serial_port_ops, &usart2_serial_port_ops, hall_read_rotated_time);
+	if (!rotor) {
+		pr_err("pov: failed to allocate rotor\n");
+		return -ENOMEM;
+	}
+	stator = pov_stator_alloc(&usart1_serial_port_ops, hall_read_rotated_time);
 	if (!stator) {
 		pr_err("pov: failed to allocate stator\n");
 		pov_rotor_free(rotor);
@@ -270,17 +318,17 @@ int app_main(void)
 		goto out;
 	}
 
-	/* Start phone APP simulation thread */
-	phone_thread_switch = 1;
-	ret = pthread_create(&phone_thread, NULL, phone_thread_func, rotor);
-	if (ret != 0) {
-		phone_thread_switch = 0;
-		pr_err("pov: failed to create phone thread: %d\n", ret);
-		/* Stop timer thread before exit to prevent resource leak */
-		stator_thread_switch = 0;
-		pthread_join(timer_thread, NULL);
-		goto out;
-	}
+// 	/* Start phone APP simulation thread */
+// 	phone_thread_switch = 1;
+// 	ret = pthread_create(&phone_thread, NULL, phone_thread_func, rotor);
+// 	if (ret != 0) {
+// 		phone_thread_switch = 0;
+// 		pr_err("pov: failed to create phone thread: %d\n", ret);
+// 		/* Stop timer thread before exit to prevent resource leak */
+// 		stator_thread_switch = 0;
+// 		pthread_join(timer_thread, NULL);
+// 		goto out;
+// 	}
 	mdelay(1000);
 #endif /* KINETIS_FAKE_SIM */
 
@@ -302,12 +350,12 @@ out:
 #elif POV_RUN_MODE == POV_RUN_SLAVE
 	pr_info("pov: running as stator (fixed end)\n");
 
-	stator = pov_stator_alloc(&stm32_usart2_ops, hall_read_rotated_time);
+	stator = pov_stator_alloc(&usart2_serial_port_ops, hall_read_rotated_time);
 	if (!stator) {
 		pr_err("pov: failed to allocate stator\n");
 		return -ENOMEM;
 	}
-	stm32_serial_port[0] = stator->motor_port;
+	stm32_serial_port[1] = stator->motor_port;
 	hall_dev = stator->hall;
 
 	/* Keep running until shutdown signal */

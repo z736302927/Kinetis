@@ -5,7 +5,13 @@ CHIP_SRC_DIR ?= E:\Code\STM32F407ZGT6
 C_SOURCES += $(wildcard ../arch/arm/mach-stm32/stm32h7.c)
 C_SOURCES += $(wildcard ../fs/fatfs/drivers/sd_diskio.c)
 C_SOURCES += $(wildcard ../fs/fatfs/drivers/bsp_driver_sd.c)
-C_SOURCES += $(wildcard ../drivers/pinctrl/pinctrl-stm32h743.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/fatfs-intf.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/fsm.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/hc-05.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/led.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/mavlink.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/w25qxxx.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/lrzsz/*.c)
 
 # CubeMX core/peripheral sources
 C_SOURCES += $(wildcard $(CHIP_SRC_DIR)/Core/Src/*.c)
@@ -13,14 +19,19 @@ C_SOURCES += $(wildcard $(CHIP_SRC_DIR)/Core/Src/*.c)
 # HAL driver sources (auto-detect via wildcard — no need to list each file)
 C_SOURCES += $(wildcard $(CHIP_SRC_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/*.c)
 
+C_SOURCES += $(wildcard ../drivers/kinetis/CmBacktrace/cm_backtrace/*.c)
+
 # Startup assembly
 S_SOURCES += $(CHIP_SRC_DIR)/startup_stm32f407xx.s
+S_SOURCES += ../drivers/kinetis/CmBacktrace/cm_backtrace/fault_handler/gcc/cmb_fault.s
 
 C_INCLUDES += -I$(CHIP_SRC_DIR)/Core/Inc
 C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/STM32F4xx_HAL_Driver/Inc
 C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/STM32F4xx_HAL_Driver/Inc/Legacy
 C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/CMSIS/Device/ST/STM32F4xx/Include
 C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/CMSIS/Include
+
+C_INCLUDES += -I../drivers/kinetis/CmBacktrace/cm_backtrace
 
 HEADER_DIRS += ../arch/arm/mach-stm32
 
@@ -45,7 +56,9 @@ C_DEFS = \
     -DSTM32F407xx \
     -DUSE_PWR_LDO_SUPPLY \
     -DSTM32_THREAD_SAFE_STRATEGY=2 \
-    -DPOV_RUN_MODE=POV_RUN_SLAVE
+    -DPOV_RUN_MODE=POV_RUN_SLAVE \
+	-DCMB_USER_CFG \
+	-D_POSIX_C_SOURCE=200809L
 
 # Linker configuration
 LDSCRIPT = $(CHIP_SRC_DIR)/STM32F407XX_FLASH.ld

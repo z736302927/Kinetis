@@ -49,6 +49,8 @@ struct pov_rotor {
 
 	u32 angle;
 
+	u32 downtime_s;
+
 	struct mavlink_device *motor_mavlink;     /* ↔ stator (motor control) */
 	struct mavlink_device *app_mavlink; /* ↔ phone  (file transfer, image cmds) */
 	struct hall_device *hall;
@@ -58,6 +60,9 @@ struct pov_rotor {
 	struct serial_port *app_port;    /* ↔ phone  (ZMODEM) */
 
 	struct flash_ops *flash;
+
+	u64 last_stator_heartbeat_ms;    /* Last stator heartbeat timestamp */
+	u64 last_send_heartbeat_ms;      /* Last time we sent a heartbeat (rate-limit) */
 
 	struct rgb_tricolor rgb_strip[POV_SPI_GROUPS][POV_LEDS_PER_GROUP];
 };

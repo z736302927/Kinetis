@@ -137,7 +137,7 @@ struct serial_port *serial_port_alloc(struct serial_port_ops *ops, const char *n
 	serial->rx_complete = false;
 	serial->ops = ops;
 
-	if (serial->ops->init) {
+	if (serial->ops && serial->ops->init) {
 		serial->ops->init(serial);
 	}
 
@@ -340,58 +340,6 @@ static const struct virtual_at_command fake_at_commands[] = {
 	}
 };
 
-static int fake_serial_transmit_bytes(const u8 *data, u16 size)
-{
-	pr_debug("fake tx: %u bytes", size);
-	return 0;
-}
-
-static int fake_serial_receive_bytes(u8 *data, u16 size, u32 timeout_ms)
-{
-	pr_debug("fake rx: request %u bytes, timeout %u ms", size, timeout_ms);
-	return 0;
-}
-
-static void fake_serial_update_producer(struct serial_port *serial)
-{
-	serial->producer = (serial->producer + serial->transmited_size) % SERIAL_PORT_BUFFER_SIZE;
-	pr_debug("fake update producer: prod=%d cons=%d",
-		serial->producer, serial->consumer);
-}
-
-static int fake_serial_config(struct serial_port *serial, u32 baud_rate,
-	u8 parity, u8 data_bits, u8 flow_control)
-{
-	pr_info("fake serial config: baud=%u parity=%u data_bits=%u flow=%u",
-		baud_rate, parity, data_bits, flow_control);
-	return 0;
-}
-
-static void fake_serial_irq_disable(void)
-{
-	pr_debug("fake irq disable");
-}
-
-static void fake_serial_irq_enable(void)
-{
-	pr_debug("fake irq enable");
-}
-
-static void fake_serial_set_tx(u8 state)
-{
-	pr_debug("fake set tx: %s", state ? "high" : "low");
-}
-
-struct serial_port_ops fake_serial_port_ops = {
-	.transmit_bytes  = fake_serial_transmit_bytes,
-	.receive_bytes   = fake_serial_receive_bytes,
-	.update_producer  = fake_serial_update_producer,
-	.config          = fake_serial_config,
-	.irq_disable     = fake_serial_irq_disable,
-	.irq_enable      = fake_serial_irq_enable,
-	.set_tx          = fake_serial_set_tx,
-};
-
 u32 serial_port_callback(char *request, char *response, void *context)
 {
 	struct virtual_at_command *array = context;
@@ -434,7 +382,7 @@ int t_serial_port_interactive(int argc, char **argv)
 	char at_ack[SERIAL_PORT_BUFFER_SIZE];
 	int ret;
 
-	serial = serial_port_alloc(&fake_serial_port_ops, NULL);
+	serial = serial_port_alloc(&usart1_serial_port_ops, NULL);
 	serial_port_start_thread(serial, SERIAL_PORT_DF_SELF, serial_port_callback, fake_at_commands);
 
 	for (int i = 0; i < ARRAY_SIZE(fake_at_commands); i++) {

@@ -2099,13 +2099,13 @@ asmlinkage __visible int printk(const char *fmt, ...)
 	int r;
 	unsigned long flags;
 
-	logbuf_lock_irqsave(flags);
+	raw_spin_lock(&logbuf_lock);
 
 	va_start(args, fmt);
 	r = vprintk_func(fmt, args);
 	va_end(args);
 
-	logbuf_unlock_irqrestore(flags);
+	raw_spin_unlock(&logbuf_lock);
 
 	return r;
 }

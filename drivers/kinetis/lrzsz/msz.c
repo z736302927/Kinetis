@@ -80,7 +80,7 @@ int t_msz_send_specified_file(int argc, char *argv[])
 		return 0;
 	}
 
-	serial = serial_port_alloc(&fake_serial_port_ops, NULL);
+	serial = serial_port_alloc(&usart1_serial_port_ops, NULL);
 	if (IS_ERR(serial)) {
 		ret = PTR_ERR(serial);
 		goto file_err;
@@ -195,12 +195,12 @@ int t_msz_send_random_file(int argc, char *argv[])
 	kfree(file_data);
 	file_data = NULL;
 
-	serial_sz = serial_port_alloc(&fake_serial_port_ops, NULL);
+	serial_sz = serial_port_alloc(&usart1_serial_port_ops, NULL);
 	if (IS_ERR(serial_sz)) {
 		ret = PTR_ERR(serial_sz);
 		goto file_err;
 	}
-	serial_rz = serial_port_alloc(&fake_serial_port_ops, NULL);
+	serial_rz = serial_port_alloc(&usart1_serial_port_ops, NULL);
 	if (IS_ERR(serial_rz)) {
 		ret = PTR_ERR(serial_rz);
 		serial_port_free(serial_sz);

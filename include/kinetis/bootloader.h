@@ -59,10 +59,22 @@ struct bootloader_config {
 struct mavlink_device;
 struct serial_port;
 
+struct bootloader_mem_layout {
+	u8  *rom_base;
+	u32  rom_size;
+	u32  bootloader_size;
+	u32  firmware_max_size;
+	struct {
+		u8  *start;          /* SRAM start (inclusive)           */
+		u8  *end;            /* SRAM end   (exclusive)          */
+	} sram;
+};
+
 struct bootloader_context {
-	u8 *rom_addr;
+	u8 *rom_base;
 	u8 *config_addr;
 	u8 *firmware_addr;
+	struct bootloader_mem_layout layout;
 	struct bootloader_config config;
 
 	struct mavlink_device *app_mavlink;
@@ -74,12 +86,12 @@ struct bootloader_context {
 	u8 retry_count;          /* Number of consecutive ERROR -> WAIT_CMD cycles */
 };
 
-#ifdef KINETIS_FAKE_SIM
+#ifndef ROM_BASE_ADDR
 #define ROM_BASE_ADDR            0x08000000u
-#else
-#define ROM_BASE_ADDR            0x00000000u
 #endif
+#ifndef ROM_TOTAL_SIZE
 #define ROM_TOTAL_SIZE           (1024u * 1024u)
+#endif
 
 #define BOOTLOADER_BASE_ADDR     ROM_BASE_ADDR
 #define BOOTLOADER_SIZE          (64u * 1024u)
@@ -87,8 +99,8 @@ struct bootloader_context {
 #define CONFIG_BASE_ADDR         (BOOTLOADER_BASE_ADDR + BOOTLOADER_SIZE)
 #define CONFIG_SIZE              sizeof(struct bootloader_config)
 
-#define FIRMWARE_BASE_ADDR       (BOOTLOADER_BASE_ADDR + BOOTLOADER_SIZE)
-#define FIRMWARE_MAX_SIZE        (896u * 1024u)
+#define FIRMWARE_BASE_ADDR       (CONFIG_BASE_ADDR + CONFIG_SIZE)
+#define FIRMWARE_MAX_SIZE        (ROM_TOTAL_SIZE - BOOTLOADER_SIZE - CONFIG_SIZE)
 
 /* Magic number for config region validation */
 #define BOOTLOADER_MAGIC         0x4B4C4652u   /* "KLFR" */
@@ -104,14 +116,19 @@ struct bootloader_context {
 
 /**
  * @brief Initialize bootloader context
- * @param config_addr: Pointer to bootloader config region in flash
- * @param ops: Platform operations structure (must not be NULL)
+ * @param layout:   Memory layout descriptor (chip-specific flash/SRAM geometry)
+ * @param chip_ops: Platform chip operations (must not be NULL)
+ * @param flash_ops: Flash read/write/erase operations (must not be NULL)
+ * @param serial_ops: Serial port operations (must not be NULL)
  * @return Bootloader context pointer on success, NULL on failure
+ * @note The layout structure is copied internally; caller can free its copy
+ *       after return.  layout.bootloader_size must be at least large enough
+ *       to hold the bootloader code itself and leave room for the config region.
  */
-struct bootloader_context *bootloader_init(u8 *rom_addr,
-					    struct bootloader_ops *chip_ops,
-						struct flash_ops *flash_ops,
-						struct serial_port_ops *serial_ops);
+struct bootloader_context *bootloader_init(const struct bootloader_mem_layout *layout,
+	struct bootloader_ops *chip_ops,
+	struct flash_ops *flash_ops,
+	struct serial_port_ops *serial_ops);
 
 /**
  * @brief Free bootloader context and all owned resources

@@ -17,7 +17,7 @@ extern "C" {
 #include <pthread.h>
 #endif
 
-#define SERIAL_PORT_BUFFER_SIZE 256
+#define SERIAL_PORT_BUFFER_SIZE 1024
 
 struct virtual_at_command {
 	const char *request;
@@ -90,7 +90,7 @@ int serial_port_data_available(struct serial_port *serial);
 int serial_port_config(struct serial_port *serial, u32 baud_rate, u8 parity, u8 data_bits, u8 flow_control);
 void serial_port_send_break(struct serial_port *serial);
 
-extern struct serial_port_ops fake_serial_port_ops;
+extern struct serial_port_ops usart1_serial_port_ops;
 
 /* The above procedure is modified by the user according to the hardware device, otherwise the driver cannot run. */
 
