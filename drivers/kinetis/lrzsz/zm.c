@@ -757,9 +757,18 @@ zm_get_header(zm_t *zm, u32 *payload)
 	size_t rxpos = 0;
 	char *intro_msg;
 
-	/* Max bytes before start of frame */
-	max_intro_msg_len = zm->zrwindow + zm->baudrate;
-	intro_msg = kcalloc(max_intro_msg_len + 1, sizeof(char), GFP_KERNEL);
+	/* Max bytes before start of frame.
+	 * In eflag==0 mode (default) we never write to intro_msg, so skip
+	 * the wasteful allocation.  zrwindow + baudrate (e.g. 115200+1400)
+	 * is far too large for embedded memory pools.
+	 */
+	if (zm->eflag) {
+		max_intro_msg_len = zm->zrwindow + zm->baudrate / 10;
+		intro_msg = kcalloc(max_intro_msg_len, sizeof(char), GFP_KERNEL);
+	} else {
+		max_intro_msg_len = 0;
+		intro_msg = NULL;
+	}
 	intro_msg_len = 0;
 
 	zm->rxframeind = zm->rxtype = 0;

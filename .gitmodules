@@ -1,3 +1,6 @@
 [submodule "drivers/kinetis/CmBacktrace"]
 	path = drivers/kinetis/CmBacktrace
 	url = https://github.com/z736302927/CmBacktrace.git
+[submodule "drivers/kinetis/kalman-clib"]
+	path = drivers/kinetis/kalman-clib
+	url = https://github.com/z736302927/kalman-clib.git

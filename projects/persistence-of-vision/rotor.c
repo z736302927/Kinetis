@@ -25,6 +25,7 @@
 #include "../../drivers/kinetis/lrzsz/zmodem.h"
 
 #include "rotor.h"
+#include "interface.h"
 
 int pov_spi_multi_transmit(struct pov_rotor *rotor);
 
@@ -62,10 +63,11 @@ int pov_create_fake_images(const char *path)
 	UINT bw;
 	char fullpath[64];
 	u8 *buf = NULL;
-	const char *fake_image_names[FAKE_IMAGE_COUNT] = {
+	const char *fake_image_names[] = {
 		"rainbow.pov",
 		"stars.pov",
 		"checker.pov",
+		"background.pov"
 	};
 	int ret = 0;
 
@@ -80,7 +82,7 @@ int pov_create_fake_images(const char *path)
 		return -ENOMEM;
 	}
 
-	for (int i = 0; i < FAKE_IMAGE_COUNT; i++) {
+	for (int i = 0; i < ARRAY_SIZE(fake_image_names); i++) {
 		snprintf(fullpath, sizeof(fullpath), "%s/%s",
 			path, fake_image_names[i]);
 
@@ -129,7 +131,7 @@ int pov_create_fake_images(const char *path)
 			fullpath, (int)(sizeof(header) + POV_DISPLAY_COLS * POV_BYTES_PER_COL));
 	}
 
-	pr_info("created %d fake images in %s\n", FAKE_IMAGE_COUNT, path);
+	pr_info("created %d fake images in %s\n", ARRAY_SIZE(fake_image_names), path);
 
 out:
 	kfree(buf);
@@ -249,20 +251,22 @@ file_err:
 	return ret;
 }
 
-int pov_read_next_column(struct pov_rotor *pov, u8 *data)
+int pov_read_next_sector(struct pov_rotor *pov)
 {
 	FRESULT res;
 	UINT br;
 
-	res = f_read(&pov->image_file, data, POV_BYTES_PER_COL, &br);
-	if (res != FR_OK || br != POV_BYTES_PER_COL) {
+	res = f_read(&pov->image_file, (u8 *)pov->rgb_strip[pov->prefetch_ping], POV_PREFETCH_BYTES, &br);
+	if (res != FR_OK || br == 0) {
 		if (res == FR_OK && br == 0) {
 			return -ENOENT;    /* End of image */
 		}
-		pr_err("read column failed: %d (got %u)\n", res, br);
+		pr_err("read prefetch batch failed: %d (got %u)\n", res, br);
 		return -EIO;
 	}
 	pov->pending_column += br;
+	pov->prefetch_ping ^= 1;
+	pov->prefetch_sent_index = 0;
 
 	return 0;
 }
@@ -358,6 +362,15 @@ static int display_image(struct pov_rotor *rotor)
 	int ret;
 
 	while (1) {
+		if (rotor->prefetch_sent_index == POV_PREFETCH_COLS || rotor->prefetch_sent_index == 0){
+			ret = pov_read_next_sector(rotor);
+			if (ret == -ENOENT) {
+				break;
+			} else if (ret == -EIO) {
+				return ret;
+			}
+		}
+
 		/* Wait for hall to advance to the next column,
 		 * with timeout to prevent infinite loop on sensor failure */
 		spin_count = 0;
@@ -368,19 +381,13 @@ static int display_image(struct pov_rotor *rotor)
 			}
 		}
 
-		last_angle = hall_get_angle(rotor->hall);
-
-		ret = pov_read_next_column(rotor, (u8 *)rotor->rgb_strip);
-		if (ret == -ENOENT) {
-			break;
-		} else if (ret == -EIO) {
-			return ret;
-		}
-
 		ret = pov_set_rgb(rotor);
 		if (ret < 0) {
 			return ret;
 		}
+		rotor->prefetch_sent_index++;
+
+		last_angle = hall_get_angle(rotor->hall);
 	}
 
 	return 0;
@@ -421,6 +428,8 @@ static int pov_switch_image(struct pov_rotor *rotor, u8 index)
 	rotor->images_open = 1;
 	rotor->pending_column = sizeof(rotor->image_header);
 	rotor->image_current = index;
+	rotor->prefetch_ping = 0;
+	rotor->prefetch_sent_index = 0;
 	pr_info("switched to image [%d]: %s (%d cols)\n",
 		index, rotor->image_names[index],
 		rotor->image_header.columns);
@@ -446,6 +455,8 @@ static int pov_handle_end_of_image(struct pov_rotor *rotor)
 			return -EIO;
 		}
 		rotor->pending_column = sizeof(struct pov_image_header);
+		rotor->prefetch_ping = 0;
+		rotor->prefetch_sent_index = 0;
 		pr_info("replaying current image %s\n", rotor->image_names[rotor->image_current]);
 		return 0;
 
@@ -470,6 +481,8 @@ static int pov_handle_end_of_image(struct pov_rotor *rotor)
 			return -EIO;
 		}
 		rotor->pending_column = sizeof(struct pov_image_header);
+		rotor->prefetch_ping = 0;
+		rotor->prefetch_sent_index = 0;
 		return 0;
 	}
 
@@ -678,16 +691,13 @@ void pov_rotor_free(struct pov_rotor *rotor)
 	kfree(rotor);
 }
 
-struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash, struct serial_port_ops *motor_serial_ops, struct serial_port_ops *app_serial_ops,
+struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash,
+	struct serial_port_ops *motor_serial_ops, struct serial_port_ops *app_serial_ops,
+	struct spi_master *spi,
 	u32(*read_rotated_time)(struct hall_device *dev))
 {
 	struct pov_rotor *rotor;
 	int ret;
-
-	ret = fatfs_init();
-	if (ret) {
-		return NULL;
-	}
 
 	rotor = kzalloc(sizeof(*rotor), GFP_KERNEL);
 	if (!rotor) {
@@ -721,6 +731,17 @@ struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash, struct serial_port_op
 	rotor->hall = hall_alloc_dev(POV_DISPLAY_COLS, read_rotated_time);
 	if (!rotor->hall) {
 		goto free_dev;
+	}
+
+	rotor->w25qxxx = w25qxxx_alloc_device(spi);
+	if (!rotor->w25qxxx) {
+		goto free_dev;
+	}
+	w25qxxx_dev = rotor->w25qxxx;
+
+	ret = fatfs_init();
+	if (ret) {
+		return NULL;
 	}
 
 	/* Init heartbeat tracking: assume stator is alive at startup
@@ -862,8 +883,8 @@ static void pov_check_phone_cmd(struct pov_rotor *rotor)
 			break;
 		}
 
-		if (rotor->flash->erase(CONFIG_BASE_ADDR, sizeof(bl_cfg)) < 0 ||
-		    rotor->flash->write(CONFIG_BASE_ADDR, (const u8 *)&bl_cfg, sizeof(bl_cfg)) < 0) {
+		if (rotor->flash->erase(BL_CONFIG_BASE_ADDR, sizeof(bl_cfg)) < 0 ||
+		    rotor->flash->write(BL_CONFIG_BASE_ADDR, (const u8 *)&bl_cfg, sizeof(bl_cfg)) < 0) {
 			pr_err("Failed to write boot config to flash\n");
 			break;
 		}

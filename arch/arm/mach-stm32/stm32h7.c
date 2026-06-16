@@ -5,7 +5,6 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/spi-mem.h>
 #include <linux/spi/flash.h>
-#include <linux/spi/w25qxxx.h>
 #include <linux/i2c.h>
 #include <linux/errname.h>
 #include <linux/random.h>
@@ -18,6 +17,7 @@
 #include <kinetis/memory_allocator.h>
 #include <kinetis/real-time-clock.h>
 #include <kinetis/basic-timer.h>
+#include <kinetis/w25qxxx.h>
 
 #include "kinetis-core.h"
 

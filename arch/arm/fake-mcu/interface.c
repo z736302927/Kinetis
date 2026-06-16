@@ -173,6 +173,14 @@ static void general_system_reset(void)
 {
 	pr_info("general system reset called (ignored in sim)\n");
 }
+static void general_clear_pending_irqs(void)
+{
+	pr_info("general clear pending irqs called (ignored in sim)\n");
+}
+static void general_enable_irq(void)
+{
+	pr_info("general enable irq called (ignored in sim)\n");
+}
 
 struct flash_ops general_flash_ops = {
 	.erase                = general_flash_erase,
@@ -187,4 +195,6 @@ struct bootloader_ops general_bootloader_ops = {
 	.set_stack_pointer    = general_set_stack_pointer,
 	.redirect_isr_table   = general_redirect_isr_table,
 	.system_reset         = general_system_reset,
+	.clear_pending_irqs   = general_clear_pending_irqs,
+	.enable_irq           = general_enable_irq,
 };

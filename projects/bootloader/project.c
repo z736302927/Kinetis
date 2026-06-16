@@ -49,7 +49,7 @@ int app_main(void)
 	layout.rom_base = _ld_rom_base;
 	layout.rom_size = (u32)&_ld_rom_size;
 	layout.bootloader_size = (u32)&_ld_bootloader_size;
-	layout.firmware_max_size = (u32)&_ld_app_flash_size;
+	layout.firmware_max_size = (u32)&_ld_app_flash_size - BL_CONFIG_SIZE;
 	layout.sram.start = _ld_sram_start;
 	layout.sram.end = _ld_sram_start + (u32)&_ld_sram_size;
 
@@ -58,9 +58,9 @@ int app_main(void)
 	pr_info("  Bootloader:  0x%08x (%u KB)\n",
 		(u32)(u64)layout.rom_base, layout.bootloader_size / 1024);
 	pr_info("  Config area: 0x%08x\n",
-		(u32)(u64)(layout.rom_base + layout.bootloader_size));
+		(u32)(u64)(layout.rom_base + layout.rom_size - sizeof(struct bootloader_config)));
 	pr_info("  Firmware:    0x%08x\n",
-		(u32)(u64)(layout.rom_base + layout.bootloader_size + sizeof(struct bootloader_config)));
+		(u32)(u64)(layout.rom_base + layout.bootloader_size));
 
 	ret = fatfs_init();
 	if (ret) {

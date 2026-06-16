@@ -6,6 +6,7 @@
 #include "kinetis/fatfs.h"
 #include <kinetis/mavlink.h>
 #include <kinetis/led.h>
+#include <kinetis/w25qxxx.h>
 
 #include "../fs/fatfs/ff.h"
 
@@ -61,33 +62,25 @@ struct pov_rotor {
 
 	struct flash_ops *flash;
 
+	struct w25qxxx_device *w25qxxx;
+
 	u64 last_stator_heartbeat_ms;    /* Last stator heartbeat timestamp */
 	u64 last_send_heartbeat_ms;      /* Last time we sent a heartbeat (rate-limit) */
 
-	struct rgb_tricolor rgb_strip[POV_SPI_GROUPS][POV_LEDS_PER_GROUP];
+	struct rgb_tricolor rgb_strip[2][POV_PREFETCH_COLS][POV_SPI_GROUPS][POV_LEDS_PER_GROUP];
+	u8 prefetch_ping;
+	u8 prefetch_sent_index;
 };
 
 int pov_create_fake_images(const char *path);
 
-/**
- * @brief Allocate and initialize rotor device
- * @param flash: Flash operations for persisting bootloader config
- * @return Pointer to rotor instance, or NULL on failure
- */
-struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash, struct serial_port_ops *motor_serial_ops, struct serial_port_ops *app_serial_ops,
+struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash,
+	struct serial_port_ops *motor_serial_ops, struct serial_port_ops *app_serial_ops,
+	struct spi_master *spi,
 	u32(*read_rotated_time)(struct hall_device *dev));
 
-/**
- * @brief Free rotor instance and all owned resources
- * @param rotor: Rotor instance to free (NULL-safe)
- */
 void pov_rotor_free(struct pov_rotor *rotor);
 
-/**
- * @brief Main rotor display loop (state machine)
- * @param rotor: Rotor instance
- * @return 0 on success, negative error code on failure
- */
 int pov_rotor_display(struct pov_rotor *rotor);
 
 #endif

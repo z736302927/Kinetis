@@ -9,6 +9,7 @@
 #include <kinetis/basic-timer.h>
 #include <kinetis/serial-port.h>
 #include "kinetis/bootloader.h"
+#include <kinetis/w25qxxx.h>
 
 #include "hall.h"
 #include "rotor.h"
@@ -21,7 +22,12 @@
 #include "usart.h"
 #include "rtc.h"
 #include "tim.h"
+#if defined(STM32H743xx)
 #include "sdmmc.h"
+#include "quadspi.h"
+#elif defined(STM32F407xx)
+#include "sdio.h"
+#endif
 #include "dma.h"
 
 #include "stdio.h"
@@ -47,7 +53,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     if (htim->Instance == TIM4) {
         xtime_update(1);
     } else if (htim->Instance == TIM5) {
-        basic_timer_isr(1000);
+        basic_timer_isr(1000000);
     }
 }
 
@@ -210,7 +216,12 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
 	}
 }
 
-static struct transfer_complete_result stm32_spi_result[4];
+static struct transfer_complete_result stm32_spi_result[4] = {
+	{ .tx_done = 1, .rx_done = 0, .error = 0 },
+	{ .tx_done = 1, .rx_done = 0, .error = 0 },
+	{ .tx_done = 1, .rx_done = 0, .error = 0 },
+	{ .tx_done = 1, .rx_done = 0, .error = 0 },
+};
 
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
 {
@@ -298,21 +309,27 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 
 struct transfer_complete_result sd_dma_result;
 
+#if defined(STM32H743xx)
+#define SD_INST hsd1.Instance
+#elif defined(STM32F407xx)
+#define SD_INST hsd->Instance
+#endif
+
 void HAL_SD_TxCpltCallback(SD_HandleTypeDef *hsd)
 {
-	if (hsd->Instance == hsd1.Instance)
+	if (hsd->Instance == SD_INST)
 		sd_dma_result.tx_done = 1;
 }
 
 void HAL_SD_RxCpltCallback(SD_HandleTypeDef *hsd)
 {
-	if (hsd->Instance == hsd1.Instance)
+	if (hsd->Instance == SD_INST)
 		sd_dma_result.rx_done = 1;
 }
 
 void HAL_SD_ErrorCallback(SD_HandleTypeDef *hsd)
 {
-	if (hsd->Instance == hsd1.Instance) {
+	if (hsd->Instance == SD_INST) {
 		pr_err("sd_dma: DMA error 0x%lx\n", hsd->ErrorCode);
 		sd_dma_result.error = 1;
 	}
@@ -345,18 +362,18 @@ int _puts(char *string, int cnt)
 	if (!string || cnt <= 0)
 		return 0;
 
-	stm32_uart_result[0].tx_done = 0;
-	stm32_uart_result[0].error = 0;
+// 	stm32_uart_result[0].tx_done = 0;
+// 	stm32_uart_result[0].error = 0;
 
-	if (HAL_UART_Transmit_DMA(&huart1, (u8 *)string, cnt) != HAL_OK) {
+	if (HAL_UART_Transmit(&huart1, (u8 *)string, cnt, 1000) != HAL_OK) {
 		stm32_uart_result[0].error = 1;
 		return -1;
 	}
 
-	ret = readl_poll_timeout(&stm32_uart_result[0].tx_done, val,
-				 val || stm32_uart_result[0].error, 100, 100000);
-	if (ret < 0)
-		return -1;
+// 	ret = readl_poll_timeout(&stm32_uart_result[0].tx_done, val,
+// 				 val || stm32_uart_result[0].error, 100, 100000);
+// 	if (ret < 0)
+// 		return -1;
 
 	return cnt;
 }
@@ -479,89 +496,331 @@ struct iic_master general_iic_master = {
 
 static int spi1_cs_low(void)
 {
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
 	return 0;
 }
 
 static int spi1_cs_high(void)
 {
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
 	return 0;
 }
 
 static int spi1_mosi_low(void)
 {
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOF, GPIO_PIN_8, GPIO_PIN_RESET);
 	return 0;
 }
 
 static int spi1_mosi_high(void)
 {
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_7, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(GPIOF, GPIO_PIN_8, GPIO_PIN_SET);
 	return 0;
 }
 
 static int spi1_miso_read(void)
 {
-	return HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_6) ? 1 : 0;
+	return HAL_GPIO_ReadPin(GPIOF, GPIO_PIN_9) ? 1 : 0;
 }
 
 static int spi1_sck_low(void)
 {
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET);
 	return 0;
 }
 
 static int spi1_sck_high(void)
 {
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET);
 	return 0;
 }
 
 static int spi1_write_bytes(u8 *pdata, u8 length)
 {
-	u32 val;
-	int ret;
-
-	stm32_spi_result[0].tx_done = 0;
-	stm32_spi_result[0].error = 0;
-
-	HAL_SPI_Transmit_DMA(&hspi1, pdata, length);
-
-	ret = readl_poll_timeout(&stm32_spi_result[0].tx_done, val, val || stm32_spi_result[0].error, 100, 100000);
-	if (ret < 0) {
-		HAL_SPI_Abort(&hspi1);
-		pr_err("stm32_spi: write timed out (%u bytes)\n", length);
-		return ret;
-	}
+// 	u32 val;
+// 	int ret;
+// 
+// 	stm32_spi_result[0].tx_done = 0;
+// 	stm32_spi_result[0].error = 0;
+// 
+// 	HAL_SPI_Transmit_DMA(&hspi1, pdata, length);
+// 
+// 	ret = readl_poll_timeout(&stm32_spi_result[0].tx_done, val, val || stm32_spi_result[0].error, 100, 100000);
+// 	if (ret < 0) {
+// 		HAL_SPI_Abort(&hspi1);
+// 		pr_err("stm32_spi: write timed out (%u bytes)\n", length);
+// 		return ret;
+// 	}
 
 	return 0;
 }
 
 static int spi1_read_bytes(u8 *pdata, u8 length)
 {
-	u32 val;
-	int ret;
-
-	stm32_spi_result[0].rx_done = 0;
-	stm32_spi_result[0].error = 0;
-
-	HAL_SPI_Receive_DMA(&hspi1, pdata, length);
-
-	ret = readl_poll_timeout(&stm32_spi_result[0].rx_done, val, val || stm32_spi_result[0].error, 100, 100000);
-	if (ret < 0) {
-		HAL_SPI_Abort(&hspi1);
-		pr_err("stm32_spi: read timed out (%u bytes)\n", length);
-		return ret;
-	}
+// 	u32 val;
+// 	int ret;
+// 
+// 	stm32_spi_result[0].rx_done = 0;
+// 	stm32_spi_result[0].error = 0;
+// 
+// 	HAL_SPI_Receive_DMA(&hspi1, pdata, length);
+// 
+// 	ret = readl_poll_timeout(&stm32_spi_result[0].rx_done, val, val || stm32_spi_result[0].error, 100, 100000);
+// 	if (ret < 0) {
+// 		HAL_SPI_Abort(&hspi1);
+// 		pr_err("stm32_spi: read timed out (%u bytes)\n", length);
+// 		return ret;
+// 	}
 
 	return 0;
+}
+
+static int spi1_write_byte(u8 data)
+{
+// 	u32 val;
+// 	int ret;
+// 
+// 	stm32_spi_result[0].tx_done = 0;
+// 	stm32_spi_result[0].error = 0;
+// 
+// 	HAL_SPI_Transmit_DMA(&hspi1, &data, 1);
+// 
+// 	ret = readl_poll_timeout(&stm32_spi_result[0].tx_done, val, val || stm32_spi_result[0].error, 100, 100000);
+// 	if (ret < 0) {
+// 		HAL_SPI_Abort(&hspi1);
+// 		pr_err("stm32_spi: write timed out (1 bytes)\n");
+// 		return ret;
+// 	}
+
+	return 0;
+}
+
+static u8 spi1_read_byte(void)
+{
+	u8 data;
+// 	u32 val;
+// 	int ret;
+// 
+// 	stm32_spi_result[0].rx_done = 0;
+// 	stm32_spi_result[0].error = 0;
+// 
+// 	HAL_SPI_Receive_DMA(&hspi1, &data, 1);
+// 
+// 	ret = readl_poll_timeout(&stm32_spi_result[0].rx_done, val, val || stm32_spi_result[0].error, 100, 100000);
+// 	if (ret < 0) {
+// 		HAL_SPI_Abort(&hspi1);
+// 		pr_err("stm32_spi: read timed out (1 bytes)\n");
+// 		return 0;
+// 	}
+
+	return data;
+}
+
+static void qspi1_read(struct qspi_request_block *qrb)
+{
+	QSPI_CommandTypeDef qspi_cmd;
+
+	qspi_cmd.Instruction = qrb->instruction;
+	switch (qrb->instruction_mode) {
+	case 0:
+		qspi_cmd.InstructionMode = QSPI_INSTRUCTION_NONE;
+		break;
+	case 1:
+		qspi_cmd.InstructionMode = QSPI_INSTRUCTION_1_LINE;
+		break;
+	case 2:
+		qspi_cmd.InstructionMode = QSPI_INSTRUCTION_2_LINES;
+		break;
+	case 4:
+		qspi_cmd.InstructionMode = QSPI_INSTRUCTION_4_LINES;
+		break;
+	}
+
+	qspi_cmd.Address = qrb->address;
+	switch (qrb->address_size) {
+	case 1:
+		qspi_cmd.AddressSize = QSPI_ADDRESS_8_BITS;
+		break;
+	case 2:
+		qspi_cmd.AddressSize = QSPI_ADDRESS_16_BITS;
+		break;
+	case 3:
+		qspi_cmd.AddressSize = QSPI_ADDRESS_24_BITS;
+		break;
+	case 4:
+		qspi_cmd.AddressSize = QSPI_ADDRESS_32_BITS;
+		break;
+	}
+	switch (qrb->address_mode) {
+	case 0:
+		qspi_cmd.AddressMode = QSPI_ADDRESS_NONE;
+		break;
+	case 1:
+		qspi_cmd.AddressMode = QSPI_ADDRESS_1_LINE;
+		break;
+	case 2:
+		qspi_cmd.AddressMode = QSPI_ADDRESS_2_LINES;
+		break;
+	case 4:
+		qspi_cmd.AddressMode = QSPI_ADDRESS_4_LINES;
+		break;
+	}
+
+// 	qspi_cmd.AlternateBytes    = (cmd == 0xEB) ? 0xA0 : 0;
+// 	qspi_cmd.AlternateBytesSize = (cmd == 0xEB) ? QSPI_ALTERNATE_BYTES_1_LINE : 0;
+// 	qspi_cmd.AlternateByteMode = (cmd == 0xEB) ? QSPI_ALTERNATE_BYTES_1_LINE : 0;
+	qspi_cmd.AlternateBytes = qrb->alternate_bytes;
+	switch (qrb->alternate_bytes_size) {
+	case 0:
+		qspi_cmd.AlternateBytesSize = QSPI_ALTERNATE_BYTES_NONE;
+		break;
+	case 1:
+		qspi_cmd.AlternateBytesSize = QSPI_ALTERNATE_BYTES_1_LINE;
+		break;
+	case 2:
+		qspi_cmd.AlternateBytesSize = QSPI_ALTERNATE_BYTES_2_LINES;
+		break;
+	case 4:
+		qspi_cmd.AlternateBytesSize = QSPI_ALTERNATE_BYTES_4_LINES;
+		break;
+	}
+	qspi_cmd.AlternateByteMode = qrb->alternate_byte_mode;
+
+	switch (qrb->transfer_mode) {
+	case 0:
+		qspi_cmd.DataMode = QSPI_DATA_NONE;
+		break;
+	case 1:
+		qspi_cmd.DataMode = QSPI_DATA_1_LINE;
+		break;
+	case 2:
+		qspi_cmd.DataMode = QSPI_DATA_2_LINES;
+		break;
+	case 4:
+		qspi_cmd.DataMode = QSPI_DATA_4_LINES;
+		break;
+	}
+	qspi_cmd.NbData            = qrb->transfer_length;
+
+	qspi_cmd.SIOOMode          = QSPI_SIOO_INST_EVERY_CMD;
+	qspi_cmd.DdrMode           = qrb->ddr_mode ? QSPI_DDR_MODE_ENABLE : QSPI_DDR_MODE_DISABLE;
+	qspi_cmd.DdrHoldHalfCycle  = QSPI_DDR_HHC_ANALOG_DELAY;
+	qspi_cmd.DummyCycles       = qrb->dummy_cycles;
+
+	HAL_QSPI_Command(&hqspi, &qspi_cmd, HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
+
+	if (qrb->transfer_mode != QSPI_DATA_NONE)
+		HAL_QSPI_Receive(&hqspi, qrb->transfer_buffer, HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
+}
+
+static void qspi1_write(struct qspi_request_block *qrb)
+{
+	QSPI_CommandTypeDef qspi_cmd;
+
+	qspi_cmd.Instruction = qrb->instruction;
+	switch (qrb->instruction_mode) {
+	case 0:
+		qspi_cmd.InstructionMode = QSPI_INSTRUCTION_NONE;
+		break;
+	case 1:
+		qspi_cmd.InstructionMode = QSPI_INSTRUCTION_1_LINE;
+		break;
+	case 2:
+		qspi_cmd.InstructionMode = QSPI_INSTRUCTION_2_LINES;
+		break;
+	case 4:
+		qspi_cmd.InstructionMode = QSPI_INSTRUCTION_4_LINES;
+		break;
+	}
+
+	qspi_cmd.Address = qrb->address;
+	switch (qrb->address_size) {
+	case 1:
+		qspi_cmd.AddressSize = QSPI_ADDRESS_8_BITS;
+		break;
+	case 2:
+		qspi_cmd.AddressSize = QSPI_ADDRESS_16_BITS;
+		break;
+	case 3:
+		qspi_cmd.AddressSize = QSPI_ADDRESS_24_BITS;
+		break;
+	case 4:
+		qspi_cmd.AddressSize = QSPI_ADDRESS_32_BITS;
+		break;
+	}
+	switch (qrb->address_mode) {
+	case 0:
+		qspi_cmd.AddressMode = QSPI_ADDRESS_NONE;
+		break;
+	case 1:
+		qspi_cmd.AddressMode = QSPI_ADDRESS_1_LINE;
+		break;
+	case 2:
+		qspi_cmd.AddressMode = QSPI_ADDRESS_2_LINES;
+		break;
+	case 4:
+		qspi_cmd.AddressMode = QSPI_ADDRESS_4_LINES;
+		break;
+	}
+
+// 	qspi_cmd.AlternateBytes    = (cmd == 0xEB) ? 0xA0 : 0;
+// 	qspi_cmd.AlternateBytesSize = (cmd == 0xEB) ? QSPI_ALTERNATE_BYTES_1_LINE : 0;
+// 	qspi_cmd.AlternateByteMode = (cmd == 0xEB) ? QSPI_ALTERNATE_BYTES_1_LINE : 0;
+	qspi_cmd.AlternateBytes = qrb->alternate_bytes;
+	switch (qrb->alternate_bytes_size) {
+	case 0:
+		qspi_cmd.AlternateBytesSize = QSPI_ALTERNATE_BYTES_NONE;
+		break;
+	case 1:
+		qspi_cmd.AlternateBytesSize = QSPI_ALTERNATE_BYTES_1_LINE;
+		break;
+	case 2:
+		qspi_cmd.AlternateBytesSize = QSPI_ALTERNATE_BYTES_2_LINES;
+		break;
+	case 4:
+		qspi_cmd.AlternateBytesSize = QSPI_ALTERNATE_BYTES_4_LINES;
+		break;
+	}
+	qspi_cmd.AlternateByteMode = qrb->alternate_byte_mode;
+
+	switch (qrb->transfer_mode) {
+	case 0:
+		qspi_cmd.DataMode = QSPI_DATA_NONE;
+		break;
+	case 1:
+		qspi_cmd.DataMode = QSPI_DATA_1_LINE;
+		break;
+	case 2:
+		qspi_cmd.DataMode = QSPI_DATA_2_LINES;
+		break;
+	case 4:
+		qspi_cmd.DataMode = QSPI_DATA_4_LINES;
+		break;
+	}
+	qspi_cmd.NbData            = qrb->transfer_length;
+
+	qspi_cmd.SIOOMode          = QSPI_SIOO_INST_EVERY_CMD;
+	qspi_cmd.DdrMode           = qrb->ddr_mode ? QSPI_DDR_MODE_ENABLE : QSPI_DDR_MODE_DISABLE;
+	qspi_cmd.DdrHoldHalfCycle  = QSPI_DDR_HHC_ANALOG_DELAY;
+	qspi_cmd.DummyCycles       = qrb->dummy_cycles;
+
+	HAL_QSPI_Command(&hqspi, &qspi_cmd, HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
+
+	if (qrb->transfer_mode != QSPI_DATA_NONE)
+		HAL_QSPI_Transmit(&hqspi, qrb->transfer_buffer, HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
+}
+
+static void spi1_set_mode(enum qspi_read_mode mode)
+{
+
 }
 
 static int spi1_master_init(void)
 {
 	return 0;
 }
+
+struct w25qxxx_device *w25qxxx_dev;
 
 struct spi_master general_spi_master = {
 	.cs_low      = spi1_cs_low,
@@ -571,8 +830,13 @@ struct spi_master general_spi_master = {
 	.miso_read   = spi1_miso_read,
 	.sck_low     = spi1_sck_low,
 	.sck_high    = spi1_sck_high,
+	.write_byte  = spi1_write_byte,
+	.read_byte   = spi1_read_byte,
 	.write_bytes = spi1_write_bytes,
 	.read_bytes  = spi1_read_bytes,
+	.qspi_read   = qspi1_read,
+	.qspi_write  = qspi1_write,
+	.set_mode	 = spi1_set_mode,
 	.init        = spi1_master_init,
 };
 
@@ -851,6 +1115,21 @@ static int stm32_flash_read(u64 addr, u8 *buf, u32 size)
 	return 0;
 }
 
+static void stm32_clear_pending_irqs(void)
+{
+	/* Disable and clear ALL NVIC interrupts — no pending IRQ may
+	 * fire during the transition using the newly assigned VTOR. */
+	for (int i = 0; i < 8; i++) {
+		NVIC->ICER[i] = 0xFFFFFFFF;
+		NVIC->ICPR[i] = 0xFFFFFFFF;
+	}
+}
+
+static void stm32_enable_irq(void)
+{
+	__enable_irq();
+}
+
 static void stm32_disable_irq(void)
 {
 	__disable_irq();
@@ -897,6 +1176,8 @@ struct flash_ops general_flash_ops = {
 };
 
 struct bootloader_ops general_bl_ops = {
+	.clear_pending_irqs  = stm32_clear_pending_irqs,
+	.enable_irq          = stm32_enable_irq,
 	.disable_irq          = stm32_disable_irq,
 	.cleanup_hw_resource  = stm32_cleanup_hw_resource,
 	.disable_cache        = stm32_disable_cache,
@@ -930,6 +1211,8 @@ int pov_spi_multi_wait_complete(u32 timeout_us)
 
 int pov_spi_multi_transmit(struct pov_rotor *rotor)
 {
+	u8 pong;
+
 	if (pov_spi_multi_wait_complete(1000) != 0)
 		return -ETIMEDOUT;
 
@@ -943,165 +1226,13 @@ int pov_spi_multi_transmit(struct pov_rotor *rotor)
 		stm32_spi_result[i].error = 0;
 	}
 
-	HAL_SPI_Transmit_DMA(&hspi1, (u8 *)rotor->rgb_strip[0], POV_BYTES_PER_GROUP);
-	HAL_SPI_Transmit_DMA(&hspi2, (u8 *)rotor->rgb_strip[1], POV_BYTES_PER_GROUP);
-	HAL_SPI_Transmit_DMA(&hspi3, (u8 *)rotor->rgb_strip[2], POV_BYTES_PER_GROUP);
-	HAL_SPI_Transmit_DMA(&hspi4, (u8 *)rotor->rgb_strip[3], POV_BYTES_PER_GROUP);
+	pong = rotor->prefetch_ping ^ 1;
+	HAL_SPI_Transmit_DMA(&hspi1, (u8 *)rotor->rgb_strip[pong][rotor->prefetch_sent_index][0], POV_BYTES_PER_GROUP);
+	HAL_SPI_Transmit_DMA(&hspi2, (u8 *)rotor->rgb_strip[pong][rotor->prefetch_sent_index][1], POV_BYTES_PER_GROUP);
+	HAL_SPI_Transmit_DMA(&hspi3, (u8 *)rotor->rgb_strip[pong][rotor->prefetch_sent_index][2], POV_BYTES_PER_GROUP);
+	HAL_SPI_Transmit_DMA(&hspi4, (u8 *)rotor->rgb_strip[pong][rotor->prefetch_sent_index][3], POV_BYTES_PER_GROUP);
 
 	return 0;
-}
-
-int wiced_platform_init(void)
-{
-	pr_info("HAL layer will do initialization\n");
-
-	return 0;
-}
-
-void wiced_platform_deinit(void)
-{
-	HAL_NVIC_DisableIRQ(SDMMC1_IRQn);
-}
-
-void wiced_platform_reset_wifi(void)
-{
-	HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
-	mdelay(10);
-	HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_SET);
-	mdelay(50);  /* Wait for firmware boot */
-	pr_info("wiced: WiFi chip reset\n");
-}
-
-void wiced_platform_power_wifi(u8 on)
-{
-	if (on) {
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_SET);
-	} else {
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
-	}
-}
-
-int wiced_platform_oob_irq_pending(void)
-{
-	return (__HAL_GPIO_EXTI_GET_IT(GPIO_PIN_5) != RESET);
-}
-
-void wiced_platform_oob_irq_clear(void)
-{
-	__HAL_GPIO_EXTI_CLEAR_IT(GPIO_PIN_5);
-}
-
-int wiced_sdio_send_command(u8 cmd, u32 arg, u32 *resp)
-{
-	HAL_StatusTypeDef status;
-	SDMMC_CommandInitTypeDef sdcmd = {0};
-
-	sdcmd.Argument         = arg;
-	sdcmd.CmdIndex         = cmd;
-	sdcmd.Response         = SDMMC_RESPONSE_SHORT;
-	sdcmd.WaitForInterrupt = SDMMC_WAIT_NO;
-	sdcmd.CPSM             = SDMMC_CPSM_ENABLE;
-
-	status = HAL_SD_SendCommand(&hsd1, &sdcmd);
-	if (status != HAL_OK)
-		return -EIO;
-
-	if (resp) {
-		/* Read SDMMC response register */
-		*resp = SDMMC1->RESP1;
-	}
-	return 0;
-}
-
-int wiced_sdio_read_data(u8 *buf, u32 len)
-{
-	HAL_StatusTypeDef status;
-
-	status = HAL_SD_ReadBlocks_DMA(&hsd1, (uint8_t *)buf,
-	                                0, len / 512);
-	if (status != HAL_OK)
-		return -EIO;
-	return 0;
-}
-
-int wiced_sdio_write_data(const u8 *buf, u32 len)
-{
-	HAL_StatusTypeDef status;
-
-	status = HAL_SD_WriteBlocks_DMA(&hsd1, (uint8_t *)buf,
-	                                 0, len / 512);
-	if (status != HAL_OK)
-		return -EIO;
-	return 0;
-}
-
-int wiced_sdio_set_block_size(u16 blk_size)
-{
-	(void)blk_size;
-	return 0;
-}
-
-int wiced_sdio_set_bus_width(u8 width)
-{
-	HAL_SD_ConfigWideBusOperation(&hsd1,
-		(width == 4) ? SDMMC_BUS_WIDE_4B : SDMMC_BUS_WIDE_1B);
-	return 0;
-}
-
-int wiced_sdio_set_clock(u32 freq_hz)
-{
-	/*
-	 * SDIO clock is set during HAL_SD_Init().
-	 * Dynamic frequency change requires re-init of
-	 * the SDMMC peripheral — simplified here.
-	 */
-
-	return 0;
-}
-
-void wiced_sdio_enable_irq(int enable)
-{
-	if (enable)
-		HAL_NVIC_EnableIRQ(SDMMC1_IRQn);
-	else
-		HAL_NVIC_DisableIRQ(SDMMC1_IRQn);
-}
-
-void SDMMC1_IRQHandler(void)
-{
-	HAL_SD_IRQHandler(&hsd1);
-}
-
-/*
- * The WICED platform layer calls these functions which we
- * either implement above or stub out.
- */
-
-void host_platform_init(void)           { wiced_platform_init(); }
-void host_platform_deinit(void)         { wiced_platform_deinit(); }
-void host_platform_reset_wifi(void)     { wiced_platform_reset_wifi(); }
-void host_platform_power_wifi(u8 on)    { wiced_platform_power_wifi(on); }
-
-/* Host RTOS time */
-void host_rtos_systick_handler(void)
-{
-	/* Called from SysTick — already handled by basic_timer */
-}
-
-uint32_t host_rtos_get_time(void)
-{
-	/* Returns milliseconds (used by lwIP) */
-	return (uint32_t)(xTaskGetTickCount ? 0 : 0);
-}
-
-/*
- * Platform OOB IRQ callback — the WWD SDIO driver calls this
- * to register its ISR handler.  In our setup the IRQ is
- * directly wired to SDMMC1_IRQHandler().
- */
-void host_platform_oob_irq_handler(void)
-{
-	/* Handled by SDMMC1_IRQHandler → HAL_SD_IRQHandler */
 }
 
 #elif POV_RUN_MODE == POV_RUN_SLAVE

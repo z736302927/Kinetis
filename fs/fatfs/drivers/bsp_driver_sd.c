@@ -45,6 +45,7 @@
   #define SD_BUS_WIDE_4B              SDMMC_BUS_WIDE_4B
   #define SD_BUS_WIDE_8B              SDMMC_BUS_WIDE_8B
   #define SD_HARDWARE_FLOW_CONTROL_DISABLE SDMMC_HARDWARE_FLOW_CONTROL_DISABLE
+  #define SD_HARDWARE_FLOW_CONTROL_ENABLE  SDMMC_HARDWARE_FLOW_CONTROL_ENABLE
   #define SD_CLKCR_CLKDIV             SDMMC_CLKCR_CLKDIV
   #define SD_HAS_CLOCKBYPASS          0
   #define SD_PERIPH_NAME              "SDMMC"
@@ -60,6 +61,7 @@
   #define SD_BUS_WIDE_4B              SDIO_BUS_WIDE_4B
   #define SD_BUS_WIDE_8B              SDIO_BUS_WIDE_8B
   #define SD_HARDWARE_FLOW_CONTROL_DISABLE SDIO_HARDWARE_FLOW_CONTROL_DISABLE
+  #define SD_HARDWARE_FLOW_CONTROL_ENABLE  SDIO_HARDWARE_FLOW_CONTROL_ENABLE
   #define SD_CLKCR_CLKDIV             SDIO_CLKCR_CLKDIV
   #define SD_HAS_CLOCKBYPASS          1
   #define SD_PERIPH_NAME              "SDIO"
@@ -78,21 +80,46 @@ struct transfer_complete_result {
 extern struct transfer_complete_result sd_dma_result;
 
 /* --------------------------------------------------------------------------*/
-/* Fixed clock dividers: read 21 MHz, write 12 MHz                          */
+/* Clock divider helpers: selected by card type during init                 */
 /* --------------------------------------------------------------------------*/
 /*
- * SD_CK = ref_hz / (CLKDIV + 2).  Ref=150 MHz (H7 default):
- *   CLKDIV=5  → 150/7  ≈ 21.4 MHz (read — RX FIFO drained by CPU loads)
- *   CLKDIV=10 → 150/12 = 12.5 MHz (write — TX FIFO fills via stores,
- *               IRQ-disabled polling prevents TX_UNDERRUN at this speed)
+ * Clock formulas (from reference manual):
+ *   H7 (SDMMC):  SD_CK = periph_clk / (2 * CLKDIV)       [CLKDIV ≥ 1]
+ *                 SD_CK = periph_clk (bypass)              [CLKDIV = 0]
+ *   F4 (SDIO):   SD_CK = periph_clk / (CLKDIV + 2)
  *
- * Read/write run at different clocks to maximise throughput on this
- * board/card combo.  Clock is switched on-the-fly in BSP_SD_ReadBlocks
- * and BSP_SD_WriteBlocks.  The card survives a clock change as long as
- * it is in Transfer state (no active CMD/DAT transaction).
+ * Clock targets per card type:
+ *            Read          Write
+ *   SDSC:    25 MHz        25 MHz      (Default Speed max, div=4)
+ *   SDHC/SDXC: 50 MHz      50 MHz      (High Speed max, div=2, HWFC enabled)
+ *
+ * Clock is switched on-the-fly in BSP_SD_ReadBlocks / WriteBlocks.
+ * The card survives a clock change as long as it is in Transfer state.
  */
-#define SD_READ_CLKDIV   5
-#define SD_WRITE_CLKDIV  10
+
+#if defined(SDMMC1)
+  /* STM32H7: SDMMC kernel clock (PLL2 typically 200 MHz) */
+  #define SD_GET_PERIPH_CLK()      HAL_RCCEx_GetPeriphCLKFreq(RCC_PERIPHCLK_SDMMC)
+  /* SD_CK = periph_clk / (2 * CLKDIV), bypass when div=0 */
+  #define SD_CLK_HZ(periph, div)    ((div) == 0 ? (periph) : ((periph) / (2 * (div))))
+  /* Ceiling division: CLKDIV = ceil(periph / (2 * target)) ensures SD_CK ≤ target
+   * Formula: (p + 2*tgt - 1) / (2*tgt), minimum 1 since bypass is unused */
+  #define SD_COMPUTE_CLKDIV(p, tgt) ((((p) + 2 * (tgt) - 1) / (2 * (tgt))) == 0 ? 1U : (((p) + 2 * (tgt) - 1) / (2 * (tgt))))
+#elif defined(SDIO)
+  /* STM32F4: SDIO clock from PCLK2 (APB2) */
+  #define SD_GET_PERIPH_CLK()      HAL_RCC_GetPCLK2Freq()
+  /* SD_CK = periph_clk / (CLKDIV + 2) */
+  #define SD_CLK_HZ(periph, div)    ((periph) / ((div) + 2))
+  #define SD_COMPUTE_CLKDIV(p, tgt) (((p) / (tgt) < 2) ? 0U : ((p) / (tgt) - 2))
+#else
+  #define SD_GET_PERIPH_CLK()      48000000UL
+  #define SD_CLK_HZ(periph, div)    ((periph) / ((div) + 2))
+  #define SD_COMPUTE_CLKDIV(p, tgt) (((p) / (tgt) < 2) ? 0U : ((p) / (tgt) - 2))
+#endif
+
+/* Current clock dividers, set during BSP_SD_Init based on card type */
+static u32 g_sd_read_clkdiv  = 10;
+static u32 g_sd_write_clkdiv = 10;
 
 #define SD_DMA_POLL_DELAY_US    1000U
 #define SD_DMA_POLL_TIMEOUT_US  5000000U
@@ -149,6 +176,9 @@ __weak uint8_t BSP_SD_Init(void)
   const char *bus_str;
   uint64_t total_bytes;
   uint64_t mb;
+  u32 periph_clk;
+  u32 rd_target, wr_target;
+  u32 rd_khz, wr_khz;
 
   /* Check if the SD card is plugged in the slot */
   if (BSP_SD_IsDetected() != SD_PRESENT)
@@ -171,7 +201,7 @@ __weak uint8_t BSP_SD_Init(void)
 #endif
     SD_HANDLE.Init.ClockPowerSave = SD_CLOCK_POWER_SAVE_DISABLE;
     SD_HANDLE.Init.BusWide     = SD_BUS_WIDE_1B;
-    SD_HANDLE.Init.HardwareFlowControl = SD_HARDWARE_FLOW_CONTROL_DISABLE;
+    SD_HANDLE.Init.HardwareFlowControl = SD_HARDWARE_FLOW_CONTROL_ENABLE;
     SD_HANDLE.Init.ClockDiv    = 0xFF;   /* ~400 kHz safe for all cards */
 
     sd_state = HAL_SD_Init(&SD_HANDLE);
@@ -236,23 +266,66 @@ __weak uint8_t BSP_SD_Init(void)
     }
   }
 
-  /* --- Step 4: Set fixed read clock (21 MHz via CLKDIV=5) ---
-   * Write-side switches to CLKDIV=10 (12 MHz) per-op in
-   * BSP_SD_WriteBlocks.  No auto-probe — fixed dividers only. */
-  sd_set_clkdiv(SD_READ_CLKDIV);
-  SD_HANDLE.Init.ClockDiv = SD_READ_CLKDIV;
+  if (card_info.CardType != CARD_SDSC) {
+    if (HAL_SD_ConfigSpeedBusOperation(&SD_HANDLE, SDMMC_SPEED_MODE_HIGH) == HAL_OK) {
+      pr_info("%s: step3.5 - High Speed OK", SD_PERIPH_NAME);
+    } else {
+      pr_info("%s: step3.5 - High Speed not supported, staying at Default Speed", SD_PERIPH_NAME);
+    }
+  }
+
+  /* --- Step 4: Set read/write clocks based on card type ---
+   *            Read          Write
+   *   SDSC:    25 MHz        25 MHz      (Default Speed max)
+   *   SDHC/SDXC: 50 MHz      50 MHz      (High Speed max, HWFC enabled)  */
+  periph_clk = SD_GET_PERIPH_CLK();
+  pr_info("%s: SDMMC kernel clock = %lu kHz", SD_PERIPH_NAME, (unsigned long)(periph_clk / 1000));
+
+  if (card_info.CardType == CARD_SDSC) {
+    rd_target = 25000000UL;    /* 25 MHz - Default Speed max (div=4) */
+    wr_target = 25000000UL;    /* 25 MHz - Default Speed max (div=4) */
+  } else {
+    rd_target = 45000000UL;    /* 45 MHz - High Speed (div=2) */
+    wr_target = 45000000UL;    /* 45 MHz - High Speed (div=2) */
+  }
+
+  /* Clamp targets to hardware limits */
+#if defined(SDMMC1)
+  if (rd_target > periph_clk)
+    rd_target = periph_clk;
+  if (wr_target > periph_clk)
+    wr_target = periph_clk;
+#else
+  if (rd_target > periph_clk / 2)
+    rd_target = periph_clk / 2;
+  if (wr_target > periph_clk / 2)
+    wr_target = periph_clk / 2;
+#endif
+
+  g_sd_read_clkdiv  = SD_COMPUTE_CLKDIV(periph_clk, rd_target);
+  g_sd_write_clkdiv = SD_COMPUTE_CLKDIV(periph_clk, wr_target);
+
+  /* Apply read clock (write clock is set per-op) */
+  sd_set_clkdiv(g_sd_read_clkdiv);
+  SD_HANDLE.Init.ClockDiv = g_sd_read_clkdiv;
   SD_HANDLE.ErrorCode = HAL_SD_ERROR_NONE;
   SD_HANDLE.State     = HAL_SD_STATE_READY;
 
-  if      (SD_HANDLE.Init.BusWide == SD_BUS_WIDE_8B) bus_str = "8-bit";
-  else if (SD_HANDLE.Init.BusWide == SD_BUS_WIDE_4B) bus_str = "4-bit";
-  else                                              bus_str = "1-bit";
+  rd_khz = SD_CLK_HZ(periph_clk, g_sd_read_clkdiv) / 1000;
+  wr_khz = SD_CLK_HZ(periph_clk, g_sd_write_clkdiv) / 1000;
+
+  if (SD_HANDLE.Init.BusWide == SD_BUS_WIDE_8B)
+    bus_str = "8-bit";
+  else if (SD_HANDLE.Init.BusWide == SD_BUS_WIDE_4B)
+    bus_str = "4-bit";
+  else
+    bus_str = "1-bit";
   pr_info("%s: init done - rd=%lu MHz (div=%u), wr=%lu MHz (div=%u), bus=%s",
           SD_PERIPH_NAME,
-          (unsigned long)(150UL / (SD_READ_CLKDIV + 2)),
-          (unsigned int)SD_READ_CLKDIV,
-          (unsigned long)(150UL / (SD_WRITE_CLKDIV + 2)),
-          (unsigned int)SD_WRITE_CLKDIV,
+          (unsigned long)rd_khz / 1000,
+          (unsigned int)g_sd_read_clkdiv,
+          (unsigned long)wr_khz / 1000,
+          (unsigned int)g_sd_write_clkdiv,
           bus_str);
 
   pr_info("%s: BSP_SD_Init done, returning %u",
@@ -293,23 +366,6 @@ __weak uint8_t BSP_SD_ReadBlocks(uint32_t *pData, uint32_t ReadAddr, uint32_t Nu
 {
   uint8_t sd_state = MSD_OK;
 
-  /* Switch to read clock (21 MHz) before every read.
-   * Card is in Transfer state at this point — safe to change CLKCR. */
-  sd_set_clkdiv(SD_READ_CLKDIV);
-  SD_HANDLE.ErrorCode = HAL_SD_ERROR_NONE;
-  SD_HANDLE.State     = HAL_SD_STATE_READY;
-
-	/* Polling mode: CPU reads SDMMC FIFO directly into DTCM.
-	 * SDMMC IDMA cannot access DTCM on STM32H7, but CPU load/store
-	 * instructions (via AHB bus) can reach both SDMMC registers (APB2)
-	 * and DTCM (Cortex-M7 TCM interface) simultaneously.
-	 * BSP_SD_ReadBlocks switches to 21 MHz read clock internally.
-	 *
-	 * IRQ-disabled: any DMA/UART/Timer IRQ can steal CPU cycles and
-	 * cause RX FIFO overflow (EC=0x20, SDMMC_RXOVERR).  The same
-	 * approach as SD_write: bracket the transfer with IRQ off. */
-	__disable_irq();
-
   if (HAL_SD_ReadBlocks(&SD_HANDLE, (uint8_t *)pData, ReadAddr, NumOfBlocks, Timeout) != HAL_OK)
   {
     sd_state = MSD_ERROR;
@@ -318,7 +374,6 @@ __weak uint8_t BSP_SD_ReadBlocks(uint32_t *pData, uint32_t ReadAddr, uint32_t Nu
            (int)SD_HANDLE.State, (unsigned long)SD_HANDLE.ErrorCode);
   }
 
-  __enable_irq();
   return sd_state;
 }
 
@@ -337,20 +392,6 @@ __weak uint8_t BSP_SD_WriteBlocks(uint32_t *pData, uint32_t WriteAddr, uint32_t 
 {
   uint8_t sd_state = MSD_OK;
 
-  /* Switch to write clock (12 MHz) before every write.
-   * Card is in Transfer state at this point — safe to change CLKCR.
-   * Lower clock prevents TX_UNDERRUN in IRQ-disabled polling mode
-   * (SDMMC TX FIFO fills via CPU stores, slower than RX FIFO drain). */
-  sd_set_clkdiv(SD_WRITE_CLKDIV);
-  SD_HANDLE.ErrorCode = HAL_SD_ERROR_NONE;
-  SD_HANDLE.State     = HAL_SD_STATE_READY;
-
-	/* IRQ-disabled polling write.  BSP_SD_WriteBlocks switches to
-	 * 12 MHz write clock internally to prevent TX_UNDERRUN.  Any IRQ
-	 * (UART DMA, timers) can still delay TXFIFOHE handling, so we
-	 * disable IRQ for the duration of the transfer. */
-	__disable_irq();
-
   if (HAL_SD_WriteBlocks(&SD_HANDLE, (uint8_t *)pData, WriteAddr, NumOfBlocks, Timeout) != HAL_OK)
   {
     sd_state = MSD_ERROR;
@@ -359,7 +400,6 @@ __weak uint8_t BSP_SD_WriteBlocks(uint32_t *pData, uint32_t WriteAddr, uint32_t 
            (int)SD_HANDLE.State, (unsigned long)SD_HANDLE.ErrorCode);
   }
 
-  __enable_irq();
   return sd_state;
 }
 
@@ -379,10 +419,6 @@ __weak uint8_t BSP_SD_ReadBlocks_DMA(uint32_t *pData, uint32_t ReadAddr, uint32_
   u32 val;
   int ret;
 
-  sd_set_clkdiv(SD_READ_CLKDIV);
-  SD_HANDLE.ErrorCode = HAL_SD_ERROR_NONE;
-  SD_HANDLE.State     = HAL_SD_STATE_READY;
-
   sd_dma_result.rx_done = 0;
   sd_dma_result.error   = 0;
 
@@ -396,7 +432,6 @@ __weak uint8_t BSP_SD_ReadBlocks_DMA(uint32_t *pData, uint32_t ReadAddr, uint32_
     return sd_state;
   }
 
-  /* Wait for DMA Rx-complete interrupt (readl provides memory barrier) */
   ret = readl_poll_timeout(&sd_dma_result.rx_done, val, val || sd_dma_result.error,
                            SD_DMA_POLL_DELAY_US, SD_DMA_POLL_TIMEOUT_US);
   if (ret < 0) {
@@ -427,10 +462,6 @@ __weak uint8_t BSP_SD_WriteBlocks_DMA(uint32_t *pData, uint32_t WriteAddr, uint3
   uint8_t sd_state = MSD_OK;
   u32 val;
   int ret;
-
-  sd_set_clkdiv(SD_WRITE_CLKDIV);
-  SD_HANDLE.ErrorCode = HAL_SD_ERROR_NONE;
-  SD_HANDLE.State     = HAL_SD_STATE_READY;
 
   sd_dma_result.tx_done = 0;
   sd_dma_result.error   = 0;

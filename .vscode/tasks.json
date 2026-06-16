@@ -6,6 +6,8 @@
             "label": "Makefile Build",
             "command": "make",
             "args": [
+                "PROJECT=persistence-of-vision",
+                "PLATFORM_MK=fake.mk",
                 "compile"
             ],
             "options": {

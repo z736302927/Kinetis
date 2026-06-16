@@ -1536,9 +1536,6 @@ of_find_spi_device_by_node(struct device_node *node)
 
 #endif /* IS_ENABLED(CONFIG_OF) */
 
-/* Compatibility layer */
-#define spi_master			spi_controller
-
 #define SPI_MASTER_HALF_DUPLEX		SPI_CONTROLLER_HALF_DUPLEX
 #define SPI_MASTER_NO_RX		SPI_CONTROLLER_NO_RX
 #define SPI_MASTER_NO_TX		SPI_CONTROLLER_NO_TX

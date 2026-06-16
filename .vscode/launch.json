@@ -29,7 +29,7 @@
       "stopAtEntry": false,
       "externalConsole": true,
       "cwd": "${workspaceFolder}",
-      "program": "${workspaceFolder}/scripts/output/persistence-of-vision.exe",
+      "program": "${workspaceFolder}/scripts/output/persistence-of-vision/fake/persistence-of-vision.exe",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "preLaunchTask": "Makefile Build",

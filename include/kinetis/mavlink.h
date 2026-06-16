@@ -18,7 +18,7 @@ extern "C" {
 
 #define MAVLINK_MOTOR_COUNT        4
 
-#define MAVLINK_RX_BUF_SIZE        256
+#define MAVLINK_RX_BUF_SIZE        SERIAL_PORT_BUFFER_SIZE
 
 /* Direction (driver-internal representation) */
 #define MAVLINK_DIRECTION_FORWARD  1

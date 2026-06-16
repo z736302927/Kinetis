@@ -20,6 +20,32 @@ extern "C" {
 #define SPI_BIT_ORDER_MSB    0  /* Most Significant Bit First */
 #define SPI_BIT_ORDER_LSB    1  /* Least Significant Bit First */
 
+enum qspi_read_mode {
+	QSPI_READ_STANDARD     = 0,
+	QSPI_READ_FAST         = 1,
+	QSPI_READ_DUAL_OUTPUT  = 2,
+	QSPI_READ_DUAL_IO      = 3,
+	QSPI_READ_QUAD_OUTPUT  = 4,
+	QSPI_READ_QUAD_IO      = 5,
+};
+
+struct qspi_request_block {
+	u32 instruction;
+	u8 instruction_mode;
+	u32 address;
+	u32 address_size;
+	u8 address_mode;
+	u32 alternate_bytes;
+	u32 alternate_bytes_size;
+	u8 alternate_byte_mode;
+	u8 dummy_cycles;
+	u8 transfer_mode;
+	void* transfer_buffer;
+	u32 transfer_length;
+	u8 ddr_mode;
+	u8 ddr_hold_half_cycle;
+};
+
 /* SPI Master Structure */
 struct spi_master {
 	u8 cpol;
@@ -27,6 +53,7 @@ struct spi_master {
 	u8 speed;
 	u8 bit_order;
 
+	int (*init)(void);
 	int (*cs_low)(void);
 	int (*cs_high)(void);
 	int (*mosi_low)(void);
@@ -38,7 +65,10 @@ struct spi_master {
 	u8 (*read_byte)();
 	int (*write_bytes)(u8 *pdata, u8 length);
 	int (*read_bytes)(u8 *pdata, u8 length);
-	int (*init)(void);
+
+	void (*qspi_read)(struct qspi_request_block *qrb);
+	void (*qspi_write)(struct qspi_request_block *qrb);
+	void (*set_mode)(enum qspi_read_mode mode);
 };
 
 /* SPI Slave Structure */

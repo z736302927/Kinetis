@@ -12,6 +12,9 @@ C_SOURCES += $(wildcard ../drivers/kinetis/led.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/mavlink.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/w25qxxx.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/lrzsz/*.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/kalman-clib/src/matrix.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/kalman-clib/src/kalman.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/kalman-clib/src/cholesky.c)
 
 # CubeMX core/peripheral sources
 C_SOURCES += $(wildcard $(CHIP_SRC_DIR)/Core/Src/*.c)
@@ -32,6 +35,7 @@ C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/CMSIS/Device/ST/STM32F4xx/Include
 C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/CMSIS/Include
 
 C_INCLUDES += -I../drivers/kinetis/CmBacktrace/cm_backtrace
+C_INCLUDES += -I../drivers/kinetis/kalman-clib/include
 
 HEADER_DIRS += ../arch/arm/mach-stm32
 
@@ -58,10 +62,11 @@ C_DEFS = \
     -DSTM32_THREAD_SAFE_STRATEGY=2 \
     -DPOV_RUN_MODE=POV_RUN_SLAVE \
 	-DCMB_USER_CFG \
-	-D_POSIX_C_SOURCE=200809L
+	-D_POSIX_C_SOURCE=200809L \
+	-DCMB_CPU_PLATFORM_TYPE=CMB_CPU_ARM_CORTEX_M4
 
 # Linker configuration
-LDSCRIPT = $(CHIP_SRC_DIR)/STM32F407XX_FLASH.ld
+LDSCRIPT = $(CHIP_SRC_DIR)/STM32F407XX_APP_FLASH.ld
 LIBS = -lc -lm -lnosys
 LIBDIR =
 LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(PROJECT).map,--cref -Wl,--gc-sections -Wl,--no-enum-size-warning

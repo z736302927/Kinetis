@@ -162,21 +162,10 @@ DSTATUS SD_status(BYTE lun)
 DRESULT SD_read(BYTE lun, BYTE *buff, LBA_t sector, UINT count)
 {
 	DRESULT res = RES_ERROR;
-	uint32_t tmo;
 
 	if (BSP_SD_ReadBlocks_DMA((uint32_t *)buff,
 		(uint32_t)(sector),
 		count) == MSD_OK) {
-		/* wait until the read operation is finished */
-		tmo = SD_RDY_TMO_RD;
-
-		while (BSP_SD_GetCardState() != MSD_OK && --tmo) {
-		}
-		if (tmo == 0) {
-			pr_err("SD read: card-ready timeout after block transfer, "
-			       "sector=%lu\r\n", sector);
-			return RES_ERROR;
-		}
 		res = RES_OK;
 	}
 

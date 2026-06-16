@@ -6,7 +6,7 @@ PLATFORM ?= SIMULATION
 
 PLATFORM_MK ?= fake.mk
 
-BUILD_DIR = output
+BUILD_DIR = output/$(PROJECT)/$(basename $(PLATFORM_MK))
 
 # Detect OS
 ifeq ($(OS),Windows_NT)
@@ -35,7 +35,12 @@ COMMON_FLAGS = --std=gnu17 -fdata-sections -ffunction-sections -fdiagnostics-col
 WARN_FLAGS = -w -Wextra -Wno-unused-parameter
 CFLAGS_BASE = $(COMMON_FLAGS) $(WARN_FLAGS) $(OPT)
 
--include ../projects/$(PROJECT)/$(PLATFORM_MK)
+_PLATFORM_MK_FILE := ../projects/$(PROJECT)/$(PLATFORM_MK)
+ifneq ($(wildcard $(_PLATFORM_MK_FILE)),)
+include $(_PLATFORM_MK_FILE)
+else
+$(error Platform config file "$(_PLATFORM_MK_FILE)" not found. Available files for project "$(PROJECT)": $(notdir $(wildcard ../projects/$(PROJECT)/*.mk)))
+endif
 
 # Source files
 C_SOURCES += $(wildcard ../arch/arm/lib/*.c)

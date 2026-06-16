@@ -254,8 +254,8 @@ size_t zmodem_receive(struct serial_port *serial,
 	u32 flags)
 {
 	rz_t *rz = rz_init(serial,
-			8192, /* readnum */
-			16384, /* bufsize */
+			SERIAL_PORT_BUFFER_SIZE, /* readnum */
+			SERIAL_PORT_BUFFER_SIZE, /* bufsize */
 			1, /* no_timeout */
 			100,		 /* rxtimeout */
 			0,		 /* znulls */

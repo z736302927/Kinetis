@@ -32,6 +32,8 @@ struct flash_ops {
 };
 
 struct bootloader_ops {
+	void (*clear_pending_irqs)(void);
+	void (*enable_irq)(void);
 	void (*disable_irq)(void);
 	void (*cleanup_hw_resource)(void);
 	void (*disable_cache)(void);
@@ -84,6 +86,7 @@ struct bootloader_context {
 
 	enum bootloader_fsm_state state;
 	u8 retry_count;          /* Number of consecutive ERROR -> WAIT_CMD cycles */
+	u64 last_send_heartbeat_ms;
 };
 
 #ifndef ROM_BASE_ADDR
@@ -96,11 +99,14 @@ struct bootloader_context {
 #define BOOTLOADER_BASE_ADDR     ROM_BASE_ADDR
 #define BOOTLOADER_SIZE          (64u * 1024u)
 
-#define CONFIG_BASE_ADDR         (BOOTLOADER_BASE_ADDR + BOOTLOADER_SIZE)
-#define CONFIG_SIZE              sizeof(struct bootloader_config)
+/* Config placed at the very end of flash so it occupies its own last sector.
+ * This allows write_config_to_flash() to safely erase+write without touching
+ * bootloader or firmware code (which share earlier sectors). */
+#define BL_CONFIG_BASE_ADDR         (ROM_BASE_ADDR + ROM_TOTAL_SIZE - sizeof(struct bootloader_config))
+#define BL_CONFIG_SIZE              sizeof(struct bootloader_config)
 
-#define FIRMWARE_BASE_ADDR       (CONFIG_BASE_ADDR + CONFIG_SIZE)
-#define FIRMWARE_MAX_SIZE        (ROM_TOTAL_SIZE - BOOTLOADER_SIZE - CONFIG_SIZE)
+#define FIRMWARE_BASE_ADDR       (BOOTLOADER_BASE_ADDR + BOOTLOADER_SIZE)
+#define FIRMWARE_MAX_SIZE        (ROM_TOTAL_SIZE - BOOTLOADER_SIZE - BL_CONFIG_SIZE)
 
 /* Magic number for config region validation */
 #define BOOTLOADER_MAGIC         0x4B4C4652u   /* "KLFR" */

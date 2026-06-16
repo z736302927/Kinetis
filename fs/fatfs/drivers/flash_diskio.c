@@ -46,10 +46,11 @@
 
 /* Includes ------------------------------------------------------------------*/
 
-#include <generated/deconfig.h>
-#include <linux/spi/w25qxxx.h>
 #include <linux/string.h>
 #include <linux/mtd/mtd.h>
+
+#include <kinetis/spi_soft.h>
+#include <kinetis/w25qxxx.h>
 
 #include "../ff_gen_drv.h"
 #include "kinetis-core.h"
@@ -64,6 +65,8 @@
 /* Private variables ---------------------------------------------------------*/
 /* Disk status */
 static volatile DSTATUS disk_stat = STA_NOINIT;
+
+extern struct w25qxxx_device *w25qxxx_dev;
 
 /* Private function prototypes -----------------------------------------------*/
 DSTATUS flash_disk_initialize(BYTE);
@@ -105,12 +108,8 @@ DSTATUS flash_disk_initialize(BYTE lun)
 	switch (lun) {
 	case 0:
 //            w25qxxx_init(W25Q128);
-		disk_stat = disk_status(0);
-		break;
-
-	case 1:
-//            w25qxxx_init(W25Q256);
-		disk_stat = disk_status(1);
+		if (w25qxxx_dev)
+			disk_stat = disk_status(0);
 		break;
 
 	default:
@@ -132,14 +131,8 @@ DSTATUS flash_disk_status(BYTE lun)
 
 	switch (lun) {
 	case 0:
-//            if (w25qxxx_release_device_id(W25Q128) != 0)
-		disk_stat &= ~STA_NOINIT;
-
-		break;
-
-	case 1:
-//            if (w25qxxx_release_device_id(W25Q256) != 0)
-		disk_stat &= ~STA_NOINIT;
+		if (w25qxxx_release_device_id(w25qxxx_dev) != 0)
+			disk_stat &= ~STA_NOINIT;
 
 		break;
 
@@ -166,19 +159,12 @@ DRESULT flash_disk_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
 
 	switch (lun) {
 	case 0:
-		mtd_write(&kineits->nor->mtd,
-			sector << STORAGE_SEC_SIZ_POWER,
-			count << STORAGE_SEC_SIZ_POWER,
-			&retlen,
-			buff);
-		break;
-
-	case 1:
-		mtd_write(&kineits->nor->mtd,
-			sector << STORAGE_SEC_SIZ_POWER,
-			count << STORAGE_SEC_SIZ_POWER,
-			&retlen,
-			buff);
+// 		mtd_write(&kineits->nor->mtd,
+// 			sector << STORAGE_SEC_SIZ_POWER,
+// 			count << STORAGE_SEC_SIZ_POWER,
+// 			&retlen,
+// 			buff);
+		w25qxxx_read_data(w25qxxx_dev, sector << STORAGE_SEC_SIZ_POWER, buff, count << STORAGE_SEC_SIZ_POWER);
 		break;
 
 	default:
@@ -204,19 +190,13 @@ DRESULT flash_disk_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
 
 	switch (lun) {
 	case 0:
-		mtd_write(&kineits->nor->mtd,
-			sector << STORAGE_SEC_SIZ_POWER,
-			count << STORAGE_SEC_SIZ_POWER,
-			&retlen,
-			buff);
-		break;
-
-	case 1:
-		mtd_write(&kineits->nor->mtd,
-			sector << STORAGE_SEC_SIZ_POWER,
-			count << STORAGE_SEC_SIZ_POWER,
-			&retlen,
-			buff);
+// 		mtd_write(&kineits->nor->mtd,
+// 			sector << STORAGE_SEC_SIZ_POWER,
+// 			count << STORAGE_SEC_SIZ_POWER,
+// 			&retlen,
+// 			buff);
+		if (w25qxxx_write_data(w25qxxx_dev, sector << STORAGE_SEC_SIZ_POWER, (u8 *)buff, count << STORAGE_SEC_SIZ_POWER))
+			return RES_ERROR;
 		break;
 
 	default:
@@ -252,7 +232,7 @@ DRESULT flash_disk_ioctl(BYTE lun, BYTE cmd, void *buff)
 
 		/* Get number of sectors on the disk (DWORD) */
 		case GET_SECTOR_COUNT :
-			*(DWORD *)buff = STORAGE_SEC_NBR / 2;
+			*(DWORD *)buff = w25qxxx_dev->max_addr >> STORAGE_SEC_SIZ_POWER;
 			res = RES_OK;
 			break;
 
@@ -274,36 +254,6 @@ DRESULT flash_disk_ioctl(BYTE lun, BYTE cmd, void *buff)
 		}
 
 		break;
-
-	case 1:
-		switch (cmd) {
-		/* Make sure that no pending write process */
-		case CTRL_SYNC :
-			res = RES_OK;
-			break;
-
-		/* Get number of sectors on the disk (DWORD) */
-		case GET_SECTOR_COUNT :
-			*(DWORD *)buff = STORAGE_SEC_NBR;
-			res = RES_OK;
-			break;
-
-		/* Get R/W sector size (WORD) */
-		case GET_SECTOR_SIZE :
-			*(WORD *)buff = STORAGE_SEC_SIZ;
-			res = RES_OK;
-			break;
-
-		/* Get erase block size in unit of sector (DWORD) */
-		case GET_BLOCK_SIZE :
-			*(DWORD *)buff = STORAGE_BLK_SIZ;
-			res = RES_OK;
-			break;
-
-		default:
-			res = RES_PARERR;
-			break;
-		}
 
 		break;
 	}

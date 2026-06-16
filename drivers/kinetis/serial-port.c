@@ -39,7 +39,7 @@ void *serial_port_copy_to_self(void *para)
 			resp_len = serial->sim_callback(serial->tx_buffer, response, serial->private);
 
 			while (serial_port_available_space(serial) < resp_len) {
-				usleep(10);
+				;
 			}
 
 			index = serial->producer;
@@ -50,7 +50,7 @@ void *serial_port_copy_to_self(void *para)
 			serial->ops->update_producer(serial);
 			serial->transmited_size = 0;
 		} else {
-			usleep(10);
+			;
 		}
 	}
 
@@ -69,7 +69,7 @@ void *serial_port_copy_to_others(void *para)
 			u16 tail;
 
 			while (serial_port_available_space(serial_girl) < size) {
-				usleep(10);
+				;
 			}
 
 			pos = serial_girl->producer;
@@ -84,7 +84,7 @@ void *serial_port_copy_to_others(void *para)
 			serial_girl->producer = (pos + size) % SERIAL_PORT_BUFFER_SIZE;
 			serial_boy->transmited_size = 0;
 		} else {
-			usleep(10);
+			;
 		}
 	}
 

@@ -246,7 +246,9 @@ int app_main(void)
 	pr_info("pov: running as rotor (rotating end)\n");
 
 #if KINETIS_FAKE_SIM == 0
-	rotor = pov_rotor_alloc(&general_flash_ops, &usart2_serial_port_ops, &usart6_serial_port_ops, hall_read_rotated_time);
+	rotor = pov_rotor_alloc(&general_flash_ops, &usart2_serial_port_ops, &usart6_serial_port_ops,
+		&general_spi_master,
+		hall_read_rotated_time);
 	if (!rotor) {
 		pr_err("pov: failed to allocate rotor\n");
 		return -ENOMEM;

@@ -4,11 +4,11 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/spi-mem.h>
 #include <linux/spi/flash.h>
-#include <linux/spi/w25qxxx.h>
 #include <linux/i2c.h>
 
 #include <kinetis/ano_protocol.h>
 #include <kinetis/tim-task.h>
+#include <kinetis/w25qxxx.h>
 
 #include "kinetis-core.h"
 #include "stdio.h"

@@ -8,6 +8,7 @@ CHIP_SRC_DIR ?= E:\Code\STM32H743IITx
 # Kinetis arch source + board + fatfs SD
 C_SOURCES += $(wildcard ../arch/arm/mach-stm32/stm32h7.c)
 C_SOURCES += $(wildcard ../fs/fatfs/drivers/sd_diskio.c)
+C_SOURCES += $(wildcard ../fs/fatfs/drivers/flash_diskio.c)
 C_SOURCES += $(wildcard ../fs/fatfs/drivers/bsp_driver_sd.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/fatfs-intf.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/fsm.c)
@@ -15,7 +16,11 @@ C_SOURCES += $(wildcard ../drivers/kinetis/hc-05.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/led.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/mavlink.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/w25qxxx.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/mt6701.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/lrzsz/*.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/kalman-clib/src/matrix.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/kalman-clib/src/kalman.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/kalman-clib/src/cholesky.c)
 
 # CubeMX core/peripheral sources
 C_SOURCES += $(wildcard $(CHIP_SRC_DIR)/Core/Src/*.c)
@@ -36,6 +41,7 @@ C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/CMSIS/Device/ST/STM32H7xx/Include
 C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/CMSIS/Include
 
 C_INCLUDES += -I../drivers/kinetis/CmBacktrace/cm_backtrace
+C_INCLUDES += -I../drivers/kinetis/kalman-clib/include
 
 # # Override include: our FreeRTOS/rtos stubs must be found FIRST
 # C_INCLUDES += -I../drivers/kinetis/wifi
@@ -122,14 +128,15 @@ C_DEFS = \
     -DUSE_PWR_LDO_SUPPLY \
     -DPOV_RUN_MODE=POV_RUN_HOST \
 	-DCMB_USER_CFG \
-	-D_POSIX_C_SOURCE=200809L
-#     -DWICED_DISABLE_WATCHDOG \
-#     -DWICED_DISABLE_STDIO \
-#     -DWPRINT_MACRO \
-#     -DLWIP_NO_STDINT_H  # lwIP config pre-include (so lwipopts.h is found before default)
+	-D_POSIX_C_SOURCE=200809L \
+	-DCMB_CPU_PLATFORM_TYPE=CMB_CPU_ARM_CORTEX_M7 \
+	-DWICED_DISABLE_WATCHDOG \
+	-DWICED_DISABLE_STDIO \
+	-DWICED_DISABLE_MCU_POWERSAVE \
+	-DWPRINT_MACRO
 
 # Linker configuration
-LDSCRIPT = $(CHIP_SRC_DIR)/STM32H743XX_FLASH.ld
+LDSCRIPT = $(CHIP_SRC_DIR)/STM32H743XX_APP_FLASH.ld
 LIBS = -lc -lm -lnosys
 LIBDIR =
 LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(PROJECT).map,--cref -Wl,--gc-sections -Wl,--no-enum-size-warning

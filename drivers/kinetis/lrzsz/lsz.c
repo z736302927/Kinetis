@@ -247,8 +247,8 @@ size_t zmodem_send(struct serial_port *serial,
 	u32 flags)
 {
 	sz_t *sz = sz_init(serial,
-			256, /* readnum */
-			256, /* bufsize */
+			SERIAL_PORT_BUFFER_SIZE, /* readnum */
+			SERIAL_PORT_BUFFER_SIZE, /* bufsize */
 			1, /* no_timeout */
 			600,	/* rxtimeout */
 			0, 	/* znulls */

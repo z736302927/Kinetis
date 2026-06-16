@@ -50,7 +50,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     if (htim->Instance == TIM4) {
         xtime_update(1);
     } else if (htim->Instance == TIM5) {
-        basic_timer_isr(1000);
+        basic_timer_isr(1000000);
     }
 }
 
@@ -814,6 +814,21 @@ struct flash_ops general_flash_ops = {
 	.read  = stm32_flash_read,
 };
 
+static void stm32_clear_pending_irqs(void)
+{
+	/* Disable and clear ALL NVIC interrupts — no pending IRQ may
+	 * fire during the transition using the newly assigned VTOR. */
+	for (int i = 0; i < 8; i++) {
+		NVIC->ICER[i] = 0xFFFFFFFF;
+		NVIC->ICPR[i] = 0xFFFFFFFF;
+	}
+}
+
+static void stm32_enable_irq(void)
+{
+	__enable_irq();
+}
+
 static void stm32_disable_irq(void)
 {
 	__disable_irq();
@@ -868,6 +883,8 @@ static void stm32_system_reset(void)
 }
 
 struct bootloader_ops general_bootloader_ops = {
+	.clear_pending_irqs  = stm32_clear_pending_irqs,
+	.enable_irq          = stm32_enable_irq,
 	.disable_irq         = stm32_disable_irq,
 	.cleanup_hw_resource = stm32_cleanup_hw_resource,
 	.disable_cache       = stm32_disable_cache,

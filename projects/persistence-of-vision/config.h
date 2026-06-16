@@ -7,8 +7,6 @@
 #define POV_FIRMWARE_PATH              "0:/firmware"
 #define APP_IMAGE_PATH                 "0:/app_images"
 
-#define FAKE_IMAGE_COUNT               3
-
 #define POV_DISPLAY_COLS               720
 #define POV_LED_COUNT                  256
 #define POV_SPI_GROUPS                 4
@@ -22,6 +20,15 @@
 
 #define POV_SPI_CLOCK_HZ               20000000
 #define POV_SPI_SEND_TIME_US           76
+
+/* Porter-Duff Multi-Layer Compositing */
+#define POV_MAX_LAYERS                  4
+#define POV_BYTES_PER_PIXEL_RGBA        4
+/* 256 × 4 = 1024 bytes per column per layer */
+#define POV_BYTES_PER_LAYER_COL         (POV_LED_COUNT * POV_BYTES_PER_PIXEL_RGBA)
+
+#define POV_PREFETCH_COLS               8
+#define POV_PREFETCH_BYTES              (POV_PREFETCH_COLS * POV_BYTES_PER_COL)
 
 #define POV_STABLE_THRESHOLD_RPM       2
 #define POV_STABLE_DURATION_MS         1000
@@ -48,7 +55,7 @@
 #define POV_CMD_MAX_RETRIES            3
 
 #define POV_SPEED_QUERY_RETRIES        10
-#define POV_SPEED_QUERY_INTERVAL_MS    100
+#define POV_SPEED_QUERY_INTERVAL_MS    500
 
 #define POV_MOTOR_ID                   STATOR_MOTOR_ID
 #define POV_MOTOR_TARGET_ID            0

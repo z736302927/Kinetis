@@ -14,6 +14,7 @@
 #include "kinetis/design_verification.h"
 #include "kinetis/fatfs-intf.h"
 #include "kinetis/bootloader.h"
+#include "kinetis/basic-timer.h"
 
 #include "fake-mcu/interface.h"
 
@@ -43,9 +44,10 @@ struct bootloader_context *bootloader_init(const struct bootloader_mem_layout *l
 		return NULL;
 	}
 
-	if (layout->firmware_max_size + layout->bootloader_size > layout->rom_size) {
-		pr_err("layout: firmware (0x%x) + bootloader (0x%x) exceeds ROM (0x%x)\n",
-		       layout->firmware_max_size, layout->bootloader_size, layout->rom_size);
+	if (layout->firmware_max_size + layout->bootloader_size + sizeof(struct bootloader_config) > layout->rom_size) {
+		pr_err("layout: firmware (0x%x) + bootloader (0x%x) + config (%zu) exceeds ROM (0x%x)\n",
+		       layout->firmware_max_size, layout->bootloader_size,
+		       sizeof(struct bootloader_config), layout->rom_size);
 		return NULL;
 	}
 
@@ -56,8 +58,8 @@ struct bootloader_context *bootloader_init(const struct bootloader_mem_layout *l
 
 	bl_ctx->layout = *layout;
 	bl_ctx->rom_base = layout->rom_base;
-	bl_ctx->config_addr = layout->rom_base + layout->bootloader_size;
-	bl_ctx->firmware_addr = bl_ctx->config_addr + sizeof(struct bootloader_config);
+	bl_ctx->config_addr = layout->rom_base + layout->rom_size - sizeof(struct bootloader_config);
+	bl_ctx->firmware_addr = layout->rom_base + layout->bootloader_size;
 	bl_ctx->ops = chip_ops;
 	bl_ctx->ops->flash = flash_ops;
 
@@ -73,6 +75,8 @@ struct bootloader_context *bootloader_init(const struct bootloader_mem_layout *l
 		kfree(bl_ctx);
 		return NULL;
 	}
+
+	bl_ctx->last_send_heartbeat_ms = basic_timer_get_ms();
 
 	return bl_ctx;
 }
@@ -293,18 +297,31 @@ static int is_firmware_valid(struct bootloader_context *bl_ctx)
 	u8 *sram_start = bl_ctx->layout.sram.start;
 	u8 *sram_end   = bl_ctx->layout.sram.end;
 
-	if (bl_ctx->ops->flash->read((u64)bl_ctx->firmware_addr, (u8 *)&stack_ptr, 4) < 0)
+	if (bl_ctx->ops->flash->read((u64)bl_ctx->firmware_addr, (u8 *)&stack_ptr, 4) < 0) {
+		pr_err("firmware invalid: failed to read stack pointer at 0x%08x\n",
+		       (u32)(u64)bl_ctx->firmware_addr);
 		return 0;
-	if (bl_ctx->ops->flash->read((u64)bl_ctx->firmware_addr + 4, (u8 *)&reset_vec, 4) < 0)
+	}
+	if (bl_ctx->ops->flash->read((u64)bl_ctx->firmware_addr + 4, (u8 *)&reset_vec, 4) < 0) {
+		pr_err("firmware invalid: failed to read reset vector at 0x%08x\n",
+		       (u32)(u64)bl_ctx->firmware_addr + 4);
 		return 0;
+	}
 
 	/* SRAM range from layout */
-	if (stack_ptr < (u32)(u64)sram_start || stack_ptr >= (u32)(u64)sram_end)
+	if (stack_ptr < (u32)(u64)sram_start || stack_ptr > (u32)(u64)sram_end) {
+		pr_err("firmware invalid: stack pointer 0x%08x out of SRAM [0x%08x, 0x%08x)\n",
+		       stack_ptr, (u32)(u64)sram_start, (u32)(u64)sram_end);
 		return 0;
+	}
 	/* Flash range from layout */
 	if (reset_vec < (u32)(u64)bl_ctx->layout.rom_base ||
-	    reset_vec >= (u32)(u64)bl_ctx->layout.rom_base + bl_ctx->layout.rom_size)
+	    reset_vec >= (u32)(u64)bl_ctx->layout.rom_base + bl_ctx->layout.rom_size) {
+		pr_err("firmware invalid: reset vector 0x%08x out of flash [0x%08x, 0x%08x)\n",
+		       reset_vec, (u32)(u64)bl_ctx->layout.rom_base,
+		       (u32)(u64)bl_ctx->layout.rom_base + bl_ctx->layout.rom_size);
 		return 0;
+	}
 
 	return 1;
 }
@@ -363,6 +380,13 @@ static void jump_to_firmware(struct bootloader_context *bl_ctx)
 	/* Set MSP and remap VTOR to FIRMWARE vector table */
 	bl_ctx->ops->set_stack_pointer(stack_ptr);
 	bl_ctx->ops->redirect_isr_table((u64)bl_ctx->firmware_addr);
+
+	/* Clear all pending NVIC interrupts to prevent stray IRQ from
+	 * firing during the transition using the newly assigned VTOR,
+	 * then re-enable global interrupts (PRIMASK = 0) so the app
+	 * starts in the same state as after a real hardware reset. */
+	bl_ctx->ops->clear_pending_irqs();
+	bl_ctx->ops->enable_irq();
 
 	/* Jump to FIRMWARE reset handler */
 #ifdef KINETIS_FAKE_SIM
@@ -472,11 +496,19 @@ static void check_server_cmd(struct bootloader_context *bl_ctx)
  */
 int bootloader_flow(struct bootloader_context *bl_ctx)
 {
+	u64 now;
 	int ret;
 
 	set_fsm_state(bl_ctx, BL_STATE_CHECK_MODE);
 
 	memcpy(&bl_ctx->config, bl_ctx->config_addr, sizeof(struct bootloader_config));
+
+	// bl_ctx->config.magic = BOOTLOADER_MAGIC;
+	// bl_ctx->config.version = 1;
+	// bl_ctx->config.mode = BL_MODE_RUN;
+	// ret = write_config_to_flash(bl_ctx);
+	// if (ret < 0)
+	// 	pr_err("Failed to write config, jumping anyway...\n");
 
 	if (bl_ctx->config.magic != BOOTLOADER_MAGIC) {
 		pr_warn("Bootloader config magic mismatch: 0x%08x, expected 0x%08x, enter update mode\n",
@@ -502,7 +534,6 @@ int bootloader_flow(struct bootloader_context *bl_ctx)
 			pr_warn("APP not valid, entering update mode\n");
 			bl_ctx->config.mode = BL_MODE_UPDATE;
 		}
-		break;
 
 	case BL_MODE_UPDATE:
 		pr_info("Bootloader in UPDATE mode, waiting for firmware...\n");
@@ -512,6 +543,8 @@ int bootloader_flow(struct bootloader_context *bl_ctx)
 		ret = fatfs_create_dirs(BL_BACKUP_PATH);
 		if (ret)
 			goto err;
+
+		set_fsm_state(bl_ctx, BL_STATE_RECEIVE);
 		break;
 
 	case BL_MODE_RECOVERY:
@@ -525,14 +558,18 @@ int bootloader_flow(struct bootloader_context *bl_ctx)
 		break;
 	}
 
-	set_fsm_state(bl_ctx, BL_STATE_WAIT_CMD);
-
 	/* ─── Main FSM Loop ───────────────────────────────── */
 	while (1) {
 		switch (bl_ctx->state) {
 		case BL_STATE_WAIT_CMD:
 			check_server_cmd(bl_ctx);
-			mdelay(10);  /* Prevent busy loop when no serial data */
+
+			now = basic_timer_get_ms();
+
+			if (now - bl_ctx->last_send_heartbeat_ms >= 10000) {
+				bl_ctx->last_send_heartbeat_ms = now;
+				mavlink_send_heartbeat(bl_ctx->app_mavlink, MAV_SYS_ACTIVE, 0, 0);
+			}
 			break;
 
 		case BL_STATE_RECEIVE:
@@ -664,7 +701,7 @@ int t_bootloader_flow_test(int argc, char *argv[])
 	struct bootloader_mem_layout layout;
 	int ret = 0;
 
-	layout.rom_base = ROM_BASE_ADDR;
+	layout.rom_base = (u8 *)ROM_BASE_ADDR;
 	layout.rom_size = ROM_TOTAL_SIZE;
 	layout.bootloader_size = BOOTLOADER_SIZE;
 	layout.firmware_max_size = FIRMWARE_MAX_SIZE;

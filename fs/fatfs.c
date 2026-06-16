@@ -15,18 +15,20 @@
 #include "fatfs/drivers/fake_ram_diskio.h"
 #else
 #include "fatfs/drivers/sd_diskio.h"
+#include "fatfs/drivers/flash_diskio.h"
 #endif
 #include "fatfs/ff.h"         /* FatFs API and configuration */
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
-/* File system object for  disk logical drive */
-static FATFS disk_fatfs;
-/* File object */
-static FIL test_file;
-/*  disk logical drive path */
-static char disk_path[4];
-/* a work buffer for the f_mkfs() */
-static uint8_t work_buffer[FF_MAX_SS];
+
+struct fatfs_driver {
+	/* File system object for  disk logical drive */
+	FATFS disk_fatfs;
+	/*  disk logical drive path */
+	char disk_path[4];
+
+	Diskio_drvTypeDef *disk_driver;
+};
 
 /* Volume to partition mapping table for multi-partition support */
 #if FF_MULTI_PARTITION
@@ -36,61 +38,70 @@ PARTITION VolToPart[] = {
 };
 #endif
 
+static struct fatfs_driver fatfs_drivers[] = {
+#if KINETIS_FAKE_SIM
+	{ .disk_driver = &fake_ram_disk_driver},
+#else
+	{ .disk_driver = &SD_Driver},
+// 	{ .disk_driver = &flash_disk_driver}
+#endif
+};
+
 int process_fatfs_err(FRESULT fresult);
 
 int fatfs_init(void)
 {
 	MKFS_PARM opt;
+	/* a work buffer for the f_mkfs() */
+	uint8_t work_buffer[FF_MAX_SS];
 	int ret;
 
 	/*## FatFS: Link the SD driver ###########################*/
-#ifdef KINETIS_FAKE_SIM
-	ret = FATFS_LinkDriver(&fake_ram_disk_driver, disk_path);
-#else
-	ret = FATFS_LinkDriver(&SD_Driver, disk_path);
-#endif
+	for (int i = 0; i < ARRAY_SIZE(fatfs_drivers); i++) {
+		ret = FATFS_LinkDriver(fatfs_drivers[i].disk_driver, fatfs_drivers[i].disk_path);
 
-	/* additional user code for init */
-	if (ret == 0) {
-		FRESULT res;
+		/* additional user code for init */
+		if (ret == 0) {
+			FRESULT res;
 
-		/* First try to mount immediately to check if filesystem exists */
-		res = f_mount(&disk_fatfs, (TCHAR const *)disk_path, 1);
+			/* First try to mount immediately to check if filesystem exists */
+			res = f_mount(&fatfs_drivers[i].disk_fatfs, (TCHAR const *)fatfs_drivers[i].disk_path, 1);
 
-		if (res == FR_NO_FILESYSTEM) {
-			pr_info("No filesystem found, creating FAT filesystem...\n");
+			if (res == FR_NO_FILESYSTEM) {
+				pr_info("No filesystem found, creating FAT filesystem...\n");
 
-			/* Create filesystem */
-			opt.fmt = FM_FAT | FM_SFD;      // 或直接指定 FM_FAT16, 单一分区，适用于SD卡等
-			opt.n_fat = 2;         // 标准配置：两个FAT表
-			opt.align = 0;         // 数据区从紧随FAT表后开始（无特殊对齐）
-			opt.n_root = 512;      // **FAT16特有**：根目录可容纳512个条目
-			opt.au_size = 4096;    // 指定簇大小为4KB（8192KB / 4KB ≈ 2000簇，很合理）
-			res = f_mkfs((const TCHAR *)disk_path, &opt, work_buffer, sizeof(work_buffer));
-			if (res != FR_OK) {
-				pr_err("Failed to create filesystem: %d\n", res);
+				/* Create filesystem */
+				opt.fmt = FM_ANY;      // 自动选择 FAT12/FAT16/FAT32/exFAT
+				opt.n_fat = 2;         // 标准配置：两个FAT表
+				opt.align = 0;         // 数据区从紧随FAT表后开始（无特殊对齐）
+				opt.n_root = 512;      // **FAT16特有**：根目录可容纳512个条目
+				opt.au_size = 4096;    // 指定簇大小为4KB（8192KB / 4KB ≈ 2000簇，很合理）
+				res = f_mkfs((const TCHAR *)fatfs_drivers[i].disk_path, &opt, work_buffer, sizeof(work_buffer));
+				if (res != FR_OK) {
+					pr_err("Failed to create filesystem: %d\n", res);
+					process_fatfs_err(res);
+					return -EIO;
+				}
+
+				/* Mount after formatting */
+				res = f_mount(&fatfs_drivers[i].disk_fatfs, (TCHAR const *)fatfs_drivers[i].disk_path, 1);
+				if (res != FR_OK) {
+					pr_err("Failed to mount after formatting: %d\n", res);
+					process_fatfs_err(res);
+					return -EIO;
+				}
+
+				pr_info("Filesystem created and mounted successfully.\n");
+			} else if (res != FR_OK) {
+				pr_err("Mount failed: %d\n", res);
 				process_fatfs_err(res);
 				return -EIO;
-			}
-
-			/* Mount after formatting */
-			res = f_mount(&disk_fatfs, (TCHAR const *)disk_path, 1);
-			if (res != FR_OK) {
-				pr_err("Failed to mount after formatting: %d\n", res);
-				process_fatfs_err(res);
-				return -EIO;
-			}
-
-			pr_info("Filesystem created and mounted successfully.\n");
-		} else if (res != FR_OK) {
-			pr_err("Mount failed: %d\n", res);
-			process_fatfs_err(res);
-			return -EIO;
-		} else
-			pr_info("Filesystem mounted successfully.\n");
-	} else {
-		pr_err("Failed to link low level driver.\n");
-		return -ENOSYS;
+			} else
+				pr_info("Filesystem mounted successfully.\n");
+		} else {
+			pr_err("Failed to link low level driver.\n");
+			return -ENOSYS;
+		}
 	}
 
 	return 0;
@@ -155,14 +166,6 @@ int process_fatfs_err(FRESULT fresult)
 
 	case FR_NO_FILESYSTEM:        //(13)
 		pr_info("No file system, please using f_mkfs().\n");
-		ret = f_mkfs((const TCHAR *)disk_path, 0,
-				work_buffer, sizeof(work_buffer));
-
-		if (ret != FR_OK) {
-			pr_err("Failed to create filesystem: %d\n", ret);
-			return ret;
-		}
-
 		break;
 
 	case FR_MKFS_ABORTED:         //(14)
@@ -200,6 +203,7 @@ int process_fatfs_err(FRESULT fresult)
 FRESULT fatfs_miscellaneous(void)
 {
 	FATFS *pfs;
+	FIL test_file;
 	DWORD fre_clust, fre_sect, tot_sect;
 	FRESULT res;
 	DIR my_dir;
@@ -210,7 +214,7 @@ FRESULT fatfs_miscellaneous(void)
 
 	pr_info("Device information acquisition.\n");
 	/* Gets device information and empty cluster size. */
-	res = f_getfree(disk_path, &fre_clust, &pfs);
+	res = f_getfree(fatfs_drivers[0].disk_path, &fre_clust, &pfs);
 	/* The total number of sectors and the number of empty sectors are calculated. */
 	tot_sect = (pfs->n_fatent - 2) * pfs->csize;
 	fre_sect = fre_clust * pfs->csize;
@@ -1414,13 +1418,15 @@ int t_fatfs_disk_partition(int argc, char **argv)
 
 int t_fatfs_operate(int argc, char **argv)
 {
+	/* a work buffer for the f_mkfs() */
+	uint8_t work_buffer[FF_MAX_SS];
 	int ret = 0;
 
 	if (argc > 1) {
 		if (!strcmp(argv[1], "mount"))
-			ret = f_mount(&disk_fatfs, (TCHAR const *)disk_path, 0);
+			ret = f_mount(&fatfs_drivers[0].disk_fatfs, (TCHAR const *)fatfs_drivers[0].disk_path, 0);
 		else if (!strcmp(argv[1], "mkfs"))
-			ret = f_mkfs((const TCHAR *)disk_path, 0, work_buffer, sizeof(work_buffer));
+			ret = f_mkfs((const TCHAR *)fatfs_drivers[0].disk_path, 0, work_buffer, sizeof(work_buffer));
 		else
 			return -EINVAL;
 	}
@@ -1435,6 +1441,9 @@ int t_fatfs_operate(int argc, char **argv)
 
 int t_fatfs_loopback(int argc, char **argv)
 {
+	/* a work buffer for the f_mkfs() */
+	uint8_t work_buffer[FF_MAX_SS];
+	FIL test_file;
 	FRESULT res;                                         /* FatFs function common result code */
 	MKFS_PARM opt;
 	uint32_t byteswritten, bytesread;                    /* File write/read counts */
@@ -1442,74 +1451,72 @@ int t_fatfs_loopback(int argc, char **argv)
 	uint8_t rtext[100];                                  /* File read buffer */
 
 	/*##-1- Link the  disk I/O driver #######################################*/
-#ifdef KINETIS_FAKE_SIM
-	if (FATFS_LinkDriver(&fake_ram_disk_driver, disk_path) == 0) {
-#else
-	if (FATFS_LinkDriver(&SD_Driver, disk_path) == 0) {
-#endif
-		/*##-2- Register the file system object to the FatFs module ##############*/
-		res = f_mount(&disk_fatfs, (TCHAR const *)disk_path, 0);
-
-		if (res != FR_OK) {
-			/* FatFs Initialization Error */
-			process_fatfs_err(res);
-		} else {
-			/*##-3- Create a FAT file system (format) on the logical drive #########*/
-			if (res == FR_NO_FILESYSTEM) {
-				opt.fmt =  FM_FAT32;
-				opt.n_fat = 1;
-				opt.align = 4;
-				opt.n_root = 1;
-				opt.au_size = 1;
-
-				res = f_mkfs((const TCHAR *)disk_path, &opt, work_buffer, sizeof(work_buffer));
-			}
+	for (int i = 0; i < ARRAY_SIZE(fatfs_drivers); i++) {
+		if (FATFS_LinkDriver(fatfs_drivers[i].disk_driver, fatfs_drivers[i].disk_path) == 0) {
+			/*##-2- Register the file system object to the FatFs module ##############*/
+			res = f_mount(&fatfs_drivers[i].disk_fatfs, (TCHAR const *)fatfs_drivers[i].disk_path, 0);
 
 			if (res != FR_OK) {
-				/* FatFs Format Error */
+				/* FatFs Initialization Error */
 				process_fatfs_err(res);
 			} else {
-				/*##-4- Create and Open a new text file object with write access #####*/
-				res = f_open(&test_file, "test.txt", FA_CREATE_ALWAYS | FA_WRITE);
+				/*##-3- Create a FAT file system (format) on the logical drive #########*/
+				if (res == FR_NO_FILESYSTEM) {
+					opt.fmt =  FM_FAT32;
+					opt.n_fat = 1;
+					opt.align = 4;
+					opt.n_root = 1;
+					opt.au_size = 1;
+
+					res = f_mkfs((const TCHAR *)fatfs_drivers[i].disk_path, &opt, work_buffer, sizeof(work_buffer));
+				}
 
 				if (res != FR_OK) {
-					/* 'test.txt' file Open for write Error */
+					/* FatFs Format Error */
 					process_fatfs_err(res);
 				} else {
-					/*##-5- Write data to the text file ################################*/
-					res = f_write(&test_file, wtext, sizeof(wtext), (void *)&byteswritten);
+					/*##-4- Create and Open a new text file object with write access #####*/
+					res = f_open(&test_file, "test.txt", FA_CREATE_ALWAYS | FA_WRITE);
 
-					if ((byteswritten == 0) || (res != FR_OK)) {
-						/* 'test.txt' file Write or EOF Error */
+					if (res != FR_OK) {
+						/* 'test.txt' file Open for write Error */
 						process_fatfs_err(res);
 					} else {
-						/*##-6- Close the open text file #################################*/
-						f_close(&test_file);
+						/*##-5- Write data to the text file ################################*/
+						res = f_write(&test_file, wtext, sizeof(wtext), (void *)&byteswritten);
 
-						/*##-7- Open the text file object with read access ###############*/
-						res = f_open(&test_file, "test.txt", FA_READ);
-
-						if (res != FR_OK) {
-							/* 'test.txt' file Open for read Error */
+						if ((byteswritten == 0) || (res != FR_OK)) {
+							/* 'test.txt' file Write or EOF Error */
 							process_fatfs_err(res);
 						} else {
-							/*##-8- Read data from the text file ###########################*/
-							res = f_read(&test_file, rtext, sizeof(rtext), (void *)&bytesread);
+							/*##-6- Close the open text file #################################*/
+							f_close(&test_file);
 
-							if ((bytesread == 0) || (res != FR_OK)) {
-								/* 'test.txt' file Read or EOF Error */
+							/*##-7- Open the text file object with read access ###############*/
+							res = f_open(&test_file, "test.txt", FA_READ);
+
+							if (res != FR_OK) {
+								/* 'test.txt' file Open for read Error */
 								process_fatfs_err(res);
 							} else {
-								/*##-9- Close the open text file #############################*/
-								f_close(&test_file);
+								/*##-8- Read data from the text file ###########################*/
+								res = f_read(&test_file, rtext, sizeof(rtext), (void *)&bytesread);
 
-								/*##-10- Compare read data with the expected data ############*/
-								if ((bytesread != byteswritten)) {
-									/* Read data is different from the expected data */
+								if ((bytesread == 0) || (res != FR_OK)) {
+									/* 'test.txt' file Read or EOF Error */
 									process_fatfs_err(res);
 								} else {
-									/* Success of the demo: no error occurrence */
-									pr_info("FatFs TEST PASS\n");
+									/*##-9- Close the open text file #############################*/
+									f_close(&test_file);
+
+									/*##-10- Compare read data with the expected data ############*/
+									if ((bytesread != byteswritten)) {
+										/* Read data is different from the expected data */
+										process_fatfs_err(res);
+									} else {
+										/* Success of the demo: no error occurrence */
+										pr_info("FatFs TEST PASS\n");
+									}
 								}
 							}
 						}
@@ -1517,10 +1524,10 @@ int t_fatfs_loopback(int argc, char **argv)
 				}
 			}
 		}
+		/*##-11- Unlink the  disk I/O driver ####################################*/
+		FATFS_UnLinkDriver(fatfs_drivers[i].disk_path);
 	}
 
-	/*##-11- Unlink the  disk I/O driver ####################################*/
-	FATFS_UnLinkDriver(disk_path);
 
 	return 0;
 }
@@ -1570,8 +1577,8 @@ int t_fatfs_file_check(int argc, char **argv)
 int t_fatfs_scan_files(int argc, char **argv)
 {
 	pr_info("Document scanning test.\n");
-	strcpy(disk_path, "1:");
-	fatfs_scan_files(disk_path);
+	strcpy(fatfs_drivers[0].disk_path, "1:");
+	fatfs_scan_files(fatfs_drivers[0].disk_path);
 
 	return 0;
 }
@@ -1643,6 +1650,8 @@ int t_fatfs_expand(int argc, char **argv)
 	FATFS fs;
 	FIL fil;
 	DWORD org;
+	/* a work buffer for the f_mkfs() */
+	uint8_t work_buffer[FF_MAX_SS];
 
 	/* Open or create a file to write */
 	f_mount(&fs, "", 0);
@@ -1696,6 +1705,7 @@ int t_fatfs_diskio(int argc, char **argv)
 
 int t_fatfs_contiguous_file(int argc, char **argv)
 {
+	FIL test_file;
 	int ret;
 	int cont;
 	/* Check function/compatibility of the physical drive #0 */

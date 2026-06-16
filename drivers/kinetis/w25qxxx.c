@@ -13,126 +13,11 @@
 #include <kinetis/spi_soft.h>
 #include "kinetis/random-gene.h"
 #include "kinetis/basic-timer.h"
-
-#include "w25qxxx.h"
+#include "kinetis/w25qxxx.h"
 
 #ifdef KINETIS_FAKE_SIM
 #include <pthread.h>
 #endif
-
-static inline void w25qxxx_port_transmit(struct w25qxxx_device *dev, u8 tmp)
-{
-#ifdef STM32_HAL_LIBRARY
-	switch (w25qxxx) {
-	case W25Q128:
-		HAL_SPI_Transmit(&hspi1, &tmp, 1, 1000);
-		break;
-
-	case W25Q256:
-		HAL_SPI_Transmit(&hspi2, &tmp, 1, 1000);
-		break;
-
-	default:
-		break;
-	}
-#endif
-}
-
-static inline u8 w25qxxx_port_receive(struct w25qxxx_device *dev)
-{
-	u8 tmp = 0;
-
-#ifdef STM32_HAL_LIBRARY
-	switch (w25qxxx) {
-	case W25Q128:
-		HAL_SPI_Receive(&hspi1, &tmp, 1, 1000);
-		break;
-
-	case W25Q256:
-		HAL_SPI_Receive(&hspi2, &tmp, 1, 1000);
-		break;
-
-	default:
-		break;
-	}
-#endif
-
-	return tmp;
-}
-
-static inline void w25qxxx_port_multi_transmit(struct w25qxxx_device *dev,
-	u8 *pdata, u32 length)
-{
-#ifdef STM32_HAL_LIBRARY
-	switch (w25qxxx) {
-	case W25Q128:
-		HAL_SPI_Transmit(&hspi1, pdata, length, 1000);
-		break;
-
-	case W25Q256:
-		HAL_SPI_Transmit(&hspi2, pdata, length, 1000);
-		break;
-
-	default:
-		break;
-	}
-#endif
-}
-
-static inline void w25qxxx_port_multi_receive(struct w25qxxx_device *dev,
-	u8 *pdata, u32 length)
-{
-#ifdef STM32_HAL_LIBRARY
-	switch (w25qxxx) {
-	case W25Q128:
-		HAL_SPI_Receive(&hspi1, pdata, length, 1000);
-		break;
-
-	case W25Q256:
-		HAL_SPI_Receive(&hspi2, pdata, length, 1000);
-		break;
-
-	default:
-		break;
-	}
-#endif
-}
-
-static inline void w25qxxx_cs_low(struct w25qxxx_device *dev)
-{
-#ifdef STM32_HAL_LIBRARY
-	switch (w25qxxx) {
-	case W25Q128:
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
-		break;
-
-	case W25Q256:
-		HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_RESET);
-		break;
-
-	default:
-		break;
-	}
-#endif
-}
-
-static inline void w25qxxx_cs_high(struct w25qxxx_device *dev)
-{
-#ifdef STM32_HAL_LIBRARY
-	switch (w25qxxx) {
-	case W25Q128:
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
-		break;
-
-	case W25Q256:
-		HAL_GPIO_WritePin(GPIOF, GPIO_PIN_6, GPIO_PIN_SET);
-		break;
-
-	default:
-		break;
-	}
-#endif
-}
 
 #define W25Q_PAGE_SIZE                  256
 #define SECTOR_SIZE                     4096
@@ -185,8 +70,8 @@ static inline void w25qxxx_cs_high(struct w25qxxx_device *dev)
 #define ERASE_SECURITY_REGISTERS        0x44
 #define PROGRAM_SECURITY_REGISTERS      0x42
 #define READ_SECURITY_REGISTERS         0x48
-#define ENTER_QPI_MODE                  0x38
-#define EXIT_QPI_MODE                   0xFF
+#define ENTER_QSPI_MODE                  0x38
+#define EXIT_QSPI_MODE                   0xFF
 #define INDIVIDUAL_BLOCK_SECTOR_LOCK    0x36
 #define INDIVIDUAL_BLOCK_SECTOR_UNLOCK  0x39
 #define READ_BLOCK_SECTOR_LOCK          0x3D
@@ -194,53 +79,51 @@ static inline void w25qxxx_cs_high(struct w25qxxx_device *dev)
 #define GLOBAL_BLOCK_SECTOR_UNLOCK      0x98
 #define ENABLE_RESET                    0x66
 #define RESET_DEVICE                    0x99
+#define FAST_READ_DUAL_OUTPUT           0x3B
+#define FAST_READ_DUAL_IO               0xBB
+#define FAST_READ_QUAD_OUTPUT           0x6B
+#define FAST_READ_QUAD_IO               0xEB
+#define WORD_READ_QUAD_IO               0xE7
+#define OCTAL_WORD_READ_QUAD_IO         0xE3
+#define SET_BURST_WRAP                  0x77
+#define QUAD_INPUT_PAGE_PROGRAM         0x32
 
-struct w25qxxx_status {
-	unsigned BUSY: 1;
-	unsigned WEL: 1;
-	unsigned BP0: 1;
-	unsigned BP1: 1;
-	unsigned BP2: 1;
-	unsigned TB: 1;
-	unsigned SEC: 1;
-	unsigned SRP0: 1;
+#define W25Q_IS_VALID(id)  ((id) == W25Q64 || (id) == W25Q128 || \
+			    			(id) == W25Q256 || (id) == W25Q512)
 
-	unsigned SRP1: 1;
-	unsigned QE: 1;
-	unsigned LB1: 1;
-	unsigned LB2: 1;
-	unsigned LB3: 1;
-	unsigned CMP: 1;
-	unsigned SUS: 1;
+static inline u32 w25qxxx_get_max_addr(u8 id)
+{
+	switch (id) {
+	case W25Q64:  return 0x7FFFFF;
+	case W25Q128: return 0xFFFFFF;
+	case W25Q256: return 0x1FFFFFF;
+	case W25Q512: return 0x3FFFFFF;
+	default:      return 0;
+	}
+}
 
-	unsigned WPS: 1;
-	unsigned DRV0: 1;
-	unsigned DRV1: 1;
-	unsigned HOLD_RST: 1;
-};
+static inline bool w25qxxx_need_4byte_addr(u8 id)
+{
+	return (id == W25Q256 || id == W25Q512);
+}
 
-struct w25qxxx_device {
-	struct spi_master *spi;
-
-	u8 id;
-	u32 max_addr;
-	struct list_head list;
-
-	struct w25qxxx_status status;
-#ifdef KINETIS_FAKE_SIM
-	struct spi_slave *spi_slave;
-	u8 *slave_regs;
-	bool thread_running;
-#endif
-};
-
-static u32 w25q128_max_addr = 0xFFFFFF;
-static u32 w25q256_max_addr = 0x1FFFFFF;
+static inline const char *w25qxxx_dev_name(u8 id)
+{
+	switch (id) {
+	case W25Q64:  return "W25Q64";
+	case W25Q128: return "W25Q128";
+	case W25Q256: return "W25Q256";
+	case W25Q512: return "W25Q512";
+	default:      return "Unknown";
+	}
+}
 
 #ifdef KINETIS_FAKE_SIM
 /* SPI Simulation constants */
+#define W25Q_FLASH_SIZE_64         (8  * 1024 * 1024)  /*  8MB for W25Q64 */
 #define W25Q_FLASH_SIZE_128        (16 * 1024 * 1024)  /* 16MB for W25Q128 */
 #define W25Q_FLASH_SIZE_256        (32 * 1024 * 1024)  /* 32MB for W25Q256 */
+#define W25Q_FLASH_SIZE_512        (64 * 1024 * 1024)  /* 64MB for W25Q512 */
 #define W25Q_STATUS_REG1_ADDR     0x00
 #define W25Q_STATUS_REG2_ADDR     0x01
 #define W25Q_STATUS_REG3_ADDR     0x02
@@ -273,7 +156,13 @@ static void *w25qxxx_reg_random_thread(void *arg)
 	dev->slave_regs[W25Q_STATUS_REG3_ADDR] = 0x00;
 
 	/* Initialize flash memory with random pattern (erased state = 0xFF) */
-	flash_size = (dev->id == W25Q256) ? W25Q_FLASH_SIZE_256 : W25Q_FLASH_SIZE_128;
+	switch (dev->id) {
+	case W25Q64:  flash_size = W25Q_FLASH_SIZE_64;  break;
+	case W25Q128: flash_size = W25Q_FLASH_SIZE_128; break;
+	case W25Q256: flash_size = W25Q_FLASH_SIZE_256; break;
+	case W25Q512: flash_size = W25Q_FLASH_SIZE_512; break;
+	default:      flash_size = W25Q_FLASH_SIZE_128; break;
+	}
 	for (i = W25Q_DATA_BASE_ADDR; i < W25Q_DATA_BASE_ADDR + flash_size && i < 0x10000; i++) {
 		dev->slave_regs[i] = 0xFF;  /* Erased state */
 	}
@@ -300,7 +189,7 @@ static void *w25qxxx_reg_random_thread(void *arg)
 	return NULL;
 }
 
-int w25qxxx_start_reg_random(struct w25qxxx_device *dev)
+static int w25qxxx_start_reg_random(struct w25qxxx_device *dev)
 {
 	int ret;
 
@@ -317,23 +206,44 @@ int w25qxxx_start_reg_random(struct w25qxxx_device *dev)
 	return 0;
 }
 
-void w25qxxx_stop_reg_random(struct w25qxxx_device *dev)
+static void w25qxxx_stop_reg_random(struct w25qxxx_device *dev)
 {
 	dev->thread_running = false;
 	pthread_join(w25q_reg_thread, NULL);
 }
 #endif
 
-void w25qxxx_transmit_cmd(struct w25qxxx_device *dev, u8 cmd)
+static void w25qxxx_transmit_cmd(struct w25qxxx_device *dev, u8 cmd)
 {
-	dev->spi->cs_low();
-	dev->spi->write_bytes(&cmd, 1);
-	dev->spi->cs_high();
+	struct qspi_request_block qrb;
+
+	if (dev->spi->qspi_write) {
+		qrb.instruction = cmd;
+		qrb.instruction_mode = 1;
+		qrb.address = 0;
+		qrb.address_size = 0;
+		qrb.address_mode = 0;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 0;
+		qrb.transfer_buffer = NULL;
+		qrb.transfer_length = 0;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_write(&qrb);
+	} else {
+		dev->spi->cs_low();
+		dev->spi->write_bytes(&cmd, 1);
+		dev->spi->cs_high();
+	}
 }
 
 void w25qxxx_hard_reset(struct w25qxxx_device *dev)
 {
-	if (dev->id != W25Q128 && dev->id != W25Q256) {
+	if (!W25Q_IS_VALID(dev->id)) {
 		pr_err("Invalid device type: 0x%02X\n", dev->id);
 		return;
 	}
@@ -348,31 +258,32 @@ void w25qxxx_hard_reset(struct w25qxxx_device *dev)
 
 u8 w25qxxx_read_status_reg(struct w25qxxx_device *dev, u8 num)
 {
+	struct qspi_request_block qrb;
 	u8 tmp = 0;
 
-	dev->spi->cs_low();
+	if (dev->spi->qspi_read) {
+		qrb.instruction = num;
+		qrb.instruction_mode = 1;
+		qrb.address = 0;
+		qrb.address_size = 0;
+		qrb.address_mode = 0;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 1;
+		qrb.transfer_buffer = &tmp;
+		qrb.transfer_length = 1;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
 
-	switch (num) {
-	case READ_STATUS_REGISTER1:
-		dev->spi->write_byte(READ_STATUS_REGISTER1);
+		dev->spi->qspi_read(&qrb);
+	} else {
+		dev->spi->cs_low();
+		dev->spi->write_byte(num);
 		tmp = dev->spi->read_byte();
-		break;
-
-	case READ_STATUS_REGISTER2:
-		dev->spi->write_byte(READ_STATUS_REGISTER2);
-		tmp = dev->spi->read_byte();
-		break;
-
-	case READ_STATUS_REGISTER3:
-		dev->spi->write_byte(READ_STATUS_REGISTER3);
-		tmp = dev->spi->read_byte();
-		break;
-
-	default:
-		break;
+		dev->spi->cs_high();
 	}
-
-	dev->spi->cs_high();
 
 	return tmp;
 }
@@ -394,31 +305,33 @@ void w25qxxx_write_disable(struct w25qxxx_device *dev)
 
 void w25qxxx_write_status_reg(struct w25qxxx_device *dev, u8 num, u8 tmp)
 {
+	struct qspi_request_block qrb;
+
 	w25qxxx_write_enable(dev);
 
-	dev->spi->cs_low();
+	if (dev->spi->qspi_write) {
+		qrb.instruction = num;
+		qrb.instruction_mode = 1;
+		qrb.address = 0;
+		qrb.address_size = 0;
+		qrb.address_mode = 0;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 1;
+		qrb.transfer_buffer = &tmp;
+		qrb.transfer_length = 1;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
 
-	switch (num) {
-	case WRITE_STATUS_REGISTER1:
-		dev->spi->write_byte(WRITE_STATUS_REGISTER1);
+		dev->spi->qspi_write(&qrb);
+	} else {
+		dev->spi->cs_low();
+		dev->spi->write_byte(num);
 		dev->spi->write_byte(tmp);
-		break;
-
-	case WRITE_STATUS_REGISTER2:
-		dev->spi->write_byte(WRITE_STATUS_REGISTER2);
-		dev->spi->write_byte(tmp);
-		break;
-
-	case WRITE_STATUS_REGISTER3:
-		dev->spi->write_byte(WRITE_STATUS_REGISTER3);
-		dev->spi->write_byte(tmp);
-		break;
-
-	default:
-		break;
+		dev->spi->cs_high();
 	}
-
-	dev->spi->cs_high();
 }
 
 u8 w25qxxx_read_busy(struct w25qxxx_device *dev)
@@ -454,7 +367,7 @@ u8 w25qxxx_read_bp1(struct w25qxxx_device *dev)
 
 	tmp = w25qxxx_read_status_reg(dev, READ_STATUS_REGISTER1);
 
-	return test_bit(4, (unsigned long *)&tmp);
+	return test_bit(3, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_bp2(struct w25qxxx_device *dev)
@@ -463,7 +376,7 @@ u8 w25qxxx_read_bp2(struct w25qxxx_device *dev)
 
 	tmp = w25qxxx_read_status_reg(dev, READ_STATUS_REGISTER1);
 
-	return test_bit(5, (unsigned long *)&tmp);
+	return test_bit(4, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_sec(struct w25qxxx_device *dev)
@@ -491,7 +404,7 @@ u8 w25qxxx_read_tb(struct w25qxxx_device *dev)
 
 	tmp = w25qxxx_read_status_reg(dev, READ_STATUS_REGISTER1);
 
-	return test_bit(7, (unsigned long *)&tmp);
+	return test_bit(5, (unsigned long *)&tmp);
 }
 
 u8 w25qxxx_read_srp0(struct w25qxxx_device *dev)
@@ -656,19 +569,34 @@ void w25qxxx_write_tb(struct w25qxxx_device *dev, u8 tmp)
 	w25qxxx_write_status_reg(dev, WRITE_STATUS_REGISTER1, reg);
 }
 
-void w25qxxx_write_bp(struct w25qxxx_device *dev, u8 tmp)
+static void w25qxxx_write_bp3(struct w25qxxx_device *dev, u8 tmp)
 {
 	u8 reg = 0;
-	u8 bp_val = tmp & 0x07;  /* BP0-2是3位组合 */
+
+	reg = w25qxxx_read_status_reg(dev, READ_STATUS_REGISTER2);
+
+	__assign_bit(5, (unsigned long *)&reg, tmp);
+
+	w25qxxx_transmit_cmd(dev, WRITE_ENABLE);
+	w25qxxx_write_status_reg(dev, WRITE_STATUS_REGISTER2, reg);
+}
+
+static void w25qxxx_write_bp(struct w25qxxx_device *dev, u8 tmp)
+{
+	u8 reg = 0;
+	u8 bp_val = tmp & 0x0F;  /* BP0-3是4位组合 (W25Q256/Q512 使用 BP3) */
 
 	reg = w25qxxx_read_status_reg(dev, READ_STATUS_REGISTER1);
 
 	/* 清除原BP0-2位，设置新值 */
 	reg &= ~(0x07 << 2);  /* 清除bit2-4 */
-	reg |= (bp_val << 2); /* 设置新的BP值 */
+	reg |= (bp_val & 0x07) << 2; /* 设置BP0-2 */
 
 	w25qxxx_transmit_cmd(dev, WRITE_ENABLE);
 	w25qxxx_write_status_reg(dev, WRITE_STATUS_REGISTER1, reg);
+
+	/* 处理 BP3 (SR2 bit5) — W25Q256/Q512 特有 */
+	w25qxxx_write_bp3(dev, (bp_val >> 3) & 0x01);
 }
 
 void w25qxxx_write_cmp(struct w25qxxx_device *dev, u8 tmp)
@@ -690,18 +618,6 @@ void w25qxxx_write_lb(struct w25qxxx_device *dev, u8 tmp)
 	reg = w25qxxx_read_status_reg(dev, READ_STATUS_REGISTER2);
 
 	__assign_bit(7, (unsigned long *)&reg, tmp);
-
-	w25qxxx_transmit_cmd(dev, WRITE_ENABLE);
-	w25qxxx_write_status_reg(dev, WRITE_STATUS_REGISTER2, reg);
-}
-
-void w25qxxx_write_bp3(struct w25qxxx_device *dev, u8 tmp)
-{
-	u8 reg = 0;
-
-	reg = w25qxxx_read_status_reg(dev, READ_STATUS_REGISTER2);
-
-	__assign_bit(5, (unsigned long *)&reg, tmp);
 
 	w25qxxx_transmit_cmd(dev, WRITE_ENABLE);
 	w25qxxx_write_status_reg(dev, WRITE_STATUS_REGISTER2, reg);
@@ -791,137 +707,254 @@ void w25qxxx_write_adp(struct w25qxxx_device *dev, u8 tmp)
 	w25qxxx_write_status_reg(dev, WRITE_STATUS_REGISTER3, reg);
 }
 
-u8 w25q256_read_ext_addr_reg(struct w25qxxx_device *dev)
+u8 w25qxxx_read_ext_addr_reg(struct w25qxxx_device *dev)
 {
-	u8 tmp = 0;
+	struct qspi_request_block qrb;
+	u8 tmp;
 
-	dev->spi->cs_low();
-	dev->spi->write_byte(READ_EXTENDED_ADDRESS_REGISTER);
-	tmp = dev->spi->read_byte();
-	dev->spi->cs_high();
+	if (dev->spi->qspi_read) {
+		qrb.instruction = READ_EXTENDED_ADDRESS_REGISTER;
+		qrb.instruction_mode = 1;
+		qrb.address = 0;
+		qrb.address_size = 0;
+		qrb.address_mode = 0;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 1;
+		qrb.transfer_buffer = &tmp;
+		qrb.transfer_length = 1;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_read(&qrb);
+	} else {
+		dev->spi->cs_low();
+		dev->spi->write_byte(READ_EXTENDED_ADDRESS_REGISTER);
+		tmp = dev->spi->read_byte();
+		dev->spi->cs_high();
+	}
 
 	return tmp;
 }
 
-void w25q256_write_ext_addr_reg(struct w25qxxx_device *dev, u8 tmp)
+void w25qxxx_write_ext_addr_reg(struct w25qxxx_device *dev, u8 tmp)
 {
+	struct qspi_request_block qrb;
+
 	w25qxxx_write_enable(dev);
-	dev->spi->cs_low();
-	dev->spi->write_byte(WRITE_EXTENDED_ADDRESS_REGISTER);
-	dev->spi->write_byte(tmp);
-	dev->spi->cs_high();
+
+	if (dev->spi->qspi_write) {
+		qrb.instruction = WRITE_EXTENDED_ADDRESS_REGISTER;
+		qrb.instruction_mode = 1;
+		qrb.address = 0;
+		qrb.address_size = 0;
+		qrb.address_mode = 0;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 1;
+		qrb.transfer_buffer = &tmp;
+		qrb.transfer_length = 1;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_write(&qrb);
+	} else {
+		dev->spi->cs_low();
+		dev->spi->write_byte(WRITE_EXTENDED_ADDRESS_REGISTER);
+		dev->spi->write_byte(tmp);
+		dev->spi->cs_high();
+	}
 }
 
-void w25q256_enter_4byte_addr_mode(struct w25qxxx_device *dev)
+void w25qxxx_enter_4byte_addr_mode(struct w25qxxx_device *dev)
 {
 	w25qxxx_transmit_cmd(dev, ENTER_4BYTE_ADDRESS_MODE);
 }
 
-void w25q256_exit_4byte_addr_mode(struct w25qxxx_device *dev)
+void w25qxxx_exit_4byte_addr_mode(struct w25qxxx_device *dev)
 {
 	w25qxxx_transmit_cmd(dev, EXIT_4BYTE_ADDRESS_MODE);
 }
 
 void w25qxxx_read_data(struct w25qxxx_device *dev, u32 addr, u8 *pdata, u32 length)
 {
+	struct qspi_request_block qrb;
 	u8 sub_addr[4];
 	u32 remain = 0;
 
-	if (dev->id == W25Q128) {
-		remain = w25q128_max_addr - addr + 1;
-	} else if (dev->id == W25Q256) {
-		remain = w25q256_max_addr - addr + 1;
-	}
+	remain = w25qxxx_get_max_addr(dev->id);
+	if (remain)
+		remain = remain - addr + 1;
 
-	if (remain < length) {
+	if (remain < length || remain == 0) {
 		pr_err("There is not enough space left to read the specified length.\n");
 		return ;
 	}
 
-	if (dev->id == W25Q256) {
-		sub_addr[0] = (addr & 0xFF000000) >> 24;
+	if (dev->spi->qspi_read) {
+		qrb.instruction = READ_DATA;
+		qrb.instruction_mode = 1;
+		qrb.address = addr;
+		qrb.address_size = w25qxxx_need_4byte_addr(dev->id) ? 4 : 3;
+		qrb.address_mode = 1;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 1;
+		qrb.transfer_buffer = pdata;
+		qrb.transfer_length = length;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_read(&qrb);
+	} else {
+		if (w25qxxx_need_4byte_addr(dev->id))
+			sub_addr[0] = (addr & 0xFF000000) >> 24;
+
+		sub_addr[1] = (addr & 0x00FF0000) >> 16;
+		sub_addr[2] = (addr & 0x0000FF00) >> 8;
+		sub_addr[3] = (addr & 0x000000FF);
+
+		dev->spi->cs_low();
+		dev->spi->write_byte(READ_DATA);
+
+		if (w25qxxx_need_4byte_addr(dev->id))
+			dev->spi->write_byte(sub_addr[0]);
+
+		dev->spi->write_bytes(&sub_addr[1], 3);
+
+		dev->spi->read_bytes(pdata, length);
+		dev->spi->cs_high();
 	}
-
-	sub_addr[1] = (addr & 0x00FF0000) >> 16;
-	sub_addr[2] = (addr & 0x0000FF00) >> 8;
-	sub_addr[3] = (addr & 0x000000FF);
-
-	dev->spi->cs_low();
-	dev->spi->write_byte(READ_DATA);
-
-	if (dev->id == W25Q256) {
-		dev->spi->write_byte(sub_addr[0]);
-	}
-
-	dev->spi->write_bytes(&sub_addr[1], 3);
-
-	dev->spi->read_bytes(pdata, length);
-	dev->spi->cs_high();
 }
 
-void w25q256_read_data_with_4byte_addr(struct w25qxxx_device *dev, u32 addr, u8 *pdata, u32 length)
+void w25qxxx_read_data_with_4byte_addr(struct w25qxxx_device *dev, u32 addr, u8 *pdata, u32 length)
 {
+	struct qspi_request_block qrb;
 	u8 sub_addr[4];
 
-	sub_addr[0] = (addr & 0xFF000000) >> 24;
-	sub_addr[1] = (addr & 0x00FF0000) >> 16;
-	sub_addr[2] = (addr & 0x0000FF00) >> 8;
-	sub_addr[3] = (addr & 0x000000FF);
+	if (dev->spi->qspi_read) {
+		qrb.instruction = READ_DATA_WITH_4Byte_ADDRESS;
+		qrb.instruction_mode = 1;
+		qrb.address = addr;
+		qrb.address_size = 4;
+		qrb.address_mode = 1;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 1;
+		qrb.transfer_buffer = pdata;
+		qrb.transfer_length = length;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
 
-	dev->spi->cs_low();
-	dev->spi->write_byte(READ_DATA_WITH_4Byte_ADDRESS);
-	dev->spi->write_bytes(sub_addr, 4);
+		dev->spi->qspi_read(&qrb);
+	} else {
+		sub_addr[0] = (addr & 0xFF000000) >> 24;
+		sub_addr[1] = (addr & 0x00FF0000) >> 16;
+		sub_addr[2] = (addr & 0x0000FF00) >> 8;
+		sub_addr[3] = (addr & 0x000000FF);
 
-	dev->spi->read_bytes(pdata, length);
-	dev->spi->cs_high();
+		dev->spi->cs_low();
+		dev->spi->write_byte(READ_DATA_WITH_4Byte_ADDRESS);
+		dev->spi->write_bytes(sub_addr, 4);
+
+		dev->spi->read_bytes(pdata, length);
+		dev->spi->cs_high();
+	}
 }
 
 void w25qxxx_fast_read(struct w25qxxx_device *dev, u32 addr, u8 *pdata, u32 length)
 {
+	struct qspi_request_block qrb;
 	u8 sub_addr[4];
 
-	if (dev->id == W25Q256) {
-		sub_addr[0] = (addr & 0xFF000000) >> 24;
+	if (dev->spi->qspi_read) {
+		qrb.instruction = FAST_READ;
+		qrb.instruction_mode = 1;
+		qrb.address = addr;
+		qrb.address_size = w25qxxx_need_4byte_addr(dev->id) ? 4 : 3;
+		qrb.address_mode = 1;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 1;
+		qrb.transfer_mode = 1;
+		qrb.transfer_buffer = pdata;
+		qrb.transfer_length = length;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_read(&qrb);
+	} else {
+		if (w25qxxx_need_4byte_addr(dev->id))
+			sub_addr[0] = (addr & 0xFF000000) >> 24;
+
+		sub_addr[1] = (addr & 0x00FF0000) >> 16;
+		sub_addr[2] = (addr & 0x0000FF00) >> 8;
+		sub_addr[3] = (addr & 0x000000FF);
+
+		dev->spi->cs_low();
+		dev->spi->write_byte(FAST_READ);
+
+		if (w25qxxx_need_4byte_addr(dev->id))
+			dev->spi->write_byte(sub_addr[0]);
+
+		dev->spi->write_bytes(&sub_addr[1], 3);
+		dev->spi->write_byte(DUMMY_BYTE);
+
+		dev->spi->read_bytes(pdata, length);
+		dev->spi->cs_high();
 	}
-
-	sub_addr[1] = (addr & 0x00FF0000) >> 16;
-	sub_addr[2] = (addr & 0x0000FF00) >> 8;
-	sub_addr[3] = (addr & 0x000000FF);
-
-	dev->spi->cs_low();
-	dev->spi->write_byte(FAST_READ);
-
-	if (dev->id == W25Q256) {
-		dev->spi->write_byte(sub_addr[0]);
-	}
-
-	dev->spi->write_bytes(&sub_addr[1], 3);
-	dev->spi->write_byte(DUMMY_BYTE);
-
-	dev->spi->read_bytes(pdata, length);
-	dev->spi->cs_high();
 }
 
-void w25q256_fast_read_with_4byte_addr(struct w25qxxx_device *dev, u32 addr, u8 *pdata, u32 length)
+void w25qxxx_fast_read_with_4byte_addr(struct w25qxxx_device *dev, u32 addr, u8 *pdata, u32 length)
 {
+	struct qspi_request_block qrb;
 	u8 sub_addr[4];
 
-	sub_addr[0] = (addr & 0xFF000000) >> 24;
-	sub_addr[1] = (addr & 0x00FF0000) >> 16;
-	sub_addr[2] = (addr & 0x0000FF00) >> 8;
-	sub_addr[3] = (addr & 0x000000FF);
+	if (dev->spi->qspi_read) {
+		qrb.instruction = FAST_READ_WITH_4Byte_ADDRESS;
+		qrb.instruction_mode = 1;
+		qrb.address = addr;
+		qrb.address_size = 4;
+		qrb.address_mode = 1;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 1;
+		qrb.transfer_mode = 1;
+		qrb.transfer_buffer = pdata;
+		qrb.transfer_length = length;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
 
-	dev->spi->cs_low();
-	dev->spi->write_byte(FAST_READ_WITH_4Byte_ADDRESS);
-	dev->spi->write_bytes(sub_addr, 4);
-	dev->spi->write_byte(DUMMY_BYTE);
+		dev->spi->qspi_read(&qrb);
+	} else {
+		sub_addr[0] = (addr & 0xFF000000) >> 24;
+		sub_addr[1] = (addr & 0x00FF0000) >> 16;
+		sub_addr[2] = (addr & 0x0000FF00) >> 8;
+		sub_addr[3] = (addr & 0x000000FF);
 
-	dev->spi->read_bytes(pdata, length);
-	dev->spi->cs_high();
+		dev->spi->cs_low();
+		dev->spi->write_byte(FAST_READ_WITH_4Byte_ADDRESS);
+		dev->spi->write_bytes(sub_addr, 4);
+		dev->spi->write_byte(DUMMY_BYTE);
+
+		dev->spi->read_bytes(pdata, length);
+		dev->spi->cs_high();
+	}
 }
 
 static int w25qxxx_page_program(struct w25qxxx_device *dev, u32 addr, u8 *pdata, u16 length)
 {
+	struct qspi_request_block qrb;
 	u8 sub_addr[4];
 	u8 busy;
 	int ret;
@@ -931,25 +964,44 @@ static int w25qxxx_page_program(struct w25qxxx_device *dev, u32 addr, u8 *pdata,
 		return -EINVAL;
 	}
 
-	if (dev->id == W25Q256) {
-		sub_addr[0] = (addr & 0xFF000000) >> 24;
-	}
-
-	sub_addr[1] = (addr & 0x00FF0000) >> 16;
-	sub_addr[2] = (addr & 0x0000FF00) >> 8;
-	sub_addr[3] = (addr & 0x000000FF);
-
 	w25qxxx_write_enable(dev);
-	dev->spi->cs_low();
-	dev->spi->write_byte(PAGE_PROGRAM);
 
-	if (dev->id == W25Q256) {
-		dev->spi->write_byte(sub_addr[0]);
+	if (dev->spi->qspi_write) {
+		qrb.instruction = PAGE_PROGRAM;
+		qrb.instruction_mode = 1;
+		qrb.address = addr;
+		qrb.address_size = w25qxxx_need_4byte_addr(dev->id) ? 4 : 3;
+		qrb.address_mode = 1;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 1;
+		qrb.transfer_buffer = pdata;
+		qrb.transfer_length = length;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_write(&qrb);
+	} else {
+		if (w25qxxx_need_4byte_addr(dev->id))
+			sub_addr[0] = (addr & 0xFF000000) >> 24;
+
+		sub_addr[1] = (addr & 0x00FF0000) >> 16;
+		sub_addr[2] = (addr & 0x0000FF00) >> 8;
+		sub_addr[3] = (addr & 0x000000FF);
+
+		dev->spi->cs_low();
+		dev->spi->write_byte(PAGE_PROGRAM);
+
+		if (w25qxxx_need_4byte_addr(dev->id)) {
+			dev->spi->write_byte(sub_addr[0]);
+		}
+
+		dev->spi->write_bytes(&sub_addr[1], 3);
+		dev->spi->write_bytes(pdata, length);
+		dev->spi->cs_high();
 	}
-
-	dev->spi->write_bytes(&sub_addr[1], 3);
-	dev->spi->write_bytes(pdata, length);
-	dev->spi->cs_high();
 
 	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, dev, busy,
 			busy == 0, 1, 30000000);
@@ -1072,33 +1124,53 @@ static int w25qxxx_multi_page_program(struct w25qxxx_device *dev, u32 addr, u8 *
 
 int w25qxxx_sector_erase(struct w25qxxx_device *dev, u32 addr)
 {
+	struct qspi_request_block qrb;
 	u8 sub_addr[4];
 	u8 busy;
 	int ret;
 
-	if (dev->id != W25Q128 && dev->id != W25Q256) {
+	if (!W25Q_IS_VALID(dev->id)) {
 		pr_err("Invalid device type: 0x%02X\n", dev->id);
 		return -EINVAL;
 	}
 
-	if (dev->id == W25Q256) {
-		sub_addr[0] = (addr & 0xFF000000) >> 24;
-	}
-
-	sub_addr[1] = (addr & 0x00FF0000) >> 16;
-	sub_addr[2] = (addr & 0x0000FF00) >> 8;
-	sub_addr[3] = (addr & 0x000000FF);
-
 	w25qxxx_write_enable(dev);
-	dev->spi->cs_low();
-	dev->spi->write_byte(SECTOR_ERASE);
 
-	if (dev->id == W25Q256) {
-		dev->spi->write_byte(sub_addr[0]);
+	if (dev->spi->qspi_write) {
+		qrb.instruction = SECTOR_ERASE;
+		qrb.instruction_mode = 1;
+		qrb.address = addr;
+		qrb.address_size = w25qxxx_need_4byte_addr(dev->id) ? 4 : 3;
+		qrb.address_mode = 1;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 0;
+		qrb.transfer_buffer = NULL;
+		qrb.transfer_length = 0;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_write(&qrb);
+	} else {
+		if (w25qxxx_need_4byte_addr(dev->id)) {
+			sub_addr[0] = (addr & 0xFF000000) >> 24;
+		}
+
+		sub_addr[1] = (addr & 0x00FF0000) >> 16;
+		sub_addr[2] = (addr & 0x0000FF00) >> 8;
+		sub_addr[3] = (addr & 0x000000FF);
+
+		dev->spi->cs_low();
+		dev->spi->write_byte(SECTOR_ERASE);
+
+		if (w25qxxx_need_4byte_addr(dev->id))
+			dev->spi->write_byte(sub_addr[0]);
+
+		dev->spi->write_bytes(&sub_addr[1], 3);
+		dev->spi->cs_high();
 	}
-
-	dev->spi->write_bytes(&sub_addr[1], 3);
-	dev->spi->cs_high();
 
 	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, dev, busy,
 			busy == 0, 1, W25Q_SECTOR_ERASE_TIMEOUT);
@@ -1165,7 +1237,7 @@ static int w25qxxx_process_partial_sector(struct w25qxxx_device *dev, u32 start_
 	return 0;
 }
 
-int w25qxxx_multi_sector_program(struct w25qxxx_device *dev, u32 addr, u8 *pdata, u32 length)
+static int w25qxxx_multi_sector_program(struct w25qxxx_device *dev, u32 addr, u8 *pdata, u32 length)
 {
 	u32 num_of_sector = 0, num_of_single = 0, offset = 0;
 	u32 cnt = 0, remain_of_single = 0;
@@ -1291,14 +1363,12 @@ int w25qxxx_write_data(struct w25qxxx_device *dev, u32 addr, u8 *pdata, u16 leng
 		return -EINVAL;
 	}
 
-	if (dev->id == W25Q128) {
-		remain = w25q128_max_addr - addr + 1;
-	} else if (dev->id == W25Q256) {
-		remain = w25q256_max_addr - addr + 1;
-	} else {
+	remain = w25qxxx_get_max_addr(dev->id);
+	if (!remain) {
 		pr_err("Invalid device type: 0x%02X\n", dev->id);
 		return -EINVAL;
 	}
+	remain = remain - addr + 1;
 
 	if (remain < length) {
 		pr_err("There is not enough space left to write the specified length.\n");
@@ -1312,33 +1382,53 @@ int w25qxxx_write_data(struct w25qxxx_device *dev, u32 addr, u8 *pdata, u16 leng
 
 int w25qxxx_block_erase_with_32kb(struct w25qxxx_device *dev, u32 addr)
 {
+	struct qspi_request_block qrb;
 	u8 sub_addr[4];
 	u8 busy;
 	int ret;
 
-	if (dev->id != W25Q128 && dev->id != W25Q256) {
+	if (!W25Q_IS_VALID(dev->id)) {
 		pr_err("Invalid device type: 0x%02X\n", dev->id);
 		return -EINVAL;
 	}
 
-	if (dev->id == W25Q256) {
-		sub_addr[0] = (addr & 0xFF000000) >> 24;
-	}
-
-	sub_addr[1] = (addr & 0x00FF0000) >> 16;
-	sub_addr[2] = (addr & 0x0000FF00) >> 8;
-	sub_addr[3] = (addr & 0x000000FF);
-
 	w25qxxx_write_enable(dev);
-	dev->spi->cs_low();
-	dev->spi->write_byte(BLOCK_ERASE_32KB);
 
-	if (dev->id == W25Q256) {
-		dev->spi->write_byte(sub_addr[0]);
+	if (dev->spi->qspi_write) {
+		qrb.instruction = BLOCK_ERASE_32KB;
+		qrb.instruction_mode = 1;
+		qrb.address = addr;
+		qrb.address_size = w25qxxx_need_4byte_addr(dev->id) ? 4 : 3;
+		qrb.address_mode = 1;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 0;
+		qrb.transfer_buffer = NULL;
+		qrb.transfer_length = 0;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_write(&qrb);
+	} else {
+		if (w25qxxx_need_4byte_addr(dev->id))
+			sub_addr[0] = (addr & 0xFF000000) >> 24;
+
+		sub_addr[1] = (addr & 0x00FF0000) >> 16;
+		sub_addr[2] = (addr & 0x0000FF00) >> 8;
+		sub_addr[3] = (addr & 0x000000FF);
+
+		dev->spi->cs_low();
+		dev->spi->write_byte(BLOCK_ERASE_32KB);
+
+		if (w25qxxx_need_4byte_addr(dev->id)) {
+			dev->spi->write_byte(sub_addr[0]);
+		}
+
+		dev->spi->write_bytes(&sub_addr[1], 3);
+		dev->spi->cs_high();
 	}
-
-	dev->spi->write_bytes(&sub_addr[1], 3);
-	dev->spi->cs_high();
 
 	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, dev, busy,
 			busy == 0, 1, W25Q_BLOCK_ERASE_TIMEOUT);
@@ -1353,33 +1443,53 @@ int w25qxxx_block_erase_with_32kb(struct w25qxxx_device *dev, u32 addr)
 
 int w25qxxx_block_erase_with_64kb(struct w25qxxx_device *dev, u32 addr)
 {
+	struct qspi_request_block qrb;
 	u8 sub_addr[4];
 	u8 busy;
 	int ret;
 
-	if (dev->id != W25Q128 && dev->id != W25Q256) {
+	if (!W25Q_IS_VALID(dev->id)) {
 		pr_err("Invalid device type: 0x%02X\n", dev->id);
 		return -EINVAL;
 	}
 
-	if (dev->id == W25Q256) {
-		sub_addr[0] = (addr & 0xFF000000) >> 24;
-	}
-
-	sub_addr[1] = (addr & 0x00FF0000) >> 16;
-	sub_addr[2] = (addr & 0x0000FF00) >> 8;
-	sub_addr[3] = (addr & 0x000000FF);
-
 	w25qxxx_write_enable(dev);
-	dev->spi->cs_low();
-	dev->spi->write_byte(BLOCK_ERASE_64KB);
 
-	if (dev->id == W25Q256) {
-		dev->spi->write_byte(sub_addr[0]);
+	if (dev->spi->qspi_write) {
+		qrb.instruction = BLOCK_ERASE_64KB;
+		qrb.instruction_mode = 1;
+		qrb.address = addr;
+		qrb.address_size = w25qxxx_need_4byte_addr(dev->id) ? 4 : 3;
+		qrb.address_mode = 1;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 0;
+		qrb.transfer_buffer = NULL;
+		qrb.transfer_length = 0;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_write(&qrb);
+	} else {
+		if (w25qxxx_need_4byte_addr(dev->id))
+			sub_addr[0] = (addr & 0xFF000000) >> 24;
+
+		sub_addr[1] = (addr & 0x00FF0000) >> 16;
+		sub_addr[2] = (addr & 0x0000FF00) >> 8;
+		sub_addr[3] = (addr & 0x000000FF);
+
+		dev->spi->cs_low();
+		dev->spi->write_byte(BLOCK_ERASE_64KB);
+
+		if (w25qxxx_need_4byte_addr(dev->id)) {
+			dev->spi->write_byte(sub_addr[0]);
+		}
+
+		dev->spi->write_bytes(&sub_addr[1], 3);
+		dev->spi->cs_high();
 	}
-
-	dev->spi->write_bytes(&sub_addr[1], 3);
-	dev->spi->cs_high();
 
 	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, dev, busy,
 			busy == 0, 1, W25Q_BLOCK_ERASE_TIMEOUT);
@@ -1392,12 +1502,12 @@ int w25qxxx_block_erase_with_64kb(struct w25qxxx_device *dev, u32 addr)
 	return 0;
 }
 
-int sw25qxxx_chip_erase(struct w25qxxx_device *dev)
+int w25qxxx_chip_erase(struct w25qxxx_device *dev)
 {
 	u8 busy;
 	int ret;
 
-	if (dev->id != W25Q128 && dev->id != W25Q256) {
+	if (!W25Q_IS_VALID(dev->id)) {
 		pr_err("Invalid device type: 0x%02X\n", dev->id);
 		return -EINVAL;
 	}
@@ -1449,21 +1559,68 @@ void w25qxxx_release_power_down(struct w25qxxx_device *dev)
 
 u8 w25qxxx_release_device_id(struct w25qxxx_device *dev)
 {
+	struct qspi_request_block qrb;
 	u8 tmp = 0;
 
-	dev->spi->cs_low();
-	dev->spi->write_byte(RELEASE_POWERDOWN_DEVICE_ID);
-	dev->spi->write_byte(DUMMY_BYTE);
-	dev->spi->write_byte(DUMMY_BYTE);
-	dev->spi->write_byte(DUMMY_BYTE);
-	tmp = dev->spi->read_byte();
-	dev->spi->cs_high();
+	if (dev->spi->qspi_read) {
+		qrb.instruction = RELEASE_POWERDOWN_DEVICE_ID;
+		qrb.instruction_mode = 1;
+		qrb.address = 0;
+		qrb.address_size = 0;
+		qrb.address_mode = 0;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 1;
+		qrb.transfer_buffer = &tmp;
+		qrb.transfer_length = 1;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_read(&qrb);
+		tmp = 0xEF; /* device present indicator */
+	} else {
+		dev->spi->cs_low();
+		dev->spi->write_byte(RELEASE_POWERDOWN_DEVICE_ID);
+		dev->spi->write_byte(DUMMY_BYTE);
+		dev->spi->write_byte(DUMMY_BYTE);
+		dev->spi->write_byte(DUMMY_BYTE);
+		tmp = dev->spi->read_byte();
+		dev->spi->cs_high();
+	}
 
 	return tmp;
 }
 
 void w25qxxx_read_manufacturer_device_id(struct w25qxxx_device *dev, u8 *ManufacturerID, u8 *DeviceID)
 {
+	struct qspi_request_block qrb;
+	u8 id[2];
+
+	if (dev->spi->qspi_read) {
+		qrb.instruction = READ_MANUFACTURER_DEVICE_ID;
+		qrb.instruction_mode = 1;
+		qrb.address = 0;
+		qrb.address_size = 3;
+		qrb.address_mode = 1;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 1;
+		qrb.transfer_buffer = id;
+		qrb.transfer_length = 2;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_read(&qrb);
+		*ManufacturerID = id[0];
+		*DeviceID = id[1];
+
+		return;
+	}
+
 	dev->spi->cs_low();
 	dev->spi->write_byte(READ_MANUFACTURER_DEVICE_ID);
 	dev->spi->write_byte(0x00);
@@ -1476,184 +1633,742 @@ void w25qxxx_read_manufacturer_device_id(struct w25qxxx_device *dev, u8 *Manufac
 
 void w25qxxx_read_unique_id(struct w25qxxx_device *dev, u8 *unique_id)
 {
-	dev->spi->cs_low();
-	dev->spi->write_byte(READ_UNIQUE_ID_NUMBER);
+	struct qspi_request_block qrb;
 
-	if (dev->id == W25Q256) {
-		if (w25qxxx_read_ads(dev) == 1) {
-			dev->spi->write_byte(DUMMY_BYTE);
+	if (dev->spi->qspi_read) {
+		qrb.instruction = READ_UNIQUE_ID_NUMBER;
+		qrb.instruction_mode = 1;
+		qrb.address = 0;
+		qrb.address_size = 0;
+		qrb.address_mode = 0;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 4;
+		qrb.transfer_mode = 1;
+		qrb.transfer_buffer = unique_id;
+		qrb.transfer_length = 8;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_read(&qrb);
+	} else {
+		dev->spi->cs_low();
+		dev->spi->write_byte(READ_UNIQUE_ID_NUMBER);
+
+		if (w25qxxx_need_4byte_addr(dev->id)) {
+			if (w25qxxx_read_ads(dev) == 1) {
+				dev->spi->write_byte(DUMMY_BYTE);
+			}
 		}
+
+		dev->spi->write_byte(DUMMY_BYTE);
+		dev->spi->write_byte(DUMMY_BYTE);
+		dev->spi->write_byte(DUMMY_BYTE);
+		dev->spi->write_byte(DUMMY_BYTE);
+
+		dev->spi->read_bytes(unique_id, 8);
+		dev->spi->cs_high();
 	}
-
-	dev->spi->write_byte(DUMMY_BYTE);
-	dev->spi->write_byte(DUMMY_BYTE);
-	dev->spi->write_byte(DUMMY_BYTE);
-	dev->spi->write_byte(DUMMY_BYTE);
-
-	dev->spi->read_bytes(unique_id, 8);
-	dev->spi->cs_high();
 }
 
 void w25qxxx_read_jedec_id(struct w25qxxx_device *dev, u8 *JEDECID)
 {
-	dev->spi->cs_low();
-	dev->spi->write_byte(READ_JEDEC_ID);
+	struct qspi_request_block qrb;
 
-	dev->spi->read_bytes(JEDECID, 3);
-	dev->spi->cs_high();
+	if (dev->spi->qspi_read) {
+		qrb.instruction = READ_JEDEC_ID;
+		qrb.instruction_mode = 1;
+		qrb.address = 0;
+		qrb.address_size = 0;
+		qrb.address_mode = 0;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 1;
+		qrb.transfer_buffer = JEDECID;
+		qrb.transfer_length = 3;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_read(&qrb);
+	} else {
+		dev->spi->cs_low();
+		dev->spi->write_byte(READ_JEDEC_ID);
+
+		dev->spi->read_bytes(JEDECID, 3);
+		dev->spi->cs_high();
+	}
 }
 
 void w25qxxx_read_sfdp_reg(struct w25qxxx_device *dev, u32 addr, u8 *pdata, u16 length)
 {
+	struct qspi_request_block qrb;
 	u8 sub_addr = 0;
 
-	sub_addr = (addr & 0x000000FF);
+	if (dev->spi->qspi_read) {
+		qrb.instruction = READ_SFDP_REGISTER;
+		qrb.instruction_mode = 1;
+		qrb.address = addr;
+		qrb.address_size = 3;
+		qrb.address_mode = 1;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 1;
+		qrb.transfer_mode = 1;
+		qrb.transfer_buffer = pdata;
+		qrb.transfer_length = length;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
 
-	dev->spi->cs_low();
-	dev->spi->write_byte(READ_SFDP_REGISTER);
-	dev->spi->write_byte(0x00);
-	dev->spi->write_byte(0x00);
-	dev->spi->write_byte(sub_addr);
-	dev->spi->write_byte(DUMMY_BYTE);
+		dev->spi->qspi_read(&qrb);
+	} else {
+		dev->spi->cs_low();
+		dev->spi->write_byte(READ_SFDP_REGISTER);
+		dev->spi->write_byte(0x00);
+		dev->spi->write_byte(0x00);
+		dev->spi->write_byte(sub_addr);
+		dev->spi->write_byte(DUMMY_BYTE);
 
-	dev->spi->read_bytes(pdata, length);
-	dev->spi->cs_high();
+		dev->spi->read_bytes(pdata, length);
+		dev->spi->cs_high();
+	}
 }
 
-void w25qxxx_erase_security_regs(struct w25qxxx_device *dev, u8 addr)
+void w25qxxx_erase_security_regs(struct w25qxxx_device *dev, u8 regNum)
 {
+	struct qspi_request_block qrb;
 	u8 busy;
 
 	w25qxxx_write_enable(dev);
-	dev->spi->cs_low();
-	dev->spi->write_byte(ERASE_SECURITY_REGISTERS);
 
-	if (dev->id == W25Q256) {
+	if (dev->spi->qspi_write) {
+		qrb.instruction = ERASE_SECURITY_REGISTERS;
+		qrb.instruction_mode = 1;
+		qrb.address = regNum;
+		qrb.address_size = 3;
+		qrb.address_mode = 1;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 0;
+		qrb.transfer_buffer = NULL;
+		qrb.transfer_length = 0;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_write(&qrb);
+	} else {
+		dev->spi->cs_low();
+		dev->spi->write_byte(ERASE_SECURITY_REGISTERS);
+
+		if (w25qxxx_need_4byte_addr(dev->id))
+			dev->spi->write_byte(0x00);
+
 		dev->spi->write_byte(0x00);
+		dev->spi->write_byte(regNum);
+		dev->spi->write_byte(0x00);
+		dev->spi->cs_high();
 	}
-
-	dev->spi->write_byte(0x00);
-	dev->spi->write_byte(addr);
-	dev->spi->write_byte(0x00);
-	dev->spi->cs_high();
 
 	readx_poll_timeout_atomic(w25qxxx_read_busy, dev, busy,
-		busy == 0, 1, 30000000);
+		busy == 0, 1, W25Q_PAGE_PROGRAM_TIMEOUT);
 }
 
-void w25qxxx_program_security_regs(struct w25qxxx_device *dev, u32 regNum, u32 Byteaddr, u8 *pdata, u16 length)
+void w25qxxx_program_security_regs(struct w25qxxx_device *dev, u8 regNum,
+				   u16 Byteaddr, u8 *pdata, u16 length)
 {
+	struct qspi_request_block qrb;
+	u8 busy;
+
 	w25qxxx_write_enable(dev);
-	dev->spi->cs_low();
-	dev->spi->write_byte(PROGRAM_SECURITY_REGISTERS);
-	if (dev->id == W25Q256) {
-		dev->spi->write_byte(0x00);
+
+	if (dev->spi->qspi_write) {
+		qrb.instruction = PROGRAM_SECURITY_REGISTERS;
+		qrb.instruction_mode = 1;
+		qrb.address = ((u32)Byteaddr << 8) | regNum;
+		qrb.address_size = 3;
+		qrb.address_mode = 1;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 1;
+		qrb.transfer_buffer = pdata;
+		qrb.transfer_length = length;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_write(&qrb);
+	} else {
+		dev->spi->cs_low();
+		dev->spi->write_byte(PROGRAM_SECURITY_REGISTERS);
+
+		if (w25qxxx_need_4byte_addr(dev->id))
+			dev->spi->write_byte(0x00);
+
+		dev->spi->write_byte((Byteaddr >> 8) & 0xFF);
+		dev->spi->write_byte(regNum);
+		dev->spi->write_byte(Byteaddr & 0xFF);
+
+		dev->spi->write_bytes(pdata, length);
+		dev->spi->cs_high();
 	}
-	dev->spi->write_byte(0x00);
-	dev->spi->write_byte(regNum);
-	dev->spi->write_byte(Byteaddr);
-	dev->spi->cs_high();
+
+	readx_poll_timeout_atomic(w25qxxx_read_busy, dev, busy,
+		busy == 0, 1, W25Q_PAGE_PROGRAM_TIMEOUT);
 }
 
-void w25qxxx_read_security_regs(struct w25qxxx_device *dev, u8 regNum, u8 Byteaddr, u8 *pdata, u16 length)
+void w25qxxx_read_security_regs(struct w25qxxx_device *dev, u8 regNum,
+				u8 Byteaddr, u8 *pdata, u16 length)
 {
-	dev->spi->cs_low();
-	dev->spi->write_byte(READ_SECURITY_REGISTERS);
-	dev->spi->write_byte(0x00);
-	dev->spi->write_byte(regNum);
-	dev->spi->write_byte(Byteaddr);
-	dev->spi->write_byte(DUMMY_BYTE);
+	struct qspi_request_block qrb;
 
-	for (u32 i = 0; i < length; i++) {
-		pdata[i] = dev->spi->read_byte();
+	if (dev->spi->qspi_read) {
+		qrb.instruction = READ_SECURITY_REGISTERS;
+		qrb.instruction_mode = 1;
+		qrb.address = ((u32)Byteaddr << 8) | regNum;
+		qrb.address_size = 3;
+		qrb.address_mode = 1;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 1;
+		qrb.transfer_mode = 1;
+		qrb.transfer_buffer = pdata;
+		qrb.transfer_length = length;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_read(&qrb);
+	} else {
+		dev->spi->cs_low();
+		dev->spi->write_byte(READ_SECURITY_REGISTERS);
+
+		if (w25qxxx_need_4byte_addr(dev->id))
+			dev->spi->write_byte(0x00);
+		dev->spi->write_byte(0x00);
+		dev->spi->write_byte(regNum);
+		dev->spi->write_byte(Byteaddr);
+		dev->spi->write_byte(DUMMY_BYTE);
+
+		dev->spi->read_bytes(pdata, length);
+		dev->spi->cs_high();
 	}
-
-	dev->spi->cs_high();
 }
 
-void w25qxxx_enter_qpi_mode(struct w25qxxx_device *dev)
+void w25qxxx_enter_qspi_mode(struct w25qxxx_device *dev)
 {
 	w25qxxx_write_qe(dev, 1);
-	w25qxxx_transmit_cmd(dev, ENTER_QPI_MODE);
+	w25qxxx_transmit_cmd(dev, ENTER_QSPI_MODE);
 }
 
-void w25qxxx_exit_qpi_mode(struct w25qxxx_device *dev)
+void w25qxxx_exit_qspi_mode(struct w25qxxx_device *dev)
 {
-	w25qxxx_transmit_cmd(dev, EXIT_QPI_MODE);
+	w25qxxx_transmit_cmd(dev, EXIT_QSPI_MODE);
+}
+
+
+static inline bool w25qxxx_can_use_quad(struct w25qxxx_device *dev)
+{
+	return w25qxxx_read_qe(dev) != 0;
+}
+
+void w25qxxx_set_burst_wrap(struct w25qxxx_device *dev, u8 wrap_size)
+{
+	u8 wrap_val = wrap_size & 0x07;
+	u8 val = (wrap_val << 3) | 0x07;
+
+	if (dev->spi->qspi_write) {
+		struct qspi_request_block qrb;
+
+		qrb.instruction = SET_BURST_WRAP;
+		qrb.instruction_mode = 1;
+		qrb.address = 0;
+		qrb.address_size = 0;
+		qrb.address_mode = 0;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 1;
+		qrb.transfer_buffer = &val;
+		qrb.transfer_length = 1;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_write(&qrb);
+	} else {
+		dev->spi->cs_low();
+		dev->spi->write_byte(SET_BURST_WRAP);
+		dev->spi->write_byte((wrap_val << 3) | 0x07);
+		dev->spi->cs_high();
+	}
+}
+
+void w25qxxx_fast_read_dual_output(struct w25qxxx_device *dev, u32 addr,
+				   u8 *pdata, u32 length)
+{
+	struct qspi_request_block qrb;
+	u8 sub_addr[4];
+
+	if (dev->spi->qspi_read) {
+		qrb.instruction = FAST_READ_DUAL_OUTPUT;
+		qrb.instruction_mode = 1;
+		qrb.address = addr;
+		qrb.address_size = w25qxxx_need_4byte_addr(dev->id) ? 4 : 3;
+		qrb.address_mode = 1;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 1;
+		qrb.transfer_mode = 2;
+		qrb.transfer_buffer = pdata;
+		qrb.transfer_length = length;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_read(&qrb);
+	} else {
+		sub_addr[0] = (addr & 0xFF000000) >> 24;
+		sub_addr[1] = (addr & 0x00FF0000) >> 16;
+		sub_addr[2] = (addr & 0x0000FF00) >> 8;
+		sub_addr[3] = (addr & 0x000000FF);
+
+		dev->spi->cs_low();
+		dev->spi->write_byte(FAST_READ_DUAL_OUTPUT);
+		dev->spi->write_bytes(&sub_addr[w25qxxx_need_4byte_addr(dev->id) ? 0 : 1],
+					w25qxxx_need_4byte_addr(dev->id) ? 4 : 3);
+		dev->spi->write_byte(DUMMY_BYTE);
+		dev->spi->read_bytes(pdata, length);
+		dev->spi->cs_high();
+	}
+}
+
+void w25qxxx_fast_read_dual_io(struct w25qxxx_device *dev, u32 addr,
+			       u8 *pdata, u32 length)
+{
+	struct qspi_request_block qrb;
+	u8 sub_addr[4];
+
+	if (dev->spi->qspi_read) {
+		qrb.instruction = FAST_READ_DUAL_IO;
+		qrb.instruction_mode = 1;
+		qrb.address = addr;
+		qrb.address_size = w25qxxx_need_4byte_addr(dev->id) ? 4 : 3;
+		qrb.address_mode = 2;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 1;
+		qrb.transfer_mode = 2;
+		qrb.transfer_buffer = pdata;
+		qrb.transfer_length = length;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_read(&qrb);
+	} else {
+		sub_addr[0] = (addr & 0xFF000000) >> 24;
+		sub_addr[1] = (addr & 0x00FF0000) >> 16;
+		sub_addr[2] = (addr & 0x0000FF00) >> 8;
+		sub_addr[3] = (addr & 0x000000FF);
+
+		dev->spi->cs_low();
+		dev->spi->write_byte(FAST_READ_DUAL_IO);
+		dev->spi->write_bytes(&sub_addr[w25qxxx_need_4byte_addr(dev->id) ? 0 : 1],
+					w25qxxx_need_4byte_addr(dev->id) ? 4 : 3);
+		dev->spi->write_byte(DUMMY_BYTE);
+		dev->spi->read_bytes(pdata, length);
+		dev->spi->cs_high();
+	}
+}
+
+void w25qxxx_fast_read_quad_output(struct w25qxxx_device *dev, u32 addr,
+				   u8 *pdata, u32 length)
+{
+	struct qspi_request_block qrb;
+	u8 sub_addr[4];
+
+	if (dev->spi->qspi_read) {
+		qrb.instruction = FAST_READ_QUAD_OUTPUT;
+		qrb.instruction_mode = 1;
+		qrb.address = addr;
+		qrb.address_size = w25qxxx_need_4byte_addr(dev->id) ? 4 : 3;
+		qrb.address_mode = 1;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 1;
+		qrb.transfer_mode = 4;
+		qrb.transfer_buffer = pdata;
+		qrb.transfer_length = length;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_read(&qrb);
+	} else {
+		sub_addr[0] = (addr & 0xFF000000) >> 24;
+		sub_addr[1] = (addr & 0x00FF0000) >> 16;
+		sub_addr[2] = (addr & 0x0000FF00) >> 8;
+		sub_addr[3] = (addr & 0x000000FF);
+
+		dev->spi->cs_low();
+		dev->spi->write_byte(FAST_READ_QUAD_OUTPUT);
+		dev->spi->write_bytes(&sub_addr[w25qxxx_need_4byte_addr(dev->id) ? 0 : 1],
+					w25qxxx_need_4byte_addr(dev->id) ? 4 : 3);
+		dev->spi->write_byte(DUMMY_BYTE);
+		dev->spi->read_bytes(pdata, length);
+		dev->spi->cs_high();
+	}
+}
+
+void w25qxxx_fast_read_quad_io(struct w25qxxx_device *dev, u32 addr,
+			       u8 *pdata, u32 length)
+{
+	struct qspi_request_block qrb;
+	u8 sub_addr[4];
+
+	if (dev->spi->qspi_read) {
+		qrb.instruction = FAST_READ_QUAD_IO;
+		qrb.instruction_mode = 1;
+		qrb.address = addr;
+		qrb.address_size = w25qxxx_need_4byte_addr(dev->id) ? 4 : 3;
+		qrb.address_mode = 4;
+		qrb.alternate_bytes = 0xA0;
+		qrb.alternate_bytes_size = 1;
+		qrb.alternate_byte_mode = 4;
+		qrb.dummy_cycles = 6;
+		qrb.transfer_mode = 4;
+		qrb.transfer_buffer = pdata;
+		qrb.transfer_length = length;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_read(&qrb);
+	} else {
+		sub_addr[0] = (addr & 0xFF000000) >> 24;
+		sub_addr[1] = (addr & 0x00FF0000) >> 16;
+		sub_addr[2] = (addr & 0x0000FF00) >> 8;
+		sub_addr[3] = (addr & 0x000000FF);
+
+		dev->spi->cs_low();
+		dev->spi->write_byte(FAST_READ_QUAD_IO);
+		dev->spi->write_bytes(&sub_addr[w25qxxx_need_4byte_addr(dev->id) ? 0 : 1],
+					w25qxxx_need_4byte_addr(dev->id) ? 4 : 3);
+		/* 四 I/O 模式需要 2 个 dummy 周期 + 模式位 */
+		dev->spi->write_byte(0xA0);  /* 模式位：连续读模式 (连续读时不需要发命令) */
+		dev->spi->write_byte(DUMMY_BYTE);
+		dev->spi->read_bytes(pdata, length);
+		dev->spi->cs_high();
+	}
+}
+
+void w25qxxx_page_read(struct w25qxxx_device *dev, u32 addr,
+		       u8 *pdata, u32 length)
+{
+	switch (dev->read_mode) {
+	case QSPI_READ_QUAD_IO:
+		if (w25qxxx_can_use_quad(dev)) {
+			w25qxxx_fast_read_quad_io(dev, addr, pdata, length);
+			return;
+		}
+		/* 降级到下一级 */
+		dev->read_mode = QSPI_READ_QUAD_OUTPUT;
+		/* fall through */
+	case QSPI_READ_QUAD_OUTPUT:
+		if (w25qxxx_can_use_quad(dev)) {
+			w25qxxx_fast_read_quad_output(dev, addr, pdata, length);
+			return;
+		}
+		dev->read_mode = QSPI_READ_DUAL_IO;
+		/* fall through */
+	case QSPI_READ_DUAL_IO:
+	case QSPI_READ_DUAL_OUTPUT:
+		w25qxxx_fast_read_dual_output(dev, addr, pdata, length);
+		return;
+	case QSPI_READ_FAST:
+	default:
+		w25qxxx_fast_read(dev, addr, pdata, length);
+		return;
+	}
+}
+
+static int w25qxxx_quad_page_program(struct w25qxxx_device *dev, u32 addr,
+				     u8 *pdata, u16 length)
+{
+	struct qspi_request_block qrb;
+	u8 sub_addr[4];
+	u8 busy;
+	int ret;
+
+	if (length == 0)
+		return -EINVAL;
+
+	if (!w25qxxx_can_use_quad(dev))
+		return w25qxxx_page_program(dev, addr, pdata, length);
+
+	sub_addr[0] = (addr & 0xFF000000) >> 24;
+	sub_addr[1] = (addr & 0x00FF0000) >> 16;
+	sub_addr[2] = (addr & 0x0000FF00) >> 8;
+	sub_addr[3] = (addr & 0x000000FF);
+
+	w25qxxx_write_enable(dev);
+
+	if (dev->spi->qspi_write) {
+		qrb.instruction = QUAD_INPUT_PAGE_PROGRAM;
+		qrb.instruction_mode = 1;
+		qrb.address = addr;
+		qrb.address_size = w25qxxx_need_4byte_addr(dev->id) ? 4 : 3;
+		qrb.address_mode = 1;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 4;
+		qrb.transfer_buffer = pdata;
+		qrb.transfer_length = length;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_write(&qrb);
+	} else {
+		dev->spi->cs_low();
+		dev->spi->write_byte(QUAD_INPUT_PAGE_PROGRAM);
+		dev->spi->write_bytes(&sub_addr[w25qxxx_need_4byte_addr(dev->id) ? 0 : 1],
+				      w25qxxx_need_4byte_addr(dev->id) ? 4 : 3);
+		dev->spi->write_bytes(pdata, length);
+		dev->spi->cs_high();
+	}
+
+	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, dev, busy,
+			busy == 0, 1, 30000000);
+	if (ret)
+		pr_err("Quad page program timeout.\n");
+
+	return 0;
+}
+
+void w25qxxx_set_read_mode(struct w25qxxx_device *dev,
+			   enum qspi_read_mode mode)
+{
+	dev->read_mode = mode;
+	if (dev->spi->set_mode)
+		dev->spi->set_mode(mode);
+}
+
+void w25qxxx_word_read_quad_io(struct w25qxxx_device *dev, u32 addr,
+			       u8 *pdata, u32 length)
+{
+	struct qspi_request_block qrb;
+	u8 sub_addr[4];
+
+	if (dev->spi->qspi_read) {
+		qrb.instruction = WORD_READ_QUAD_IO;
+		qrb.instruction_mode = 1;
+		qrb.address = addr;
+		qrb.address_size = w25qxxx_need_4byte_addr(dev->id) ? 4 : 3;
+		qrb.address_mode = 4;
+		qrb.alternate_bytes = 0xA0;
+		qrb.alternate_bytes_size = 1;
+		qrb.alternate_byte_mode = 4;
+		qrb.dummy_cycles = 4;
+		qrb.transfer_mode = 4;
+		qrb.transfer_buffer = pdata;
+		qrb.transfer_length = length;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_read(&qrb);
+	} else {
+		sub_addr[0] = (addr & 0xFF000000) >> 24;
+		sub_addr[1] = (addr & 0x00FF0000) >> 16;
+		sub_addr[2] = (addr & 0x0000FF00) >> 8;
+		sub_addr[3] = (addr & 0x000000FF);
+
+		dev->spi->cs_low();
+		dev->spi->write_byte(WORD_READ_QUAD_IO);
+		dev->spi->write_bytes(&sub_addr[w25qxxx_need_4byte_addr(dev->id) ? 0 : 1],
+					w25qxxx_need_4byte_addr(dev->id) ? 4 : 3);
+		dev->spi->write_byte(0xA0);
+		dev->spi->write_byte(DUMMY_BYTE);
+		dev->spi->read_bytes(pdata, length);
+		dev->spi->cs_high();
+	}
+}
+
+void w25qxxx_octal_word_read_quad_io(struct w25qxxx_device *dev, u32 addr,
+				     u8 *pdata, u32 length)
+{
+	struct qspi_request_block qrb;
+	u8 sub_addr[4];
+
+	if (dev->spi->qspi_read) {
+		qrb.instruction = OCTAL_WORD_READ_QUAD_IO;
+		qrb.instruction_mode = 1;
+		qrb.address = addr;
+		qrb.address_size = w25qxxx_need_4byte_addr(dev->id) ? 4 : 3;
+		qrb.address_mode = 4;
+		qrb.alternate_bytes = 0xA0;
+		qrb.alternate_bytes_size = 1;
+		qrb.alternate_byte_mode = 4;
+		qrb.dummy_cycles = 4;
+		qrb.transfer_mode = 4;
+		qrb.transfer_buffer = pdata;
+		qrb.transfer_length = length;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_read(&qrb);
+	} else {
+		sub_addr[0] = (addr & 0xFF000000) >> 24;
+		sub_addr[1] = (addr & 0x00FF0000) >> 16;
+		sub_addr[2] = (addr & 0x0000FF00) >> 8;
+		sub_addr[3] = (addr & 0x000000FF);
+
+		dev->spi->cs_low();
+		dev->spi->write_byte(OCTAL_WORD_READ_QUAD_IO);
+		dev->spi->write_bytes(&sub_addr[w25qxxx_need_4byte_addr(dev->id) ? 0 : 1],
+					w25qxxx_need_4byte_addr(dev->id) ? 4 : 3);
+		dev->spi->write_byte(0xA0);
+		dev->spi->write_byte(DUMMY_BYTE);
+		dev->spi->read_bytes(pdata, length);
+		dev->spi->cs_high();
+	}
 }
 
 void w25qxxx_individual_block_sector_lock(struct w25qxxx_device *dev, u32 addr)
 {
+	struct qspi_request_block qrb;
 	u8 sub_addr[4];
 
-	if (dev->id == W25Q256) {
-		sub_addr[0] = (addr & 0xFF000000) >> 24;
-	}
-
-	sub_addr[1] = (addr & 0x00FF0000) >> 16;
-	sub_addr[2] = (addr & 0x0000FF00) >> 8;
-	sub_addr[3] = (addr & 0x000000FF);
-
 	w25qxxx_write_wps(dev, 1);
-	dev->spi->cs_low();
-	dev->spi->write_byte(INDIVIDUAL_BLOCK_SECTOR_LOCK);
 
-	if (dev->id == W25Q256) {
-		dev->spi->write_byte(sub_addr[0]);
+	if (dev->spi->qspi_write) {
+		qrb.instruction = INDIVIDUAL_BLOCK_SECTOR_LOCK;
+		qrb.instruction_mode = 1;
+		qrb.address = addr;
+		qrb.address_size = w25qxxx_need_4byte_addr(dev->id) ? 4 : 3;
+		qrb.address_mode = 1;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 0;
+		qrb.transfer_buffer = NULL;
+		qrb.transfer_length = 0;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_write(&qrb);
+	} else {
+		if (w25qxxx_need_4byte_addr(dev->id))
+			sub_addr[0] = (addr & 0xFF000000) >> 24;
+
+		sub_addr[1] = (addr & 0x00FF0000) >> 16;
+		sub_addr[2] = (addr & 0x0000FF00) >> 8;
+		sub_addr[3] = (addr & 0x000000FF);
+
+		dev->spi->cs_low();
+		dev->spi->write_byte(INDIVIDUAL_BLOCK_SECTOR_LOCK);
+
+		if (w25qxxx_need_4byte_addr(dev->id))
+			dev->spi->write_byte(sub_addr[0]);
+
+		dev->spi->write_bytes(&sub_addr[1], 3);
+		dev->spi->cs_high();
 	}
-
-	dev->spi->write_bytes(&sub_addr[1], 3);
-	dev->spi->cs_high();
 }
 
 void w25qxxx_individual_block_sector_unlock(struct w25qxxx_device *dev, u32 addr)
 {
+	struct qspi_request_block qrb;
 	u8 sub_addr[4];
 
-	if (dev->id == W25Q256) {
-		sub_addr[0] = (addr & 0xFF000000) >> 24;
-	}
-
-	sub_addr[1] = (addr & 0x00FF0000) >> 16;
-	sub_addr[2] = (addr & 0x0000FF00) >> 8;
-	sub_addr[3] = (addr & 0x000000FF);
-
 	w25qxxx_write_wps(dev, 1);
-	dev->spi->cs_low();
-	dev->spi->write_byte(INDIVIDUAL_BLOCK_SECTOR_UNLOCK);
 
-	if (dev->id == W25Q256) {
-		dev->spi->write_byte(sub_addr[0]);
+	if (dev->spi->qspi_write) {
+		qrb.instruction = INDIVIDUAL_BLOCK_SECTOR_UNLOCK;
+		qrb.instruction_mode = 1;
+		qrb.address = addr;
+		qrb.address_size = w25qxxx_need_4byte_addr(dev->id) ? 4 : 3;
+		qrb.address_mode = 1;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 0;
+		qrb.transfer_buffer = NULL;
+		qrb.transfer_length = 0;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_write(&qrb);
+	} else {
+		if (w25qxxx_need_4byte_addr(dev->id))
+			sub_addr[0] = (addr & 0xFF000000) >> 24;
+
+		sub_addr[1] = (addr & 0x00FF0000) >> 16;
+		sub_addr[2] = (addr & 0x0000FF00) >> 8;
+		sub_addr[3] = (addr & 0x000000FF);
+
+		dev->spi->cs_low();
+		dev->spi->write_byte(INDIVIDUAL_BLOCK_SECTOR_UNLOCK);
+
+		if (w25qxxx_need_4byte_addr(dev->id))
+			dev->spi->write_byte(sub_addr[0]);
+
+		dev->spi->write_bytes(&sub_addr[1], 3);
+		dev->spi->cs_high();
 	}
-
-	dev->spi->write_bytes(&sub_addr[1], 3);
-	dev->spi->cs_high();
 }
 
 u8 w25qxxx_read_block_sector_lock(struct w25qxxx_device *dev, u32 addr)
 {
+	struct qspi_request_block qrb;
 	u8 tmp = 0;
 	u8 sub_addr[4];
 
-	if (dev->id == W25Q256) {
-		sub_addr[0] = (addr & 0xFF000000) >> 24;
-	}
-
-	sub_addr[1] = (addr & 0x00FF0000) >> 16;
-	sub_addr[2] = (addr & 0x0000FF00) >> 8;
-	sub_addr[3] = (addr & 0x000000FF);
-
 	w25qxxx_write_wps(dev, 1);
-	dev->spi->cs_low();
-	dev->spi->write_byte(READ_BLOCK_SECTOR_LOCK);
 
-	if (dev->id == W25Q256) {
-		dev->spi->write_byte(sub_addr[0]);
+	if (dev->spi->qspi_read) {
+		qrb.instruction = READ_BLOCK_SECTOR_LOCK;
+		qrb.instruction_mode = 1;
+		qrb.address = addr;
+		qrb.address_size = w25qxxx_need_4byte_addr(dev->id) ? 4 : 3;
+		qrb.address_mode = 1;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 1;
+		qrb.transfer_buffer = &tmp;
+		qrb.transfer_length = 1;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+
+		dev->spi->qspi_read(&qrb);
+	} else {
+		if (w25qxxx_need_4byte_addr(dev->id))
+			sub_addr[0] = (addr & 0xFF000000) >> 24;
+
+		sub_addr[1] = (addr & 0x00FF0000) >> 16;
+		sub_addr[2] = (addr & 0x0000FF00) >> 8;
+		sub_addr[3] = (addr & 0x000000FF);
+
+		dev->spi->cs_low();
+		dev->spi->write_byte(READ_BLOCK_SECTOR_LOCK);
+
+		if (w25qxxx_need_4byte_addr(dev->id))
+			dev->spi->write_byte(sub_addr[0]);
+
+		dev->spi->write_bytes(&sub_addr[1], 3);
+		tmp = dev->spi->read_byte();
+		dev->spi->cs_high();
 	}
-
-	dev->spi->write_bytes(&sub_addr[1], 3);
-	tmp = dev->spi->read_byte();
-	dev->spi->cs_high();
 
 	return (tmp & 0x01);
 }
@@ -1677,11 +2392,6 @@ void w25qxxx_enable_reset(struct w25qxxx_device *dev)
 
 int w25qxxx_soft_reset(struct w25qxxx_device *dev)
 {
-	if (dev->id != W25Q128 && dev->id != W25Q256) {
-		pr_err("Invalid device type: 0x%02X\n", dev->id);
-		return -EINVAL;
-	}
-
 	if (w25qxxx_read_busy(dev) == 1 || w25qxxx_read_sus(dev) == 1) {
 		pr_err("Device cannot be reset while busy or suspended\n");
 		return -EBUSY;
@@ -1694,15 +2404,11 @@ int w25qxxx_soft_reset(struct w25qxxx_device *dev)
 	return 0;
 }
 
-int w25qxxx_init(struct w25qxxx_device *dev)
+static int w25qxxx_init_hw(struct w25qxxx_device *dev)
 {
 	int ret;
 
-	if (dev->id != W25Q128 && dev->id != W25Q256) {
-		pr_err("Invalid device type: 0x%02X\n", dev->id);
-		return -EINVAL;
-	}
-
+	/* 基础硬件初始化：唤醒 + 复位 */
 	w25qxxx_release_power_down(dev);
 	ret = w25qxxx_soft_reset(dev);
 	if (ret) {
@@ -1711,21 +2417,41 @@ int w25qxxx_init(struct w25qxxx_device *dev)
 	}
 	w25qxxx_release_device_id(dev);
 
+	return 0;
+}
+
+int w25qxxx_init(struct w25qxxx_device *dev)
+{
+	if (!W25Q_IS_VALID(dev->id)) {
+		pr_err("Invalid device type: 0x%02X\n", dev->id);
+		return -EINVAL;
+	}
+
+	w25qxxx_write_bp(dev, 0);
+
 	switch (dev->id) {
+	case W25Q64:
 	case W25Q128:
 		break;
 
 	case W25Q256:
-		if (w25qxxx_read_ads(dev) == 0) {
-			w25q256_enter_4byte_addr_mode(dev);
-		}
-
+	case W25Q512:
+		if (w25qxxx_read_ads(dev) == 0)
+			w25qxxx_enter_4byte_addr_mode(dev);
 		break;
 
 	default:
 		pr_err("Unsupported device type: 0x%02X\n", dev->id);
 		return -ENODEV;
 	}
+
+	if (!w25qxxx_read_qe(dev))
+		w25qxxx_write_qe(dev, 1);
+
+	if (dev->spi->qspi_read)
+		dev->read_mode = QSPI_READ_QUAD_IO;
+	else
+		dev->read_mode = QSPI_READ_FAST;
 
 	return 0;
 }
@@ -1749,9 +2475,40 @@ void w25qxxx_read_info(struct w25qxxx_device *dev)
 		unique_id[4], unique_id[5], unique_id[6], unique_id[7]);
 }
 
+#define W25Q_JEDEC_MFR               0xEF
+#define W25Q64_JEDEC_ID              0xEF4017
+#define W25Q128_JEDEC_ID             0xEF4018
+#define W25Q256_JEDEC_ID             0xEF4019
+#define W25Q512_JEDEC_ID             0xEF4020
+
+static u8 w25qxxx_detect_device(struct w25qxxx_device *dev)
+{
+	u8 jedec[3];
+
+	w25qxxx_read_jedec_id(dev, jedec);
+	pr_info("W25Q: JEDEC ID = 0x%02X%02X%02X\n",
+		jedec[0], jedec[1], jedec[2]);
+
+	if (jedec[0] != W25Q_JEDEC_MFR)
+		return 0;
+
+	switch ((u32)jedec[0] << 16 | (u32)jedec[1] << 8 | jedec[2]) {
+	case W25Q64_JEDEC_ID:
+		return W25Q64;
+	case W25Q128_JEDEC_ID:
+		return W25Q128;
+	case W25Q256_JEDEC_ID:
+		return W25Q256;
+	case W25Q512_JEDEC_ID:
+		return W25Q512;
+	default:
+		return 0;
+	}
+}
+
 static LIST_HEAD(w25qxxx_list);
 
-struct w25qxxx_device *w25qxxx_alloc_device(u8 id, struct spi_master *spi)
+struct w25qxxx_device *w25qxxx_alloc_device(struct spi_master *spi)
 {
 	struct w25qxxx_device *dev;
 	int ret;
@@ -1761,19 +2518,19 @@ struct w25qxxx_device *w25qxxx_alloc_device(u8 id, struct spi_master *spi)
 		return NULL;
 	}
 
-	dev->id = id;
-	switch (dev->id) {
-	case W25Q128:
-		dev->max_addr = 0xFFFFFF;
-		break;
-	case W25Q256:
-		dev->max_addr = 0x1FFFFFF;
-		break;
-	default:
-		pr_err("Unsupported device type: 0x%02X\n", dev->id);
+	dev->spi = spi;
+
+	ret = w25qxxx_init_hw(dev);
+	if (ret) {
 		goto err;
 	}
-	dev->spi = spi;
+
+	dev->id = w25qxxx_detect_device(dev);
+	if (!dev->id || !w25qxxx_get_max_addr(dev->id)) {
+		pr_err("Unsupported or unrecognized W25Q device\n");
+		goto err;
+	}
+	dev->max_addr = w25qxxx_get_max_addr(dev->id);
 
 #ifdef KINETIS_FAKE_SIM
 	/* Allocate slave register buffer for SPI simulation */
@@ -1860,20 +2617,24 @@ int t_w25qxxx_device_init(int argc, char **argv)
 	int ret;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
-	dev = w25qxxx_alloc_device(w25qxxx, &general_spi_master);
+	dev = w25qxxx_alloc_device(&general_spi_master);
 	if (!dev) {
 		return -ENOMEM;
 	}
 
 	pr_info("=== W25Qxxx Device Initialization Test ===");
-	pr_info("Device type: %s", (dev->id == W25Q128) ? "W25Q128" : "W25Q256");
+	pr_info("Device type: %s", w25qxxx_dev_name(dev->id));
 	pr_info("SPI slave simulation enabled: %s", dev->spi_slave ? "Yes" : "No");
 	pr_info("Slave register buffer size: 64KB (0x10000 bytes)");
 
@@ -1889,10 +2650,14 @@ int t_w25qxxx_read_info(int argc, char **argv)
 	u8 w25qxxx = W25Q128;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -1919,10 +2684,14 @@ int t_w25qxxx_loopback(int argc, char **argv)
 	u8 *tx_buffer, *rx_buffer;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -2001,10 +2770,14 @@ int t_w25qxxx_chip_erase(int argc, char **argv)
 	int ret;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -2016,7 +2789,7 @@ int t_w25qxxx_chip_erase(int argc, char **argv)
 		return -ENODEV;
 	}
 
-	ret = sw25qxxx_chip_erase(dev);
+	ret = w25qxxx_chip_erase(dev);
 	if (ret) {
 		pr_err("Chip erase failed with error: %d", ret);
 		return FAIL;
@@ -2034,10 +2807,14 @@ int t_w25qxxx_sector_erase(int argc, char **argv)
 	int ret;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -2045,11 +2822,7 @@ int t_w25qxxx_sector_erase(int argc, char **argv)
 		test_addr = simple_strtoul(argv[2], &argv[2], 16);
 	} else {
 		test_addr = random_get32bit();
-		if (dev->id == W25Q128) {
-			test_addr &= 0xFFF000;  /* Align to 4KB sector boundary */
-		} else {
-			test_addr &= 0x1FFF000;
-		}
+		test_addr &= w25qxxx_get_max_addr(dev->id) & ~(SECTOR_SIZE - 1);
 	}
 
 	pr_info("=== W25Qxxx Sector Erase Test ===");
@@ -2078,10 +2851,14 @@ int t_w25qxxx_block_erase_32kb(int argc, char **argv)
 	int ret;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -2089,11 +2866,7 @@ int t_w25qxxx_block_erase_32kb(int argc, char **argv)
 		test_addr = simple_strtoul(argv[2], &argv[2], 16);
 	} else {
 		test_addr = random_get32bit();
-		if (dev->id == W25Q128) {
-			test_addr &= 0xFFFF8000;  /* Align to 32KB block boundary */
-		} else {
-			test_addr &= 0x1FFF8000;
-		}
+		test_addr &= w25qxxx_get_max_addr(dev->id) & ~0x7FFF;
 	}
 
 	pr_info("=== W25Qxxx 32KB Block Erase Test ===");
@@ -2122,10 +2895,14 @@ int t_w25qxxx_block_erase_64kb(int argc, char **argv)
 	int ret;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -2133,11 +2910,7 @@ int t_w25qxxx_block_erase_64kb(int argc, char **argv)
 		test_addr = simple_strtoul(argv[2], &argv[2], 16);
 	} else {
 		test_addr = random_get32bit();
-		if (dev->id == W25Q128) {
-			test_addr &= 0xFFFF0000;  /* Align to 64KB block boundary */
-		} else {
-			test_addr &= 0x1FFF0000;
-		}
+		test_addr &= w25qxxx_get_max_addr(dev->id) & ~0xFFFF;
 	}
 
 	pr_info("=== W25Qxxx 64KB Block Erase Test ===");
@@ -2170,10 +2943,14 @@ int t_w25qxxx_page_program(int argc, char **argv)
 	int ret;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -2181,11 +2958,7 @@ int t_w25qxxx_page_program(int argc, char **argv)
 		test_addr = simple_strtoul(argv[2], &argv[2], 16);
 	} else {
 		test_addr = random_get32bit();
-		if (dev->id == W25Q128) {
-			test_addr &= 0xFFFFF00;  /* Align to page boundary */
-		} else {
-			test_addr &= 0x1FFFF00;
-		}
+		test_addr &= w25qxxx_get_max_addr(dev->id) & ~(W25Q_PAGE_SIZE - 1);
 	}
 
 	pr_info("=== W25Qxxx Page Program Test ===");
@@ -2239,10 +3012,14 @@ int t_w25qxxx_status_register(int argc, char **argv)
 	u8 status1, status2, status3;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -2281,10 +3058,14 @@ int t_w25qxxx_power_test(int argc, char **argv)
 	u8 device_id;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -2320,10 +3101,14 @@ int t_w25qxxx_reset_test(int argc, char **argv)
 	int ret;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -2366,10 +3151,14 @@ int t_w25qxxx_fast_read(int argc, char **argv)
 	int ret;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -2420,10 +3209,14 @@ int t_w25qxxx_block_protection(int argc, char **argv)
 	int ret;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -2480,10 +3273,14 @@ int t_w25qxxx_suspend_resume(int argc, char **argv)
 	int ret;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -2535,10 +3332,14 @@ int t_w25qxxx_multi_sector_program(int argc, char **argv)
 	int ret;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -2585,82 +3386,6 @@ int t_w25qxxx_multi_sector_program(int argc, char **argv)
 	return 0;
 }
 
-int t_w25qxxx_comprehensive(int argc, char **argv)
-{
-	struct w25qxxx_device *dev;
-	u8 w25qxxx = W25Q128;
-	int ret;
-
-	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
-			w25qxxx = W25Q128;
-		} else if (!strcmp(argv[1], "w25q256")) {
-			w25qxxx = W25Q256;
-		}
-	}
-
-	pr_info("=== W25Qxxx Comprehensive Test Suite ===");
-
-	dev = w25qxxx_find_device(w25qxxx);
-	if (!dev) {
-		return -ENODEV;
-	}
-	pr_info("Device: %s", (dev->id == W25Q128) ? "W25Q128" : "W25Q256");
-
-	/* Test 1: Device Init */
-	ret = t_w25qxxx_device_init(argc, argv);
-	if (ret != 0) {
-		pr_err("FAIL: Device initialization test failed");
-		return FAIL;
-	}
-
-	/* Test 2: Status Register */
-	ret = t_w25qxxx_status_register(argc, argv);
-	if (ret != 0) {
-		pr_err("FAIL: Status register test failed");
-		return FAIL;
-	}
-
-	/* Test 3: Page Program */
-	ret = t_w25qxxx_page_program(argc, argv);
-	if (ret != 0) {
-		pr_err("FAIL: Page program test failed");
-		return FAIL;
-	}
-
-	/* Test 4: Sector Erase */
-	ret = t_w25qxxx_sector_erase(argc, argv);
-	if (ret != 0) {
-		pr_err("FAIL: Sector erase test failed");
-		return FAIL;
-	}
-
-	/* Test 5: Loopback (2 rounds) */
-	char *loopback_args[] = {(dev->id == W25Q128) ? "w25q128" : "w25q256", "2"};
-	ret = t_w25qxxx_loopback(2, loopback_args);
-	if (ret != 0) {
-		pr_err("FAIL: Loopback test failed");
-		return FAIL;
-	}
-
-	/* Test 6: Fast Read */
-	ret = t_w25qxxx_fast_read(argc, argv);
-	if (ret != 0) {
-		pr_err("FAIL: Fast read test failed");
-		return FAIL;
-	}
-
-	/* Test 7: Power Management */
-	ret = t_w25qxxx_power_test(argc, argv);
-	if (ret != 0) {
-		pr_err("FAIL: Power management test failed");
-		return FAIL;
-	}
-
-	pr_info("=== All W25Qxxx Comprehensive Tests PASSED ===");
-	return 0;
-}
-
 int t_w25qxxx_boundary(int argc, char **argv)
 {
 	struct w25qxxx_device *dev;
@@ -2672,10 +3397,14 @@ int t_w25qxxx_boundary(int argc, char **argv)
 	int ret;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -2684,7 +3413,7 @@ int t_w25qxxx_boundary(int argc, char **argv)
 		return -ENODEV;
 	}
 
-	max_addr = (dev->id == W25Q128) ? 0xFF0000 : 0x1FF0000;
+	max_addr = w25qxxx_get_max_addr(dev->id) & ~(SECTOR_SIZE - 1);
 
 	pr_info("=== W25Qxxx Boundary Test ===");
 	pr_info("Testing address boundaries: 0x%08X to 0x%08X", min_addr, max_addr);
@@ -2758,10 +3487,14 @@ int t_w25qxxx_performance(int argc, char **argv)
 	int ret;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -2836,10 +3569,14 @@ int t_w25qxxx_stress(int argc, char **argv)
 	int ret;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -2913,10 +3650,14 @@ int t_w25qxxx_address_mode(int argc, char **argv)
 	int ret;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -2927,12 +3668,12 @@ int t_w25qxxx_address_mode(int argc, char **argv)
 		return -ENODEV;
 	}
 
-	if (dev->id == W25Q256) {
+	if (w25qxxx_need_4byte_addr(dev->id)) {
 		/* Test 4-byte address mode */
-		pr_info("testing 4-byte address mode for W25Q256");
+		pr_info("testing 4-byte address mode for W25Q256/512");
 		u32 test_addr = 0x1000000;  /* 16MB address (requires 4 bytes) */
 
-		w25q256_enter_4byte_addr_mode(dev);
+		w25qxxx_enter_4byte_addr_mode(dev);
 		mdelay(1);
 
 		ret = w25qxxx_write_data(dev, test_addr, test_data, 4);
@@ -2948,7 +3689,7 @@ int t_w25qxxx_address_mode(int argc, char **argv)
 		}
 
 		/* Exit 4-byte mode and verify normal operation */
-		w25q256_exit_4byte_addr_mode(dev);
+		w25qxxx_exit_4byte_addr_mode(dev);
 		mdelay(1);
 
 		test_addr = 0x1000;
@@ -2982,10 +3723,14 @@ int t_w25qxxx_write_protect(int argc, char **argv)
 	int ret;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -3054,10 +3799,14 @@ int t_w25qxxx_security_registers(int argc, char **argv)
 	int ret;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -3110,10 +3859,14 @@ int t_w25qxxx_large_transfer(int argc, char **argv)
 	int ret;
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -3181,10 +3934,14 @@ int t_w25qxxx_unique_id(int argc, char **argv)
 	u8 uid[8];
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 
@@ -3234,10 +3991,14 @@ int t_w25qxxx_sfdp(int argc, char **argv)
 	u8 sfdp_data[256];
 
 	if (argc > 1) {
-		if (!strcmp(argv[1], "w25q128")) {
+		if (!strcmp(argv[1], "w25q64")) {
+			w25qxxx = W25Q64;
+		} else if (!strcmp(argv[1], "w25q128")) {
 			w25qxxx = W25Q128;
 		} else if (!strcmp(argv[1], "w25q256")) {
 			w25qxxx = W25Q256;
+		} else if (!strcmp(argv[1], "w25q512")) {
+			w25qxxx = W25Q512;
 		}
 	}
 

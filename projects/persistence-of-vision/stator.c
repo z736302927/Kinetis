@@ -93,21 +93,16 @@ static void process_motor_commands(struct tim_task *task)
 	}
 
 	if (stator->mavlink->rx_count > old_rx) {
-		/* If any new message arrived and peer reports ACTIVE status,
-		* the peer is alive. sys_status is updated by
-		* mavlink_receive_and_process() when it decodes a HEARTBEAT.
-		* Using sys_status is robust against batch messages where
-		* the last rx_msg.msgid may not be HEARTBEAT. */
-		if (stator->mavlink->sys_status == MAV_SYS_ACTIVE) {
-			stator->last_rotor_heartbeat_ms = basic_timer_get_ms();
+		/* Any MAVLink packet from rotor indicates the link is alive.
+		 * No need to wait specifically for HEARTBEAT. */
+		stator->last_rotor_heartbeat_ms = basic_timer_get_ms();
 
-			/* Rotor came back: transition out of SAFE_STOP or
-			* first handshake: transition out of WAIT_ROTOR */
-			if (stator->state == STATOR_SAFE_STOP ||
-				stator->state == STATOR_WAIT_ROTOR) {
-				pr_info("rotor heartbeat detected, entering WAIT_ROTOR handshake\n");
-				set_stator_state(stator, STATOR_WAIT_ROTOR);
-			}
+		/* Rotor came back: transition out of SAFE_STOP or
+		 * first handshake: transition out of WAIT_ROTOR */
+		if (stator->state == STATOR_SAFE_STOP ||
+			stator->state == STATOR_WAIT_ROTOR) {
+			pr_info("rotor link detected, entering WAIT_ROTOR handshake\n");
+			set_stator_state(stator, STATOR_WAIT_ROTOR);
 		}
 
 		/* ── In WAIT_ROTOR: first heartbeat triggers ACTIVE ───── */
