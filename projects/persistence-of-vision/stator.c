@@ -6,6 +6,8 @@
 #include <linux/slab.h>
 
 #include <kinetis/basic-timer.h>
+#include "kinetis/bootloader.h"
+#include "kinetis/nrf24l01_port.h"
 
 #include "config.h"
 #include "stator.h"
@@ -32,54 +34,39 @@ static void stator_heartbeat_task(struct tim_task *task)
 	/* Always send heartbeat so rotor can detect us */
 	mavlink_send_heartbeat(stator->mavlink, MAV_SYS_ACTIVE,
 		 stator->uptime_s, stator->mavlink->error_count);
-
-	switch (stator->state) {
-	case STATOR_INIT:
-		/* First heartbeat task run: start handshake, motor off */
-		motor_set_pwm(&stator->motor, 0);
-		set_stator_state(stator, STATOR_WAIT_ROTOR);
-		break;
-
-	case STATOR_ACTIVE: {
-		/* Check if rotor heartbeat has timed out */
-		u64 now = basic_timer_get_ms();
-
-		if (now - stator->last_rotor_heartbeat_ms > (u64)POV_HEARTBEAT_INTERVAL_MS) {
-			pr_warn("rotor heartbeat timeout (%llu ms), safe stop (PWM=0, coast by inertia)\n",
-				now - stator->last_rotor_heartbeat_ms);
-			motor_set_pwm(&stator->motor, 0);
-			pid_reset(&stator->pid);
-			stator->mavlink->motors[STATOR_MOTOR_ID].target_speed = 0;
-			set_stator_state(stator, STATOR_SAFE_STOP);
-		}
-		break;
-	}
-
-	case STATOR_SAFE_STOP:
-		/* Still sending heartbeats, waiting for rotor to reconnect.
-		 * Motor is already stopped. When we detect rotor heartbeat
-		 * again (in process_cmd_task), we go back to WAIT_ROTOR. */
-		break;
-
-	case STATOR_WAIT_ROTOR:
-		/* Already sending heartbeats, motor stopped.
-		 * Transition to ACTIVE happens in process_cmd_task
-		 * when rotor heartbeat is first received. */
-		break;
-	}
 }
 
 static void control_motor(struct tim_task *task)
 {
 	struct pov_stator *stator = container_of(task, struct pov_stator, pid_task);
-	s32 output;
+	s32 set_point, meas, output;
 
-	if (stator->state != STATOR_ACTIVE)
+	if (stator->state != STATOR_TUNING_MOTOR &&
+	    stator->state != STATOR_ACTIVE)
 		return;
 
-	output = pid_update(&stator->pid, stator->mavlink->motors[STATOR_MOTOR_ID].target_speed - hall_get_rpm(stator->hall));
-	motor_set_pwm(&stator->motor, output);
-	motor_set_direction(&stator->motor, stator->mavlink->motors[STATOR_MOTOR_ID].direction);
+	set_point = stator->mavlink->motors[STATOR_MOTOR_ID].target_speed;
+	meas      = stator->motor.measured_rpm;   /* signed — motor supports fwd/rev */
+
+	/*
+	 * Within TUNING_MOTOR, the relay_tuner.state discriminates
+	 * phase 1 (default PID) from phase 2 (bang-bang relay).
+	 */
+	if (stator->state == STATOR_TUNING_MOTOR &&
+	    stator->relay_tuner.state == RELAY_RUNNING) {
+		output = pid_relay_update(&stator->relay_tuner, meas);
+	} else {
+		output = pid_positional_update(&stator->pid, set_point, meas, SLAVE_PID_PERIOD_MS);
+	}
+
+	/* Bidirectional: signed output → PWM magnitude + direction */
+	if (output >= 0) {
+		motor_set_pwm(&stator->motor, (u16)output);
+		motor_set_direction(&stator->motor, SLAVE_MOTOR_DIR_FORWARD);
+	} else {
+		motor_set_pwm(&stator->motor, (u16)(-output));
+		motor_set_direction(&stator->motor, SLAVE_MOTOR_DIR_REVERSE);
+	}
 }
 
 static void process_motor_commands(struct tim_task *task)
@@ -88,6 +75,9 @@ static void process_motor_commands(struct tim_task *task)
 	u32 old_rx = stator->mavlink->rx_count;
 
 	/* Process pending MAVLink messages (motor control + heartbeat from rotor) */
+#if POV_USE_NRF24L01
+	nrf24l01_port_poll(stator->motor_port);
+#endif
 	if (serial_port_data_available(stator->motor_port) > 0) {
 		mavlink_receive_and_process(stator->mavlink, 10);
 	}
@@ -145,6 +135,32 @@ static void process_motor_commands(struct tim_task *task)
 		break;
 	}
 
+	case MAVLINK_MSG_ID_BOOTLOADER_UPDATE_CMD: {
+		struct bootloader_config bl_cfg;
+
+		pr_info("cmd: bootloader update - cmd=%d size=%u crc=0x%08x name=%s\n",
+			stator->mavlink->bl.command,
+			stator->mavlink->bl.firmware_size,
+			stator->mavlink->bl.firmware_crc32,
+			stator->mavlink->bl.filename);
+
+		memset(&bl_cfg, 0, sizeof(bl_cfg));
+		bl_cfg.magic = BOOTLOADER_MAGIC;
+		bl_cfg.version = 1;
+		bl_cfg.mode = BL_MODE_UPDATE;
+		bl_cfg.firmware_size = stator->mavlink->bl.firmware_size;
+		bl_cfg.firmware_crc32 = stator->mavlink->bl.firmware_crc32;
+
+		if (stator->flash->erase(BL_CONFIG_BASE_ADDR, sizeof(bl_cfg)) < 0 ||
+		    stator->flash->write(BL_CONFIG_BASE_ADDR, (const u8 *)&bl_cfg, sizeof(bl_cfg)) < 0) {
+			pr_err("Failed to write boot config to flash\n");
+			break;
+		}
+
+		set_stator_state(stator, STATOR_ENTER_BOOTLOADER);
+		break;
+	}
+
 	default:
 		pr_debug("unhandled msgid=%u\n", stator->mavlink->rx_msg.msgid);
 		break;
@@ -152,6 +168,7 @@ static void process_motor_commands(struct tim_task *task)
 }
 
 struct pov_stator *pov_stator_alloc(struct serial_port_ops *motor_serial_ops,
+	struct flash_ops *flash, struct bootloader_ops *bl_ops,
 	u32(*read_rotated_time)(struct hall_device *dev))
 {
 	struct pov_stator *stator;
@@ -162,12 +179,15 @@ struct pov_stator *pov_stator_alloc(struct serial_port_ops *motor_serial_ops,
 		return NULL;
 	}
 
+	stator->flash = flash;
+	stator->bl_ops = bl_ops;
+
 	stator->motor_port = serial_port_alloc(motor_serial_ops, "stator-motor");
 	if (!stator->motor_port) {
 		goto err;
 	}
 
-	stator->mavlink = mavlink_init(stator->motor_port, 1, 1, "stator-mavlink");
+	stator->mavlink = mavlink_init(stator->motor_port, 2, 1, "stator-mavlink");
 	if (!stator->mavlink) {
 		goto err_free_port;
 	}
@@ -177,29 +197,31 @@ struct pov_stator *pov_stator_alloc(struct serial_port_ops *motor_serial_ops,
 		goto err_free_mavlink;
 	}
 
-	tim_task_add(&stator->hall->fake_pulse_task, "fake_pulse_task",
-		67, true, false, hall_fake_pulse);
-
-	tim_task_add(&stator->motor.sim_task, "motor_sim_task",
-		SLAVE_PID_PERIOD_MS, true, false, motor_simulation);
-
-	pid_init(&stator->pid, SLAVE_PID_KP, SLAVE_PID_KI, SLAVE_PID_KD);
-
 	stator->motor.max_rpm = SLAVE_MOTOR_MAX_RPM;
-
 	stator->state = STATOR_INIT;
 	stator->last_rotor_heartbeat_ms = basic_timer_get_ms();
 
-	tim_task_add(&stator->heartbeat_task, "stator heartbeat",
-		POV_HEARTBEAT_INTERVAL_MS, true, false, stator_heartbeat_task);
+	pid_positional_init(&stator->pid, SLAVE_PID_KP, SLAVE_PID_KI, SLAVE_PID_KD);
+	pid_relay_init(&stator->relay_tuner, &stator->pid,
+		       SLAVE_PID_RELAY_AMP, 0, POV_TARGET_RPM, SLAVE_PID_RELAY_CYCLES);
+
+	stator->tuning_stable_ticks = 0;
+
+	tim_task_add(&stator->hall->fake_pulse_task, "fake_pulse_task",
+		66667, true, false, hall_fake_pulse);
+
+	tim_task_add(&stator->motor.sim_task, "motor_sim_task",
+		SLAVE_PID_PERIOD_MS * 1000, true, false, motor_simulation);
+
+// 	tim_task_add(&stator->heartbeat_task, "stator heartbeat",
+// 		POV_HEARTBEAT_INTERVAL_MS * 1000, true, false, stator_heartbeat_task);
+// 	stator_heartbeat_task(&stator->heartbeat_task);
 
 	tim_task_add(&stator->pid_task, "pid_task",
-		10, true, false, control_motor);
+		SLAVE_PID_PERIOD_MS * 1000, true, false, control_motor);
 
 	tim_task_add(&stator->process_cmd_task, "process_cmd_task",
-		100, true, false, process_motor_commands);
-
-	stator_heartbeat_task(&stator->heartbeat_task);
+		100000, true, false, process_motor_commands);
 
 	return stator;
 
@@ -232,4 +254,103 @@ void pov_stator_free(struct pov_stator *stator)
 	}
 
 	kfree(stator);
+}
+
+void pov_stator_fsm(struct pov_stator *stator)
+{
+	s32 err;
+
+	switch (stator->state) {
+	case STATOR_INIT:
+		motor_set_pwm(&stator->motor, 0);
+		motor_set_direction(&stator->motor, SLAVE_MOTOR_DIR_FORWARD);
+		stator->mavlink->motors[STATOR_MOTOR_ID].target_speed = POV_TARGET_RPM;
+		set_stator_state(stator, STATOR_TUNING_MOTOR);
+		break;
+
+	case STATOR_TUNING_MOTOR: {
+		static u64 last_print;
+		u64 now = basic_timer_get_ms();
+		s32 rpm = stator->motor.measured_rpm;  /* signed, supports fwd/rev */
+
+		stator->mavlink->motors[STATOR_MOTOR_ID].target_speed = POV_TARGET_RPM;
+
+		if (now - last_print >= 1000) {
+			pr_info("current rpm: %d\n", rpm);
+			last_print = now;
+		}
+
+		/*
+		 * Phase 1 — stabilise with default PID, then trigger relay.
+		 * Phase 2 — wait for relay tuner to finish (control_motor()
+		 *           feeds pid_relay_update() each tick; tuner writes
+		 *           Kp/Ki/Kd and sets state=RELAY_DONE/RELAY_FAILED
+		 *           autonomously).
+		 */
+		if (stator->relay_tuner.state == RELAY_IDLE) {
+			err = POV_TARGET_RPM - rpm;
+			if (err >= -SLAVE_TUNING_STABLE_THRESH &&
+			    err <= SLAVE_TUNING_STABLE_THRESH) {
+				stator->tuning_stable_ticks++;
+				if (stator->tuning_stable_ticks >= SLAVE_TUNING_STABLE_TICKS) {
+					pr_info("motor stable at err=%d, starting relay tuning\n", err);
+					pid_relay_start(&stator->relay_tuner);
+				}
+			} else {
+				stator->tuning_stable_ticks = 0;
+			}
+		} else if (stator->relay_tuner.state == RELAY_RUNNING) {
+			/* Still running, wait for completion */
+		} else {
+			/* RELAY_DONE or RELAY_FAILED */
+// 			if (stator->relay_tuner.state == RELAY_DONE) {
+// 				pr_info("relay tuning done, gains written. Stopping motor.\n");
+// 			} else {
+// 				pr_warn("relay tuning failed, keeping default gains. Stopping motor.\n");
+// 			}
+// 			motor_set_pwm(&stator->motor, 0);
+// 			pid_positional_reset(&stator->pid);
+// 			stator->mavlink->motors[STATOR_MOTOR_ID].target_speed = 0;
+// 			set_stator_state(stator, STATOR_WAIT_ROTOR);
+		}
+		break;
+	}
+
+	case STATOR_ACTIVE: {
+		/* Check if rotor heartbeat has timed out */
+		u64 now = basic_timer_get_ms();
+
+		if (now - stator->last_rotor_heartbeat_ms > (u64)POV_HEARTBEAT_INTERVAL_MS) {
+			pr_warn("rotor heartbeat timeout (%llu ms), safe stop (PWM=0, coast by inertia)\n",
+				now - stator->last_rotor_heartbeat_ms);
+			motor_set_pwm(&stator->motor, 0);
+			pid_positional_reset(&stator->pid);
+			stator->mavlink->motors[STATOR_MOTOR_ID].target_speed = 0;
+			set_stator_state(stator, STATOR_SAFE_STOP);
+		}
+		break;
+	}
+
+	case STATOR_SAFE_STOP:
+		/* Still sending heartbeats, waiting for rotor to reconnect.
+		 * Motor is already stopped. When we detect rotor heartbeat
+		 * again (in process_cmd_task), we go back to WAIT_ROTOR. */
+		break;
+
+	case STATOR_WAIT_ROTOR:
+		/* Already sending heartbeats, motor stopped.
+		 * Transition to ACTIVE happens in process_cmd_task
+		 * when rotor heartbeat is first received. */
+		break;
+
+	case STATOR_ENTER_BOOTLOADER:
+		motor_set_pwm(&stator->motor, 0);
+
+		if (stator->bl_ops && stator->bl_ops->system_reset) {
+			stator->bl_ops->system_reset();
+		} else {
+			pr_err("No system_reset available, cannot enter bootloader!\n");
+		}
+		break;
+	}
 }

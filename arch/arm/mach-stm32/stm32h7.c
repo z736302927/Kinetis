@@ -10,6 +10,9 @@
 #include <linux/random.h>
 #include <linux/prandom.h>
 #include <linux/utsname.h>
+#include <linux/clocksource.h>
+#include <linux/sched_clock.h>
+#include <linux/sched/clock.h>
 
 #include <kinetis/ano_protocol.h>
 #include <kinetis/tim-task.h>
@@ -68,12 +71,26 @@ struct cpumask __cpu_active_mask;
 atomic_t __num_online_cpus = ATOMIC_INIT(1);
 
 unsigned long read_chip_timer(void);
+u64 arm_dwt_read(struct clocksource *cs);
 
 struct delay_timer general_delay_timer = {
 	.freq = 1000000,
 	.read_current_timer = read_chip_timer
 };
 unsigned long lpj_fine;
+
+static struct clocksource clocksource_stm32 = {
+    .name       = "arm-dwt",
+    .rating     = 400,
+    .read       = arm_dwt_read,
+    .mask       = CLOCKSOURCE_MASK(32),      /* 32-bit 计数器 */
+    .flags      = CLOCK_SOURCE_IS_CONTINUOUS, /* 不休眠 */
+};
+
+static u64 notrace read_sched_clock(void)
+{
+    return (u64)DWT->CYCCNT;
+}
 
 /*
  * SPI Devices:
@@ -162,6 +179,7 @@ int __init initialize_ptr_random(void);
 void cm_backtrace_init(const char *firmware_name,
 	const char *hardware_ver, const char *software_ver);
 void __init timekeeping_init(void);
+int __init clocksource_done_booting(void);
 int __init find_bit_test(void);
 void __init radix_tree_init(void);
 int __init btree_module_init(void);
@@ -299,8 +317,15 @@ int stm32h7_glue_func(void)
 
 	init_timers();
 
+	sched_clock_init();
+
+	sched_clock_register(read_sched_clock, 32, HAL_RCC_GetHCLKFreq());
+
 	timekeeping_init();
-// 	HAL_TIM_Base_Start_IT(&htim2);
+
+	clocksource_done_booting();
+
+	clocksource_register_hz(&clocksource_stm32, HAL_RCC_GetHCLKFreq());
 
 	ret = rand_initialize();
 	if (ret)

@@ -15,6 +15,8 @@ C_SOURCES += $(wildcard ../drivers/kinetis/lrzsz/*.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/kalman-clib/src/matrix.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/kalman-clib/src/kalman.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/kalman-clib/src/cholesky.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/nrf24l01/src/driver_nrf24l01.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/nrf24l01_port.c)
 
 # CubeMX core/peripheral sources
 C_SOURCES += $(wildcard $(CHIP_SRC_DIR)/Core/Src/*.c)
@@ -36,6 +38,8 @@ C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/CMSIS/Include
 
 C_INCLUDES += -I../drivers/kinetis/CmBacktrace/cm_backtrace
 C_INCLUDES += -I../drivers/kinetis/kalman-clib/include
+C_INCLUDES += -I../drivers/kinetis/nrf24l01/src
+C_INCLUDES += -I../drivers/kinetis/nrf24l01/interface
 
 HEADER_DIRS += ../arch/arm/mach-stm32
 

@@ -176,14 +176,14 @@ int hydrology_task_init(void)
 
 	g_hydrology.collecte_data.name = "measure temperature humidit";
 	ret = tim_task_add(&g_hydrology.collecte_data, "measure temperature humidit",
-		60 * 1000, true, false, measure_temperature_humidit);
+		60 * 1000 * 1000, true, false, measure_temperature_humidit);
 	if (ret) {
 		pr_err("collect data task creation failed: %d\n", ret);
 		return ret;
 	}
 
 	ret = tim_task_add(&g_hydrology.link_pkt, "link packet",
-		40 * 1000, true, false, link_packet);
+		40 * 1000 * 1000, true, false, link_packet);
 	if (ret) {
 		pr_err("link packet task creation failed: %d\n", ret);
 		return ret;

@@ -18,7 +18,7 @@
 
 #include "fake-mcu/interface.h"
 
-#include "../fs/fatfs/ff.h"
+#include "fatfs/ff.h"
 
 #include "lrzsz/zmodem.h"
 

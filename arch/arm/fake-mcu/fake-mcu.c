@@ -10,6 +10,9 @@
 #include <linux/random.h>
 #include <linux/prandom.h>
 #include <linux/utsname.h>
+#include <linux/clocksource.h>
+#include <linux/sched_clock.h>
+#include <linux/sched/clock.h>
 
 #include <kinetis/ano_protocol.h>
 #include <kinetis/tim-task.h>
@@ -109,6 +112,24 @@ struct delay_timer general_delay_timer = {
 };
 unsigned long lpj_fine;
 
+static u64 notrace read_sched_clock(void)
+{
+    return (u64)read_chip_timer();
+}
+
+static u64 clocksource_read(struct clocksource *cs)
+{
+    return (u64)read_chip_timer();
+}
+
+static struct clocksource clocksource_fake = {
+    .name       = "fake-mcu-timer",
+    .rating     = 400,
+    .read       = clocksource_read,
+    .mask       = CLOCKSOURCE_MASK(32),
+    .flags      = CLOCK_SOURCE_IS_CONTINUOUS,
+};
+
 #define STM32_SERIAL_NAME "ttySTM"
 
 int _putc(int ch)
@@ -129,6 +150,7 @@ int __init initialize_ptr_random(void);
 void cm_backtrace_init(const char *firmware_name,
 	const char *hardware_ver, const char *software_ver);
 void __init timekeeping_init(void);
+int __init clocksource_done_booting(void);
 int __init find_bit_test(void);
 void __init radix_tree_init(void);
 int __init btree_module_init(void);
@@ -273,6 +295,8 @@ void *pthread_xtime_update(void *para)
 		} while (current_time < target_time);
 
 		xtime_update(1);
+
+		update_sched_clock();
 	}
 }
 
@@ -302,6 +326,10 @@ int fake_mcu_glue_func(void)
 
 	init_timers();
 
+	sched_clock_init();
+
+	sched_clock_register(read_sched_clock, 32, 1000000);
+
 	timekeeping_init();
 	ret = pthread_create(&timer_thread, NULL, pthread_xtime_update, NULL);
 	if (ret)
@@ -310,6 +338,10 @@ int fake_mcu_glue_func(void)
 	ret = pthread_create(&rtc_thread, NULL, pthread_rtc_time_update, NULL);
 	if (ret)
 		return ret;
+
+	clocksource_done_booting();
+
+	clocksource_register_hz(&clocksource_fake, 1000000);
 
 	ret = rand_initialize();
 	if (ret)

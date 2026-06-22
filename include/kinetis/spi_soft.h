@@ -44,6 +44,9 @@ struct qspi_request_block {
 	u32 transfer_length;
 	u8 ddr_mode;
 	u8 ddr_hold_half_cycle;
+
+	u8 mask;
+	u8 match;
 };
 
 /* SPI Master Structure */
@@ -68,6 +71,7 @@ struct spi_master {
 
 	void (*qspi_read)(struct qspi_request_block *qrb);
 	void (*qspi_write)(struct qspi_request_block *qrb);
+	int (*qspi_poll)(struct qspi_request_block *qrb, u32 timeout_us);
 	void (*set_mode)(enum qspi_read_mode mode);
 };
 
@@ -109,7 +113,7 @@ struct spi_slave *spi_slave_soft_init(char *name, u8 cpol, u8 cpha, u8 bit_order
 	u8 *buffer, u32 buffer_size);
 void spi_slave_soft_exit(struct spi_slave *device);
 
-extern struct spi_master general_spi_master;
+extern struct spi_master spi1_master;
 
 #ifdef __cplusplus
 }

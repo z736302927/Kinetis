@@ -21,13 +21,13 @@ static atomic_t task_id_counter = ATOMIC_INIT(1);
 const char *tim_task_decode(struct tim_task *task)
 {
 	static char buf[DBG_BUF_EN];
-	snprintf(buf, DBG_BUF_EN, "task: %s, interval:%u, timeout:%lld, %s",
-		task->name, task->interval_ms,
+	snprintf(buf, DBG_BUF_EN, "task: %s, interval:%u us, timeout:%lld, %s",
+		task->name, task->interval_us,
 		task->timeout, task->auto_load ? "auto_load" : "");
 	return buf;
 }
 
-int tim_task_add(struct tim_task *tim_task, const char *name, u32 interval_ms,
+int tim_task_add(struct tim_task *tim_task, const char *name, u32 interval_us,
 	bool auto_load, bool sched, tim_task_cb callback)
 {
 	u32 priority_level = 1;
@@ -35,7 +35,7 @@ int tim_task_add(struct tim_task *tim_task, const char *name, u32 interval_ms,
 	if (!tim_task || !callback)
 		return -EINVAL;
 
-	if (interval_ms == 0 || interval_ms > 3600000)
+	if (interval_us == 0 || interval_us > 3600000000)
 		return -EINVAL;
 
 	if (tim_task_init == false) {
@@ -45,8 +45,8 @@ int tim_task_add(struct tim_task *tim_task, const char *name, u32 interval_ms,
 	}
 
 	tim_task->callback = callback;
-	tim_task->timeout = ktime_to_ms(ktime_get()) + interval_ms;
-	tim_task->interval_ms = interval_ms;
+	tim_task->timeout = ktime_to_us(ktime_get()) + interval_us;
+	tim_task->interval_us = interval_us;
 	tim_task->auto_load = auto_load;
 	tim_task->sched = sched;
 	tim_task->name = name;
@@ -95,21 +95,21 @@ void tim_task_resume(struct tim_task *tim_task)
 void tim_task_loop(void)
 {
 	struct tim_task *tim_task, *tmp;
-	s64 current_time_ms;
+	s64 current_time_us;
 
 	if (tim_task_init == false)
 		return;
 
-	current_time_ms = ktime_to_ms(ktime_get());
+	current_time_us = ktime_to_us(ktime_get());
 
 	for (int priority = 0; priority < MAX_PRIORITY_LEVELS; priority++) {
 		list_for_each_entry_safe(tim_task, tmp, &priority_heads[priority], list) {
-			if (tim_task->timeout <= current_time_ms) {
+			if (tim_task->timeout <= current_time_us) {
 				tim_task->callback(tim_task);
 				tim_task->execution_count++;
 
 				if (tim_task->auto_load)
-					tim_task->timeout = ktime_to_ms(ktime_get()) + tim_task->interval_ms;
+					tim_task->timeout = ktime_to_us(ktime_get()) + tim_task->interval_us;
 				else
 					tim_task_drop(tim_task);
 			}
@@ -158,10 +158,10 @@ int tim_task_set_interval(struct tim_task *tim_task, u32 new_interval)
 	if (!tim_task)
 		return -EINVAL;
 
-	if (new_interval == 0 || new_interval > 3600000)
+	if (new_interval == 0 || new_interval > 3600000000)
 		return -EINVAL;
 
-	tim_task->interval_ms = new_interval;
+	tim_task->interval_us = new_interval;
 	return 0;
 }
 
@@ -185,12 +185,12 @@ struct tim_task *tim_task_get_next_task(void)
 {
 	struct tim_task *next_task = NULL;
 	struct tim_task *tim_task;
-	s64 current_time_ms = ktime_to_ms(ktime_get());
+	s64 current_time_us = ktime_to_us(ktime_get());
 	s64 earliest_timeout = S64_MAX;
 
 	for (int priority = 0; priority < MAX_PRIORITY_LEVELS; priority++) {
 		list_for_each_entry(tim_task, &priority_heads[priority], list) {
-			if (tim_task->timeout < earliest_timeout && tim_task->timeout > current_time_ms) {
+			if (tim_task->timeout < earliest_timeout && tim_task->timeout > current_time_us) {
 				earliest_timeout = tim_task->timeout;
 				next_task = tim_task;
 			}
@@ -210,13 +210,13 @@ static void tim_task_callback(struct tim_task *task)
 {
 	s64 delta;
 	tim_test_callback_count++;
-	delta = ktime_ms_delta(ktime_get(), time_stamp);
-	pr_info("timer task '%s' callback #%d executed after %lld ms.\n",
+	delta = ktime_us_delta(ktime_get(), time_stamp);
+	pr_info("timer task '%s' callback #%d executed after %lld us.\n",
 		task ? task->name : "unknown", tim_test_callback_count, delta);
-	if (delta >= 900 && delta <= 1100)
+	if (delta >= 900000 && delta <= 1100000)
 		pr_info("timer task timing correct\n");
 	else
-		pr_info("timer task timing incorrect (expected: 900-1100ms, actual: %lldms)\n", delta);
+		pr_info("timer task timing incorrect (expected: 900000-1100000us, actual: %lldus)\n", delta);
 	time_stamp = ktime_get();
 }
 
@@ -245,7 +245,7 @@ static void tim_test_suspend_callback(struct tim_task *task)
 
 int t_tim_task_add(int argc, char **argv)
 {
-	u32 interval = 1000;
+	u32 interval = 1000000;
 	bool auto_load = true;
 	bool sched = false;
 	char task_name[32] = {0};
@@ -263,7 +263,7 @@ int t_tim_task_add(int argc, char **argv)
 		pr_err("timer task creation failed: %d\n", ret);
 		return ret;
 	}
-	pr_info("timer task created: %s (id: %u, interval: %ums, auto_load: %d, sched: %d)\n",
+	pr_info("timer task created: %s (id: %u, interval: %uus, auto_load: %d, sched: %d)\n",
 		example_task.name, example_task.task_id, interval, auto_load, sched);
 	return 0;
 }
@@ -286,7 +286,7 @@ int t_tim_task_validation(int argc, char **argv)
 	struct tim_task test_task, *found_task;
 	int ret;
 
-	ret = tim_task_add(&test_task, "validation-task", 500, true, false, tim_test_validation_callback);
+	ret = tim_task_add(&test_task, "validation-task", 500000, true, false, tim_test_validation_callback);
 	if (ret) {
 		pr_err("validation task creation failed: %d\n", ret);
 		return ret;
@@ -326,7 +326,7 @@ int t_tim_task_priority(int argc, char **argv)
 	int ret;
 
 	for (int i = 0; i < 3; i++) {
-		ret = tim_task_add(&priority_tasks[i], task_names[i], 200, true, false, tim_test_priority_callback);
+		ret = tim_task_add(&priority_tasks[i], task_names[i], 200000, true, false, tim_test_priority_callback);
 		if (ret) {
 			pr_err("priority task %d creation failed: %d\n", i, ret);
 			return ret;
@@ -334,7 +334,7 @@ int t_tim_task_priority(int argc, char **argv)
 		tim_task_set_priority(&priority_tasks[i], priorities[i]);
 	}
 
-	ktime_t test_end = ktime_add_ms(ktime_get(), 2000);
+	ktime_t test_end = ktime_add_us(ktime_get(), 2000000);
 	while (ktime_compare(ktime_get(), test_end) < 0)
 		tim_task_loop();
 
@@ -351,12 +351,12 @@ int t_tim_task_performance(int argc, char **argv)
 
 	for (int i = 0; i < 20; i++) {
 		snprintf(task_name, sizeof(task_name), "perf-task-%d", i);
-		ret = tim_task_add(&perf_tasks[i], task_name, 50 + (i * 10), true, false, tim_test_validation_callback);
+		ret = tim_task_add(&perf_tasks[i], task_name, 50000 + (i * 10000), true, false, tim_test_validation_callback);
 		if (ret) return ret;
 		tim_task_set_priority(&perf_tasks[i], i % 3);
 	}
 
-	ktime_t test_end = ktime_add_ms(ktime_get(), 3000);
+	ktime_t test_end = ktime_add_us(ktime_get(), 3000000);
 	while (ktime_compare(ktime_get(), test_end) < 0)
 		tim_task_loop();
 
@@ -370,7 +370,7 @@ int t_tim_task_cleanup(int argc, char **argv)
 	struct tim_task cleanup_task;
 	tim_test_callback_count = 0;
 
-	int ret = tim_task_add(&cleanup_task, "cleanup-test-task", 100, false, false, tim_test_cleanup_callback);
+	int ret = tim_task_add(&cleanup_task, "cleanup-test-task", 100000, false, false, tim_test_cleanup_callback);
 	if (ret) return ret;
 
 	tim_task_loop();
@@ -387,16 +387,16 @@ int t_tim_task_boundary(int argc, char **argv)
 	ret = tim_task_add(&boundary_tasks[0], "min-interval", 1, false, false, tim_test_validation_callback);
 	if (ret) return ret;
 
-	ret = tim_task_add(&boundary_tasks[1], "short-interval", 10, false, false, tim_test_validation_callback);
+	ret = tim_task_add(&boundary_tasks[1], "short-interval", 10000, false, false, tim_test_validation_callback);
 	if (ret) return ret;
 
-	ret = tim_task_add(&boundary_tasks[2], "medium-interval", 100, false, false, tim_test_validation_callback);
+	ret = tim_task_add(&boundary_tasks[2], "medium-interval", 100000, false, false, tim_test_validation_callback);
 	if (ret) return ret;
 
-	ret = tim_task_add(&boundary_tasks[3], "long-interval", 1000, false, false, tim_test_validation_callback);
+	ret = tim_task_add(&boundary_tasks[3], "long-interval", 1000000, false, false, tim_test_validation_callback);
 	if (ret) return ret;
 
-	ret = tim_task_add(&boundary_tasks[4], "max-interval", 3600000, false, false, tim_test_validation_callback);
+	ret = tim_task_add(&boundary_tasks[4], "max-interval", 3600000000, false, false, tim_test_validation_callback);
 	if (ret) return ret;
 
 	/* Test invalid intervals should return error */
@@ -406,7 +406,7 @@ int t_tim_task_boundary(int argc, char **argv)
 		goto cleanup;
 	}
 
-	ret = tim_task_add(&invalid_task, "invalid-too-large", 3600001, false, false, tim_test_validation_callback);
+	ret = tim_task_add(&invalid_task, "invalid-too-large", 3600000001, false, false, tim_test_validation_callback);
 	if (ret == 0) {
 		pr_err("too large interval should be rejected\n");
 		goto cleanup;
@@ -428,11 +428,11 @@ int t_tim_task_concurrent(int argc, char **argv)
 
 	for (int i = 0; i < 10; i++) {
 		snprintf(task_name, sizeof(task_name), "concurrent-%d", i);
-		ret = tim_task_add(&concurrent_tasks[i], task_name, 100 + i * 10, true, false, tim_test_validation_callback);
+		ret = tim_task_add(&concurrent_tasks[i], task_name, 100000 + i * 10000, true, false, tim_test_validation_callback);
 		if (ret) return ret;
 	}
 
-	ktime_t test_end = ktime_add_ms(ktime_get(), 3000);
+	ktime_t test_end = ktime_add_us(ktime_get(), 3000000);
 	while (ktime_compare(ktime_get(), test_end) < 0)
 		tim_task_loop();
 
@@ -453,7 +453,7 @@ int t_tim_task_short_interval(int argc, char **argv)
 		if (ret) return ret;
 	}
 
-	ktime_t test_end = ktime_add_ms(ktime_get(), 1000);
+	ktime_t test_end = ktime_add_us(ktime_get(), 1000000);
 	while (ktime_compare(ktime_get(), test_end) < 0)
 		tim_task_loop();
 
@@ -467,13 +467,13 @@ int t_tim_task_suspend_resume(int argc, char **argv)
 	struct tim_task suspend_task;
 	int ret;
 
-	ret = tim_task_add(&suspend_task, "suspend-test-task", 500, true, false, tim_test_suspend_callback);
+	ret = tim_task_add(&suspend_task, "suspend-test-task", 500000, true, false, tim_test_suspend_callback);
 	if (ret) return ret;
 
 	tim_task_suspend(&suspend_task);
 	tim_task_resume(&suspend_task);
 
-	ktime_t test_end = ktime_add_ms(ktime_get(), 1000);
+	ktime_t test_end = ktime_add_us(ktime_get(), 1000000);
 	while (ktime_compare(ktime_get(), test_end) < 0)
 		tim_task_loop();
 

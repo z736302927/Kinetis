@@ -763,7 +763,7 @@ int t_ak8975_initialize(int argc, char **argv)
 
 	if (on_off) {
 		pr_info("starting ak8975 slave with %s mode", bus_type ? "spi" : "i2c");
-		ak8975_dev = ak8975_init(bus_type, bus_type == REGMAP_BUS_IIC_SOFT ? (void *)&general_iic_master : (void *)&general_spi_master);
+		ak8975_dev = ak8975_init(bus_type, bus_type == REGMAP_BUS_IIC_SOFT ? (void *)&iic1_master : (void *)&spi1_master);
 		if (IS_ERR_OR_NULL(ak8975_dev)) {
 			return -EINVAL;
 		}

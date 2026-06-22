@@ -75,7 +75,6 @@ typedef struct {
 	bool crc_valid;
 } mt6701_ssi_frame_t;
 
-/* Device lifecycle */
 struct mt6701_device *mt6701_init(enum regmap_user_bus_type bus_type, void *bus_master);
 void mt6701_exit(struct mt6701_device *dev);
 
@@ -85,6 +84,8 @@ int mt6701_read_angle_degrees(struct mt6701_device *dev, float *degrees);
 
 /* SSI high-speed angle read */
 int mt6701_read_angle_ssi(struct mt6701_device *dev, mt6701_ssi_frame_t *frame);
+
+s32 mt6701_read_rpm_block(struct mt6701_device *dev, bool enable_filter, unsigned long usecs);
 
 /* Configuration register read/write (I2C path) */
 int mt6701_read_register(struct mt6701_device *dev, u8 reg, u8 *val);
@@ -102,8 +103,7 @@ u8 mt6701_crc6_verify(u32 ssi_frame);
 /* Magnetic status decoder */
 void mt6701_decode_magnetic_status(u8 mg, u8 *mag_status, u8 *push_status, u8 *overspeed_status);
 
-/* The above must be adapted by the user to match the actual hardware,
-   otherwise the driver cannot run. */
+/* The above must be adapted by the user to match the actual hardware, otherwise the driver cannot run. */
 
 #ifdef __cplusplus
 }

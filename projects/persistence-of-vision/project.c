@@ -17,14 +17,20 @@
 #include <kinetis/real-time-clock.h>
 #include <kinetis/basic-timer.h>
 #include "kinetis/bootloader.h"
+#include "kinetis/nrf24l01_port.h"
 
-#include "../../drivers/kinetis/lrzsz/zmodem.h"
-#include "../fs/fatfs/ff.h"
+#include "lrzsz/zmodem.h"
+#include "fatfs/ff.h"
 
 #include "project.h"
+#include "config.h"
 #include "rotor.h"
 #include "stator.h"
 #include "interface.h"
+
+// #include "wifi/tcp_ap.h"
+// #include "wifi/http_server.h"
+// #include "wifi/wifi.h"
 
 #if KINETIS_FAKE_SIM == 0
 #include "main.h"
@@ -38,11 +44,11 @@ static volatile u8 stator_thread_switch;
 
 static void *stator_thread_func(void *arg)
 {
-	(void)arg;
+	struct pov_stator *stator = arg;
 
 	while (stator_thread_switch) {
+		pov_stator_fsm(stator);
 		tim_task_loop();
-		usleep(1000);
 	}
 
 	return NULL;
@@ -219,15 +225,21 @@ static void *phone_thread_func(void *arg)
 
 #endif /* KINETIS_FAKE_SIM */
 
+// static void wifi_task_cb(struct tim_task *task)
+// {
+// 	wifi_schedule();
+// }
+
 int board_init(void)
 {
 	pr_info("==== %s v%s ====\n", PROJECT_NAME, PROJECT_VERSION);
 	pr_info("Platform: %s\n",
 		MCU_PLATFORM_STM32 ? "STM32" : "Simulated");
-
 #if KINETIS_FAKE_SIM
 	return 0;
 #else
+	arm_dwt_init();
+
 	return stm32_hal_init();
 #endif
 }
@@ -236,6 +248,7 @@ int app_main(void)
 {
 	struct pov_rotor *rotor = NULL;
 	struct pov_stator *stator = NULL;
+	struct serial_port_ops *motor_ops;
 #if KINETIS_FAKE_SIM
 	static pthread_t timer_thread;
 	static pthread_t phone_thread;
@@ -246,8 +259,14 @@ int app_main(void)
 	pr_info("pov: running as rotor (rotating end)\n");
 
 #if KINETIS_FAKE_SIM == 0
-	rotor = pov_rotor_alloc(&general_flash_ops, &usart2_serial_port_ops, &usart6_serial_port_ops,
-		&general_spi_master,
+#if POV_USE_NRF24L01
+	motor_ops = &nrf24l01_serial_port_ops;
+#else
+	motor_ops = &usart2_serial_port_ops;
+#endif
+	rotor = pov_rotor_alloc(&general_flash_ops, &general_bootloader_ops,
+		motor_ops, &usart6_serial_port_ops,
+		&spi1_master, &spi6_master,
 		hall_read_rotated_time);
 	if (!rotor) {
 		pr_err("pov: failed to allocate rotor\n");
@@ -255,51 +274,34 @@ int app_main(void)
 	}
 	stm32_serial_port[1] = rotor->motor_port;
 	stm32_serial_port[2] = rotor->app_port;
-	hall_dev = rotor->hall;
+#if POV_USE_MT6701
+#else
+	hall_dev = rotor->angle_sensor;
+#endif
 
-// 	/* ── Initialize WiFi (AP6181) ── */
-// 	{
-// 		struct wifi_config wifi_cfg = {
-// 			.ssid          = WIFI_SSID,
-// 			.password      = WIFI_PASSWORD,
-// 			.http_port     = WIFI_HTTP_PORT,
-// 			.log_host      = WIFI_LOG_HOST,
-// 			.log_port      = WIFI_LOG_PORT,
-// 			.use_dhcp      = 1,
-// 		};
-// 		struct wifi_manager_device *wifi;
-// 
-// 		wifi = wifi_manager_init(&wifi_cfg);
-// 		if (wifi) {
-// 			rotor->wifi = wifi;
-// 			pr_info("pov: WiFi manager initialized\n");
-// 
-// 			/* Connect to AP (blocking, ~10-30s) */
-// 			wifi_manager_connect(wifi);
-// 
-// 			/* Create log sender and HTTP server
-// 			 * after WiFi is connected */
-// 			if (wifi_manager_get_state(wifi) ==
-// 			    WIFI_STATE_CONNECTED) {
-// 				/* TODO: wire log_sender and http_server
-// 				 * into wifi_manager device for poll-driven
-// 				 * operation */
-// 				pr_info("pov: WiFi services ready\n");
-// 			}
-// 		} else {
-// 			pr_warn("pov: WiFi init failed, "
-// 				"continuing without WiFi\n");
-// 			rotor->wifi = NULL;
-// 		}
+// 	rotor->wifi = wifi_init(WIFI_SSID, WIFI_PASSWORD, 1,
+// 		WIFI_STATIC_IP, WIFI_STATIC_GW, WIFI_STATIC_NETMASK);
+// 	if (rotor->wifi) {
+// 	} else {
+// 		return -ENOMEM;
 // 	}
+// 
+// 	ret = tim_task_add(&rotor->wifi->schedule_task, "wifi_poll", WIFI_POLL_INTERVAL_MS * 1000,
+// 				true, false, wifi_task_cb);
+// 	if (ret != 0)
+// 		return ret;
 
 #else
-	rotor = pov_rotor_alloc(&general_flash_ops, &usart1_serial_port_ops, &usart2_serial_port_ops, hall_read_rotated_time);
+	rotor = pov_rotor_alloc(&general_flash_ops, &general_bootloader_ops,
+		&usart1_serial_port_ops, &usart2_serial_port_ops,
+		&spi1_master, &spi1_master, hall_read_rotated_time);
 	if (!rotor) {
 		pr_err("pov: failed to allocate rotor\n");
 		return -ENOMEM;
 	}
-	stator = pov_stator_alloc(&usart1_serial_port_ops, hall_read_rotated_time);
+	stator = pov_stator_alloc(&usart1_serial_port_ops,
+				 &general_flash_ops, &general_bootloader_ops,
+				 hall_read_rotated_time);
 	if (!stator) {
 		pr_err("pov: failed to allocate stator\n");
 		pov_rotor_free(rotor);
@@ -313,7 +315,7 @@ int app_main(void)
 
 	/* Start timer thread for stator simulation */
 	stator_thread_switch = 1;
-	ret = pthread_create(&timer_thread, NULL, stator_thread_func, NULL);
+	ret = pthread_create(&timer_thread, NULL, stator_thread_func, stator);
 	if (ret != 0) {
 		stator_thread_switch = 0;
 		pr_err("pov: failed to create timer thread: %d\n", ret);
@@ -352,7 +354,14 @@ out:
 #elif POV_RUN_MODE == POV_RUN_SLAVE
 	pr_info("pov: running as stator (fixed end)\n");
 
-	stator = pov_stator_alloc(&usart2_serial_port_ops, hall_read_rotated_time);
+#if POV_USE_NRF24L01
+	motor_ops = &nrf24l01_serial_port_ops;
+#else
+	motor_ops = &usart2_serial_port_ops;
+#endif
+	stator = pov_stator_alloc(motor_ops,
+				&general_flash_ops, &general_bootloader_ops,
+				hall_read_rotated_time);
 	if (!stator) {
 		pr_err("pov: failed to allocate stator\n");
 		return -ENOMEM;
@@ -362,6 +371,7 @@ out:
 
 	/* Keep running until shutdown signal */
 	while (1) {
+		pov_stator_fsm(stator);
 		tim_task_loop();
 	}
 

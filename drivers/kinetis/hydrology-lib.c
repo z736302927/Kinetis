@@ -63,7 +63,7 @@ void hydrology_disable_link_packet(void)
 void hydrology_enable_link_packet(void)
 {
 	tim_task_add(&g_hydrology.link_pkt, "link packet",
-		40 * 1000, true, false, link_packet);
+		40 * 1000 * 1000, true, false, link_packet);
 }
 
 void hydrology_disconnect_link(void)

@@ -1589,7 +1589,7 @@ int t_ds3231_initialize(int argc, char **argv)
 
 	if (on_off) {
 		pr_info("starting ds3231 slave with %s mode", bus_type ? "spi" : "i2c");
-		ds3231_dev = ds3231_init(bus_type, bus_type == REGMAP_BUS_IIC_SOFT ? (void *)&general_iic_master : (void *)&general_spi_master);
+		ds3231_dev = ds3231_init(bus_type, bus_type == REGMAP_BUS_IIC_SOFT ? (void *)&iic1_master : (void *)&spi1_master);
 		if (IS_ERR_OR_NULL(ds3231_dev)) {
 			return -EINVAL;
 		}

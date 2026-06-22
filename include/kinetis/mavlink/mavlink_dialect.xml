@@ -56,6 +56,9 @@
             <entry name="MAV_BL_CMD_START_APP" value="1"/>
             <entry name="MAV_BL_CMD_RESET" value="2"/>
             <entry name="MAV_BL_CMD_QUERY_INFO" value="3"/>
+            <entry name="MAV_BL_CMD_PREPARE_STATOR_UPDATE" value="4">
+                <description>Prepare to update stator firmware via rotor relay</description>
+            </entry>
         </enum>
     </enums>
 

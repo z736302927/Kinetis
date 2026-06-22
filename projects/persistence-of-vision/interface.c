@@ -2,6 +2,7 @@
 #include <linux/printk.h>
 #include <linux/delay.h>
 #include <linux/iopoll.h>
+#include <linux/sched_clock.h>
 
 #include <kinetis/iic_soft.h>
 #include <kinetis/spi_soft.h>
@@ -43,6 +44,21 @@ u32 hall_read_rotated_time(struct hall_device *dev)
 	return __HAL_TIM_GET_COUNTER(&htim2);
 }
 
+void arm_dwt_init(void)
+{
+	/* Enable DWT trace unit (TRCENA) */
+	writel(readl(&CoreDebug->DEMCR) | CoreDebug_DEMCR_TRCENA_Msk, &CoreDebug->DEMCR);
+	/* Reset cycle counter */
+	writel(0, &DWT->CYCCNT);
+	/* Enable cycle counter (CYCCNTENA) */
+	writel(readl(&DWT->CTRL) | DWT_CTRL_CYCCNTENA_Msk, &DWT->CTRL);					
+}
+
+u64 arm_dwt_read(struct clocksource *cs)
+{
+    return (u64)DWT->CYCCNT;
+}
+
 unsigned long read_chip_timer(void)
 {
 	return TIM5->CNT;
@@ -52,6 +68,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM4) {
         xtime_update(1);
+        update_sched_clock();
     } else if (htim->Instance == TIM5) {
         basic_timer_isr(1000000);
     }
@@ -290,19 +307,29 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, u16 Size)
 {
 	if (huart->Instance == huart2.Instance) {
 		stm32_serial_port[1]->producer = Size % SERIAL_PORT_BUFFER_SIZE;
+
+		if (serial_port_rx_used(stm32_serial_port[1]) > SERIAL_PORT_BUFFER_SIZE * 95 / 100) {
+			stm32_serial_port[1]->ops->disable();
+			stm32_serial_port[1]->overflow = 1;
+			pr_warn("usart2: RX overflow protection, RX auto-disabled\n");
+		}
 	}
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
 	if (huart->Instance == huart2.Instance) {
-		pr_err("stm32_uart: DMA error 0x%lx, restarting RX\n", huart->ErrorCode);
-		HAL_UART_AbortReceive(&huart2);
-		HAL_UART_Init(&huart2);
-		HAL_UARTEx_ReceiveToIdle_DMA(&huart2, stm32_serial_port[1]->rx_buffer,
-					     SERIAL_PORT_BUFFER_SIZE);
-		__HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_TC | DMA_IT_HT);
-		// ATOMIC_CLEAR_BIT(huart2.Instance->CR3, USART_CR3_EIE);
+		if (!(huart2.Instance->CR1 & USART_CR1_RE)) {
+			pr_debug("usart2: error 0x%lx while RX disabled, not restarting\n", huart->ErrorCode);
+		} else {
+			pr_err("stm32_uart: DMA error 0x%lx, restarting RX\n", huart->ErrorCode);
+			HAL_UART_AbortReceive(&huart2);
+			HAL_UART_Init(&huart2);
+			HAL_UARTEx_ReceiveToIdle_DMA(&huart2, stm32_serial_port[1]->rx_buffer,
+							SERIAL_PORT_BUFFER_SIZE);
+			__HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_TC | DMA_IT_HT);
+			// ATOMIC_CLEAR_BIT(huart2.Instance->CR3, USART_CR3_EIE);
+		}
 		stm32_uart_result[1].error = 1;
 	}
 }
@@ -481,7 +508,7 @@ static int iic1_master_receive(u8 slave_addr, u16 reg,
 	return 0;
 }
 
-struct iic_master general_iic_master = {
+struct iic_master iic1_master = {
 	.init        = iic1_master_init,
 	.sda_out     = iic1_sda_out,
 	.sda_in      = iic1_sda_in,
@@ -619,6 +646,7 @@ static u8 spi1_read_byte(void)
 static void qspi1_read(struct qspi_request_block *qrb)
 {
 	QSPI_CommandTypeDef qspi_cmd;
+	HAL_StatusTypeDef hal_ret;
 
 	qspi_cmd.Instruction = qrb->instruction;
 	switch (qrb->instruction_mode) {
@@ -707,15 +735,29 @@ static void qspi1_read(struct qspi_request_block *qrb)
 	qspi_cmd.DdrHoldHalfCycle  = QSPI_DDR_HHC_ANALOG_DELAY;
 	qspi_cmd.DummyCycles       = qrb->dummy_cycles;
 
-	HAL_QSPI_Command(&hqspi, &qspi_cmd, HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
+	hal_ret = HAL_QSPI_Command(&hqspi, &qspi_cmd, HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
+	if (hal_ret != HAL_OK) {
+		pr_err("qspi1_read: HAL_QSPI_Command failed, ret=%d, cmd=0x%02X, addr=0x%08X\n",
+		       (int)hal_ret, qrb->instruction, qrb->address);
+		return;
+	}
 
-	if (qrb->transfer_mode != QSPI_DATA_NONE)
-		HAL_QSPI_Receive(&hqspi, qrb->transfer_buffer, HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
+	if (qrb->transfer_length > 0) {
+		hal_ret = HAL_QSPI_Receive(&hqspi, qrb->transfer_buffer, HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
+		if (hal_ret != HAL_OK) {
+			pr_err("qspi1_read: HAL_QSPI_Receive failed, ret=%d, len=%u\n",
+			       (int)hal_ret, qrb->transfer_length);
+		}
+	}
+
+	/* Clear residual bits from auto-polling that can corrupt subsequent commands */
+	CLEAR_BIT(hqspi.Instance->CR, QUADSPI_CR_PMM | QUADSPI_CR_APMS | QUADSPI_CR_DMAEN);
 }
 
 static void qspi1_write(struct qspi_request_block *qrb)
 {
 	QSPI_CommandTypeDef qspi_cmd;
+	HAL_StatusTypeDef hal_ret;
 
 	qspi_cmd.Instruction = qrb->instruction;
 	switch (qrb->instruction_mode) {
@@ -804,15 +846,64 @@ static void qspi1_write(struct qspi_request_block *qrb)
 	qspi_cmd.DdrHoldHalfCycle  = QSPI_DDR_HHC_ANALOG_DELAY;
 	qspi_cmd.DummyCycles       = qrb->dummy_cycles;
 
-	HAL_QSPI_Command(&hqspi, &qspi_cmd, HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
+	hal_ret = HAL_QSPI_Command(&hqspi, &qspi_cmd, HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
+	if (hal_ret != HAL_OK) {
+		pr_err("qspi1_write: HAL_QSPI_Command failed, ret=%d, cmd=0x%02X, addr=0x%08X\n",
+		       (int)hal_ret, qrb->instruction, qrb->address);
+		return;
+	}
 
-	if (qrb->transfer_mode != QSPI_DATA_NONE)
-		HAL_QSPI_Transmit(&hqspi, qrb->transfer_buffer, HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
+	if (qrb->transfer_length > 0) {
+		hal_ret = HAL_QSPI_Transmit(&hqspi, qrb->transfer_buffer, HAL_QSPI_TIMEOUT_DEFAULT_VALUE);
+		if (hal_ret != HAL_OK) {
+			pr_err("qspi1_write: HAL_QSPI_Transmit failed, ret=%d, len=%u\n",
+			       (int)hal_ret, qrb->transfer_length);
+		}
+	}
+
+	/* Clear residual bits from auto-polling that can corrupt subsequent commands */
+	CLEAR_BIT(hqspi.Instance->CR, QUADSPI_CR_PMM | QUADSPI_CR_APMS | QUADSPI_CR_DMAEN);
 }
 
 static void spi1_set_mode(enum qspi_read_mode mode)
 {
 
+}
+
+static int qspi1_poll(struct qspi_request_block *qrb, u32 timeout_us)
+{
+	QSPI_CommandTypeDef sCommand;
+	QSPI_AutoPollingTypeDef sConfig;
+	HAL_StatusTypeDef hal_ret;
+	int ret = 0;
+
+	sCommand.InstructionMode   = QSPI_INSTRUCTION_1_LINE;
+	sCommand.Instruction       = qrb->instruction;
+	sCommand.AddressMode       = QSPI_ADDRESS_NONE;
+	sCommand.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+	sCommand.DataMode          = QSPI_DATA_1_LINE;
+	sCommand.DummyCycles       = 0;
+	sCommand.DdrMode           = QSPI_DDR_MODE_DISABLE;
+	sCommand.DdrHoldHalfCycle  = QSPI_DDR_HHC_ANALOG_DELAY;
+	sCommand.SIOOMode          = QSPI_SIOO_INST_EVERY_CMD;
+	sCommand.NbData            = 1;
+
+	sConfig.Match              = qrb->match;
+	sConfig.Mask               = qrb->mask;
+	sConfig.MatchMode          = QSPI_MATCH_MODE_AND;
+	sConfig.StatusBytesSize    = 1;
+	sConfig.Interval           = 0x10;
+	sConfig.AutomaticStop      = QSPI_AUTOMATIC_STOP_ENABLE;
+
+	hal_ret = HAL_QSPI_AutoPolling(&hqspi, &sCommand, &sConfig,
+				      (timeout_us + 999) / 1000);
+	if (hal_ret != HAL_OK) {
+		ret -ETIMEDOUT;
+	}
+
+	CLEAR_BIT(hqspi.Instance->CR, QUADSPI_CR_PMM | QUADSPI_CR_APMS | QUADSPI_CR_DMAEN);
+
+	return ret;
 }
 
 static int spi1_master_init(void)
@@ -822,7 +913,7 @@ static int spi1_master_init(void)
 
 struct w25qxxx_device *w25qxxx_dev;
 
-struct spi_master general_spi_master = {
+struct spi_master spi1_master = {
 	.cs_low      = spi1_cs_low,
 	.cs_high     = spi1_cs_high,
 	.mosi_low    = spi1_mosi_low,
@@ -836,9 +927,260 @@ struct spi_master general_spi_master = {
 	.read_bytes  = spi1_read_bytes,
 	.qspi_read   = qspi1_read,
 	.qspi_write  = qspi1_write,
+	.qspi_poll   = qspi1_poll,
 	.set_mode	 = spi1_set_mode,
 	.init        = spi1_master_init,
 };
+
+static int spi6_cs_low(void)
+{
+	HAL_GPIO_WritePin(GPIOG, GPIO_PIN_11, GPIO_PIN_RESET);
+	return 0;
+}
+
+static int spi6_cs_high(void)
+{
+	HAL_GPIO_WritePin(GPIOG, GPIO_PIN_11, GPIO_PIN_SET);
+	return 0;
+}
+
+static int spi6_mosi_low(void)
+{
+	HAL_GPIO_WritePin(GPIOG, GPIO_PIN_14, GPIO_PIN_RESET);
+	return 0;
+}
+
+static int spi6_mosi_high(void)
+{
+	HAL_GPIO_WritePin(GPIOG, GPIO_PIN_14, GPIO_PIN_SET);
+	return 0;
+}
+
+static int spi6_miso_read(void)
+{
+	return HAL_GPIO_ReadPin(GPIOG, GPIO_PIN_12) ? 1 : 0;
+}
+
+static int spi6_sck_low(void)
+{
+	HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_RESET);
+	return 0;
+}
+
+static int spi6_sck_high(void)
+{
+	HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_SET);
+	return 0;
+}
+
+static int spi6_write_bytes(u8 *pdata, u8 length)
+{
+	u32 val;
+	int ret;
+
+	stm32_spi_result[0].tx_done = 0;
+	stm32_spi_result[0].error = 0;
+
+	HAL_SPI_Transmit_DMA(&hspi6, pdata, length);
+
+	ret = readl_poll_timeout(&stm32_spi_result[0].tx_done, val, val || stm32_spi_result[0].error, 100, 100000);
+	if (ret < 0) {
+		HAL_SPI_Abort(&hspi6);
+		pr_err("stm32_spi: write timed out (%u bytes)\n", length);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int spi6_read_bytes(u8 *pdata, u8 length)
+{
+	u32 val;
+	int ret;
+
+	stm32_spi_result[0].rx_done = 0;
+	stm32_spi_result[0].error = 0;
+
+	HAL_SPI_Receive_DMA(&hspi6, pdata, length);
+
+	ret = readl_poll_timeout(&stm32_spi_result[0].rx_done, val, val || stm32_spi_result[0].error, 100, 100000);
+	if (ret < 0) {
+		HAL_SPI_Abort(&hspi6);
+		pr_err("stm32_spi: read timed out (%u bytes)\n", length);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int spi6_write_byte(u8 data)
+{
+	u32 val;
+	int ret;
+
+	stm32_spi_result[0].tx_done = 0;
+	stm32_spi_result[0].error = 0;
+
+	HAL_SPI_Transmit_DMA(&hspi6, &data, 1);
+
+	ret = readl_poll_timeout(&stm32_spi_result[0].tx_done, val, val || stm32_spi_result[0].error, 100, 100000);
+	if (ret < 0) {
+		HAL_SPI_Abort(&hspi6);
+		pr_err("stm32_spi: write timed out (1 bytes)\n");
+		return ret;
+	}
+
+	return 0;
+}
+
+static u8 spi6_read_byte(void)
+{
+	u8 data;
+	u32 val;
+	int ret;
+
+	stm32_spi_result[0].rx_done = 0;
+	stm32_spi_result[0].error = 0;
+
+	HAL_SPI_Receive_DMA(&hspi6, &data, 1);
+
+	ret = readl_poll_timeout(&stm32_spi_result[0].rx_done, val, val || stm32_spi_result[0].error, 100, 100000);
+	if (ret < 0) {
+		HAL_SPI_Abort(&hspi6);
+		pr_err("stm32_spi: read timed out (1 bytes)\n");
+		return 0;
+	}
+
+	return data;
+}
+
+static int spi6_master_init(void)
+{
+	return 0;
+}
+
+struct spi_master spi6_master = {
+	.cs_low      = spi6_cs_low,
+	.cs_high     = spi6_cs_high,
+	.mosi_low    = spi6_mosi_low,
+	.mosi_high   = spi6_mosi_high,
+	.miso_read   = spi6_miso_read,
+	.sck_low     = spi6_sck_low,
+	.sck_high    = spi6_sck_high,
+	.write_byte  = spi6_write_byte,
+	.read_byte   = spi6_read_byte,
+	.write_bytes = spi6_write_bytes,
+	.read_bytes  = spi6_read_bytes,
+	.init        = spi6_master_init,
+};
+
+static int spi7_cs_low(void)
+{
+	HAL_GPIO_WritePin(GPIOG, GPIO_PIN_11, GPIO_PIN_RESET);
+	return 0;
+}
+
+static int spi7_cs_high(void)
+{
+	HAL_GPIO_WritePin(GPIOG, GPIO_PIN_11, GPIO_PIN_SET);
+	return 0;
+}
+
+static int spi7_mosi_low(void)
+{
+	HAL_GPIO_WritePin(GPIOG, GPIO_PIN_14, GPIO_PIN_RESET);
+	return 0;
+}
+
+static int spi7_mosi_high(void)
+{
+	HAL_GPIO_WritePin(GPIOG, GPIO_PIN_14, GPIO_PIN_SET);
+	return 0;
+}
+
+static int spi7_miso_read(void)
+{
+	return HAL_GPIO_ReadPin(GPIOG, GPIO_PIN_12) ? 1 : 0;
+}
+
+static int spi7_sck_low(void)
+{
+	HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_RESET);
+	return 0;
+}
+
+static int spi7_sck_high(void)
+{
+	HAL_GPIO_WritePin(GPIOG, GPIO_PIN_13, GPIO_PIN_SET);
+	return 0;
+}
+
+static int spi7_master_init(void)
+{
+	return 0;
+}
+
+struct spi_master spi7_master = {
+	.cs_low      = spi7_cs_low,
+	.cs_high     = spi7_cs_high,
+	.mosi_low    = spi7_mosi_low,
+	.mosi_high   = spi7_mosi_high,
+	.miso_read   = spi7_miso_read,
+	.sck_low     = spi7_sck_low,
+	.sck_high    = spi7_sck_high,
+	.init        = spi7_master_init,
+};
+
+u8 nrf24l01_interface_spi_init(void)
+{
+	return spi_master_soft_init(&spi7_master, 0, 0, SPI_BIT_ORDER_MSB, 10);
+}
+
+u8 nrf24l01_interface_spi_deinit(void)
+{
+	return 0;
+}
+
+u8 nrf24l01_interface_spi_read(u8 reg, u8 *buf, uint16_t len)
+{
+	return spi_master_port_receive(&spi7_master, reg, buf, (u8)len);
+}
+
+u8 nrf24l01_interface_spi_write(u8 reg, u8 *buf, uint16_t len)
+{
+	return spi_master_port_transmit(&spi7_master, reg, buf, (u8)len);
+}
+
+u8 nrf24l01_interface_gpio_init(void)
+{
+	HAL_GPIO_WritePin(GPIOG, GPIO_PIN_14, GPIO_PIN_RESET);
+
+	return 0;
+}
+
+u8 nrf24l01_interface_gpio_deinit(void)
+{
+	HAL_GPIO_WritePin(GPIOG, GPIO_PIN_14, GPIO_PIN_RESET);
+
+	return 0;
+}
+
+u8 nrf24l01_interface_gpio_write(u8 value)
+{
+	HAL_GPIO_WritePin(GPIOG, GPIO_PIN_14, value ? GPIO_PIN_SET : GPIO_PIN_RESET);
+
+	return 0;
+}
+
+void nrf24l01_interface_delay_ms(uint32_t ms)
+{
+	mdelay(ms);
+}
+
+void nrf24l01_interface_debug_print(const char *const fmt, ...)
+{
+	pr_debug("%s", fmt);
+}
 
 static int usart2_init(struct serial_port *serial)
 {
@@ -871,6 +1213,20 @@ static int usart2_transmit_bytes(const u8 *data, u16 size)
 
 static int usart2_receive_cb(struct serial_port *serial)
 {
+
+	return 0;
+}
+
+static int usart2_rx_disable(void)
+{
+	CLEAR_BIT(huart2.Instance->CR1, USART_CR1_RE);
+
+	return 0;
+}
+
+static int usart2_rx_enable(void)
+{
+	SET_BIT(huart2.Instance->CR1, USART_CR1_RE);
 
 	return 0;
 }
@@ -973,6 +1329,8 @@ static void usart2_update_producer(struct serial_port *serial)
 
 struct serial_port_ops usart2_serial_port_ops = {
 	.init			  = usart2_init,
+	.disable          = usart2_rx_disable,
+	.enable           = usart2_rx_enable,
 	.transmit_bytes   = usart2_transmit_bytes,
 	.receive_callback = usart2_receive_cb,
 	.update_producer  = usart2_update_producer,
@@ -990,200 +1348,6 @@ struct serial_port_ops usart6_serial_port_ops = {
 	.irq_disable      = usart2_irq_disable,
 	.irq_enable       = usart2_irq_enable,
 	.set_tx           = usart2_set_tx,
-};
-
-#elif POV_RUN_MODE == POV_RUN_SLAVE
-
-struct serial_port_ops usart2_serial_port_ops = {
-	.init			  = usart2_init,
-	.transmit_bytes   = usart2_transmit_bytes,
-	.receive_callback = usart2_receive_cb,
-// 	.config           = usart2_config,
-// 	.irq_disable      = usart2_irq_disable,
-// 	.irq_enable       = usart2_irq_enable,
-// 	.set_tx           = usart2_set_tx,
-};
-
-#endif
-
-#if POV_RUN_MODE == POV_RUN_HOST
-
-#define STM32_FLASH_SECTOR_SIZE  0x20000u
-#define STM32_FLASH_WORD_SIZE    32u
-
-static int stm32_flash_erase(u64 addr, u32 size)
-{
-	FLASH_EraseInitTypeDef erase_init;
-	u32 sector_error;
-	u32 start_sector, end_sector, sector;
-
-	if (addr + size > (u64)FLASH_BANK1_BASE + ROM_TOTAL_SIZE) {
-		pr_err("stm32_flash_erase: addr 0x%llx+%u out of range\n",
-		       addr, size);
-		return -EINVAL;
-	}
-
-	start_sector = (addr - FLASH_BANK1_BASE) / STM32_FLASH_SECTOR_SIZE;
-	end_sector   = (addr + size - 1 - FLASH_BANK1_BASE) /  STM32_FLASH_SECTOR_SIZE;
-
-	HAL_FLASH_Unlock();
-
-	for (sector = start_sector; sector <= end_sector; sector++) {
-		erase_init.TypeErase     = FLASH_TYPEERASE_SECTORS;
-		erase_init.Banks         = FLASH_BANK_1;
-		erase_init.Sector        = sector;
-		erase_init.NbSectors     = 1;
-		erase_init.VoltageRange  = FLASH_VOLTAGE_RANGE_3; /* 32-bit */
-
-		if (HAL_FLASHEx_Erase(&erase_init, &sector_error) != HAL_OK) {
-			pr_err("stm32_flash_erase: sector %u failed, err 0x%lx\n",
-			       sector, HAL_FLASH_GetError());
-			HAL_FLASH_Lock();
-			return -EIO;
-		}
-	}
-
-	HAL_FLASH_Lock();
-	return 0;
-}
-
-static int stm32_flash_write(u64 addr, const u8 *data, u32 size)
-{
-	u32 offset = 0;
-
-	if (addr + size > (u64)FLASH_BANK1_BASE + ROM_TOTAL_SIZE) {
-		pr_err("stm32_flash_write: addr 0x%llx+%u out of range\n",
-		       addr, size);
-		return -EINVAL;
-	}
-
-	HAL_FLASH_Unlock();
-
-	while (offset < size) {
-		u32 flash_addr = (u32)(addr + offset);
-		u32 word_off   = flash_addr & (STM32_FLASH_WORD_SIZE - 1);
-		u32 copy_sz;
-		int ret;
-
-		if (word_off != 0 ||
-		    (size - offset) < STM32_FLASH_WORD_SIZE) {
-			/* Unaligned or partial: read-modify-write */
-			u32 aligned_addr = flash_addr &
-					   ~(STM32_FLASH_WORD_SIZE - 1);
-			u8 buf[STM32_FLASH_WORD_SIZE];
-
-			memcpy(buf, (void *)aligned_addr,
-			       STM32_FLASH_WORD_SIZE);
-			copy_sz = (size - offset < STM32_FLASH_WORD_SIZE - word_off) ? (size - offset) : (STM32_FLASH_WORD_SIZE - word_off);
-			memcpy(buf + word_off, data + offset, copy_sz);
-
-			ret = HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD,
-						aligned_addr, (u32)buf);
-		} else {
-			/* Aligned full flash-word */
-			ret = HAL_FLASH_Program(FLASH_TYPEPROGRAM_FLASHWORD,
-						flash_addr,
-						(u32)(data + offset));
-			copy_sz = STM32_FLASH_WORD_SIZE;
-		}
-
-		if (ret != HAL_OK) {
-			pr_err("stm32_flash_write: failed at 0x%08x, err 0x%lx\n",
-			       flash_addr, HAL_FLASH_GetError());
-			HAL_FLASH_Lock();
-			return -EIO;
-		}
-
-		offset += copy_sz;
-	}
-
-	HAL_FLASH_Lock();
-
-	return 0;
-}
-
-static int stm32_flash_read(u64 addr, u8 *buf, u32 size)
-{
-	if (addr + size > (u64)FLASH_BANK1_BASE + ROM_TOTAL_SIZE) {
-		pr_err("stm32_flash_read: addr 0x%llx+%u out of range\n",
-		       addr, size);
-		return -EINVAL;
-	}
-
-	memcpy(buf, (u8 *)addr, size);
-	
-	return 0;
-}
-
-static void stm32_clear_pending_irqs(void)
-{
-	/* Disable and clear ALL NVIC interrupts — no pending IRQ may
-	 * fire during the transition using the newly assigned VTOR. */
-	for (int i = 0; i < 8; i++) {
-		NVIC->ICER[i] = 0xFFFFFFFF;
-		NVIC->ICPR[i] = 0xFFFFFFFF;
-	}
-}
-
-static void stm32_enable_irq(void)
-{
-	__enable_irq();
-}
-
-static void stm32_disable_irq(void)
-{
-	__disable_irq();
-}
-
-static void stm32_cleanup_hw_resource(void)
-{
-	/*
-	 * De-initialize all HAL peripherals that were initialized during
-	 * board bring-up so the new firmware starts with a clean slate.
-	 *
-	 * NOTE: actual peripheral handles (e.g. huart1, hi2c1) are
-	 * generated by STM32CubeMX in main.h / main.c — call their
-	 * MX_*_DeInit() or HAL_*_DeInit() as needed per project.
-	 */
-	HAL_RCC_DeInit();
-}
-
-static void stm32_disable_cache(void)
-{
-	SCB_DisableDCache();
-	SCB_DisableICache();
-}
-
-static void stm32_set_stack_pointer(u64 ptr)
-{
-	__set_MSP((u32)ptr);
-}
-
-static void stm32_redirect_isr_table(u64 addr)
-{
-	SCB->VTOR = (u32)addr;
-}
-
-static void stm32_system_reset(void)
-{
-	HAL_NVIC_SystemReset();
-}
-
-struct flash_ops general_flash_ops = {
-	.erase                = stm32_flash_erase,
-	.write                = stm32_flash_write,
-	.read                 = stm32_flash_read,
-};
-
-struct bootloader_ops general_bl_ops = {
-	.clear_pending_irqs  = stm32_clear_pending_irqs,
-	.enable_irq          = stm32_enable_irq,
-	.disable_irq          = stm32_disable_irq,
-	.cleanup_hw_resource  = stm32_cleanup_hw_resource,
-	.disable_cache        = stm32_disable_cache,
-	.set_stack_pointer    = stm32_set_stack_pointer,
-	.redirect_isr_table   = stm32_redirect_isr_table,
-	.system_reset         = stm32_system_reset,
 };
 
 int pov_spi_multi_wait_complete(u32 timeout_us)
@@ -1237,15 +1401,297 @@ int pov_spi_multi_transmit(struct pov_rotor *rotor)
 
 #elif POV_RUN_MODE == POV_RUN_SLAVE
 
+struct serial_port_ops usart2_serial_port_ops = {
+	.init			  = usart2_init,
+	.disable          = usart2_rx_disable,
+	.enable           = usart2_rx_enable,
+	.transmit_bytes   = usart2_transmit_bytes,
+	.receive_callback = usart2_receive_cb,
+// 	.config           = usart2_config,
+// 	.irq_disable      = usart2_irq_disable,
+// 	.irq_enable       = usart2_irq_enable,
+// 	.set_tx           = usart2_set_tx,
+};
+
 #endif
 
+/*********************************************************************
+ * Flash Sector Sizes
+ * H7: Uniform 128KB sectors (bank 1, sectors 0-7)
+ *     Program via 256-bit FLASHWORD (32 bytes)
+ * F4: Mixed: 4×16KB + 1×64KB + 7×128KB = 1MB
+ *     Program via 32-bit word
+ *********************************************************************/
+#ifdef STM32H743xx
+#define BL_FLASH_SECTOR_SIZE     0x20000u  /* 128KB per sector */
+#define BL_FLASH_WORD_SIZE       32u       /* 256-bit FLASHWORD */
+#define BL_FLASH_VOLTAGE_RANGE   FLASH_VOLTAGE_RANGE_3
+#define BL_FLASH_TYPEPROGRAM     FLASH_TYPEPROGRAM_FLASHWORD
+
+static int stm32_flash_erase(u64 addr, u32 size)
+{
+	FLASH_EraseInitTypeDef erase_init;
+	u32 sector_error;
+	u32 start_sector, end_sector, sector;
+
+	if (addr + size > (u64)FLASH_BANK1_BASE + ROM_TOTAL_SIZE) {
+		pr_err("stm32_flash_erase: addr 0x%llx+%u out of range\n",
+		       addr, size);
+		return -EINVAL;
+	}
+
+	start_sector = (u32)(addr - FLASH_BANK1_BASE) / BL_FLASH_SECTOR_SIZE;
+	end_sector   = (u32)(addr + size - 1 - FLASH_BANK1_BASE) / BL_FLASH_SECTOR_SIZE;
+
+	HAL_FLASH_Unlock();
+
+	for (sector = start_sector; sector <= end_sector; sector++) {
+		erase_init.TypeErase     = FLASH_TYPEERASE_SECTORS;
+		erase_init.Banks         = FLASH_BANK_1;
+		erase_init.Sector        = sector;
+		erase_init.NbSectors     = 1;
+		erase_init.VoltageRange  = BL_FLASH_VOLTAGE_RANGE;
+
+		if (HAL_FLASHEx_Erase(&erase_init, &sector_error) != HAL_OK) {
+			pr_err("stm32_flash_erase: sector %u failed, err 0x%lx\n",
+			       sector, HAL_FLASH_GetError());
+			HAL_FLASH_Lock();
+			return -EIO;
+		}
+	}
+
+	HAL_FLASH_Lock();
+	return 0;
+}
+
+static int stm32_flash_write(u64 addr, const u8 *data, u32 size)
+{
+	u32 offset = 0;
+
+	if (addr + size > (u64)FLASH_BANK1_BASE + ROM_TOTAL_SIZE) {
+		pr_err("stm32_flash_write: addr 0x%llx+%u out of range\n",
+		       addr, size);
+		return -EINVAL;
+	}
+
+	HAL_FLASH_Unlock();
+
+	while (offset < size) {
+		u32 flash_addr = (u32)(addr + offset);
+		u32 word_off   = flash_addr & (BL_FLASH_WORD_SIZE - 1);
+		u32 copy_sz;
+		int ret;
+
+		if (word_off != 0 ||
+		    (size - offset) < BL_FLASH_WORD_SIZE) {
+			/* Unaligned or partial: read-modify-write */
+			u32 aligned_addr = flash_addr &
+					   ~(BL_FLASH_WORD_SIZE - 1);
+			u8 buf[32];  /* 256-bit max */
+
+			memcpy(buf, (void *)(uintptr_t)aligned_addr,
+			       BL_FLASH_WORD_SIZE);
+			copy_sz = (size - offset < BL_FLASH_WORD_SIZE - word_off)
+				  ? (size - offset)
+				  : (BL_FLASH_WORD_SIZE - word_off);
+			memcpy(buf + word_off, data + offset, copy_sz);
+
+			ret = HAL_FLASH_Program(BL_FLASH_TYPEPROGRAM,
+						aligned_addr,
+						(u32)(uintptr_t)buf);
+		} else {
+			/* Aligned full flash-word */
+			ret = HAL_FLASH_Program(BL_FLASH_TYPEPROGRAM,
+						flash_addr,
+						(u32)(uintptr_t)(data + offset));
+			copy_sz = BL_FLASH_WORD_SIZE;
+		}
+
+		if (ret != HAL_OK) {
+			pr_err("stm32_flash_write: failed at 0x%08x, err 0x%lx\n",
+			       flash_addr, HAL_FLASH_GetError());
+			HAL_FLASH_Lock();
+			return -EIO;
+		}
+
+		offset += copy_sz;
+	}
+
+	HAL_FLASH_Lock();
+	return 0;
+}
+
+static int stm32_flash_read(u64 addr, u8 *buf, u32 size)
+{
+	if (addr + size > (u64)FLASH_BANK1_BASE + ROM_TOTAL_SIZE) {
+		pr_err("stm32_flash_read: addr 0x%llx+%u out of range\n",
+		       addr, size);
+		return -EINVAL;
+	}
+
+	memcpy(buf, (void *)(uintptr_t)addr, size);
+	return 0;
+}
+
+#elif defined(STM32F407xx)
+#define BL_FLASH_SECTOR_SIZE_REF 0x20000u  /* default sector size reference */
+#define BL_FLASH_WORD_SIZE       4u        /* 32-bit word */
+#define BL_FLASH_VOLTAGE_RANGE   FLASH_VOLTAGE_RANGE_3
+#define BL_FLASH_TYPEPROGRAM     FLASH_TYPEPROGRAM_WORD
+#define BL_F4_SECTOR_COUNT       12
+
+const u32 stm32_sector_size[BL_F4_SECTOR_COUNT] = {
+	0x4000,  0x4000,  0x4000,  0x4000,   /* 16KB × 4 */
+	0x10000,                             /* 64KB × 1 */
+	0x20000, 0x20000, 0x20000,           /* 128KB × 7 */
+	0x20000, 0x20000, 0x20000, 0x20000
+};
+
+static int stm32_flash_get_sector(u32 addr)
+{
+	u32 offset = addr - FLASH_BASE;
+	u32 accum = 0;
+
+	for (u8 i = 0; i < BL_F4_SECTOR_COUNT; i++) {
+		accum += stm32_sector_size[i];
+		if (offset < accum)
+			return i;
+	}
+	return -EINVAL;
+}
+
+static int stm32_flash_erase(u64 addr, u32 size)
+{
+	FLASH_EraseInitTypeDef erase_init;
+	u32 sector_error;
+	s32 start_sector, end_sector;
+	s32 sector;
+
+	if (addr + size > (u64)FLASH_BASE + ROM_TOTAL_SIZE) {
+		pr_err("stm32_flash_erase: addr 0x%llx+%u out of range\n",
+		       addr, size);
+		return -EINVAL;
+	}
+
+	start_sector = stm32_flash_get_sector((u32)addr);
+	end_sector   = stm32_flash_get_sector((u32)(addr + size - 1));
+
+	if (start_sector < 0 || end_sector < 0) {
+		pr_err("stm32_flash_erase: invalid sector range\n");
+		return -EINVAL;
+	}
+
+	HAL_FLASH_Unlock();
+
+	for (sector = start_sector; sector <= end_sector; sector++) {
+		erase_init.TypeErase     = FLASH_TYPEERASE_SECTORS;
+		erase_init.Banks         = FLASH_BANK_1;
+		erase_init.Sector        = (u32)sector;
+		erase_init.NbSectors     = 1;
+		erase_init.VoltageRange  = BL_FLASH_VOLTAGE_RANGE;
+
+		if (HAL_FLASHEx_Erase(&erase_init, &sector_error) != HAL_OK) {
+			pr_err("stm32_flash_erase: sector %d failed, err 0x%lx\n",
+			       sector, HAL_FLASH_GetError());
+			HAL_FLASH_Lock();
+			return -EIO;
+		}
+	}
+
+	HAL_FLASH_Lock();
+	return 0;
+}
+
+static int stm32_flash_write(u64 addr, const u8 *data, u32 size)
+{
+	u32 offset = 0;
+
+	if (addr + size > (u64)FLASH_BASE + ROM_TOTAL_SIZE) {
+		pr_err("stm32_flash_write: addr 0x%llx+%u out of range\n",
+		       addr, size);
+		return -EINVAL;
+	}
+
+	HAL_FLASH_Unlock();
+
+	while (offset < size) {
+		u32 flash_addr   = (u32)(addr + offset);
+		u32 aligned_addr = flash_addr & ~(BL_FLASH_WORD_SIZE - 1);
+		u32 word_off     = flash_addr & (BL_FLASH_WORD_SIZE - 1);
+		u32 copy_sz;
+		u32 data_word;
+		int ret;
+
+		copy_sz = BL_FLASH_WORD_SIZE - word_off;
+		if (copy_sz > (size - offset))
+			copy_sz = size - offset;
+
+		if (word_off != 0 || copy_sz < BL_FLASH_WORD_SIZE) {
+			/* Unaligned or partial: read-modify-write */
+			memcpy(&data_word, (void *)(uintptr_t)aligned_addr,
+			       sizeof(data_word));
+			memcpy((u8 *)&data_word + word_off,
+			       data + offset, copy_sz);
+
+			ret = HAL_FLASH_Program(BL_FLASH_TYPEPROGRAM,
+						aligned_addr, data_word);
+		} else {
+			/* Aligned full word */
+			memcpy(&data_word, data + offset, sizeof(data_word));
+			ret = HAL_FLASH_Program(BL_FLASH_TYPEPROGRAM,
+						flash_addr, data_word);
+		}
+
+		if (ret != HAL_OK) {
+			pr_err("stm32_flash_write: failed at 0x%08x, err 0x%lx\n",
+			       flash_addr, HAL_FLASH_GetError());
+			HAL_FLASH_Lock();
+			return -EIO;
+		}
+
+		offset += copy_sz;
+	}
+
+	HAL_FLASH_Lock();
+	return 0;
+}
+
+static int stm32_flash_read(u64 addr, u8 *buf, u32 size)
+{
+	if (addr + size > (u64)FLASH_BASE + ROM_TOTAL_SIZE) {
+		pr_err("stm32_flash_read: addr 0x%llx+%u out of range\n",
+		       addr, size);
+		return -EINVAL;
+	}
+
+	memcpy(buf, (void *)(uintptr_t)addr, size);
+	return 0;
+}
+
+#endif /* STM32 chip selection */
+
+struct flash_ops general_flash_ops = {
+	.erase = stm32_flash_erase,
+	.write = stm32_flash_write,
+	.read  = stm32_flash_read,
+};
+
+static void stm32_system_reset(void)
+{
+	HAL_NVIC_SystemReset();
+}
+
+struct bootloader_ops general_bootloader_ops = {
+	.system_reset        = stm32_system_reset,
+	.flash               = &general_flash_ops,
+};
 #else
 
 void hall_fake_pulse(struct tim_task *task)
 {
 	struct hall_device *hall_dev = container_of(task, struct hall_device, fake_pulse_task);
 
-	hall_hall_isr(hall_dev, task->interval_ms * 1000);
+	hall_hall_isr(hall_dev, task->interval_us);
 }
 
 #endif

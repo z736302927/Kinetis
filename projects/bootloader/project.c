@@ -36,6 +36,8 @@ int board_init(void)
 #if KINETIS_FAKE_SIM
 	return 0;
 #else
+	arm_dwt_init();
+
 	return stm32_hal_init();
 #endif
 }

@@ -1135,7 +1135,7 @@ int t_max77752_initialize(int argc, char **argv)
 
 	if (on_off) {
 		pr_info("starting max77752 slave with %s mode", bus_type ? "spi" : "i2c");
-		max77752_dev = max77752_init(bus_type, bus_type == REGMAP_BUS_IIC_SOFT ? (void *)&general_iic_master : (void *)&general_spi_master);
+		max77752_dev = max77752_init(bus_type, bus_type == REGMAP_BUS_IIC_SOFT ? (void *)&iic1_master : (void *)&spi1_master);
 		if (IS_ERR_OR_NULL(max77752_dev)) {
 			return -EINVAL;
 		}

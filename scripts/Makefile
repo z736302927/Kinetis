@@ -1,6 +1,6 @@
-# PROJECT ?= persistence-of-vision
+PROJECT ?= persistence-of-vision
 # PROJECT ?= verification
-PROJECT ?= bootloader
+# PROJECT ?= bootloader
 
 PLATFORM ?= SIMULATION
 
@@ -172,6 +172,8 @@ C_INCLUDES += -I../arch/arm/include/uapi/
 C_INCLUDES += -I../arch/arm/include/generated/
 C_INCLUDES += -I../arch/arm/include/generated/uapi/
 C_INCLUDES += -I../arch/arm/mach-stm32
+C_INCLUDES += -I../fs
+C_INCLUDES += -I../drivers/kinetis
 C_INCLUDES += -I../projects/$(PROJECT)
 
 C_DEFINE_INCLUDES  = -include generated/deconfig.h

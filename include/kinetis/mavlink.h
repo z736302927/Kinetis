@@ -103,7 +103,7 @@ struct mavlink_ft_state {
 
 struct mavlink_bl_cmd {
 	u8 pending;          /* 1 = update command received, app should process it */
-	u8 command;          /* MAV_BL_CMD_PREPARE_UPDATE / START_APP / RESET / QUERY_INFO */
+	u8 command;          /* MAV_BL_CMD_PREPARE_UPDATE / START_APP / RESET / QUERY_INFO / PREPARE_STATOR_UPDATE */
 	u32 firmware_size;   /* Expected firmware size */
 	u32 firmware_crc32;  /* Expected firmware CRC32 */
 	char filename[32];   /* Target firmware filename */
@@ -199,8 +199,5 @@ void mavlink_stop_rx_thread(struct mavlink_device *dev);
 #ifdef __cplusplus
 }
 #endif
-
-/* Bootloader alias */
-#define MAV_BL_CMD_PREPARE       MAV_BL_CMD_PREPARE_UPDATE
 
 #endif /* KINETIS_MAVLINK_H */

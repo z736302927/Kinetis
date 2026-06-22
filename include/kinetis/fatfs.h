@@ -10,7 +10,7 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include "kinetis/core_common.h"
 
-#include "../fs/fatfs/ff.h"         /* Declarations of sector size */
+#include "fatfs/ff.h"         /* Declarations of sector size */
 
 /* Disk configuration parameters */
 #define FATFS_SECTOR_SIZE            512      /* Sector size in bytes */
@@ -26,6 +26,8 @@ FRESULT fatfs_contiguous_file(FIL *fp, int *cont);
 int fatfs_raw_speed(BYTE pdrv, DWORD lba, DWORD len, void *buff, UINT sz_buff);
 int fatfs_get_file_mtime(char *file_path, char *file_name, u64 *modtime);
 int fatfs_get_file_mode(char *file_path, char *file_name, mode_t *mode);
+
+void sd_set_wait_for_completion(u8 enable);
 
 /* The above procedure is modified by the user according to the hardware device, otherwise driver cannot run. */
 

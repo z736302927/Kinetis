@@ -4,3 +4,6 @@
 [submodule "drivers/kinetis/kalman-clib"]
 	path = drivers/kinetis/kalman-clib
 	url = https://github.com/z736302927/kalman-clib.git
+[submodule "drivers/kinetis/nrf24l01"]
+	path = drivers/kinetis/nrf24l01
+	url = https://github.com/z736302927/nrf24l01.git

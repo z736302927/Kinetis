@@ -1,9 +1,6 @@
-
 CHIP_SRC_DIR ?= E:\Code\STM32H743IITx
-# WIFI_SDK_DIR ?= E:\Code\wifi-ap6181-h743-code\WiFi_SDK
-# LWIP_CORE_DIR = $(WIFI_SDK_DIR)/WICED/network/LwIP/ver2.0.3/lwip/src/core
-# LWIP_IPV4_DIR = $(WIFI_SDK_DIR)/WICED/network/LwIP/ver2.0.3/lwip/src/core/ipv4
-# LWIP_API_DIR = $(WIFI_SDK_DIR)/WICED/network/LwIP/ver2.0.3/lwip/src/api
+WIFI_SDK_DIR ?= E:\Code\wifi-ap6181-h743-code\WiFi_SDK
+LWIP_ROOT ?= $(WIFI_SDK_DIR)/WICED/network/LwIP/ver2.0.3
 
 # Kinetis arch source + board + fatfs SD
 C_SOURCES += $(wildcard ../arch/arm/mach-stm32/stm32h7.c)
@@ -21,6 +18,8 @@ C_SOURCES += $(wildcard ../drivers/kinetis/lrzsz/*.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/kalman-clib/src/matrix.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/kalman-clib/src/kalman.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/kalman-clib/src/cholesky.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/nrf24l01/src/driver_nrf24l01.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/nrf24l01_port.c)
 
 # CubeMX core/peripheral sources
 C_SOURCES += $(wildcard $(CHIP_SRC_DIR)/Core/Src/*.c)
@@ -29,6 +28,65 @@ C_SOURCES += $(wildcard $(CHIP_SRC_DIR)/Core/Src/*.c)
 C_SOURCES += $(wildcard $(CHIP_SRC_DIR)/Drivers/STM32H7xx_HAL_Driver/Src/*.c)
 
 C_SOURCES += $(wildcard ../drivers/kinetis/CmBacktrace/cm_backtrace/*.c)
+
+# # --- NoOS RTOS abstraction layer ---
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/RTOS/NoOS/WWD/wwd_rtos.c
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/RTOS/NoOS/WWD/Cortex_M7/noos.c
+# # --- WWD Core ---
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/WWD/internal/wwd_management.c
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/WWD/internal/wwd_wifi.c
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/WWD/internal/wwd_thread.c
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/WWD/internal/wwd_sdpcm.c
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/WWD/internal/wwd_wifi_sleep.c
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/WWD/internal/wwd_internal.c
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/WWD/internal/wwd_ap_common.c
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/WWD/internal/wwd_eapol.c
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/WWD/internal/wwd_clm.c
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/WWD/internal/wwd_logging.c
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/WWD/internal/wwd_debug.c
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/WWD/internal/wwd_rtos_interface.c
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/WWD/internal/wwd_thread_internal.c
+# # --- STM32H7xx Platform ---
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/platform/MCU/STM32H7xx/WWD/wwd_SDIO.c
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/platform/MCU/STM32H7xx/WWD/wwd_platform.c
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/platform/MCU/STM32H7xx/platform_init.c
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/platform/MCU/wwd_resources.c
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/platform/MCU/wwd_platform_separate_mcu.c
+# # --- Bus protocol ---
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/WWD/internal/bus_protocols/wwd_bus_common.c
+# # --- SDIO bus protocol ---
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/WWD/internal/bus_protocols/SDIO/wwd_bus_protocol.c
+# # --- WWD LwIP Buffer ---
+# C_SOURCES += $(WIFI_SDK_DIR)/WICED/network/LwIP/WWD/wwd_buffer.c
+# # --- LwIP Core ---
+# C_SOURCES += $(LWIP_ROOT)/src/core/init.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/def.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/dns.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/inet_chksum.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/ip.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/mem.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/memp.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/netif.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/pbuf.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/raw.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/stats.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/sys.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/tcp.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/tcp_in.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/tcp_out.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/timeouts.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/udp.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/ipv4/autoip.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/ipv4/dhcp.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/ipv4/etharp.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/ipv4/icmp.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/ipv4/igmp.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/ipv4/ip4.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/ipv4/ip4_addr.c
+# C_SOURCES += $(LWIP_ROOT)/src/core/ipv4/ip4_frag.c
+# C_SOURCES += $(LWIP_ROOT)/src/netif/ethernet.c
+
+# C_SOURCES += $(wildcard ../projects/persistence-of-vision/wifi/*.c)
 
 # Startup assembly
 S_SOURCES += $(CHIP_SRC_DIR)/startup_stm32h743xx.s
@@ -42,67 +100,39 @@ C_INCLUDES += -I$(CHIP_SRC_DIR)/Drivers/CMSIS/Include
 
 C_INCLUDES += -I../drivers/kinetis/CmBacktrace/cm_backtrace
 C_INCLUDES += -I../drivers/kinetis/kalman-clib/include
+C_INCLUDES += -I../drivers/kinetis/nrf24l01/src
+C_INCLUDES += -I../drivers/kinetis/nrf24l01/interface
 
-# # Override include: our FreeRTOS/rtos stubs must be found FIRST
-# C_INCLUDES += -I../drivers/kinetis/wifi
-
+# # WICED / WWD includes
 # C_INCLUDES += -I$(WIFI_SDK_DIR)/include
 # C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/WWD/include
+# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/WWD/include/network
+# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/WWD/include/platform
+# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/WWD/include/RTOS
 # C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/WWD/internal
-# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/RTOS/FreeRTOS/WICED
-# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/RTOS/FreeRTOS/WWD
+# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/WWD/internal/bus_protocols
+# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/WWD/internal/bus_protocols/SDIO
+# # NoOS RTOS includes
+# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/RTOS/NoOS/WWD
+# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/RTOS/NoOS/WWD/Cortex_M7
+# # STM32H7xx platform includes
 # C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/platform/MCU/STM32H7xx
 # C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/platform/MCU/STM32H7xx/GCC
+# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/platform/MCU/STM32H7xx/peripherals
+# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/platform/MCU/STM32H7xx/peripherals/hal
+# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/platform/MCU
+# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/platform/include
+# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/platform/GCC
 # C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/network/LwIP
 # C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/network/LwIP/WICED
-# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/network/LwIP/ver2.0.3/lwip/src/include
-# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/network/LwIP/ver2.0.3/lwip/src/include/lwip
-# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/network/LwIP/ver2.0.3/lwip/src/include/netif
-# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/network/LwIP/ver2.0.3/arch
-# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/network/LwIP/ver2.0.3/arch/include
-# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/internal
-# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/internal/bus_protocols/SDIO
+# C_INCLUDES += -I$(WIFI_SDK_DIR)/WICED/network/LwIP/WWD
 
-# C_SOURCES += $(wildcard ../drivers/kinetis/wifi/*.c)
+# C_INCLUDES += -I$(LWIP_ROOT)/src/include
+# C_INCLUDES += -I$(LWIP_ROOT)/src/include/lwip
+# C_INCLUDES += -I$(LWIP_ROOT)/src/include/netif
 
-# # lwIP core source files (must be individually listed for ARM GCC)
-# C_SOURCES += $(LWIP_CORE_DIR)/init.c
-# C_SOURCES += $(LWIP_CORE_DIR)/def.c
-# C_SOURCES += $(LWIP_CORE_DIR)/dns.c
-# C_SOURCES += $(LWIP_CORE_DIR)/inet_chksum.c
-# C_SOURCES += $(LWIP_CORE_DIR)/ip.c
-# C_SOURCES += $(LWIP_CORE_DIR)/mem.c
-# C_SOURCES += $(LWIP_CORE_DIR)/memp.c
-# C_SOURCES += $(LWIP_CORE_DIR)/netif.c
-# C_SOURCES += $(LWIP_CORE_DIR)/pbuf.c
-# C_SOURCES += $(LWIP_CORE_DIR)/raw.c
-# C_SOURCES += $(LWIP_CORE_DIR)/stats.c
-# C_SOURCES += $(LWIP_CORE_DIR)/sys.c
-# C_SOURCES += $(LWIP_CORE_DIR)/tcp.c
-# C_SOURCES += $(LWIP_CORE_DIR)/tcp_in.c
-# C_SOURCES += $(LWIP_CORE_DIR)/tcp_out.c
-# C_SOURCES += $(LWIP_CORE_DIR)/timeouts.c
-# C_SOURCES += $(LWIP_CORE_DIR)/udp.c
-
-# C_SOURCES += $(LWIP_IPV4_DIR)/autoip.c
-# C_SOURCES += $(LWIP_IPV4_DIR)/dhcp.c
-# C_SOURCES += $(LWIP_IPV4_DIR)/etharp.c
-# C_SOURCES += $(LWIP_IPV4_DIR)/icmp.c
-# C_SOURCES += $(LWIP_IPV4_DIR)/igmp.c
-# C_SOURCES += $(LWIP_IPV4_DIR)/ip4.c
-# C_SOURCES += $(LWIP_IPV4_DIR)/ip4_addr.c
-# C_SOURCES += $(LWIP_IPV4_DIR)/ip4_frag.c
-
-# C_SOURCES += $(LWIP_API_DIR)/api_lib.c
-# C_SOURCES += $(LWIP_API_DIR)/api_msg.c
-# C_SOURCES += $(LWIP_API_DIR)/err.c
-# C_SOURCES += $(LWIP_API_DIR)/netbuf.c
-# C_SOURCES += $(LWIP_API_DIR)/netdb.c
-# C_SOURCES += $(LWIP_API_DIR)/netifapi.c
-# C_SOURCES += $(LWIP_API_DIR)/sockets.c
-# C_SOURCES += $(LWIP_API_DIR)/tcpip.c
-
-# C_SOURCES += $(WIFI_SDK_DIR)/WICED/network/LwIP/WICED/wiced_network.c
+# C_INCLUDES += -I../projects/persistence-of-vision/wifi
+# C_INCLUDES += -I../projects/persistence-of-vision/wifi/arch
 
 HEADER_DIRS += ../arch/arm/mach-stm32
 

@@ -44,28 +44,35 @@ void motor_stop(struct motor_controller *motor)
 
 static void motor_simulation_step(struct motor_controller *motor)
 {
-	s32 rpm, target_rpm = (motor->pwm_duty * motor->max_rpm) / 10000;
+	s32 target_rpm = (motor->pwm_duty * motor->max_rpm) / 10000;
 
-	if (!motor->direction) {
-		target_rpm = 0;
-	}
+	/* Bidirectional: REVERSE → negative target RPM */
+	if (motor->direction == SLAVE_MOTOR_DIR_REVERSE)
+		target_rpm = -target_rpm;
 
 	/* Low-pass filter: current += alpha * (target - current) */
 	motor->sim_rpm_fixed += ((target_rpm << MOTOR_SIM_SCALE_BITS) - motor->sim_rpm_fixed)
 		* MOTOR_SIM_ALPHA_FIXED >> MOTOR_SIM_SCALE_BITS;
 
-	if (motor->sim_rpm_fixed < (0.5f * (1 << MOTOR_SIM_SCALE_BITS))) {
+	/* Hysteresis dead-zone: snap small values to zero */
+	if (motor->sim_rpm_fixed > -(1 << (MOTOR_SIM_SCALE_BITS - 1)) &&
+	    motor->sim_rpm_fixed <  (1 << (MOTOR_SIM_SCALE_BITS - 1))) {
 		motor->sim_rpm_fixed = 0;
 	}
 
-	rpm = motor->sim_rpm_fixed >> MOTOR_SIM_SCALE_BITS;
-	if (rpm > 0) {
-		motor->period_us = 60000000 / rpm;
+	motor->measured_rpm = motor->sim_rpm_fixed >> MOTOR_SIM_SCALE_BITS;
+
+	if (motor->measured_rpm != 0) {
+		u32 abs_rpm = motor->measured_rpm > 0
+			    ? (u32)motor->measured_rpm
+			    : (u32)(-motor->measured_rpm);
+		motor->period_us = 60000000 / abs_rpm;
 	} else {
 		motor->period_us = 0;
 	}
 
-	motor->status = (rpm > 0) ? POV_STATUS_RUNNING : POV_STATUS_STOPPED;
+	motor->status = (motor->measured_rpm != 0)
+		      ? POV_STATUS_RUNNING : POV_STATUS_STOPPED;
 
 }
 
@@ -75,5 +82,11 @@ void motor_simulation(struct tim_task *task)
 	struct pov_stator *stator = container_of(motor, struct pov_stator, motor);
 
 	motor_simulation_step(motor);
-	tim_task_set_interval(&stator->hall->fake_pulse_task, motor->period_us / 1000);
+
+	if (motor->period_us > 0) {
+		tim_task_set_interval(&stator->hall->fake_pulse_task, motor->period_us);
+		tim_task_resume(&stator->hall->fake_pulse_task);
+	} else {
+		tim_task_suspend(&stator->hall->fake_pulse_task);
+	}
 }

@@ -20,7 +20,7 @@ typedef void (*tim_task_cb)(struct tim_task *);
 struct tim_task {
 	const char *name;
 	ktime_t timeout;
-	u32 interval_ms;
+	u32 interval_us;
 	tim_task_cb callback;
 	struct list_head list;
 	struct list_head main_list;
@@ -58,7 +58,7 @@ struct fmu_sch_task_info {
 };
 
 const char *tim_task_decode(struct tim_task *task);
-int tim_task_add(struct tim_task *task, const char *name, u32 interval,
+int tim_task_add(struct tim_task *task, const char *name, u32 interval_us,
 	bool auto_load, bool sched, tim_task_cb callback);
 void tim_task_drop(struct tim_task *task);
 void tim_task_suspend(struct tim_task *task);

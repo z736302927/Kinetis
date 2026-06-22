@@ -28,6 +28,9 @@ struct serial_port;
 
 struct serial_port_ops {
 	int (*init)(struct serial_port *serial);
+	int (*exit)(void);
+	int (*enable)(void);
+	int (*disable)(void);
 	int (*transmit_bytes)(const u8 *data, u16 size);
 	int (*receive_bytes)(u8 *data, u16 size, u32 timeout_ms);
 	int (*receive_callback)(struct serial_port *serial);
@@ -48,6 +51,7 @@ struct serial_port {
 	u16 consumer;
 	bool rx_complete;
 	bool tx_complete;
+	bool overflow;
 
 	struct list_head list;
 
@@ -60,11 +64,13 @@ struct serial_port {
 #endif
 
 	u32 baud_rate;		/* Current baud rate: 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, etc */
-	u8 parity;		/* Current parity: 0=None, 1=Odd, 2=Even */
+	u8 parity;			/* Current parity: 0=None, 1=Odd, 2=Even */
 	u8 data_bits;		/* Current data bits: 7 or 8 */
 	u8 flow_control;	/* Current flow control: 0=None, 1=XON/XOFF, 2=RTS/CTS */
 
 	struct serial_port_ops *ops;
+
+	void *private_data;
 
 	char *name;
 
@@ -87,6 +93,10 @@ int serial_port_receive_bytes(struct serial_port *serial_port, char *buffer, int
 int serial_port_transmit_bytes(struct serial_port *serial, const u8 *data, u16 size);
 int serial_port_transmit_byte(struct serial_port *serial, u8 byte);
 int serial_port_data_available(struct serial_port *serial);
+u16 serial_port_rx_used(struct serial_port *serial);
+u16 serial_port_rx_free(struct serial_port *serial);
+bool serial_port_rx_empty(struct serial_port *serial);
+bool serial_port_rx_full(struct serial_port *serial);
 int serial_port_config(struct serial_port *serial, u32 baud_rate, u8 parity, u8 data_bits, u8 flow_control);
 void serial_port_send_break(struct serial_port *serial);
 

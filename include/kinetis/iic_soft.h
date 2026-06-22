@@ -87,7 +87,7 @@ int iic_master_port_multi_receive(struct iic_master *master, u8 slave_addr, u16 
 	u8 *pdata, u8 length);
 int iic_master_soft_init(struct iic_master *master);
 
-extern struct iic_master general_iic_master;
+extern struct iic_master iic1_master;
 
 /* The following program is modified by the user according to the hardware device, otherwise the driver cannot run. */
 

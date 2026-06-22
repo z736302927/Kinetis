@@ -21,8 +21,10 @@
 #include <kinetis/mavlink.h>
 #include <kinetis/serial-port.h>
 #include "kinetis/bootloader.h"
+#include "kinetis/mt6701.h"
+#include "kinetis/nrf24l01_port.h"
 
-#include "../../drivers/kinetis/lrzsz/zmodem.h"
+#include "lrzsz/zmodem.h"
 
 #include "rotor.h"
 #include "interface.h"
@@ -251,26 +253,6 @@ file_err:
 	return ret;
 }
 
-int pov_read_next_sector(struct pov_rotor *pov)
-{
-	FRESULT res;
-	UINT br;
-
-	res = f_read(&pov->image_file, (u8 *)pov->rgb_strip[pov->prefetch_ping], POV_PREFETCH_BYTES, &br);
-	if (res != FR_OK || br == 0) {
-		if (res == FR_OK && br == 0) {
-			return -ENOENT;    /* End of image */
-		}
-		pr_err("read prefetch batch failed: %d (got %u)\n", res, br);
-		return -EIO;
-	}
-	pov->pending_column += br;
-	pov->prefetch_ping ^= 1;
-	pov->prefetch_sent_index = 0;
-
-	return 0;
-}
-
 void pov_close_image(struct pov_rotor *pov)
 {
 	f_close(&pov->image_file);
@@ -283,7 +265,8 @@ void pov_close_image(struct pov_rotor *pov)
 static const char *pov_state_name(enum pov_fsm_state s)
 {
 	static const char *names[] = {
-		"WAIT_MOTOR", "WAIT_PHONE", "SEND_SPEED", "DISPLAYING", "CHECK_CMD", "ERROR"
+		"WAIT_MOTOR", "WAIT_PHONE", "SEND_SPEED", "DISPLAYING", "CHECK_CMD",
+		"STATOR_UPDATE", "ERROR"
 	};
 	if ((unsigned)s >= sizeof(names) / sizeof(names[0])) {
 		return "?";
@@ -355,42 +338,120 @@ static int pov_receive_image_files(struct pov_rotor *rotor)
 	return 0;
 }
 
+static int pov_read_next_sector(struct pov_rotor *pov)
+{
+	FRESULT res;
+	UINT br;
+
+	res = f_read(&pov->image_file, (u8 *)pov->rgb_strip[pov->prefetch_ping], POV_PREFETCH_BYTES, &br);
+	if (res != FR_OK || br == 0) {
+		if (res == FR_OK && br == 0) {
+			return -ENOENT;    /* End of image */
+		}
+		pr_err("read prefetch batch failed: %d (got %u)\n", res, br);
+		return -EIO;
+	}
+	pov->pending_column += br;
+	pov->prefetch_ping ^= 1;
+	pov->prefetch_sent_index = 0;
+
+	return 0;
+}
+
+static u32 pov_get_angle(void *dev)
+{
+	u32 angle;
+
+#if POV_USE_MT6701
+	mt6701_ssi_frame_t frame;
+
+	mt6701_read_angle_ssi(dev, &frame);
+	/* Scale 14-bit raw angle [0, 16383] → column [0, POV_DISPLAY_COLS) */
+	angle = (u32)frame.raw_angle * POV_DISPLAY_COLS / POV_ANGLE_RESOLUTION;
+	if (angle >= POV_DISPLAY_COLS)
+		angle = POV_DISPLAY_COLS - 1;
+#else
+	struct hall_device *hall = dev;
+
+	if (hall->period_ticks == 0) {
+		return 0;
+	}
+
+	/* Map to column number */
+	angle = (hall->read_rotated_time(hall) * hall->angular_resolution) / hall->period_ticks;
+	if (angle >= hall->angular_resolution) {
+		angle = hall->angular_resolution - 1;
+	}
+#endif
+
+	return angle;
+}
+
+static s32 pov_get_rpm(void *dev)
+{
+#if POV_USE_MT6701
+	return mt6701_read_rpm_block(dev, true, 10000);
+#else
+	struct hall_device *hall = dev;
+
+	if (hall->period_ticks == 0) {
+		return 0;
+	}
+
+	return 60000000 / hall->period_ticks;
+#endif
+}
+
 static int display_image(struct pov_rotor *rotor)
 {
-	u32 last_angle = hall_get_angle(rotor->hall);
+	u32 last_angle = pov_get_angle(rotor->angle_sensor);
 	u32 spin_count;
 	int ret;
+
+	ret = pov_read_next_sector(rotor);
+	if (ret < 0) {
+		return ret;
+	}
+#if KINETIS_FAKE_SIM == 0
+	sd_set_wait_for_completion(0);
+#endif
 
 	while (1) {
 		if (rotor->prefetch_sent_index == POV_PREFETCH_COLS || rotor->prefetch_sent_index == 0){
 			ret = pov_read_next_sector(rotor);
 			if (ret == -ENOENT) {
+				ret = 0;
 				break;
 			} else if (ret == -EIO) {
-				return ret;
+				goto over;
 			}
 		}
 
-		/* Wait for hall to advance to the next column,
+		/* Wait for angle_sensor to advance to the next column,
 		 * with timeout to prevent infinite loop on sensor failure */
 		spin_count = 0;
-		while (hall_get_angle(rotor->hall) == last_angle) {
+		while (pov_get_angle(rotor->angle_sensor) == last_angle) {
 			if (++spin_count > POV_DISPLAY_COLS * 100) {
-				pr_err("display: hall timeout at column %u\n", last_angle);
-				return -ETIMEDOUT;
+				pr_err("display: angle_sensor timeout at column %u\n", last_angle);
+				ret = -ETIMEDOUT;
+				goto over;
 			}
 		}
 
 		ret = pov_set_rgb(rotor);
 		if (ret < 0) {
-			return ret;
+			goto over;
 		}
 		rotor->prefetch_sent_index++;
 
-		last_angle = hall_get_angle(rotor->hall);
+		last_angle = pov_get_angle(rotor->angle_sensor);
 	}
 
-	return 0;
+over:
+#if KINETIS_FAKE_SIM == 0
+	sd_set_wait_for_completion(1);
+#endif
+	return ret;
 }
 
 static int pov_switch_image(struct pov_rotor *rotor, u8 index)
@@ -502,6 +563,9 @@ static int waiting_for_motor_connection(struct pov_rotor *rotor)
 			mavlink_send_heartbeat(rotor->motor_mavlink, MAV_SYS_ACTIVE, 0, 0);
 		}
 
+#if POV_USE_NRF24L01
+		nrf24l01_port_poll(rotor->motor_port);
+#endif
 		if (serial_port_data_available(rotor->motor_mavlink->serial) == 0) {
 			continue;
 		}
@@ -578,9 +642,9 @@ static int set_motor_speed(struct pov_rotor *rotor, u16 rpm)
 		mdelay(POV_SPEED_QUERY_INTERVAL_MS);
 	}
 
-	speed = hall_get_rpm(rotor->hall);
+	speed = pov_get_rpm(rotor->angle_sensor);
 	if (abs(speed - (s32)rpm) > 50) {
-		pr_warn("hall RPM %d out of range (target %d)\n", speed, rpm);
+		pr_warn("angle_sensor RPM %d out of range (target %d)\n", speed, rpm);
 		return -EAGAIN;
 	}
 
@@ -595,6 +659,9 @@ static int check_stator_heartbeat(struct pov_rotor *rotor)
 	u32 old_rx = rotor->motor_mavlink->rx_count;
 
 	/* Non-blocking poll (0 ms timeout) — only drains bytes already in buffer */
+#if POV_USE_NRF24L01
+	nrf24l01_port_poll(rotor->motor_port);
+#endif
 	if (serial_port_data_available(rotor->motor_port) > 0)
 		mavlink_receive_and_process(rotor->motor_mavlink, 0);
 
@@ -668,9 +735,15 @@ void pov_rotor_free(struct pov_rotor *rotor)
 		kfree(rotor->image_names[i]);
 	}
 
-	if (rotor->hall) {
-		kfree(rotor->hall);
+#if POV_USE_MT6701
+	if (rotor->angle_sensor) {
+		mt6701_exit(rotor->angle_sensor);
 	}
+#else
+	if (rotor->angle_sensor) {
+		kfree(rotor->angle_sensor);
+	}
+#endif
 
 	if (rotor->app_mavlink) {
 		mavlink_free(rotor->app_mavlink);
@@ -691,9 +764,9 @@ void pov_rotor_free(struct pov_rotor *rotor)
 	kfree(rotor);
 }
 
-struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash,
+struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash, struct bootloader_ops *bl_ops,
 	struct serial_port_ops *motor_serial_ops, struct serial_port_ops *app_serial_ops,
-	struct spi_master *spi,
+	struct spi_master *w25q_spi, struct spi_master *mt6701_spi,
 	u32(*read_rotated_time)(struct hall_device *dev))
 {
 	struct pov_rotor *rotor;
@@ -705,6 +778,7 @@ struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash,
 	}
 
 	rotor->flash = flash;
+	rotor->bl_ops = bl_ops;
 
 	/* Port to stator (MAVLink motor control) */
 	rotor->motor_port = serial_port_alloc(motor_serial_ops, "rotor-motor");
@@ -727,17 +801,25 @@ struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash,
 	if (!rotor->app_mavlink) {
 		goto free_dev;
 	}
-
-	rotor->hall = hall_alloc_dev(POV_DISPLAY_COLS, read_rotated_time);
-	if (!rotor->hall) {
+#if POV_USE_MT6701
+	rotor->angle_sensor = mt6701_init(REGMAP_BUS_SPI_SOFT, mt6701_spi);
+	if (IS_ERR_OR_NULL(rotor->angle_sensor)) {
 		goto free_dev;
 	}
+#else
+	rotor->angle_sensor = hall_alloc_dev(POV_DISPLAY_COLS, read_rotated_time);
+	if (!rotor->angle_sensor) {
+		goto free_dev;
+	}
+#endif
 
-	rotor->w25qxxx = w25qxxx_alloc_device(spi);
+#if KINETIS_FAKE_SIM == 0
+	rotor->w25qxxx = w25qxxx_alloc_device(w25q_spi);
 	if (!rotor->w25qxxx) {
 		goto free_dev;
 	}
 	w25qxxx_dev = rotor->w25qxxx;
+#endif
 
 	ret = fatfs_init();
 	if (ret) {
@@ -870,6 +952,11 @@ static void pov_check_phone_cmd(struct pov_rotor *rotor)
 			rotor->app_mavlink->bl.firmware_size,
 			rotor->app_mavlink->bl.filename);
 
+		if (rotor->app_mavlink->bl.command == MAV_BL_CMD_PREPARE_STATOR_UPDATE) {
+			set_fsm_state(rotor, POV_STATE_STATOR_UPDATE);
+			return;
+		}
+
 		/* Build config to persist across reset */
 		memset(&bl_cfg, 0, sizeof(bl_cfg));
 		bl_cfg.magic = BOOTLOADER_MAGIC;
@@ -889,10 +976,11 @@ static void pov_check_phone_cmd(struct pov_rotor *rotor)
 			break;
 		}
 
-		pr_info("Boot flag set to UPDATE mode, resetting...\n");
-
-		/* In production: board-level system_reset would be called here.
-		 * In simulation we just return (effective reset via main loop). */
+		if (rotor->bl_ops && rotor->bl_ops->system_reset) {
+			rotor->bl_ops->system_reset();
+		} else {
+			pr_err("No system_reset available, cannot enter bootloader!\n");
+		}
 		break;
 	}
 
@@ -910,6 +998,63 @@ skip_cmd:
 	} else {
 		set_fsm_state(rotor, POV_STATE_DISPLAYING);
 	}
+}
+
+static void pov_stator_update_flow(struct pov_rotor *rotor)
+{
+	char fw_fullpath[128];
+	const char *fw_paths[1];
+	const char *filename;
+	int ret;
+
+	ret = fatfs_create_dirs(STATOR_UPDATE_DIR);
+	if (ret) {
+		pr_err("Failed to create '%s' (ret=%d)\n", STATOR_UPDATE_DIR, ret);
+		goto err;
+	}
+
+	pr_info("ZMODEM: waiting for PC to send stator firmware on app_port...\n");
+	ret = lrzsz_rz(rotor->app_port, STATOR_UPDATE_DIR);
+	if (ret <= 0) {
+		pr_err("ZMODEM receive stator firmware failed (%d)\n", ret);
+		goto err;
+	}
+	pr_info("Stator firmware received: %d bytes\n", ret);
+
+	filename = rotor->app_mavlink->bl.filename;
+	snprintf(fw_fullpath, sizeof(fw_fullpath), "%s/%s",
+		 STATOR_UPDATE_DIR, filename);
+
+	ret = mavlink_send_bootloader_update(rotor->motor_mavlink,
+		MAV_BL_CMD_PREPARE_UPDATE,
+		rotor->app_mavlink->bl.firmware_size,
+		rotor->app_mavlink->bl.firmware_crc32,
+		filename,
+		3000);
+	if (ret < 0) {
+		pr_err("Failed to send bootloader cmd to stator: %d\n", ret);
+		goto err;
+	}
+	pr_info("Sent BOOTLOADER_UPDATE_CMD to stator, waiting for reset...\n");
+
+	/* Wait for stator to reset and bootloader to start
+	 * The stator will: write bootloader_config → system_reset → bootloader init
+	 * Give it time for full reset cycle + bootloader init + FatFS mount */
+	mdelay(3000);
+
+	pr_info("ZMODEM: sending '%s' to stator on motor_port...\n", fw_fullpath);
+	fw_paths[0] = fw_fullpath;
+	ret = lrzsz_sz(rotor->motor_port, 1, fw_paths);
+	if (ret <= 0) {
+		pr_err("ZMODEM send to stator failed (%d)\n", ret);
+		goto err;
+	}
+
+	set_fsm_state(rotor, POV_STATE_WAIT_MOTOR);
+	return;
+
+err:
+	set_fsm_state(rotor, POV_STATE_ERROR);
 }
 
 int pov_rotor_display(struct pov_rotor *rotor)
@@ -943,6 +1088,10 @@ int pov_rotor_display(struct pov_rotor *rotor)
 	pr_info("waiting for motor connection\n");
 
 	while (1) {
+#if POV_USE_NRF24L01
+		/* Poll NRF24L01 for received fragments */
+		nrf24l01_port_poll(rotor->motor_port);
+#endif
 		switch (rotor->state) {
 		case POV_STATE_WAIT_MOTOR:
 			waiting_for_motor_connection(rotor);
@@ -965,6 +1114,10 @@ int pov_rotor_display(struct pov_rotor *rotor)
 
 		case POV_STATE_CHECK_CMD:
 			pov_check_phone_cmd(rotor);
+			break;
+
+		case POV_STATE_STATOR_UPDATE:
+			pov_stator_update_flow(rotor);
 			break;
 
 		case POV_STATE_ERROR:

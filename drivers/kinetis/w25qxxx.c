@@ -26,14 +26,14 @@
 /* W25Q时序参数定义 (单位：微秒) */
 #define W25Q_POWER_DOWN_DELAY           3       /* 掉电模式切换延时 */
 #define W25Q_SUSPEND_RESUME_DELAY       20      /* 挂起/恢复操作延时 */
-#define W25Q_SOFT_RESET_DELAY           30      /* 软复位延时 */
+#define W25Q_SOFT_RESET_DELAY           100     /* 软复位延时 (数据手册最大值) */
 #define W25Q_HARD_RESET_DELAY           100     /* 硬复位延时 (更保守) */
 
-/* 操作超时时间 (单位：微秒) */
-#define W25Q_PAGE_PROGRAM_TIMEOUT       3000    /* 页编程超时时间 (3ms) */
-#define W25Q_SECTOR_ERASE_TIMEOUT       50000   /* 扇区擦除超时时间 (50ms) */
-#define W25Q_BLOCK_ERASE_TIMEOUT        200000  /* 块擦除超时时间 (200ms) */
-#define W25Q_CHIP_ERASE_TIMEOUT         5000000 /* 芯片擦除超时时间 (5s) */
+/* 操作超时时间 (单位：微秒) — 按W25Q256JV数据手册最大值设置 */
+#define W25Q_PAGE_PROGRAM_TIMEOUT       3000    /* 页编程超时 (3ms, 数据手册最大值) */
+#define W25Q_SECTOR_ERASE_TIMEOUT       400000  /* 4KB扇区擦除超时 (400ms, 数据手册最大值) */
+#define W25Q_BLOCK_ERASE_TIMEOUT        2000000 /* 64KB块擦除超时 (2s, 数据手册最大值) */
+#define W25Q_CHIP_ERASE_TIMEOUT         200000000 /* 芯片擦除超时 (200s, 数据手册典型值) */
 #define WRITE_ENABLE                    0x06
 #define WRITE_ENABLE_FORVOLATILE        0x50
 #define WRITE_DISABLE                   0x04
@@ -952,11 +952,39 @@ void w25qxxx_fast_read_with_4byte_addr(struct w25qxxx_device *dev, u32 addr, u8 
 	}
 }
 
+static int w25qxxx_wait_busy(struct w25qxxx_device *dev, u32 timeout_us)
+{
+	struct qspi_request_block qrb;
+	u8 fallback_busy;
+
+	if (dev->spi->qspi_poll) {
+		qrb.instruction = READ_STATUS_REGISTER1;
+		qrb.instruction_mode = 1;
+		qrb.address = 0;
+		qrb.address_size = 0;
+		qrb.address_mode = 0;
+		qrb.alternate_bytes = 0;
+		qrb.alternate_bytes_size = 0;
+		qrb.alternate_byte_mode = 0;
+		qrb.dummy_cycles = 0;
+		qrb.transfer_mode = 0;
+		qrb.transfer_buffer = 0;
+		qrb.transfer_length = 0;
+		qrb.ddr_mode = 0;
+		qrb.ddr_hold_half_cycle = 0;
+		qrb.mask = 0x01;
+		qrb.match = 0x00;
+		return dev->spi->qspi_poll(&qrb, timeout_us);
+	}
+
+	return readx_poll_timeout_atomic(w25qxxx_read_busy, dev, fallback_busy,
+			fallback_busy == 0, 1, timeout_us);
+}
+
 static int w25qxxx_page_program(struct w25qxxx_device *dev, u32 addr, u8 *pdata, u16 length)
 {
 	struct qspi_request_block qrb;
 	u8 sub_addr[4];
-	u8 busy;
 	int ret;
 
 	if (length == 0) {
@@ -1003,8 +1031,7 @@ static int w25qxxx_page_program(struct w25qxxx_device *dev, u32 addr, u8 *pdata,
 		dev->spi->cs_high();
 	}
 
-	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, dev, busy,
-			busy == 0, 1, 30000000);
+	ret = w25qxxx_wait_busy(dev, W25Q_PAGE_PROGRAM_TIMEOUT);
 
 	if (ret) {
 		pr_err("Programing page is timeout.\n");
@@ -1126,7 +1153,6 @@ int w25qxxx_sector_erase(struct w25qxxx_device *dev, u32 addr)
 {
 	struct qspi_request_block qrb;
 	u8 sub_addr[4];
-	u8 busy;
 	int ret;
 
 	if (!W25Q_IS_VALID(dev->id)) {
@@ -1172,8 +1198,7 @@ int w25qxxx_sector_erase(struct w25qxxx_device *dev, u32 addr)
 		dev->spi->cs_high();
 	}
 
-	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, dev, busy,
-			busy == 0, 1, W25Q_SECTOR_ERASE_TIMEOUT);
+	ret = w25qxxx_wait_busy(dev, W25Q_SECTOR_ERASE_TIMEOUT);
 
 	if (ret) {
 		pr_err("Sector erase timeout at address 0x%08X\n", addr);
@@ -1384,7 +1409,6 @@ int w25qxxx_block_erase_with_32kb(struct w25qxxx_device *dev, u32 addr)
 {
 	struct qspi_request_block qrb;
 	u8 sub_addr[4];
-	u8 busy;
 	int ret;
 
 	if (!W25Q_IS_VALID(dev->id)) {
@@ -1430,8 +1454,7 @@ int w25qxxx_block_erase_with_32kb(struct w25qxxx_device *dev, u32 addr)
 		dev->spi->cs_high();
 	}
 
-	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, dev, busy,
-			busy == 0, 1, W25Q_BLOCK_ERASE_TIMEOUT);
+	ret = w25qxxx_wait_busy(dev, W25Q_BLOCK_ERASE_TIMEOUT);
 
 	if (ret) {
 		pr_err("32KB block erase timeout at address 0x%08X\n", addr);
@@ -1445,7 +1468,6 @@ int w25qxxx_block_erase_with_64kb(struct w25qxxx_device *dev, u32 addr)
 {
 	struct qspi_request_block qrb;
 	u8 sub_addr[4];
-	u8 busy;
 	int ret;
 
 	if (!W25Q_IS_VALID(dev->id)) {
@@ -1491,8 +1513,7 @@ int w25qxxx_block_erase_with_64kb(struct w25qxxx_device *dev, u32 addr)
 		dev->spi->cs_high();
 	}
 
-	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, dev, busy,
-			busy == 0, 1, W25Q_BLOCK_ERASE_TIMEOUT);
+	ret = w25qxxx_wait_busy(dev, W25Q_BLOCK_ERASE_TIMEOUT);
 
 	if (ret) {
 		pr_err("64KB block erase timeout at address 0x%08X\n", addr);
@@ -1504,7 +1525,6 @@ int w25qxxx_block_erase_with_64kb(struct w25qxxx_device *dev, u32 addr)
 
 int w25qxxx_chip_erase(struct w25qxxx_device *dev)
 {
-	u8 busy;
 	int ret;
 
 	if (!W25Q_IS_VALID(dev->id)) {
@@ -1515,8 +1535,7 @@ int w25qxxx_chip_erase(struct w25qxxx_device *dev)
 	w25qxxx_write_enable(dev);
 	w25qxxx_transmit_cmd(dev, CHIP_ERASE);
 
-	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, dev, busy,
-			busy == 0, 1, W25Q_CHIP_ERASE_TIMEOUT);
+	ret = w25qxxx_wait_busy(dev, W25Q_CHIP_ERASE_TIMEOUT);
 
 	if (ret) {
 		pr_err("Chip erase timeout\n");
@@ -1571,7 +1590,7 @@ u8 w25qxxx_release_device_id(struct w25qxxx_device *dev)
 		qrb.alternate_bytes = 0;
 		qrb.alternate_bytes_size = 0;
 		qrb.alternate_byte_mode = 0;
-		qrb.dummy_cycles = 0;
+		qrb.dummy_cycles = 3;
 		qrb.transfer_mode = 1;
 		qrb.transfer_buffer = &tmp;
 		qrb.transfer_length = 1;
@@ -1579,7 +1598,6 @@ u8 w25qxxx_release_device_id(struct w25qxxx_device *dev)
 		qrb.ddr_hold_half_cycle = 0;
 
 		dev->spi->qspi_read(&qrb);
-		tmp = 0xEF; /* device present indicator */
 	} else {
 		dev->spi->cs_low();
 		dev->spi->write_byte(RELEASE_POWERDOWN_DEVICE_ID);
@@ -1740,7 +1758,6 @@ void w25qxxx_read_sfdp_reg(struct w25qxxx_device *dev, u32 addr, u8 *pdata, u16 
 void w25qxxx_erase_security_regs(struct w25qxxx_device *dev, u8 regNum)
 {
 	struct qspi_request_block qrb;
-	u8 busy;
 
 	w25qxxx_write_enable(dev);
 
@@ -1774,15 +1791,13 @@ void w25qxxx_erase_security_regs(struct w25qxxx_device *dev, u8 regNum)
 		dev->spi->cs_high();
 	}
 
-	readx_poll_timeout_atomic(w25qxxx_read_busy, dev, busy,
-		busy == 0, 1, W25Q_PAGE_PROGRAM_TIMEOUT);
+	w25qxxx_wait_busy(dev, W25Q_PAGE_PROGRAM_TIMEOUT);
 }
 
 void w25qxxx_program_security_regs(struct w25qxxx_device *dev, u8 regNum,
 				   u16 Byteaddr, u8 *pdata, u16 length)
 {
 	struct qspi_request_block qrb;
-	u8 busy;
 
 	w25qxxx_write_enable(dev);
 
@@ -1818,8 +1833,7 @@ void w25qxxx_program_security_regs(struct w25qxxx_device *dev, u8 regNum,
 		dev->spi->cs_high();
 	}
 
-	readx_poll_timeout_atomic(w25qxxx_read_busy, dev, busy,
-		busy == 0, 1, W25Q_PAGE_PROGRAM_TIMEOUT);
+	w25qxxx_wait_busy(dev, W25Q_PAGE_PROGRAM_TIMEOUT);
 }
 
 void w25qxxx_read_security_regs(struct w25qxxx_device *dev, u8 regNum,
@@ -2102,7 +2116,6 @@ static int w25qxxx_quad_page_program(struct w25qxxx_device *dev, u32 addr,
 {
 	struct qspi_request_block qrb;
 	u8 sub_addr[4];
-	u8 busy;
 	int ret;
 
 	if (length == 0)
@@ -2144,8 +2157,7 @@ static int w25qxxx_quad_page_program(struct w25qxxx_device *dev, u32 addr,
 		dev->spi->cs_high();
 	}
 
-	ret = readx_poll_timeout_atomic(w25qxxx_read_busy, dev, busy,
-			busy == 0, 1, 30000000);
+	ret = w25qxxx_wait_busy(dev, 30000000);
 	if (ret)
 		pr_err("Quad page program timeout.\n");
 
@@ -2628,7 +2640,7 @@ int t_w25qxxx_device_init(int argc, char **argv)
 		}
 	}
 
-	dev = w25qxxx_alloc_device(&general_spi_master);
+	dev = w25qxxx_alloc_device(&spi1_master);
 	if (!dev) {
 		return -ENOMEM;
 	}

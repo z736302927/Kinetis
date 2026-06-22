@@ -57,10 +57,9 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
-#define STORAGE_SEC_NBR                  1024 * 2 * 32
-#define STORAGE_SEC_SIZ                  512
-#define STORAGE_SEC_SIZ_POWER            9
-#define STORAGE_BLK_SIZ                  8      /* unit is the number of sector in an block. */
+#define STORAGE_SEC_SIZ                  4096
+#define STORAGE_SEC_SIZ_POWER            12
+#define STORAGE_BLK_SIZ                  1      /* unit is the number of sector in an block. */
 
 /* Private variables ---------------------------------------------------------*/
 /* Disk status */
@@ -128,10 +127,12 @@ DSTATUS flash_disk_initialize(BYTE lun)
 DSTATUS flash_disk_status(BYTE lun)
 {
 	disk_stat = STA_NOINIT;
+	u8 jedec[3];
 
 	switch (lun) {
 	case 0:
-		if (w25qxxx_release_device_id(w25qxxx_dev) != 0)
+		w25qxxx_read_jedec_id(w25qxxx_dev, jedec);
+		if (jedec[0] == 0xEF)
 			disk_stat &= ~STA_NOINIT;
 
 		break;
@@ -232,7 +233,7 @@ DRESULT flash_disk_ioctl(BYTE lun, BYTE cmd, void *buff)
 
 		/* Get number of sectors on the disk (DWORD) */
 		case GET_SECTOR_COUNT :
-			*(DWORD *)buff = w25qxxx_dev->max_addr >> STORAGE_SEC_SIZ_POWER;
+			*(DWORD *)buff = (w25qxxx_dev->max_addr + 1) >> STORAGE_SEC_SIZ_POWER;
 			res = RES_OK;
 			break;
 

@@ -10,28 +10,26 @@
 #include "pid.h"
 #include "hall.h"
 
-/**
- * @file stator.h
- * @brief POV Stator (Fixed End) main entry
- *
- * Stator runs on STM32F103, receives speed commands from rotor via
- * MAVLink, and controls motor via PI controller.
- */
+struct flash_ops;
+struct bootloader_ops;
 
 #define STATOR_MOTOR_ID      0       /* Single motor ID */
 #define STATOR_HALL_INDEX    0       /* Single hall sensor */
 
 enum pov_stator_state {
-	STATOR_INIT = 0,       /* Hardware initialized, waiting for first heartbeat task run */
-	STATOR_WAIT_ROTOR,     /* Waiting for rotor heartbeat, motor stopped */
-	STATOR_ACTIVE,         /* Normal operation, PID active */
-	STATOR_SAFE_STOP,      /* Rotor heartbeat lost, motor coasts to stop (PWM=0) */
+	STATOR_INIT = 0,
+	STATOR_TUNING_MOTOR,         /* Phase 1: default PID → Phase 2: relay auto-tuning */
+	STATOR_WAIT_ROTOR,
+	STATOR_ACTIVE,
+	STATOR_SAFE_STOP,
+	STATOR_ENTER_BOOTLOADER,
 };
 
 static inline const char *stator_state_name(enum pov_stator_state s)
 {
 	static const char *names[] = {
-		"INIT", "WAIT_ROTOR", "ACTIVE", "SAFE_STOP"
+		"INIT", "TUNING_MOTOR", "WAIT_ROTOR", "ACTIVE", "SAFE_STOP",
+		"ENTER_BOOTLOADER"
 	};
 	if ((unsigned)s >= sizeof(names) / sizeof(names[0]))
 		return "?";
@@ -43,14 +41,21 @@ struct pov_stator {
 	struct mavlink_device *mavlink;
 	struct hall_device *hall;
 	struct motor_controller motor;
-	struct pid_controller pid;
+	struct pid_positional pid;
+	struct pid_relay_tuner relay_tuner;
 
 	u32 uptime_s;
 
 	enum pov_stator_state state;
 	u64 last_rotor_heartbeat_ms;    /* Last time rotor heartbeat received */
 
-	struct tim_task heartbeat_task; /* Periodic heartbeat send + check (1s) */
+	/* ── TUNING sub-state tracking ─────────────────── */
+	u32 tuning_stable_ticks;        /* Consecutive ticks where |err| < threshold */
+
+	struct flash_ops *flash;
+	struct bootloader_ops *bl_ops;
+
+	struct tim_task heartbeat_task; /* Periodic heartbeat send (5s intervals via POV_HEARTBEAT_INTERVAL_MS) */
 	struct tim_task process_cmd_task;
 	struct tim_task pid_task;
 };
@@ -63,27 +68,35 @@ struct pov_stator {
  *   2. MAVLink init
  *   3. Motor + simulation thread start
  *   4. Hall sensor init
- *   5. PI controller init
- *   6. State machine starts at STATOR_INIT → STATOR_WAIT_ROTOR
+ *   5. PID controller init (default gains from config.h)
+ *   6. Relay tuner init
+ *   7. State machine starts at STATOR_INIT → STATOR_TUNING_MOTOR
  *
  * State machine:
- *   INIT → WAIT_ROTOR → ACTIVE → SAFE_STOP → WAIT_ROTOR
- *   PID only runs in ACTIVE; motor stopped in all other states.
+ *   INIT → TUNING_MOTOR → WAIT_ROTOR → ACTIVE → SAFE_STOP
+ *           (PID + relay auto-tuning, two phases inside single state)
+ *
+ *   TUNING_MOTOR (phase 1): Default-gain PID brings motor to target RPM.
+ *                           Once |err| < threshold for N consecutive ticks,
+ *                           relay tuner starts.
+ *   TUNING_MOTOR (phase 2): Bang-bang oscillation, collect Ku/Tu,
+ *                           compute Z-N gains, write to PID, reset PID,
+ *                           stop motor → WAIT_ROTOR.
+ *   ACTIVE:                 PID runs with tuned gains (or defaults if tuning skipped).
  *
  * Periodic tasks:
- *   - heartbeat_task (1s): send heartbeat + check rotor heartbeat timeout
+ *   - heartbeat_task (5s): send heartbeat
  *   - process_cmd_task (100ms): receive MAVLink commands
- *   - pid_task (10ms): PI control (ACTIVE only)
+ *   - pid_task (10ms): PID/relay control (TUNING_MOTOR, ACTIVE)
  *
  * @return Pointer to allocated stator instance, or NULL on error
  */
 struct pov_stator *pov_stator_alloc(struct serial_port_ops *motor_serial_ops,
+	struct flash_ops *flash, struct bootloader_ops *bl_ops,
 	u32(*read_rotated_time)(struct hall_device *dev));
 
-/**
- * @brief Free stator instance and all owned resources
- * @param stator: Stator instance to free (NULL-safe)
- */
 void pov_stator_free(struct pov_stator *stator);
+
+void pov_stator_fsm(struct pov_stator *stator);
 
 #endif /* POV_STATOR_H */

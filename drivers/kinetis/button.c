@@ -270,7 +270,7 @@ static void button_handler(struct button *button)
 
 // 			if (button->cnt == 1) {
 // 				tim_task_add(&button->task, NULL,
-// 					300, false, false, click);
+// 					300000, false, false, click);
 // 			}
 			button->event = SINGLE_CLICK;
 			if (button->callback) {

@@ -32,7 +32,7 @@ int switch_task_init(void)
 		return 0;
 
 	ret = tim_task_add(&switch_task, "switch task",
-		5, true, false, switch_task_callback);
+		5000, true, false, switch_task_callback);
 	if (ret == 0)
 		switch_task_running = true;
 

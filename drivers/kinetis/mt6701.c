@@ -7,6 +7,7 @@
 #include <linux/slab.h>
 #include <linux/random.h>
 #include <linux/string.h>
+#include <linux/ktime.h>
 
 #include "kinetis/mt6701.h"
 #include "kinetis/iic_soft.h"
@@ -97,12 +98,14 @@
 #define MT6701_REG_3E_RSV_MASK          0x00    /*< 0x3E: no reserved bits */
 
 #ifdef KINETIS_FAKE_SIM
-/* Simulation thread constants */
 #define MT6701_SIM_UPDATE_PERIOD_MS     1       /*< Simulation update period 1ms */
 #define MT6701_SIM_ANGLE_STEP           1       /*< Step 1 LSB per iteration (~0.022°) */
 #define MT6701_SIM_NOISE_STDEV          2       /*< Angle noise standard deviation (LSB) */
 #define MT6701_SIM_ANOMALY_PROB         0x1FF   /*< Anomaly probability ~0.1% (compare with 0x1FF) */
 #endif
+
+#define MT6701_RPM_EMA_ALPHA_NUM        1           /*< EMA numerator (alpha = 1/4 = 0.25) */
+#define MT6701_RPM_EMA_ALPHA_DEN        4           /*< EMA denominator */
 
 /**
  * crc6_table - CRC-6 lookup table (polynomial X^6+X+1)
@@ -171,6 +174,8 @@ struct mt6701_ssi_context {
 struct mt6701_device {
 	struct regmap *regmap;
 	enum regmap_user_bus_type bus_type;
+
+	s32	rpm_filtered;
 
 #ifdef KINETIS_FAKE_SIM
 	struct iic_slave *iic_slave;
@@ -518,6 +523,49 @@ int mt6701_read_angle_ssi(struct mt6701_device *dev, mt6701_ssi_frame_t *frame)
 	frame->crc_valid = (frame->crc_received == frame->crc_calculated);
 
 	return 0;
+}
+
+/*
+ * RPM formula: rpm = delta_angle / 16384 * 60 / (dt_ns / 1e9) = delta_angle * 60000000000 / (16384 * dt_ns)
+ *
+ * EMA (when enable_filter=true): rpm = rpm*(1-alpha) + instant*alpha
+ *   where alpha = 0.25 (MT6701_RPM_EMA_ALPHA_NUM / MT6701_RPM_EMA_ALPHA_DEN)
+ */
+s32 mt6701_read_rpm_block(struct mt6701_device *dev, bool enable_filter, unsigned long usecs)
+{
+	mt6701_ssi_frame_t frame, last_frame;
+	ktime_t start;
+	s64 target_ns;
+	s32 delta_angle;
+	s32 rpm_instant;
+
+	mt6701_read_angle_ssi(dev, &last_frame);
+
+	target_ns = (u64)usecs * NSEC_PER_USEC;
+	start = ktime_get();
+	do {
+	} while (ktime_before(ktime_get(), ktime_add_ns(start, target_ns)));
+
+	mt6701_read_angle_ssi(dev, &frame);
+
+	/* Handle angle wraparound [0, 16383] */
+	delta_angle = (s32)frame.raw_angle - (s32)last_frame.raw_angle;
+	if (delta_angle < -8192)
+		delta_angle += MT6701_ANGLE_RESOLUTION;
+	if (delta_angle > 8192)
+		delta_angle -= MT6701_ANGLE_RESOLUTION;
+
+	/* Force s64 to prevent overflow when usecs > 262144 (~0.26s),  60 * 1e6 for RPM from us deltas */
+	rpm_instant = (s32)((s64)delta_angle * 60000000LL / ((s64)MT6701_ANGLE_RESOLUTION * usecs));
+
+	if (enable_filter) {
+		/* EMA: rpm = rpm*(1-alpha) + instant*alpha, alpha=0.25 */
+		dev->rpm_filtered = (dev->rpm_filtered * (MT6701_RPM_EMA_ALPHA_DEN - MT6701_RPM_EMA_ALPHA_NUM) +
+			rpm_instant * MT6701_RPM_EMA_ALPHA_NUM) / MT6701_RPM_EMA_ALPHA_DEN;
+		return dev->rpm_filtered;
+	}
+
+	return rpm_instant;
 }
 
 /**
@@ -897,7 +945,7 @@ static const struct regmap_config mt6701_ssi_regmap_config = {
 /**
  * mt6701_init - Initialize MT6701 device
  * @bus_type:   Bus type (REGMAP_BUS_IIC_SOFT or REGMAP_BUS_SPI_SOFT i.e. SSI)
- * @bus_master: I2C: &general_iic_master, SPI: &general_spi_master
+ * @bus_master: I2C: &iic1_master, SPI: &spi1_master
  *
  * I2C mode: register regmap + I2C slave simulation + start simulation thread
  * SSI mode: register custom SSI regmap + SPI slave simulation + start simulation thread
@@ -917,7 +965,6 @@ struct mt6701_device *mt6701_init(enum regmap_user_bus_type bus_type, void *bus_
 	dev->bus_type = bus_type;
 
 	if (bus_type == REGMAP_BUS_IIC_SOFT) {
-		/* ---- I2C path ---- */
 		struct iic_master *i2c_master = (struct iic_master *)bus_master;
 
 		dev->regmap = regmap_init_iic_soft(i2c_master, MT6701_I2C_ADDR_DEFAULT,
@@ -961,7 +1008,6 @@ struct mt6701_device *mt6701_init(enum regmap_user_bus_type bus_type, void *bus_
 		pr_info("mt6701 initialized on I2C (addr=0x%02x)\n", MT6701_I2C_ADDR_DEFAULT);
 
 	} else if (bus_type == REGMAP_BUS_SPI_SOFT) {
-		/* ---- SSI path (SPI physical bus + custom SSI regmap) ---- */
 		struct spi_master *spi_master = (struct spi_master *)bus_master;
 		u8 *frame_buf = NULL;
 
@@ -1086,8 +1132,8 @@ int t_mt6701_initialize(int argc, char **argv)
 		pr_info("starting mt6701 with %s mode\n", bus_type == REGMAP_BUS_IIC_SOFT ? "i2c" : "ssi");
 		mt6701_dev = mt6701_init(bus_type,
 					  bus_type == REGMAP_BUS_IIC_SOFT ?
-					  (void *)&general_iic_master :
-					  (void *)&general_spi_master);
+					  (void *)&iic1_master :
+					  (void *)&spi1_master);
 		if (IS_ERR_OR_NULL(mt6701_dev)) {
 			pr_err("mt6701 init failed\n");
 			return -EINVAL;

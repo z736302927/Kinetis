@@ -7,12 +7,17 @@ C_SOURCES += $(wildcard ../drivers/kinetis/hc-05.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/led.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/mavlink.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/w25qxxx.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/nrf24l01/src/driver_nrf24l01.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/nrf24l01_port.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/nrf24l01/interface/driver_nrf24l01_interface_template.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/lrzsz/*.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/kalman-clib/src/matrix.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/kalman-clib/src/kalman.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/kalman-clib/src/cholesky.c)
 
 C_INCLUDES += -I../drivers/kinetis/kalman-clib/include
+C_INCLUDES += -I../drivers/kinetis/nrf24l01/src
+C_INCLUDES += -I../drivers/kinetis/nrf24l01/interface
 
 # Final target
 TARGET = $(BUILD_DIR)/$(PROJECT).exe

@@ -6,7 +6,7 @@
 
 #include <kinetis/fatfs.h>
 
-#include "../../fs/fatfs/ff.h"
+#include "fatfs/ff.h"
 
 #define FATFS_BUFFER_SIZE 64
 

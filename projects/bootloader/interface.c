@@ -6,6 +6,7 @@
 #include <linux/iopoll.h>
 #include <linux/crc32.h>
 #include <linux/random.h>
+#include <linux/sched_clock.h>
 
 #include <kinetis/iic_soft.h>
 #include <kinetis/spi_soft.h>
@@ -40,6 +41,21 @@ struct transfer_complete_result {
 	volatile u8 error;
 };
 
+void arm_dwt_init(void)
+{
+	/* Enable DWT trace unit (TRCENA) */
+	writel(readl(&CoreDebug->DEMCR) | CoreDebug_DEMCR_TRCENA_Msk, &CoreDebug->DEMCR);
+	/* Reset cycle counter */
+	writel(0, &DWT->CYCCNT);
+	/* Enable cycle counter (CYCCNTENA) */
+	writel(readl(&DWT->CTRL) | DWT_CTRL_CYCCNTENA_Msk, &DWT->CTRL);					
+}
+
+u64 arm_dwt_read(struct clocksource *cs)
+{
+    return (u64)DWT->CYCCNT;
+}
+
 unsigned long read_chip_timer(void)
 {
 	return TIM5->CNT;
@@ -49,6 +65,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM4) {
         xtime_update(1);
+        update_sched_clock();
     } else if (htim->Instance == TIM5) {
         basic_timer_isr(1000000);
     }
@@ -385,7 +402,7 @@ static int spi1_master_init(void)
 	return 0;
 }
 
-struct spi_master general_spi_master = {
+struct spi_master spi1_master = {
 	.cs_low      = spi1_cs_low,
 	.cs_high     = spi1_cs_high,
 	.mosi_low    = spi1_mosi_low,
@@ -569,7 +586,18 @@ struct serial_port_ops usart2_serial_port_ops = {
 	.set_tx           = usart2_set_tx,
 };
 
+/*********************************************************************
+ * Flash Sector Sizes
+ * H7: Uniform 128KB sectors (bank 1, sectors 0-7)
+ *     Program via 256-bit FLASHWORD (32 bytes)
+ * F4: Mixed: 4×16KB + 1×64KB + 7×128KB = 1MB
+ *     Program via 32-bit word
+ *********************************************************************/
 #ifdef STM32H743xx
+#define BL_FLASH_SECTOR_SIZE     0x20000u  /* 128KB per sector */
+#define BL_FLASH_WORD_SIZE       32u       /* 256-bit FLASHWORD */
+#define BL_FLASH_VOLTAGE_RANGE   FLASH_VOLTAGE_RANGE_3
+#define BL_FLASH_TYPEPROGRAM     FLASH_TYPEPROGRAM_FLASHWORD
 
 static int stm32_flash_erase(u64 addr, u32 size)
 {
@@ -677,6 +705,11 @@ static int stm32_flash_read(u64 addr, u8 *buf, u32 size)
 }
 
 #elif defined(STM32F407xx)
+#define BL_FLASH_SECTOR_SIZE_REF 0x20000u  /* default sector size reference */
+#define BL_FLASH_WORD_SIZE       4u        /* 32-bit word */
+#define BL_FLASH_VOLTAGE_RANGE   FLASH_VOLTAGE_RANGE_3
+#define BL_FLASH_TYPEPROGRAM     FLASH_TYPEPROGRAM_WORD
+#define BL_F4_SECTOR_COUNT       12
 
 const u32 stm32_sector_size[BL_F4_SECTOR_COUNT] = {
 	0x4000,  0x4000,  0x4000,  0x4000,   /* 16KB × 4 */

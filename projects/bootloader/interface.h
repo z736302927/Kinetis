@@ -16,4 +16,6 @@ extern struct serial_port *stm32_serial_port[5];
 extern u8 *general_flash_addr;
 #endif
 
+void arm_dwt_init(void);
+
 #endif  /* __BOOTLOADER_INTERFACE_H */

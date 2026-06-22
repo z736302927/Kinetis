@@ -130,7 +130,7 @@
     "--pad-header", // 头文件加空格
     "--indent-after-parens", // 括号后缩进
     "--unpad-paren", // 删除括号多余空格
-    "--add-braces", // 添加大括号
+    // "--add-braces", // 添加大括号
     // "---remove-braces",        // 移除大括号（已注释）
     "--align-pointer=name", // 指针对齐方式
     "--align-reference=name", // 引用对齐方式

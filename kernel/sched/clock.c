@@ -61,7 +61,7 @@
  * This is default implementation.
  * Architectures and sub-architectures can override this.
  */
-unsigned long long sched_clock(void)
+unsigned long long __weak sched_clock(void)
 {
 	return (unsigned long long)(jiffies - INITIAL_JIFFIES)
 					* (NSEC_PER_SEC / HZ);
@@ -452,10 +452,10 @@ EXPORT_SYMBOL_GPL(sched_clock_idle_wakeup_event);
 
 void __init sched_clock_init(void)
 {
-//	static_branch_inc(&sched_clock_running);
-//	local_irq_disable();
-//	generic_sched_clock_init();
-//	local_irq_enable();
+	static_branch_inc(&sched_clock_running);
+	local_irq_disable();
+	generic_sched_clock_init();
+	local_irq_enable();
 }
 
 u64 sched_clock_cpu(int cpu)

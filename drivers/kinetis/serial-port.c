@@ -159,10 +159,8 @@ void serial_port_extract_data(struct serial_port *serial)
 {
 	unsigned long flags;
 
-	local_irq_save(flags);
 	serial->received_size = (serial->producer + SERIAL_PORT_BUFFER_SIZE - serial->consumer) % SERIAL_PORT_BUFFER_SIZE;
 	serial->rx_complete = (serial->received_size > 0);
-	local_irq_restore(flags);
 }
 
 void serial_port_clear_rx(struct serial_port *serial)
@@ -216,9 +214,6 @@ int serial_port_receive_bytes(struct serial_port *serial, char *buffer, int size
 	}
 
 	if (serial->rx_complete) {
-		unsigned long __flags;
-
-		local_irq_save(__flags);
 		for (int i = 0; i < serial->received_size; i++) {
 			buffer[i] = serial->rx_buffer[serial->consumer];
 			serial->rx_buffer[serial->consumer] = '\0';
@@ -228,11 +223,16 @@ int serial_port_receive_bytes(struct serial_port *serial, char *buffer, int size
 			serial->ops->receive_callback(serial);
 		}
 		serial->rx_complete = false;
-		local_irq_restore(__flags);
 #ifndef CONFIG_SERIAL_PORT_RING_BUFFER
 		serial->producer = 0;
 		serial->consumer = 0;
 #endif
+		if (serial->overflow) {
+			if (serial_port_rx_used(serial) <= SERIAL_PORT_BUFFER_SIZE * 95 / 100) {
+				serial->ops->enable();
+				serial->overflow = 0;
+			}
+		}
 	}
 
 	return serial->received_size;
@@ -283,6 +283,33 @@ int serial_port_data_available(struct serial_port *serial)
 {
 	serial_port_extract_data(serial);
 	return serial->rx_complete ? serial->received_size : 0;
+}
+
+bool serial_port_rx_empty(struct serial_port *serial)
+{
+    return (serial->producer == serial->consumer);
+}
+
+bool serial_port_rx_full(struct serial_port *serial)
+{
+    return ((serial->producer + 1) % SERIAL_PORT_BUFFER_SIZE) == serial->consumer;
+}
+
+u16 serial_port_rx_used(struct serial_port *serial)
+{
+    if (serial->producer >= serial->consumer)
+        return serial->producer - serial->consumer;
+    else
+        return SERIAL_PORT_BUFFER_SIZE - (serial->consumer - serial->producer);
+}
+
+u16 serial_port_rx_free(struct serial_port *serial)
+{
+	/* Leave a space of one unit */
+    if (serial->producer >= serial->consumer)
+        return SERIAL_PORT_BUFFER_SIZE - (serial->producer - serial->consumer) - 1;
+    else
+        return (serial->consumer - serial->producer) - 1;
 }
 
 int serial_port_config(struct serial_port *serial, u32 baud_rate, u8 parity, u8 data_bits, u8 flow_control)

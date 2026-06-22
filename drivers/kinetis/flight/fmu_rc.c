@@ -118,12 +118,12 @@ int rc_module_init(struct fmu_rc *rc)
 	}
 
 	ret = tim_task_add(&rc->conv_data_task, "rc convert data",
-			5, true, true, rc_process_data);
+			5000, true, true, rc_process_data);
 	if (ret)
 		return ret;
 
 	ret = tim_task_add(&rc->detect_task, "rc detect signal",
-			1000, true, true, rc_detect_signal);
+			1000000, true, true, rc_detect_signal);
 	if (ret)
 		return ret;
 

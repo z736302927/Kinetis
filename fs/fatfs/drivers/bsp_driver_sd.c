@@ -79,9 +79,6 @@ struct transfer_complete_result {
 
 extern struct transfer_complete_result sd_dma_result;
 
-/* --------------------------------------------------------------------------*/
-/* Clock divider helpers: selected by card type during init                 */
-/* --------------------------------------------------------------------------*/
 /*
  * Clock formulas (from reference manual):
  *   H7 (SDMMC):  SD_CK = periph_clk / (2 * CLKDIV)       [CLKDIV ≥ 1]
@@ -121,7 +118,6 @@ extern struct transfer_complete_result sd_dma_result;
 static u32 g_sd_read_clkdiv  = 10;
 static u32 g_sd_write_clkdiv = 10;
 
-#define SD_DMA_POLL_DELAY_US    1000U
 #define SD_DMA_POLL_TIMEOUT_US  5000000U
 
 /**
@@ -159,6 +155,13 @@ static void sd_set_clkdiv(uint32_t div)
 
 	/* Silently accept: next operation's error code will surface the
 	 * problem (e.g. RX_OVERRUN / TX_UNDERRUN). */
+}
+
+static volatile u8 sd_wait_for_completion = 1;
+
+void sd_set_wait_for_completion(u8 enable)
+{
+	sd_wait_for_completion = enable ? 1 : 0;
 }
 
 /* USER CODE BEGIN BeforeInitSection */
@@ -201,8 +204,8 @@ __weak uint8_t BSP_SD_Init(void)
 #endif
     SD_HANDLE.Init.ClockPowerSave = SD_CLOCK_POWER_SAVE_DISABLE;
     SD_HANDLE.Init.BusWide     = SD_BUS_WIDE_1B;
-    SD_HANDLE.Init.HardwareFlowControl = SD_HARDWARE_FLOW_CONTROL_ENABLE;
-    SD_HANDLE.Init.ClockDiv    = 0xFF;   /* ~400 kHz safe for all cards */
+    SD_HANDLE.Init.HardwareFlowControl = SD_HARDWARE_FLOW_CONTROL_DISABLE;
+    SD_HANDLE.Init.ClockDiv    = 0;
 
     sd_state = HAL_SD_Init(&SD_HANDLE);
     if (sd_state != MSD_OK)
@@ -419,10 +422,25 @@ __weak uint8_t BSP_SD_ReadBlocks_DMA(uint32_t *pData, uint32_t ReadAddr, uint32_
   u32 val;
   int ret;
 
+  if (!sd_wait_for_completion) {
+    ret = readl_poll_timeout(&sd_dma_result.rx_done, val, val || sd_dma_result.error,
+                              0, SD_DMA_POLL_TIMEOUT_US);
+    if (ret < 0) {
+      sd_state = MSD_ERROR;
+      pr_err("Last SD DMA read timeout: LBA=%lu, cnt=%lu, State=%d, EC=0x%lx",
+              (unsigned long)ReadAddr, (unsigned long)NumOfBlocks,
+              (int)SD_HANDLE.State, (unsigned long)SD_HANDLE.ErrorCode);
+      HAL_SD_Abort(&SD_HANDLE);
+    } else if (sd_dma_result.error) {
+      sd_state = MSD_ERROR;
+    }
+  }
+
   sd_dma_result.rx_done = 0;
   sd_dma_result.error   = 0;
 
-  /* Read block(s) in DMA transfer mode */
+  SCB_CleanDCache_by_Addr((uint32_t *)pData, NumOfBlocks * 512);
+
   if (HAL_SD_ReadBlocks_DMA(&SD_HANDLE, (uint8_t *)pData, ReadAddr, NumOfBlocks) != HAL_OK)
   {
     sd_state = MSD_ERROR;
@@ -432,17 +450,22 @@ __weak uint8_t BSP_SD_ReadBlocks_DMA(uint32_t *pData, uint32_t ReadAddr, uint32_
     return sd_state;
   }
 
-  ret = readl_poll_timeout(&sd_dma_result.rx_done, val, val || sd_dma_result.error,
-                           SD_DMA_POLL_DELAY_US, SD_DMA_POLL_TIMEOUT_US);
-  if (ret < 0) {
-    sd_state = MSD_ERROR;
-    pr_err("SD DMA read timeout: LBA=%lu, cnt=%lu, State=%d, EC=0x%lx",
-           (unsigned long)ReadAddr, (unsigned long)NumOfBlocks,
-           (int)SD_HANDLE.State, (unsigned long)SD_HANDLE.ErrorCode);
-    HAL_SD_Abort(&SD_HANDLE);
-  } else if (sd_dma_result.error) {
-    sd_state = MSD_ERROR;
+  if (sd_wait_for_completion) {
+    ret = readl_poll_timeout(&sd_dma_result.rx_done, val, val || sd_dma_result.error,
+                             0, SD_DMA_POLL_TIMEOUT_US);
+    if (ret < 0) {
+      sd_state = MSD_ERROR;
+      pr_err("SD DMA read timeout: LBA=%lu, cnt=%lu, State=%d, EC=0x%lx",
+             (unsigned long)ReadAddr, (unsigned long)NumOfBlocks,
+             (int)SD_HANDLE.State, (unsigned long)SD_HANDLE.ErrorCode);
+      HAL_SD_Abort(&SD_HANDLE);
+    } else if (sd_dma_result.error) {
+      sd_state = MSD_ERROR;
+    }
   }
+
+  if (sd_state == MSD_OK)
+    SCB_InvalidateDCache_by_Addr((uint32_t *)pData, NumOfBlocks * 512);
 
   return sd_state;
 }
@@ -463,8 +486,25 @@ __weak uint8_t BSP_SD_WriteBlocks_DMA(uint32_t *pData, uint32_t WriteAddr, uint3
   u32 val;
   int ret;
 
+  if (!sd_wait_for_completion) {
+    ret = readl_poll_timeout(&sd_dma_result.tx_done, val,
+                              val || sd_dma_result.error,
+                              0, SD_DMA_POLL_TIMEOUT_US);
+    if (ret < 0) {
+      sd_state = MSD_ERROR;
+      pr_err("Last SD DMA write timeout: LBA=%lu, cnt=%lu, State=%d, EC=0x%lx",
+              (unsigned long)WriteAddr, (unsigned long)NumOfBlocks,
+              (int)SD_HANDLE.State, (unsigned long)SD_HANDLE.ErrorCode);
+      HAL_SD_Abort(&SD_HANDLE);
+    } else if (sd_dma_result.error) {
+      sd_state = MSD_ERROR;
+    }
+  }
+
   sd_dma_result.tx_done = 0;
   sd_dma_result.error   = 0;
+
+  SCB_CleanDCache_by_Addr((uint32_t *)pData, NumOfBlocks * 512);
 
   /* Write block(s) in DMA transfer mode */
   if (HAL_SD_WriteBlocks_DMA(&SD_HANDLE, (uint8_t *)pData, WriteAddr, NumOfBlocks) != HAL_OK)
@@ -476,18 +516,19 @@ __weak uint8_t BSP_SD_WriteBlocks_DMA(uint32_t *pData, uint32_t WriteAddr, uint3
     return sd_state;
   }
 
-  /* Wait for DMA Tx-complete interrupt (readl provides memory barrier) */
-  ret = readl_poll_timeout(&sd_dma_result.tx_done, val,
-                           val || sd_dma_result.error,
-                           SD_DMA_POLL_DELAY_US, SD_DMA_POLL_TIMEOUT_US);
-  if (ret < 0) {
-    sd_state = MSD_ERROR;
-    pr_err("SD DMA write timeout: LBA=%lu, cnt=%lu, State=%d, EC=0x%lx",
-           (unsigned long)WriteAddr, (unsigned long)NumOfBlocks,
-           (int)SD_HANDLE.State, (unsigned long)SD_HANDLE.ErrorCode);
-    HAL_SD_Abort(&SD_HANDLE);
-  } else if (sd_dma_result.error) {
-    sd_state = MSD_ERROR;
+  if (sd_wait_for_completion) {
+    ret = readl_poll_timeout(&sd_dma_result.tx_done, val,
+                             val || sd_dma_result.error,
+                             0, SD_DMA_POLL_TIMEOUT_US);
+    if (ret < 0) {
+      sd_state = MSD_ERROR;
+      pr_err("SD DMA write timeout: LBA=%lu, cnt=%lu, State=%d, EC=0x%lx",
+             (unsigned long)WriteAddr, (unsigned long)NumOfBlocks,
+             (int)SD_HANDLE.State, (unsigned long)SD_HANDLE.ErrorCode);
+      HAL_SD_Abort(&SD_HANDLE);
+    } else if (sd_dma_result.error) {
+      sd_state = MSD_ERROR;
+    }
   }
 
   return sd_state;

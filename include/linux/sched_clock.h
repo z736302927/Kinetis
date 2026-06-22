@@ -38,6 +38,8 @@ extern void generic_sched_clock_init(void);
 
 extern void sched_clock_register(u64 (*read)(void), int bits,
 				 unsigned long rate);
+
+extern void update_sched_clock(void);
 #else
 static inline void generic_sched_clock_init(void) { }
 

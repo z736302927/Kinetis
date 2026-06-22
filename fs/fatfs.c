@@ -75,7 +75,7 @@ int fatfs_init(void)
 				opt.n_fat = 2;         // 标准配置：两个FAT表
 				opt.align = 0;         // 数据区从紧随FAT表后开始（无特殊对齐）
 				opt.n_root = 512;      // **FAT16特有**：根目录可容纳512个条目
-				opt.au_size = 4096;    // 指定簇大小为4KB（8192KB / 4KB ≈ 2000簇，很合理）
+				opt.au_size = 0;    // 让 FatFs 自动选择簇大小
 				res = f_mkfs((const TCHAR *)fatfs_drivers[i].disk_path, &opt, work_buffer, sizeof(work_buffer));
 				if (res != FR_OK) {
 					pr_err("Failed to create filesystem: %d\n", res);
