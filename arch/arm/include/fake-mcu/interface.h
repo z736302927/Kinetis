@@ -9,6 +9,9 @@
 #include <kinetis/tim-task.h>
 
 extern struct serial_port_ops usart2_serial_port_ops;
+extern struct serial_port_ops uart3_serial_port_ops;
+extern struct serial_port_ops uart4_serial_port_ops;
+extern struct serial_port_ops uart5_serial_port_ops;
 extern struct serial_port_ops usart6_serial_port_ops;
 extern struct flash_ops general_flash_ops;
 extern struct bootloader_ops general_bootloader_ops;

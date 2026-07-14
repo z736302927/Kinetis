@@ -204,7 +204,7 @@ __weak uint8_t BSP_SD_Init(void)
 #endif
     SD_HANDLE.Init.ClockPowerSave = SD_CLOCK_POWER_SAVE_DISABLE;
     SD_HANDLE.Init.BusWide     = SD_BUS_WIDE_1B;
-    SD_HANDLE.Init.HardwareFlowControl = SD_HARDWARE_FLOW_CONTROL_DISABLE;
+    SD_HANDLE.Init.HardwareFlowControl = SD_HARDWARE_FLOW_CONTROL_ENABLE;
     SD_HANDLE.Init.ClockDiv    = 0;
 
     sd_state = HAL_SD_Init(&SD_HANDLE);

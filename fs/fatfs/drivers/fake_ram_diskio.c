@@ -49,7 +49,7 @@
 
 #include <kinetis/fatfs.h>
 
-static uint8_t fake_ram_array[8 * 1024 * 1024];
+static uint8_t fake_ram_array[32 * 1024 * 1024];
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 /* Block Size in Bytes */

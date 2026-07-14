@@ -10,7 +10,7 @@
 #include <kinetis/basic-timer.h>
 #include <kinetis/serial-port.h>
 #include "kinetis/bootloader.h"
-#include <kinetis/w25qxxx.h>
+// #include <kinetis/w25qxxx.h>
 
 #include "hall.h"
 #include "rotor.h"
@@ -76,11 +76,38 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 struct hall_device *hall_dev;
 
+u8 pov_read_arm_id(void)
+{
+	u8 id = 0;
+
+	if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_0) == GPIO_PIN_SET)
+		id |= 1;
+	if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) == GPIO_PIN_SET)
+		id |= 2;
+	if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_2) == GPIO_PIN_SET)
+		id |= 4;
+	if (id >= POV_ARM_COUNT) {
+		pr_err("arm-id %u out of range (max %u)\n", id, POV_ARM_COUNT - 1);
+		return 0;
+	}
+
+	return id;
+}
+
+void pov_sync_zero_pulse_output(void)
+{
+    HAL_GPIO_WritePin(GPIOF, GPIO_PIN_3, GPIO_PIN_SET);
+    udelay(1);
+    HAL_GPIO_WritePin(GPIOF, GPIO_PIN_3, GPIO_PIN_RESET);
+}
+
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM2) {
-		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1)
+		if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
         	hall_hall_isr(hall_dev, HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1));
+			pov_sync_zero_pulse_output();
+		}
     }
 }
 
@@ -287,7 +314,7 @@ void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
 	}
 }
 
-static struct transfer_complete_result stm32_uart_result[3];
+static struct transfer_complete_result stm32_uart_result[5];
 
 struct serial_port *stm32_serial_port[5];
 
@@ -298,6 +325,10 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 	else if (huart->Instance == huart2.Instance)
 		stm32_uart_result[1].tx_done = 1;
 #if POV_RUN_MODE == POV_RUN_HOST
+	else if (huart->Instance == huart4.Instance)
+		stm32_uart_result[3].tx_done = 1;
+	else if (huart->Instance == huart5.Instance)
+		stm32_uart_result[4].tx_done = 1;
 	else if (huart->Instance == huart6.Instance)
 		stm32_uart_result[2].tx_done = 1;
 #endif
@@ -305,33 +336,84 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, u16 Size)
 {
-	if (huart->Instance == huart2.Instance) {
-		stm32_serial_port[1]->producer = Size % SERIAL_PORT_BUFFER_SIZE;
+	struct serial_port *serial;
+	const char *name;
 
-		if (serial_port_rx_used(stm32_serial_port[1]) > SERIAL_PORT_BUFFER_SIZE * 95 / 100) {
-			stm32_serial_port[1]->ops->disable();
-			stm32_serial_port[1]->overflow = 1;
-			pr_warn("usart2: RX overflow protection, RX auto-disabled\n");
-		}
+	if (huart->Instance == huart2.Instance) {
+		serial = stm32_serial_port[1];
+		name = "uart2";
+	}
+#if POV_RUN_MODE == POV_RUN_HOST
+	else if (huart->Instance == huart6.Instance) {
+		serial = stm32_serial_port[2];
+		name = "uart6";
+	} else if (huart->Instance == huart4.Instance) {
+		serial = stm32_serial_port[3];
+		name = "uart4";
+	} else if (huart->Instance == huart5.Instance) {
+		serial = stm32_serial_port[4];
+		name = "uart5";
+	}
+#endif
+	else
+		return;
+
+	serial->producer = Size % SERIAL_PORT_BUFFER_SIZE;
+
+	if (serial_port_rx_used(serial) > SERIAL_PORT_BUFFER_SIZE * 95 / 100) {
+		serial->ops->disable();
+		serial->overflow = 1;
+		pr_warn("%s: RX overflow protection, RX auto-disabled\n", name);
 	}
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
+	UART_HandleTypeDef *uart;
+	struct serial_port *serial;
+	const char *name;
+	u8 result_idx = 0;
+
 	if (huart->Instance == huart2.Instance) {
-		if (!(huart2.Instance->CR1 & USART_CR1_RE)) {
-			pr_debug("usart2: error 0x%lx while RX disabled, not restarting\n", huart->ErrorCode);
-		} else {
-			pr_err("stm32_uart: DMA error 0x%lx, restarting RX\n", huart->ErrorCode);
-			HAL_UART_AbortReceive(&huart2);
-			HAL_UART_Init(&huart2);
-			HAL_UARTEx_ReceiveToIdle_DMA(&huart2, stm32_serial_port[1]->rx_buffer,
-							SERIAL_PORT_BUFFER_SIZE);
-			__HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_TC | DMA_IT_HT);
-			// ATOMIC_CLEAR_BIT(huart2.Instance->CR3, USART_CR3_EIE);
-		}
-		stm32_uart_result[1].error = 1;
+		uart = &huart2;
+		serial = stm32_serial_port[1];
+		name = "uart2";
+		result_idx = 1;
 	}
+#if POV_RUN_MODE == POV_RUN_HOST
+	else if (huart->Instance == huart6.Instance) {
+		uart = &huart6;
+		serial = stm32_serial_port[2];
+		name = "uart6";
+		result_idx = 2;
+	} else if (huart->Instance == huart4.Instance) {
+		uart = &huart4;
+		serial = stm32_serial_port[3];
+		name = "uart4";
+		result_idx = 3;
+	} else if (huart->Instance == huart5.Instance) {
+		uart = &huart5;
+		serial = stm32_serial_port[4];
+		name = "uart5";
+		result_idx = 4;
+	}
+#endif
+	else
+		return;
+
+	if (!(uart->Instance->CR1 & USART_CR1_RE)) {
+		pr_debug("%s: error 0x%lx while RX disabled, not restarting\n", name, huart->ErrorCode);
+	} else {
+		pr_err("%s: DMA error 0x%lx, restarting RX\n", name, huart->ErrorCode);
+		HAL_UART_AbortReceive(uart);
+		HAL_UART_Init(uart);
+		HAL_UARTEx_ReceiveToIdle_DMA(uart, serial->rx_buffer,
+						SERIAL_PORT_BUFFER_SIZE);
+		__HAL_DMA_DISABLE_IT(uart->hdmarx, DMA_IT_TC | DMA_IT_HT);
+		// ATOMIC_CLEAR_BIT(uart->Instance->CR3, USART_CR3_EIE);
+	}
+
+	stm32_uart_result[result_idx].error = 1;
 }
 
 struct transfer_complete_result sd_dma_result;
@@ -1074,6 +1156,830 @@ struct spi_master spi6_master = {
 	.init        = spi6_master_init,
 };
 
+uint8_t w25qxx_interface_spi_qspi_init(void)
+{
+	return 0;
+}
+
+uint8_t w25qxx_interface_spi_qspi_deinit(void)
+{
+	return 0;
+}
+
+static volatile u8 flash_wait_for_completion = 1;
+
+void flash_set_wait_for_completion(u8 enable)
+{
+	flash_wait_for_completion = enable ? 1 : 0;
+}
+
+#define QSPI_FUNCTIONAL_MODE_INDIRECT_WRITE 0x00000000U                     /*!<Indirect write mode*/
+#define QSPI_FUNCTIONAL_MODE_INDIRECT_READ  ((uint32_t)QUADSPI_CCR_FMODE_0) /*!<Indirect read mode*/
+#define QSPI_FUNCTIONAL_MODE_AUTO_POLLING   ((uint32_t)QUADSPI_CCR_FMODE_1) /*!<Automatic polling mode*/
+#define QSPI_FUNCTIONAL_MODE_MEMORY_MAPPED  ((uint32_t)QUADSPI_CCR_FMODE)   /*!<Memory-mapped mode*/
+
+static HAL_StatusTypeDef QSPI_WaitFlagStateUntilTimeout(QSPI_HandleTypeDef *hqspi, uint32_t Flag,
+                                                        FlagStatus State, uint32_t Tickstart, uint32_t Timeout)
+{
+  /* Wait until flag is in expected state */
+  while((__HAL_QSPI_GET_FLAG(hqspi, Flag)) != State)
+  {
+    /* Check for the Timeout */
+    if (Timeout != HAL_MAX_DELAY)
+    {
+      if(((HAL_GetTick() - Tickstart) > Timeout) || (Timeout == 0U))
+      {
+        hqspi->State     = HAL_QSPI_STATE_ERROR;
+        hqspi->ErrorCode |= HAL_QSPI_ERROR_TIMEOUT;
+
+        return HAL_ERROR;
+      }
+    }
+  }
+  return HAL_OK;
+}
+
+static void QSPI_Config(QSPI_HandleTypeDef *hqspi, QSPI_CommandTypeDef *cmd, uint32_t FunctionalMode)
+{
+  if ((cmd->DataMode != QSPI_DATA_NONE) && (FunctionalMode != QSPI_FUNCTIONAL_MODE_MEMORY_MAPPED))
+  {
+    /* Configure QSPI: DLR register with the number of data to read or write */
+    WRITE_REG(hqspi->Instance->DLR, (cmd->NbData - 1U));
+  }
+
+  if (cmd->InstructionMode != QSPI_INSTRUCTION_NONE)
+  {
+    if (cmd->AlternateByteMode != QSPI_ALTERNATE_BYTES_NONE)
+    {
+      /* Configure QSPI: ABR register with alternate bytes value */
+      WRITE_REG(hqspi->Instance->ABR, cmd->AlternateBytes);
+
+      if (cmd->AddressMode != QSPI_ADDRESS_NONE)
+      {
+        /*---- Command with instruction, address and alternate bytes ----*/
+        /* Configure QSPI: CCR register with all communications parameters */
+        WRITE_REG(hqspi->Instance->CCR, (cmd->DdrMode | cmd->DdrHoldHalfCycle | cmd->SIOOMode |
+                                         cmd->DataMode | (cmd->DummyCycles << QUADSPI_CCR_DCYC_Pos) |
+                                         cmd->AlternateBytesSize | cmd->AlternateByteMode |
+                                         cmd->AddressSize | cmd->AddressMode | cmd->InstructionMode |
+                                         cmd->Instruction | FunctionalMode));
+
+        if (FunctionalMode != QSPI_FUNCTIONAL_MODE_MEMORY_MAPPED)
+        {
+          /* Configure QSPI: AR register with address value */
+          WRITE_REG(hqspi->Instance->AR, cmd->Address);
+        }
+      }
+      else
+      {
+        /*---- Command with instruction and alternate bytes ----*/
+        /* Configure QSPI: CCR register with all communications parameters */
+        WRITE_REG(hqspi->Instance->CCR, (cmd->DdrMode | cmd->DdrHoldHalfCycle | cmd->SIOOMode |
+                                         cmd->DataMode | (cmd->DummyCycles << QUADSPI_CCR_DCYC_Pos) |
+                                         cmd->AlternateBytesSize | cmd->AlternateByteMode |
+                                         cmd->AddressMode | cmd->InstructionMode |
+                                         cmd->Instruction | FunctionalMode));
+
+        /* Clear AR register */
+        CLEAR_REG(hqspi->Instance->AR);
+      }
+    }
+    else
+    {
+      if (cmd->AddressMode != QSPI_ADDRESS_NONE)
+      {
+        /*---- Command with instruction and address ----*/
+        /* Configure QSPI: CCR register with all communications parameters */
+        WRITE_REG(hqspi->Instance->CCR, (cmd->DdrMode | cmd->DdrHoldHalfCycle | cmd->SIOOMode |
+                                         cmd->DataMode | (cmd->DummyCycles << QUADSPI_CCR_DCYC_Pos) |
+                                         cmd->AlternateByteMode | cmd->AddressSize | cmd->AddressMode |
+                                         cmd->InstructionMode | cmd->Instruction | FunctionalMode));
+
+        if (FunctionalMode != QSPI_FUNCTIONAL_MODE_MEMORY_MAPPED)
+        {
+          /* Configure QSPI: AR register with address value */
+          WRITE_REG(hqspi->Instance->AR, cmd->Address);
+        }
+      }
+      else
+      {
+        /*---- Command with only instruction ----*/
+        /* Configure QSPI: CCR register with all communications parameters */
+        WRITE_REG(hqspi->Instance->CCR, (cmd->DdrMode | cmd->DdrHoldHalfCycle | cmd->SIOOMode |
+                                         cmd->DataMode | (cmd->DummyCycles << QUADSPI_CCR_DCYC_Pos) |
+                                         cmd->AlternateByteMode | cmd->AddressMode |
+                                         cmd->InstructionMode | cmd->Instruction | FunctionalMode));
+
+        /* Clear AR register */
+        CLEAR_REG(hqspi->Instance->AR);
+      }
+    }
+  }
+  else
+  {
+    if (cmd->AlternateByteMode != QSPI_ALTERNATE_BYTES_NONE)
+    {
+      /* Configure QSPI: ABR register with alternate bytes value */
+      WRITE_REG(hqspi->Instance->ABR, cmd->AlternateBytes);
+
+      if (cmd->AddressMode != QSPI_ADDRESS_NONE)
+      {
+        /*---- Command with address and alternate bytes ----*/
+        /* Configure QSPI: CCR register with all communications parameters */
+        WRITE_REG(hqspi->Instance->CCR, (cmd->DdrMode | cmd->DdrHoldHalfCycle | cmd->SIOOMode |
+                                         cmd->DataMode | (cmd->DummyCycles << QUADSPI_CCR_DCYC_Pos) |
+                                         cmd->AlternateBytesSize | cmd->AlternateByteMode |
+                                         cmd->AddressSize | cmd->AddressMode |
+                                         cmd->InstructionMode | FunctionalMode));
+
+        if (FunctionalMode != QSPI_FUNCTIONAL_MODE_MEMORY_MAPPED)
+        {
+          /* Configure QSPI: AR register with address value */
+          WRITE_REG(hqspi->Instance->AR, cmd->Address);
+        }
+      }
+      else
+      {
+        /*---- Command with only alternate bytes ----*/
+        /* Configure QSPI: CCR register with all communications parameters */
+        WRITE_REG(hqspi->Instance->CCR, (cmd->DdrMode | cmd->DdrHoldHalfCycle | cmd->SIOOMode |
+                                         cmd->DataMode | (cmd->DummyCycles << QUADSPI_CCR_DCYC_Pos) |
+                                         cmd->AlternateBytesSize | cmd->AlternateByteMode |
+                                         cmd->AddressMode | cmd->InstructionMode | FunctionalMode));
+
+        /* Clear AR register */
+        CLEAR_REG(hqspi->Instance->AR);
+      }
+    }
+    else
+    {
+      if (cmd->AddressMode != QSPI_ADDRESS_NONE)
+      {
+        /*---- Command with only address ----*/
+        /* Configure QSPI: CCR register with all communications parameters */
+        WRITE_REG(hqspi->Instance->CCR, (cmd->DdrMode | cmd->DdrHoldHalfCycle | cmd->SIOOMode |
+                                         cmd->DataMode | (cmd->DummyCycles << QUADSPI_CCR_DCYC_Pos) |
+                                         cmd->AlternateByteMode | cmd->AddressSize |
+                                         cmd->AddressMode | cmd->InstructionMode | FunctionalMode));
+
+        if (FunctionalMode != QSPI_FUNCTIONAL_MODE_MEMORY_MAPPED)
+        {
+          /* Configure QSPI: AR register with address value */
+          WRITE_REG(hqspi->Instance->AR, cmd->Address);
+        }
+      }
+      else
+      {
+        /*---- Command with only data phase ----*/
+        if (cmd->DataMode != QSPI_DATA_NONE)
+        {
+          /* Configure QSPI: CCR register with all communications parameters */
+          WRITE_REG(hqspi->Instance->CCR, (cmd->DdrMode | cmd->DdrHoldHalfCycle | cmd->SIOOMode |
+                                           cmd->DataMode | (cmd->DummyCycles << QUADSPI_CCR_DCYC_Pos) |
+                                           cmd->AlternateByteMode | cmd->AddressMode |
+                                           cmd->InstructionMode | FunctionalMode));
+
+          /* Clear AR register */
+          CLEAR_REG(hqspi->Instance->AR);
+        }
+      }
+    }
+  }
+}
+
+HAL_StatusTypeDef HAL_QSPI_Command_Custom(QSPI_HandleTypeDef *hqspi, QSPI_CommandTypeDef *cmd, uint32_t Timeout)
+{
+  HAL_StatusTypeDef status;
+  uint32_t tickstart = HAL_GetTick();
+
+  if(hqspi->State == HAL_QSPI_STATE_READY)
+  {
+    hqspi->ErrorCode = HAL_QSPI_ERROR_NONE;
+
+    /* Update QSPI state */
+    hqspi->State = HAL_QSPI_STATE_BUSY;
+
+    /* Wait till BUSY flag reset */
+    status = QSPI_WaitFlagStateUntilTimeout(hqspi, QSPI_FLAG_BUSY, RESET, tickstart, Timeout);
+
+    if (status == HAL_OK)
+    {
+      /* Call the configuration function */
+      QSPI_Config(hqspi, cmd, QSPI_FUNCTIONAL_MODE_INDIRECT_WRITE);
+
+      if (cmd->DataMode == QSPI_DATA_NONE)
+      {
+        /* When there is no data phase, the transfer start as soon as the configuration is done
+        so wait until TC flag is set to go back in idle state */
+        status = QSPI_WaitFlagStateUntilTimeout(hqspi, QSPI_FLAG_TC, SET, tickstart, Timeout);
+
+        if (status == HAL_OK)
+        {
+          __HAL_QSPI_CLEAR_FLAG(hqspi, QSPI_FLAG_TC);
+
+          /* Update QSPI state */
+          hqspi->State = HAL_QSPI_STATE_READY;
+        }
+      }
+      else
+      {
+        /* Update QSPI state */
+        hqspi->State = HAL_QSPI_STATE_READY;
+      }
+    }
+  }
+  else
+  {
+    status = HAL_BUSY;
+  }
+
+  /* Return function status */
+  return status;
+}
+
+static void QSPI_DMAAbortCplt(MDMA_HandleTypeDef *hmdma)
+{
+  QSPI_HandleTypeDef* hqspi = ( QSPI_HandleTypeDef* )(hmdma->Parent);
+
+  hqspi->RxXferCount = 0U;
+  hqspi->TxXferCount = 0U;
+
+  if(hqspi->State == HAL_QSPI_STATE_ABORT)
+  {
+    /* MDMA Abort called by QSPI abort */
+    /* Clear interrupt */
+    __HAL_QSPI_CLEAR_FLAG(hqspi, QSPI_FLAG_TC);
+
+    /* Enable the QSPI Transfer Complete Interrupt */
+    __HAL_QSPI_ENABLE_IT(hqspi, QSPI_IT_TC);
+
+    /* Configure QSPI: CR register with Abort request */
+    SET_BIT(hqspi->Instance->CR, QUADSPI_CR_ABORT);
+  }
+  else
+  {
+    /* MDMA Abort called due to a transfer error interrupt */
+    /* Change state of QSPI */
+    hqspi->State = HAL_QSPI_STATE_READY;
+
+    /* Error callback */
+#if (USE_HAL_QSPI_REGISTER_CALLBACKS == 1)
+    hqspi->ErrorCallback(hqspi);
+#else
+    HAL_QSPI_ErrorCallback(hqspi);
+#endif
+  }
+}
+
+HAL_StatusTypeDef HAL_QSPI_Abort_IT_Custom(QSPI_HandleTypeDef *hqspi)
+{
+  HAL_StatusTypeDef status = HAL_OK;
+
+  /* Check if the state is in one of the busy states */
+  if (((uint32_t)hqspi->State & 0x2U) != 0U)
+  {
+    /* Update QSPI state */
+    hqspi->State = HAL_QSPI_STATE_ABORT;
+
+    /* Disable all interrupts */
+    __HAL_QSPI_DISABLE_IT(hqspi, (QSPI_IT_TO | QSPI_IT_SM | QSPI_IT_FT | QSPI_IT_TC | QSPI_IT_TE));
+
+    if ((hqspi->Instance->CR & QUADSPI_CR_DMAEN) != 0U)
+    {
+      /* Disable using MDMA by clearing DMAEN, note that DMAEN bit is "reserved"
+         but no impact on H7 HW and it minimize the cost in the footprint */
+      CLEAR_BIT(hqspi->Instance->CR, QUADSPI_CR_DMAEN);
+
+      /* Abort MDMA channel */
+      hqspi->hmdma->XferAbortCallback = QSPI_DMAAbortCplt;
+      if (HAL_MDMA_Abort_IT(hqspi->hmdma) != HAL_OK)
+      {
+        /* Change state of QSPI */
+        hqspi->State = HAL_QSPI_STATE_READY;
+
+        /* Abort Complete callback */
+#if (USE_HAL_QSPI_REGISTER_CALLBACKS == 1)
+        hqspi->AbortCpltCallback(hqspi);
+#else
+        HAL_QSPI_AbortCpltCallback(hqspi);
+#endif
+      }
+    }
+    else
+    {
+      if (__HAL_QSPI_GET_FLAG(hqspi, QSPI_FLAG_BUSY) != RESET)
+      {
+        /* Clear interrupt */
+        __HAL_QSPI_CLEAR_FLAG(hqspi, QSPI_FLAG_TC);
+        
+        /* Enable the QSPI Transfer Complete Interrupt */
+        __HAL_QSPI_ENABLE_IT(hqspi, QSPI_IT_TC);
+        
+        /* Configure QSPI: CR register with Abort request */
+        SET_BIT(hqspi->Instance->CR, QUADSPI_CR_ABORT);
+      }    
+      else
+      {
+        /* Change state of QSPI */
+        hqspi->State = HAL_QSPI_STATE_READY;
+      }
+    }
+  }
+  return status;
+}
+
+static void QSPI_DMARxCplt(MDMA_HandleTypeDef *hmdma)
+{
+  QSPI_HandleTypeDef* hqspi = (QSPI_HandleTypeDef*)(hmdma->Parent);
+  hqspi->RxXferCount = 0U;
+
+  /* Enable the QSPI transfer complete Interrupt */
+  __HAL_QSPI_ENABLE_IT(hqspi, QSPI_IT_TC);
+}
+
+static void QSPI_DMATxCplt(MDMA_HandleTypeDef *hmdma)
+{
+  QSPI_HandleTypeDef* hqspi = (QSPI_HandleTypeDef*)(hmdma->Parent);
+  hqspi->TxXferCount = 0U;
+
+  /* Enable the QSPI transfer complete Interrupt */
+  __HAL_QSPI_ENABLE_IT(hqspi, QSPI_IT_TC);
+}
+
+static void QSPI_DMAError(MDMA_HandleTypeDef *hmdma)
+{
+  QSPI_HandleTypeDef* hqspi = ( QSPI_HandleTypeDef* )(hmdma->Parent);
+
+  hqspi->RxXferCount = 0U;
+  hqspi->TxXferCount = 0U;
+  hqspi->ErrorCode   |= HAL_QSPI_ERROR_DMA;
+
+  /* Disable using MDMA by clearing DMAEN, note that DMAEN bit is "reserved"
+     but no impact on H7 HW and it minimize the cost in the footprint */
+  CLEAR_BIT(hqspi->Instance->CR, QUADSPI_CR_DMAEN);
+
+  /* Abort the QSPI */
+  (void)HAL_QSPI_Abort_IT_Custom(hqspi);
+
+}
+
+static void MDMA_SetConfig(MDMA_HandleTypeDef *hmdma, uint32_t SrcAddress, uint32_t DstAddress, uint32_t BlockDataLength, uint32_t BlockCount)
+{
+  uint32_t addressMask;
+
+  /* Configure the MDMA Channel data length */
+  MODIFY_REG(hmdma->Instance->CBNDTR ,MDMA_CBNDTR_BNDT, (BlockDataLength & MDMA_CBNDTR_BNDT));
+
+  /* Configure the MDMA block repeat count */
+  MODIFY_REG(hmdma->Instance->CBNDTR , MDMA_CBNDTR_BRC , ((BlockCount - 1U) << MDMA_CBNDTR_BRC_Pos) & MDMA_CBNDTR_BRC);
+
+  /* Clear all interrupt flags */
+  __HAL_MDMA_CLEAR_FLAG(hmdma, MDMA_FLAG_TE | MDMA_FLAG_CTC | MDMA_CISR_BRTIF | MDMA_CISR_BTIF | MDMA_CISR_TCIF);
+
+  /* Configure MDMA Channel destination address */
+  hmdma->Instance->CDAR = DstAddress;
+
+  /* Configure MDMA Channel Source address */
+  hmdma->Instance->CSAR = SrcAddress;
+
+  addressMask = SrcAddress & 0xFF000000U;
+  if((addressMask == 0x20000000U) || (addressMask == 0x00000000U))
+  {
+    /*The AHBSbus is used as source (read operation) on channel x */
+    hmdma->Instance->CTBR |= MDMA_CTBR_SBUS;
+  }
+  else
+  {
+    /*The AXI bus is used as source (read operation) on channel x */
+    hmdma->Instance->CTBR &= (~MDMA_CTBR_SBUS);
+  }
+
+  addressMask = DstAddress & 0xFF000000U;
+  if((addressMask == 0x20000000U) || (addressMask == 0x00000000U))
+  {
+    /*The AHB bus is used as destination (write operation) on channel x */
+    hmdma->Instance->CTBR |= MDMA_CTBR_DBUS;
+  }
+  else
+  {
+    /*The AXI bus is used as destination (write operation) on channel x */
+    hmdma->Instance->CTBR &= (~MDMA_CTBR_DBUS);
+  }
+
+  /* Set the linked list register to the first node of the list */
+  hmdma->Instance->CLAR = (uint32_t)hmdma->FirstLinkedListNodeAddress;
+}
+
+HAL_StatusTypeDef HAL_MDMA_Start_IT_Custom(MDMA_HandleTypeDef *hmdma, uint32_t SrcAddress, uint32_t DstAddress, uint32_t BlockDataLength, uint32_t BlockCount)
+{
+
+  if(HAL_MDMA_STATE_READY == hmdma->State)
+  {
+    /* Change MDMA peripheral state */
+    hmdma->State = HAL_MDMA_STATE_BUSY;
+
+    /* Initialize the error code */
+    hmdma->ErrorCode = HAL_MDMA_ERROR_NONE;
+
+    /* Disable the peripheral */
+    __HAL_MDMA_DISABLE(hmdma);
+
+    /* Configure the source, destination address and the data length */
+    MDMA_SetConfig(hmdma, SrcAddress, DstAddress, BlockDataLength, BlockCount);
+
+    /* Enable Common interrupts i.e Transfer Error IT and Channel Transfer Complete IT*/
+    __HAL_MDMA_ENABLE_IT(hmdma, (MDMA_IT_TE | MDMA_IT_CTC));
+
+    if(hmdma->XferBlockCpltCallback != NULL)
+    {
+      /* if Block transfer complete Callback is set enable the corresponding IT*/
+      __HAL_MDMA_ENABLE_IT(hmdma, MDMA_IT_BT);
+    }
+
+    if(hmdma->XferRepeatBlockCpltCallback != NULL)
+    {
+      /* if Repeated Block transfer complete Callback is set enable the corresponding IT*/
+      __HAL_MDMA_ENABLE_IT(hmdma, MDMA_IT_BRT);
+    }
+
+    if(hmdma->XferBufferCpltCallback != NULL)
+    {
+      /* if buffer transfer complete Callback is set enable the corresponding IT*/
+      __HAL_MDMA_ENABLE_IT(hmdma, MDMA_IT_BFTC);
+    }
+
+    /* Enable the Peripheral */
+    __HAL_MDMA_ENABLE(hmdma);
+
+    if(hmdma->Init.Request == MDMA_REQUEST_SW)
+    {
+      /* activate If SW request mode*/
+      hmdma->Instance->CCR |=  MDMA_CCR_SWRQ;
+    }
+  }
+  else
+  {
+    /* Return error status */
+    return HAL_BUSY;
+  }
+
+  return HAL_OK;
+}
+
+HAL_StatusTypeDef HAL_QSPI_Transmit_DMA_Custom(QSPI_HandleTypeDef *hqspi, uint8_t *pData)
+{
+  HAL_StatusTypeDef status = HAL_OK;
+  uint32_t data_size = (READ_REG(hqspi->Instance->DLR) + 1U);
+
+  if(hqspi->State == HAL_QSPI_STATE_READY)
+  {
+    /* Clear the error code */
+    hqspi->ErrorCode = HAL_QSPI_ERROR_NONE;
+
+    if(pData != NULL )
+    {
+      /* Configure counters of the handle */
+      hqspi->TxXferCount = data_size;
+
+        /* Update state */
+        hqspi->State = HAL_QSPI_STATE_BUSY_INDIRECT_TX;
+
+        /* Clear interrupt */
+        __HAL_QSPI_CLEAR_FLAG(hqspi, (QSPI_FLAG_TE | QSPI_FLAG_TC));
+
+        /* Configure size and pointer of the handle */
+        hqspi->TxXferSize = hqspi->TxXferCount;
+        hqspi->pTxBuffPtr = pData;
+
+        /* Configure QSPI: CCR register with functional mode as indirect write */
+        MODIFY_REG(hqspi->Instance->CCR, QUADSPI_CCR_FMODE, QSPI_FUNCTIONAL_MODE_INDIRECT_WRITE);
+
+        /* Set the QSPI MDMA transfer complete callback */
+        hqspi->hmdma->XferCpltCallback = QSPI_DMATxCplt;
+
+        /* Set the MDMA error callback */
+        hqspi->hmdma->XferErrorCallback = QSPI_DMAError;
+
+        /* Clear the MDMA abort callback */
+        hqspi->hmdma->XferAbortCallback = NULL;
+
+        /* In Transmit mode , the MDMA destination is the QSPI DR register : Force the MDMA Destination Increment to disable */
+        MODIFY_REG(hqspi->hmdma->Instance->CTCR, (MDMA_CTCR_DINC | MDMA_CTCR_DINCOS) ,MDMA_DEST_INC_DISABLE);
+
+        /* Update MDMA configuration with the correct SourceInc field for Write operation */
+        if (hqspi->hmdma->Init.SourceDataSize == MDMA_SRC_DATASIZE_BYTE)
+        {
+          MODIFY_REG(hqspi->hmdma->Instance->CTCR, (MDMA_CTCR_SINC | MDMA_CTCR_SINCOS) , MDMA_SRC_INC_BYTE);
+        }
+        else if (hqspi->hmdma->Init.SourceDataSize == MDMA_SRC_DATASIZE_HALFWORD)
+        {
+          MODIFY_REG(hqspi->hmdma->Instance->CTCR, (MDMA_CTCR_SINC | MDMA_CTCR_SINCOS) , MDMA_SRC_INC_HALFWORD);
+        }
+        else if (hqspi->hmdma->Init.SourceDataSize == MDMA_SRC_DATASIZE_WORD)
+        {
+          MODIFY_REG(hqspi->hmdma->Instance->CTCR, (MDMA_CTCR_SINC | MDMA_CTCR_SINCOS) , MDMA_SRC_INC_WORD);
+        }
+        else
+        {
+          /* in case of incorrect source data size */
+          hqspi->ErrorCode |= HAL_QSPI_ERROR_DMA;
+          status = HAL_ERROR;
+        }
+
+        /* Enable the QSPI transfer error Interrupt */
+        __HAL_QSPI_ENABLE_IT(hqspi, QSPI_IT_TE);
+
+        /* Use DMAEN bit with no impact on H7 HW to record MDMA transfer request */
+        SET_BIT(hqspi->Instance->CR, QUADSPI_CR_DMAEN);
+
+        /* Enable the QSPI transmit MDMA */
+        if (HAL_MDMA_Start_IT_Custom(hqspi->hmdma, (uint32_t)pData, (uint32_t)&hqspi->Instance->DR, hqspi->TxXferSize, 1) == HAL_OK)
+        {
+        }
+        else
+        {
+          /* Clear DMAEN bit with no impact on H7 HW to cancel MDMA transfer request */
+          CLEAR_BIT(hqspi->Instance->CR, QUADSPI_CR_DMAEN);
+
+          status = HAL_ERROR;
+          hqspi->ErrorCode |= HAL_QSPI_ERROR_DMA;
+          hqspi->State = HAL_QSPI_STATE_READY;
+        }
+    }
+    else
+    {
+      hqspi->ErrorCode |= HAL_QSPI_ERROR_INVALID_PARAM;
+      status = HAL_ERROR;
+    }
+  }
+  else
+  {
+    status = HAL_BUSY;
+  }
+
+  return status;
+}
+
+HAL_StatusTypeDef HAL_QSPI_Receive_DMA_Custom(QSPI_HandleTypeDef *hqspi, uint8_t *pData)
+{
+  HAL_StatusTypeDef status = HAL_OK;
+  uint32_t addr_reg = READ_REG(hqspi->Instance->AR);
+  uint32_t data_size = (READ_REG(hqspi->Instance->DLR) + 1U);
+
+  if(hqspi->State == HAL_QSPI_STATE_READY)
+  {
+    /* Clear the error code */
+    hqspi->ErrorCode = HAL_QSPI_ERROR_NONE;
+
+    if(pData != NULL )
+    {
+      /* Configure counters of the handle */
+      hqspi->RxXferCount = data_size;
+        /* Update state */
+        hqspi->State = HAL_QSPI_STATE_BUSY_INDIRECT_RX;
+
+        /* Clear interrupt */
+        __HAL_QSPI_CLEAR_FLAG(hqspi, (QSPI_FLAG_TE | QSPI_FLAG_TC));
+
+        /* Configure size and pointer of the handle */
+        hqspi->RxXferSize = hqspi->RxXferCount;
+        hqspi->pRxBuffPtr = pData;
+
+        /* Set the QSPI MDMA transfer complete callback */
+        hqspi->hmdma->XferCpltCallback = QSPI_DMARxCplt;
+
+        /* Set the MDMA error callback */
+        hqspi->hmdma->XferErrorCallback = QSPI_DMAError;
+
+        /* Clear the MDMA abort callback */
+        hqspi->hmdma->XferAbortCallback = NULL;
+
+      /* In Receive mode , the MDMA source is the QSPI DR register : Force the MDMA Source Increment to disable */
+      MODIFY_REG(hqspi->hmdma->Instance->CTCR, (MDMA_CTCR_SINC | MDMA_CTCR_SINCOS) , MDMA_SRC_INC_DISABLE);
+
+      /* Update MDMA configuration with the correct DestinationInc field for read operation */
+      if (hqspi->hmdma->Init.DestDataSize == MDMA_DEST_DATASIZE_BYTE)
+      {
+        MODIFY_REG(hqspi->hmdma->Instance->CTCR, (MDMA_CTCR_DINC | MDMA_CTCR_DINCOS) , MDMA_DEST_INC_BYTE);
+      }
+      else if (hqspi->hmdma->Init.DestDataSize == MDMA_DEST_DATASIZE_HALFWORD)
+      {
+        MODIFY_REG(hqspi->hmdma->Instance->CTCR, (MDMA_CTCR_DINC | MDMA_CTCR_DINCOS) , MDMA_DEST_INC_HALFWORD);
+      }
+      else if (hqspi->hmdma->Init.DestDataSize == MDMA_DEST_DATASIZE_WORD)
+      {
+        MODIFY_REG(hqspi->hmdma->Instance->CTCR, (MDMA_CTCR_DINC | MDMA_CTCR_DINCOS) , MDMA_DEST_INC_WORD);
+      }
+      else
+      {
+       /* in case of incorrect destination data size */
+        hqspi->ErrorCode |= HAL_QSPI_ERROR_DMA;
+        status = HAL_ERROR;
+      }
+          /* Configure QSPI: CCR register with functional as indirect read */
+          MODIFY_REG(hqspi->Instance->CCR, QUADSPI_CCR_FMODE, QSPI_FUNCTIONAL_MODE_INDIRECT_READ);
+
+          /* Start the transfer by re-writing the address in AR register */
+          WRITE_REG(hqspi->Instance->AR, addr_reg);
+
+        /* Enable the QSPI transfer error Interrupt */
+        __HAL_QSPI_ENABLE_IT(hqspi, QSPI_IT_TE);
+
+        /* Use DMAEN bit with no impact on H7 HW to record MDMA transfer request */
+        SET_BIT(hqspi->Instance->CR, QUADSPI_CR_DMAEN);
+
+        /* Enable the MDMA */
+        if (HAL_MDMA_Start_IT(hqspi->hmdma, (uint32_t)&hqspi->Instance->DR, (uint32_t)pData, hqspi->RxXferSize, 1) == HAL_OK)
+        {
+        }
+        else
+        {
+          /* Clear DMAEN bit with no impact on H7 HW to cancel MDMA transfer request */
+          CLEAR_BIT(hqspi->Instance->CR, QUADSPI_CR_DMAEN);
+
+          status = HAL_ERROR;
+          hqspi->ErrorCode |= HAL_QSPI_ERROR_DMA;
+          hqspi->State = HAL_QSPI_STATE_READY;
+        }
+    }
+    else
+    {
+      hqspi->ErrorCode |= HAL_QSPI_ERROR_INVALID_PARAM;
+      status = HAL_ERROR;
+    }
+  }
+  else
+  {
+    status = HAL_BUSY;
+  }
+
+  return status;
+}
+
+uint8_t w25qxx_interface_spi_qspi_write_read(uint8_t instruction, uint8_t instruction_line,
+					     uint32_t address, uint8_t address_line, uint8_t address_len,
+					     uint32_t alternate, uint8_t alternate_line, uint8_t alternate_len,
+					     uint8_t dummy, uint8_t *in_buf, uint32_t in_len,
+					     uint8_t *out_buf, uint32_t out_len, uint8_t data_line)
+{
+	QSPI_CommandTypeDef cmd_handler;
+	u32 val;
+	int ret;
+
+	if ((in_len != 0) && (out_len != 0)) {
+		return 2;
+	}
+
+	cmd_handler.Instruction = instruction;
+	if (instruction_line == 0) {
+		cmd_handler.InstructionMode = QSPI_INSTRUCTION_NONE;
+	} else if (instruction_line == 1) {
+		cmd_handler.InstructionMode = QSPI_INSTRUCTION_1_LINE;
+	} else if (instruction_line == 2) {
+		cmd_handler.InstructionMode = QSPI_INSTRUCTION_2_LINES;
+	} else if (instruction_line == 4) {
+		cmd_handler.InstructionMode = QSPI_INSTRUCTION_4_LINES;
+	} else {
+		return 2;
+	}
+
+	if (address_line == 0) {
+		cmd_handler.AddressMode = QSPI_ADDRESS_NONE;
+	} else if (address_line == 1) {
+		cmd_handler.AddressMode = QSPI_ADDRESS_1_LINE;
+	} else if (address_line == 2) {
+		cmd_handler.AddressMode = QSPI_ADDRESS_2_LINES;
+	} else if (address_line == 4) {
+		cmd_handler.AddressMode = QSPI_ADDRESS_4_LINES;
+	} else {
+		return 2;
+	}
+
+	if (address_len == 0) {
+		cmd_handler.Address = address & 0xFF;
+		cmd_handler.AddressSize = QSPI_ADDRESS_8_BITS;
+	} else if (address_len == 1) {
+		cmd_handler.Address = address & 0xFF;
+		cmd_handler.AddressSize = QSPI_ADDRESS_8_BITS;
+	} else if (address_len == 2) {
+		cmd_handler.Address = address & 0xFFFF;
+		cmd_handler.AddressSize = QSPI_ADDRESS_16_BITS;
+	} else if (address_len == 3) {
+		cmd_handler.Address = address & 0xFFFFFF;
+		cmd_handler.AddressSize = QSPI_ADDRESS_24_BITS;
+	} else if (address_len == 4) {
+		cmd_handler.Address = address & 0xFFFFFFFF;
+		cmd_handler.AddressSize = QSPI_ADDRESS_32_BITS;
+	} else {
+		return 2;
+	}
+
+	cmd_handler.AlternateBytes = alternate;
+	if (alternate_line == 0) {
+		cmd_handler.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+	} else if (alternate_line == 1) {
+		cmd_handler.AlternateByteMode = QSPI_ALTERNATE_BYTES_1_LINE;
+	} else if (alternate_line == 2) {
+		cmd_handler.AlternateByteMode = QSPI_ALTERNATE_BYTES_2_LINES;
+	} else if (alternate_line == 4) {
+		cmd_handler.AlternateByteMode = QSPI_ALTERNATE_BYTES_4_LINES;
+	} else {
+		return 2;
+	}
+
+	if (alternate_len == 0) {
+		cmd_handler.AlternateBytesSize = QSPI_ALTERNATE_BYTES_8_BITS;
+	} else if (alternate_len == 1) {
+		cmd_handler.AlternateBytesSize = QSPI_ALTERNATE_BYTES_8_BITS;
+	} else if (alternate_len == 2) {
+		cmd_handler.AlternateBytesSize = QSPI_ALTERNATE_BYTES_16_BITS;
+	} else if (alternate_len == 3) {
+		cmd_handler.AlternateBytesSize = QSPI_ALTERNATE_BYTES_24_BITS;
+	} else if (alternate_len == 4) {
+		cmd_handler.AlternateBytesSize = QSPI_ALTERNATE_BYTES_32_BITS;
+	} else {
+		return 2;
+	}
+
+	cmd_handler.DummyCycles = dummy;
+
+	if (data_line == 0) {
+		cmd_handler.DataMode = QSPI_DATA_NONE;
+	} else if (data_line == 1) {
+		cmd_handler.DataMode = QSPI_DATA_1_LINE;
+	} else if (data_line == 2) {
+		cmd_handler.DataMode = QSPI_DATA_2_LINES;
+	} else if (data_line == 4) {
+		cmd_handler.DataMode = QSPI_DATA_4_LINES;
+	} else {
+		return 2;
+	}
+
+	cmd_handler.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
+	cmd_handler.DdrMode = QSPI_DDR_MODE_DISABLE;
+	cmd_handler.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+
+	if (!flash_wait_for_completion) {
+		ret = readl_poll_timeout((volatile u32 *)&hqspi.State, val,
+										val == HAL_QSPI_STATE_READY, 100, 1000000);
+		if (ret < 0) {
+			HAL_MDMA_Abort(&hmdma_quadspi_fifo_th);
+			return 1;
+		}
+	}
+
+	if (HAL_QSPI_Command_Custom(&hqspi, &cmd_handler, 1000) != HAL_OK) {
+		return 1;
+	}
+
+	if (in_len != 0) {
+		hqspi.Instance->DLR = in_len - 1;
+		if (HAL_QSPI_Transmit_DMA_Custom(&hqspi, in_buf) != HAL_OK) {
+			return 1;
+		}
+		ret = readl_poll_timeout((volatile u32 *)&hqspi.State, val,
+										val == HAL_QSPI_STATE_READY, 100, 1000000);
+		if (ret < 0) {
+			HAL_MDMA_Abort(&hmdma_quadspi_fifo_th);
+			return 1;
+		}
+	}
+
+	if (out_len != 0) {
+		hqspi.Instance->DLR = out_len - 1;
+		if (HAL_QSPI_Receive_DMA_Custom(&hqspi, out_buf) != HAL_OK) {
+			return 1;
+		}
+		if (flash_wait_for_completion) {
+			ret = readl_poll_timeout((volatile u32 *)&hqspi.State, val,
+											val == HAL_QSPI_STATE_READY, 100, 1000000);
+			if (ret < 0) {
+				HAL_MDMA_Abort(&hmdma_quadspi_fifo_th);
+				return 1;
+			}
+		}
+	}
+
+	return 0;
+}
+
+void w25qxx_interface_delay_ms(uint32_t ms)
+{
+    mdelay(ms);
+}
+
+void w25qxx_interface_delay_us(uint32_t us)
+{
+    udelay(us);
+}
+
+void w25qxx_interface_debug_print(const char *const fmt, ...)
+{
+	pr_debug("%s", fmt);
+}
+
+w25qxx_handle_t *ld_w25qxx_handle;
+
 static int spi7_cs_low(void)
 {
 	HAL_GPIO_WritePin(GPIOG, GPIO_PIN_11, GPIO_PIN_RESET);
@@ -1184,11 +2090,12 @@ void nrf24l01_interface_debug_print(const char *const fmt, ...)
 
 static int usart2_init(struct serial_port *serial)
 {
+	stm32_uart_port[1] = serial;
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart2, serial->rx_buffer, SERIAL_PORT_BUFFER_SIZE);
 	/* CIRCULAR mode: suppress DMA TC and HT interrupts, rely on USART IDLE only */
 	__HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_TC | DMA_IT_HT);
 
-	return 0;
+	return stm32_uart_result[1].error ? -EIO : 0;
 }
 
 static int usart2_transmit_bytes(const u8 *data, u16 size)
@@ -1340,15 +2247,618 @@ struct serial_port_ops usart2_serial_port_ops = {
 	.set_tx           = usart2_set_tx,
 };
 
+static int usart6_init(struct serial_port *serial)
+{
+	stm32_uart_port[2] = serial;
+	HAL_UARTEx_ReceiveToIdle_DMA(&huart6, serial->rx_buffer, SERIAL_PORT_BUFFER_SIZE);
+	__HAL_DMA_DISABLE_IT(&hdma_usart6_rx, DMA_IT_TC | DMA_IT_HT);
+
+	return 0;
+}
+
+static int usart6_transmit_bytes(const u8 *data, u16 size)
+{
+	u32 val;
+	int ret;
+
+	stm32_uart_result[2].tx_done = 0;
+	stm32_uart_result[2].error = 0;
+
+	if (HAL_UART_Transmit_DMA(&huart6, data, size) != HAL_OK) {
+		stm32_uart_result[2].error = 1;
+		return -EIO;
+	}
+
+	ret = readl_poll_timeout(&stm32_uart_result[2].tx_done, val,
+				 val || stm32_uart_result[2].error, 100, 100000);
+	if (ret < 0)
+		return ret;
+
+	return stm32_uart_result[2].error ? -EIO : 0;
+}
+
+static int usart6_receive_cb(struct serial_port *serial)
+{
+	return 0;
+}
+
+static int usart6_rx_disable(void)
+{
+	CLEAR_BIT(huart6.Instance->CR1, USART_CR1_RE);
+
+	return 0;
+}
+
+static int usart6_rx_enable(void)
+{
+	SET_BIT(huart6.Instance->CR1, USART_CR1_RE);
+
+	return 0;
+}
+
+static int usart6_config(struct serial_port *serial, u32 baud_rate,
+				u8 parity, u8 data_bits, u8 flow_control)
+{
+	u32 word_length;
+	u32 parity_cfg;
+	int retry = 3;
+
+	HAL_UART_Abort(&huart6);
+
+	switch (parity) {
+	case 1:  parity_cfg = UART_PARITY_ODD;  break;
+	case 2:  parity_cfg = UART_PARITY_EVEN; break;
+	default: parity_cfg = UART_PARITY_NONE; break;
+	}
+
+	switch (data_bits) {
+	case 7:  word_length = UART_WORDLENGTH_7B; break;
+	default: word_length = UART_WORDLENGTH_8B; break;
+	}
+
+	huart6.Init.BaudRate     = baud_rate;
+	huart6.Init.WordLength   = word_length;
+	huart6.Init.StopBits     = UART_STOPBITS_1;
+	huart6.Init.Parity       = parity_cfg;
+	huart6.Init.Mode         = UART_MODE_TX_RX;
+	huart6.Init.HwFlowCtl    = (flow_control == 2) ? UART_HWCONTROL_RTS_CTS : UART_HWCONTROL_NONE;
+	huart6.Init.OverSampling = UART_OVERSAMPLING_16;
+#if defined(USART_CR1_UE)
+	huart6.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+#endif
+
+	while (retry--) {
+		if (HAL_UART_Init(&huart6) == HAL_OK)
+			break;
+		HAL_Delay(10);
+	}
+
+	serial->producer = 0;
+	serial->consumer = 0;
+	serial->received_size = 0;
+	serial->rx_complete = false;
+
+	HAL_UARTEx_ReceiveToIdle_DMA(&huart6, serial->rx_buffer, SERIAL_PORT_BUFFER_SIZE);
+	__HAL_DMA_DISABLE_IT(&hdma_usart6_rx, DMA_IT_TC | DMA_IT_HT);
+
+	pr_info("usart6: configured %lu baud, parity=%u\n",
+		(unsigned long)baud_rate, parity);
+	return 0;
+}
+
+static void usart6_irq_disable(void)
+{
+	HAL_NVIC_DisableIRQ(USART6_IRQn);
+#if defined(STM32H743xx)
+	HAL_NVIC_DisableIRQ(DMA2_Stream6_IRQn);
+	HAL_NVIC_DisableIRQ(DMA2_Stream7_IRQn);
+#elif defined(STM32F407xx)
+	HAL_NVIC_DisableIRQ(DMA2_Stream6_IRQn);
+	HAL_NVIC_DisableIRQ(DMA2_Stream7_IRQn);
+#endif
+}
+
+static void usart6_irq_enable(void)
+{
+	HAL_NVIC_EnableIRQ(USART6_IRQn);
+#if defined(STM32H743xx)
+	HAL_NVIC_EnableIRQ(DMA2_Stream6_IRQn);
+	HAL_NVIC_EnableIRQ(DMA2_Stream7_IRQn);
+#elif defined(STM32F407xx)
+	HAL_NVIC_EnableIRQ(DMA2_Stream6_IRQn);
+	HAL_NVIC_EnableIRQ(DMA2_Stream7_IRQn);
+#endif
+}
+
+static void usart6_set_tx(u8 state)
+{
+	if (state)
+		SET_BIT(huart6.Instance->CR1, USART_CR1_TE);
+	else
+		SET_BIT(huart6.Instance->RQR, USART_RQR_SBKRQ);
+}
+
+static void usart6_update_producer(struct serial_port *serial)
+{
+	serial->producer = (SERIAL_PORT_BUFFER_SIZE - __HAL_DMA_GET_COUNTER(&hdma_usart6_rx)) % SERIAL_PORT_BUFFER_SIZE;
+}
+
 struct serial_port_ops usart6_serial_port_ops = {
-	.init			  = usart2_init,
-	.transmit_bytes   = usart2_transmit_bytes,
-	.receive_callback = usart2_receive_cb,
-	.config           = usart2_config,
-	.irq_disable      = usart2_irq_disable,
-	.irq_enable       = usart2_irq_enable,
-	.set_tx           = usart2_set_tx,
+	.init			  = usart6_init,
+	.disable          = usart6_rx_disable,
+	.enable           = usart6_rx_enable,
+	.transmit_bytes   = usart6_transmit_bytes,
+	.receive_callback = usart6_receive_cb,
+	.update_producer  = usart6_update_producer,
+	.config           = usart6_config,
+	.irq_disable      = usart6_irq_disable,
+	.irq_enable       = usart6_irq_enable,
+	.set_tx           = usart6_set_tx,
 };
+
+static int uart4_init(struct serial_port *serial)
+{
+	stm32_uart_port[3] = serial;
+	HAL_UARTEx_ReceiveToIdle_DMA(&huart4, serial->rx_buffer, SERIAL_PORT_BUFFER_SIZE);
+	__HAL_DMA_DISABLE_IT(&hdma_uart4_rx, DMA_IT_TC | DMA_IT_HT);
+
+	return 0;
+}
+
+static int uart4_transmit_bytes(const u8 *data, u16 size)
+{
+	u32 val;
+	int ret;
+
+	stm32_uart_result[3].tx_done = 0;
+	stm32_uart_result[3].error = 0;
+
+	if (HAL_UART_Transmit_DMA(&huart4, data, size) != HAL_OK) {
+		stm32_uart_result[3].error = 1;
+		return -EIO;
+	}
+
+	ret = readl_poll_timeout(&stm32_uart_result[3].tx_done, val,
+				 val || stm32_uart_result[3].error, 100, 100000);
+	if (ret < 0)
+		return ret;
+
+	return stm32_uart_result[3].error ? -EIO : 0;
+}
+
+static int uart4_receive_cb(struct serial_port *serial)
+{
+	return 0;
+}
+
+static int uart4_rx_disable(void)
+{
+	CLEAR_BIT(huart4.Instance->CR1, USART_CR1_RE);
+
+	return 0;
+}
+
+static int uart4_rx_enable(void)
+{
+	SET_BIT(huart4.Instance->CR1, USART_CR1_RE);
+
+	return 0;
+}
+
+static int uart4_config(struct serial_port *serial, u32 baud_rate,
+			u8 parity, u8 data_bits, u8 flow_control)
+{
+	u32 word_length;
+	u32 parity_cfg;
+	int retry = 3;
+
+	HAL_UART_Abort(&huart4);
+
+	switch (parity) {
+	case 1:  parity_cfg = UART_PARITY_ODD;  break;
+	case 2:  parity_cfg = UART_PARITY_EVEN; break;
+	default: parity_cfg = UART_PARITY_NONE; break;
+	}
+
+	switch (data_bits) {
+	case 7:  word_length = UART_WORDLENGTH_7B; break;
+	default: word_length = UART_WORDLENGTH_8B; break;
+	}
+
+	huart4.Init.BaudRate     = baud_rate;
+	huart4.Init.WordLength   = word_length;
+	huart4.Init.StopBits     = UART_STOPBITS_1;
+	huart4.Init.Parity       = parity_cfg;
+	huart4.Init.Mode         = UART_MODE_TX_RX;
+	huart4.Init.HwFlowCtl    = (flow_control == 2) ? UART_HWCONTROL_RTS_CTS : UART_HWCONTROL_NONE;
+	huart4.Init.OverSampling = UART_OVERSAMPLING_16;
+#if defined(USART_CR1_UE)
+	huart4.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+#endif
+
+	while (retry--) {
+		if (HAL_UART_Init(&huart4) == HAL_OK)
+			break;
+		HAL_Delay(10);
+	}
+
+	serial->producer = 0;
+	serial->consumer = 0;
+	serial->received_size = 0;
+	serial->rx_complete = false;
+
+	HAL_UARTEx_ReceiveToIdle_DMA(&huart4, serial->rx_buffer, SERIAL_PORT_BUFFER_SIZE);
+	__HAL_DMA_DISABLE_IT(&hdma_uart4_rx, DMA_IT_TC | DMA_IT_HT);
+
+	pr_info("uart4: configured %lu baud, parity=%u\n",
+		(unsigned long)baud_rate, parity);
+	return 0;
+}
+
+static void uart4_irq_disable(void)
+{
+	HAL_NVIC_DisableIRQ(UART4_IRQn);
+	/* DMA IRQ: verify Stream assignment in CubeMX, then fill in. */
+}
+
+static void uart4_irq_enable(void)
+{
+	HAL_NVIC_EnableIRQ(UART4_IRQn);
+}
+
+static void uart4_set_tx(u8 state)
+{
+	if (state)
+		SET_BIT(huart4.Instance->CR1, USART_CR1_TE);
+	else
+		SET_BIT(huart4.Instance->RQR, USART_RQR_SBKRQ);
+}
+
+static void uart4_update_producer(struct serial_port *serial)
+{
+	serial->producer = (SERIAL_PORT_BUFFER_SIZE - __HAL_DMA_GET_COUNTER(&hdma_uart4_rx)) % SERIAL_PORT_BUFFER_SIZE;
+}
+
+struct serial_port_ops uart4_serial_port_ops = {
+	.init			  = uart4_init,
+	.disable          = uart4_rx_disable,
+	.enable           = uart4_rx_enable,
+	.transmit_bytes   = uart4_transmit_bytes,
+	.receive_callback = uart4_receive_cb,
+	.update_producer  = uart4_update_producer,
+	.config           = uart4_config,
+	.irq_disable      = uart4_irq_disable,
+	.irq_enable       = uart4_irq_enable,
+	.set_tx           = uart4_set_tx,
+};
+
+static int uart5_init(struct serial_port *serial)
+{
+	stm32_uart_port[4] = serial;
+	HAL_UARTEx_ReceiveToIdle_DMA(&huart5, serial->rx_buffer, SERIAL_PORT_BUFFER_SIZE);
+	__HAL_DMA_DISABLE_IT(&hdma_uart5_rx, DMA_IT_TC | DMA_IT_HT);
+
+	return 0;
+}
+
+static int uart5_transmit_bytes(const u8 *data, u16 size)
+{
+	u32 val;
+	int ret;
+
+	stm32_uart_result[4].tx_done = 0;
+	stm32_uart_result[4].error = 0;
+
+	if (HAL_UART_Transmit_DMA(&huart5, data, size) != HAL_OK) {
+		stm32_uart_result[4].error = 1;
+		return -EIO;
+	}
+
+	ret = readl_poll_timeout(&stm32_uart_result[4].tx_done, val,
+				 val || stm32_uart_result[4].error, 100, 100000);
+	if (ret < 0)
+		return ret;
+
+	return stm32_uart_result[4].error ? -EIO : 0;
+}
+
+static int uart5_receive_cb(struct serial_port *serial)
+{
+	return 0;
+}
+
+static int uart5_rx_disable(void)
+{
+	CLEAR_BIT(huart5.Instance->CR1, USART_CR1_RE);
+
+	return 0;
+}
+
+static int uart5_rx_enable(void)
+{
+	SET_BIT(huart5.Instance->CR1, USART_CR1_RE);
+
+	return 0;
+}
+
+static int uart5_config(struct serial_port *serial, u32 baud_rate,
+			u8 parity, u8 data_bits, u8 flow_control)
+{
+	u32 word_length;
+	u32 parity_cfg;
+	int retry = 3;
+
+	HAL_UART_Abort(&huart5);
+
+	switch (parity) {
+	case 1:  parity_cfg = UART_PARITY_ODD;  break;
+	case 2:  parity_cfg = UART_PARITY_EVEN; break;
+	default: parity_cfg = UART_PARITY_NONE; break;
+	}
+
+	switch (data_bits) {
+	case 7:  word_length = UART_WORDLENGTH_7B; break;
+	default: word_length = UART_WORDLENGTH_8B; break;
+	}
+
+	huart5.Init.BaudRate     = baud_rate;
+	huart5.Init.WordLength   = word_length;
+	huart5.Init.StopBits     = UART_STOPBITS_1;
+	huart5.Init.Parity       = parity_cfg;
+	huart5.Init.Mode         = UART_MODE_TX_RX;
+	huart5.Init.HwFlowCtl    = (flow_control == 2) ? UART_HWCONTROL_RTS_CTS : UART_HWCONTROL_NONE;
+	huart5.Init.OverSampling = UART_OVERSAMPLING_16;
+#if defined(USART_CR1_UE)
+	huart5.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+#endif
+
+	while (retry--) {
+		if (HAL_UART_Init(&huart5) == HAL_OK)
+			break;
+		HAL_Delay(10);
+	}
+
+	serial->producer = 0;
+	serial->consumer = 0;
+	serial->received_size = 0;
+	serial->rx_complete = false;
+
+	HAL_UARTEx_ReceiveToIdle_DMA(&huart5, serial->rx_buffer, SERIAL_PORT_BUFFER_SIZE);
+	__HAL_DMA_DISABLE_IT(&hdma_uart5_rx, DMA_IT_TC | DMA_IT_HT);
+
+	pr_info("uart5: configured %lu baud, parity=%u\n",
+		(unsigned long)baud_rate, parity);
+	return 0;
+}
+
+static void uart5_irq_disable(void)
+{
+	HAL_NVIC_DisableIRQ(UART5_IRQn);
+	/* DMA IRQ: verify Stream assignment in CubeMX, then fill in. */
+}
+
+static void uart5_irq_enable(void)
+{
+	HAL_NVIC_EnableIRQ(UART5_IRQn);
+}
+
+static void uart5_set_tx(u8 state)
+{
+	if (state)
+		SET_BIT(huart5.Instance->CR1, USART_CR1_TE);
+	else
+		SET_BIT(huart5.Instance->RQR, USART_RQR_SBKRQ);
+}
+
+static void uart5_update_producer(struct serial_port *serial)
+{
+	serial->producer = (SERIAL_PORT_BUFFER_SIZE - __HAL_DMA_GET_COUNTER(&hdma_uart5_rx)) % SERIAL_PORT_BUFFER_SIZE;
+}
+
+struct serial_port_ops uart5_serial_port_ops = {
+	.init			  = uart5_init,
+	.disable          = uart5_rx_disable,
+	.enable           = uart5_rx_enable,
+	.transmit_bytes   = uart5_transmit_bytes,
+	.receive_callback = uart5_receive_cb,
+	.update_producer  = uart5_update_producer,
+	.config           = uart5_config,
+	.irq_disable      = uart5_irq_disable,
+	.irq_enable       = uart5_irq_enable,
+	.set_tx           = uart5_set_tx,
+};
+
+typedef struct
+{
+  __IO uint32_t ISR;   /*!< DMA interrupt status register */
+  __IO uint32_t Reserved0;
+  __IO uint32_t IFCR;  /*!< DMA interrupt flag clear register */
+} DMA_Base_Registers;
+
+static void SPI_CloseTransfer(SPI_HandleTypeDef *hspi)
+{
+  uint32_t itflag = hspi->Instance->SR;
+
+  __HAL_SPI_CLEAR_EOTFLAG(hspi);
+  __HAL_SPI_CLEAR_TXTFFLAG(hspi);
+
+  /* Disable SPI peripheral */
+  __HAL_SPI_DISABLE(hspi);
+
+  /* Disable ITs */
+  __HAL_SPI_DISABLE_IT(hspi, (SPI_IT_EOT | SPI_IT_TXP | SPI_IT_RXP | SPI_IT_DXP | SPI_IT_UDR | SPI_IT_OVR | \
+                              SPI_IT_FRE | SPI_IT_MODF));
+
+  /* Disable Tx DMA Request */
+  CLEAR_BIT(hspi->Instance->CFG1, SPI_CFG1_TXDMAEN | SPI_CFG1_RXDMAEN);
+
+  /* Report UnderRun error for non RX Only communication */
+  if (hspi->State != HAL_SPI_STATE_BUSY_RX)
+  {
+    if ((itflag & SPI_FLAG_UDR) != 0UL)
+    {
+      SET_BIT(hspi->ErrorCode, HAL_SPI_ERROR_UDR);
+      __HAL_SPI_CLEAR_UDRFLAG(hspi);
+    }
+  }
+
+  /* Report OverRun error for non TX Only communication */
+  if (hspi->State != HAL_SPI_STATE_BUSY_TX)
+  {
+    if ((itflag & SPI_FLAG_OVR) != 0UL)
+    {
+      SET_BIT(hspi->ErrorCode, HAL_SPI_ERROR_OVR);
+      __HAL_SPI_CLEAR_OVRFLAG(hspi);
+    }
+
+#if (USE_SPI_CRC != 0UL)
+    /* Check if CRC error occurred */
+    if (hspi->Init.CRCCalculation == SPI_CRCCALCULATION_ENABLE)
+    {
+      if ((itflag & SPI_FLAG_CRCERR) != 0UL)
+      {
+        SET_BIT(hspi->ErrorCode, HAL_SPI_ERROR_CRC);
+        __HAL_SPI_CLEAR_CRCERRFLAG(hspi);
+      }
+    }
+#endif /* USE_SPI_CRC */
+  }
+
+  /* SPI Mode Fault error interrupt occurred -------------------------------*/
+  if ((itflag & SPI_FLAG_MODF) != 0UL)
+  {
+    SET_BIT(hspi->ErrorCode, HAL_SPI_ERROR_MODF);
+    __HAL_SPI_CLEAR_MODFFLAG(hspi);
+  }
+
+  /* SPI Frame error interrupt occurred ------------------------------------*/
+  if ((itflag & SPI_FLAG_FRE) != 0UL)
+  {
+    SET_BIT(hspi->ErrorCode, HAL_SPI_ERROR_FRE);
+    __HAL_SPI_CLEAR_FREFLAG(hspi);
+  }
+
+  hspi->TxXferCount = (uint16_t)0UL;
+  hspi->RxXferCount = (uint16_t)0UL;
+}
+
+static void SPI_DMATransmitCplt(DMA_HandleTypeDef *hdma)
+{
+	SPI_HandleTypeDef *hspi = (SPI_HandleTypeDef *)hdma->Parent;
+
+	if (hspi->State != HAL_SPI_STATE_ABORT) {
+		__HAL_SPI_ENABLE_IT(hspi, SPI_IT_EOT);
+	}
+}
+
+static void SPI_DMAHalfTransmitCplt(DMA_HandleTypeDef *hdma)
+{
+}
+
+static void SPI_DMAError(DMA_HandleTypeDef *hdma)
+{
+	SPI_HandleTypeDef *hspi = (SPI_HandleTypeDef *)hdma->Parent;
+
+	/* if DMA error is FIFO error ignore it */
+	if (HAL_DMA_GetError(hdma) != HAL_DMA_ERROR_FE)
+	{
+		/* Call SPI standard close procedure */
+		SPI_CloseTransfer(hspi);
+
+		SET_BIT(hspi->ErrorCode, HAL_SPI_ERROR_DMA);
+		hspi->State = HAL_SPI_STATE_READY;
+		HAL_SPI_ErrorCallback(hspi);
+	}
+}
+
+static void HAL_DMA_Start_IT_Custom(DMA_HandleTypeDef *hdma,
+	 uint32_t SrcAddress, uint32_t DstAddress, uint32_t DataLength)
+{
+	DMA_Base_Registers *regs_dma = (DMA_Base_Registers *)hdma->StreamBaseAddress;
+
+    /* Disable the peripheral */
+    __HAL_DMA_DISABLE(hdma);
+
+    /* Clear all interrupt flags at correct offset within the register */
+    regs_dma->IFCR = 0x3FUL << (hdma->StreamIndex & 0x1FU);
+
+    /* Clear DBM bit */
+    ((DMA_Stream_TypeDef *)hdma->Instance)->CR &= (uint32_t)(~DMA_SxCR_DBM);
+
+    /* Configure DMA Stream data length */
+    ((DMA_Stream_TypeDef *)hdma->Instance)->NDTR = DataLength;
+
+	/* Configure DMA Stream destination address */
+	((DMA_Stream_TypeDef *)hdma->Instance)->PAR = DstAddress;
+
+	/* Configure DMA Stream source address */
+	((DMA_Stream_TypeDef *)hdma->Instance)->M0AR = SrcAddress;
+
+	/* Enable Common interrupts*/
+	MODIFY_REG(((DMA_Stream_TypeDef *)hdma->Instance)->CR,
+		(DMA_IT_TC | DMA_IT_TE | DMA_IT_DME | DMA_IT_HT), (DMA_IT_TC | DMA_IT_TE | DMA_IT_DME | DMA_IT_HT));
+
+    /* Enable the Peripheral */
+    __HAL_DMA_ENABLE(hdma);
+}
+
+static HAL_StatusTypeDef HAL_SPI_Transmit_DMA_Custom(SPI_HandleTypeDef *hspi,
+						     const u8 *pData, u16 Size)
+{
+	/* Set the transaction information */
+	hspi->State       = HAL_SPI_STATE_BUSY_TX;
+	hspi->ErrorCode   = HAL_SPI_ERROR_NONE;
+	hspi->pTxBuffPtr  = (const uint8_t *)pData;
+	hspi->TxXferSize  = Size;
+	hspi->TxXferCount = Size;
+
+	if (hspi->Init.DataSize <= SPI_DATASIZE_8BIT) {
+		if (hspi->hdmatx->Init.MemDataAlignment == DMA_MDATAALIGN_HALFWORD)
+			hspi->TxXferCount = (hspi->TxXferCount + 1UL) >> 1UL;
+		if (hspi->hdmatx->Init.MemDataAlignment == DMA_MDATAALIGN_WORD)
+			hspi->TxXferCount = (hspi->TxXferCount + 3UL) >> 2UL;
+	} else if (hspi->Init.DataSize <= SPI_DATASIZE_16BIT) {
+		hspi->TxXferCount = (hspi->TxXferCount + 1UL) >> 1UL;
+		if (hspi->hdmatx->Init.MemDataAlignment == DMA_MDATAALIGN_WORD)
+			hspi->TxXferCount = (hspi->TxXferCount + 1UL) >> 1UL;
+	}
+
+	SPI_1LINE_TX(hspi);
+
+	/* Set the SPI TxDMA Half transfer complete callback */
+	hspi->hdmatx->XferHalfCpltCallback = SPI_DMAHalfTransmitCplt;
+
+	/* Set the SPI TxDMA transfer complete callback */
+	hspi->hdmatx->XferCpltCallback = SPI_DMATransmitCplt;
+
+	/* Set the DMA error callback */
+	hspi->hdmatx->XferErrorCallback = SPI_DMAError;
+
+	/* Set the DMA AbortCpltCallback */
+	hspi->hdmatx->XferAbortCallback = NULL;
+
+	/* Clear TXDMAEN bit*/
+	CLEAR_BIT(hspi->Instance->CFG1, SPI_CFG1_TXDMAEN);
+
+	HAL_DMA_Start_IT_Custom(hspi->hdmatx,
+		(uint32_t)hspi->pTxBuffPtr, (uint32_t)&hspi->Instance->TXDR, hspi->TxXferCount);
+
+	MODIFY_REG(hspi->Instance->CR2, SPI_CR2_TSIZE, hspi->TxXferCount);
+
+	/* Enable Tx DMA Request */
+	SET_BIT(hspi->Instance->CFG1, SPI_CFG1_TXDMAEN);
+
+	/* Enable the SPI Error Interrupt Bit */
+	__HAL_SPI_ENABLE_IT(hspi, (SPI_IT_UDR | SPI_IT_FRE | SPI_IT_MODF));
+
+	/* Enable SPI peripheral */
+	__HAL_SPI_ENABLE(hspi);
+
+	/* Master transfer start */
+	SET_BIT(hspi->Instance->CR1, SPI_CR1_CSTART);
+
+  	return HAL_OK;
+}
 
 int pov_spi_multi_wait_complete(u32 timeout_us)
 {
@@ -1391,10 +2901,10 @@ int pov_spi_multi_transmit(struct pov_rotor *rotor)
 	}
 
 	pong = rotor->prefetch_ping ^ 1;
-	HAL_SPI_Transmit_DMA(&hspi1, (u8 *)rotor->rgb_strip[pong][rotor->prefetch_sent_index][0], POV_BYTES_PER_GROUP);
-	HAL_SPI_Transmit_DMA(&hspi2, (u8 *)rotor->rgb_strip[pong][rotor->prefetch_sent_index][1], POV_BYTES_PER_GROUP);
-	HAL_SPI_Transmit_DMA(&hspi3, (u8 *)rotor->rgb_strip[pong][rotor->prefetch_sent_index][2], POV_BYTES_PER_GROUP);
-	HAL_SPI_Transmit_DMA(&hspi4, (u8 *)rotor->rgb_strip[pong][rotor->prefetch_sent_index][3], POV_BYTES_PER_GROUP);
+	HAL_SPI_Transmit_DMA_Custom(&hspi1, (u8 *)&rotor->led_driver_frame[pong][rotor->prefetch_sent_index][0], POV_LED_DRIVER_GROUP_BYTES);
+	HAL_SPI_Transmit_DMA_Custom(&hspi2, (u8 *)&rotor->led_driver_frame[pong][rotor->prefetch_sent_index][1], POV_LED_DRIVER_GROUP_BYTES);
+	HAL_SPI_Transmit_DMA_Custom(&hspi3, (u8 *)&rotor->led_driver_frame[pong][rotor->prefetch_sent_index][2], POV_LED_DRIVER_GROUP_BYTES);
+	HAL_SPI_Transmit_DMA_Custom(&hspi4, (u8 *)&rotor->led_driver_frame[pong][rotor->prefetch_sent_index][3], POV_LED_DRIVER_GROUP_BYTES);
 
 	return 0;
 }
@@ -1687,11 +3197,22 @@ struct bootloader_ops general_bootloader_ops = {
 };
 #else
 
+u8 pov_read_arm_id(void)
+{
+	static u8 arm_id = 0;
+
+	arm_id = (arm_id + 1) & 0xFF;
+
+	return arm_id - 1;
+}
+
 void hall_fake_pulse(struct tim_task *task)
 {
 	struct hall_device *hall_dev = container_of(task, struct hall_device, fake_pulse_task);
 
 	hall_hall_isr(hall_dev, task->interval_us);
+	if (hall_dev->priv)
+		hall_hall_isr(hall_dev->priv, task->interval_us);
 }
 
 #endif

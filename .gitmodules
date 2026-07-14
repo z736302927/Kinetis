@@ -7,3 +7,9 @@
 [submodule "drivers/kinetis/nrf24l01"]
 	path = drivers/kinetis/nrf24l01
 	url = https://github.com/z736302927/nrf24l01.git
+[submodule "drivers/kinetis/w25qxx"]
+	path = drivers/kinetis/w25qxx
+	url = https://github.com/z736302927/w25qxx.git
+[submodule "drivers/kinetis/mbedtls"]
+	path = drivers/kinetis/mbedtls
+	url = https://github.com/z736302927/mbedtls.git

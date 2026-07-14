@@ -72,6 +72,32 @@ extern "C" {
 #define MAV_BL_ACK_ERROR           2
 #define MAV_BL_ACK_INVALID_CMD     3
 
+/* Ring direction aliases */
+#define MAV_RING_DIR_CW               MAV_RING_DIRECTION_CW
+#define MAV_RING_DIR_CCW              MAV_RING_DIRECTION_CCW
+
+/* Ring command aliases */
+#define MAV_RING_CMD_NONE_ALIAS       MAV_RING_CMD_NONE
+#define MAV_RING_CMD_IMAGE            MAV_RING_CMD_IMAGE_CONTROL
+#define MAV_RING_CMD_FILE             MAV_RING_CMD_FILE_DISTRIBUTE
+
+/* Ring result aliases */
+#define MAV_RING_OK                   MAV_RING_RESULT_OK
+#define MAV_RING_ERROR_RESULT         MAV_RING_RESULT_ERROR
+#define MAV_RING_READY                MAV_RING_RESULT_READY
+
+/* Ring error aliases */
+#define MAV_RING_ERR_OK               MAV_RING_ERR_NONE
+#define MAV_RING_ERR_BAD_PARAM        MAV_RING_ERR_INVALID_PARAM
+#define MAV_RING_ERR_EXEC             MAV_RING_ERR_EXEC_FAILED
+#define MAV_RING_ERR_LINK_TIMEOUT     MAV_RING_ERR_NEXT_LINK_TIMEOUT
+#define MAV_RING_ERR_ZM_TIMEOUT       MAV_RING_ERR_ZMODEM_TIMEOUT
+#define MAV_RING_ERR_ZM_CRC           MAV_RING_ERR_ZMODEM_CRC
+#define MAV_RING_ERR_FILE             MAV_RING_ERR_FILE_IO
+#define MAV_RING_ERR_NOT_SUPPORTED    MAV_RING_ERR_UNSUPPORTED
+
+#define MAVLINK_RING_PAYLOAD_LEN      MAVLINK_MSG_RING_CMD_FIELD_PAYLOAD_LEN
+
 /* System status aliases (mapped from MAV_SYSTEM_STATUS_*) */
 #define MAV_SYS_BOOTING            MAV_SYSTEM_STATUS_BOOTING
 #define MAV_SYS_STANDBY            MAV_SYSTEM_STATUS_STANDBY
@@ -96,7 +122,7 @@ struct mavlink_ft_state {
 	u8 direction;        /* MAV_FT_UPLOAD / MAV_FT_DOWNLOAD */
 	u8 state;            /* MAV_FT_* */
 	u8 error_code;       /* MAV_FT_ERR_* */
-	char filename[64];   /* Current transfer filename */
+	char path[64];   	 /* Destination path on the device file system */
 	u32 total_bytes;     /* Total file size */
 	u32 transferred;     /* Bytes transferred so far */
 };
@@ -107,6 +133,34 @@ struct mavlink_bl_cmd {
 	u32 firmware_size;   /* Expected firmware size */
 	u32 firmware_crc32;  /* Expected firmware CRC32 */
 	char filename[32];   /* Target firmware filename */
+};
+
+struct mavlink_ring_cmd_state {
+	u8 pending;
+	u16 seq;
+	u16 cmd;
+	u8 src_arm;
+	u8 dst_arm;
+	u8 current_arm;
+	u8 direction;
+	u8 payload_len;
+	u8 payload[MAVLINK_RING_PAYLOAD_LEN];
+};
+
+struct mavlink_ring_ack_state {
+	u8 pending;
+	u16 seq;
+	u8 node;
+	u8 result;
+};
+
+struct mavlink_ring_error_state {
+	u8 pending;
+	u16 seq;
+	u8 error_code;
+	u8 error_node;
+	u8 error_link_from;
+	u8 error_link_to;
 };
 
 struct mavlink_device {
@@ -130,6 +184,10 @@ struct mavlink_device {
 	u8 sys_status;       /* MAV_SYS_* */
 	u16 error_count;
 	u32 uptime_s;        /* Uptime in seconds */
+
+	struct mavlink_ring_cmd_state ring_cmd;
+	struct mavlink_ring_ack_state ring_ack;
+	struct mavlink_ring_error_state ring_error;
 
 	/* Message statistics */
 	u32 tx_count;
@@ -163,7 +221,7 @@ int mavlink_send_image_control(struct mavlink_device *dev, u8 action, u16 image_
 int mavlink_query_motor_status(struct mavlink_device *dev, u8 motor_id, u32 timeout_ms);
 
 int mavlink_send_ft_start(struct mavlink_device *dev, u8 direction,
-	const char *filename, u32 file_size, u32 timeout_ms);
+	const char *path, u32 file_size, u32 timeout_ms);
 
 int mavlink_send_ft_progress(struct mavlink_device *dev, u8 state,
 	u32 transferred, u32 total_bytes, u8 error_code);
@@ -191,6 +249,14 @@ int mavlink_send_bootloader_update(struct mavlink_device *dev, u8 command,
 	u32 firmware_size, u32 firmware_crc32, const char *filename,
 	u32 timeout_ms);
 int mavlink_send_bootloader_ack(struct mavlink_device *dev, u8 command, u8 result);
+
+int mavlink_send_ring_cmd(struct mavlink_device *dev, u16 seq, u16 cmd,
+	u8 src_arm, u8 dst_arm, u8 current_arm, u8 direction,
+	const u8 *payload, u8 payload_len);
+int mavlink_send_ring_ack(struct mavlink_device *dev, u16 seq,
+	u8 ack_node, u8 result);
+int mavlink_send_ring_error(struct mavlink_device *dev, u16 seq,
+	u8 error_node, u8 error_link_from, u8 error_link_to, u16 error_code);
 
 int mavlink_receive_and_process(struct mavlink_device *dev, u32 timeout_ms);
 int mavlink_start_rx_thread(struct mavlink_device *dev);

@@ -171,8 +171,8 @@ static void mavlink_print_decoded_log(const char *name, const mavlink_message_t 
 	case MAVLINK_MSG_ID_FILE_TRANSFER_START: {
 		mavlink_file_transfer_start_t p;
 		mavlink_msg_file_transfer_start_decode(msg, &p);
-		pr_debug("%s: FILE_TRANSFER_START  dir:%u size:%u name:%s\n",
-			 name, p.direction, p.file_size, p.filename);
+		pr_debug("%s: FILE_TRANSFER_START  dir:%u size:%u path:%s\n",
+			 name, p.direction, p.file_size, p.path);
 		break;
 	}
 	case MAVLINK_MSG_ID_FILE_TRANSFER_ACK: {
@@ -217,6 +217,29 @@ static void mavlink_print_decoded_log(const char *name, const mavlink_message_t 
 		mavlink_msg_bootloader_ack_decode(msg, &p);
 		pr_debug("%s: BL_ACK  cmd:%u result:%u\n",
 			 name, p.command, p.result);
+		break;
+	}
+	case MAVLINK_MSG_ID_RING_CMD: {
+		mavlink_ring_cmd_t p;
+		mavlink_msg_ring_cmd_decode(msg, &p);
+        pr_debug("%s: RING_CMD seq:%u cmd:%u src:%u dst:%u cur:%u dir:%u",
+                 name, p.seq, p.cmd, p.src_arm, p.dst_arm,
+                 p.current_arm, p.direction);
+		break;
+	}
+	case MAVLINK_MSG_ID_RING_ACK: {
+		mavlink_ring_ack_t p;
+		mavlink_msg_ring_ack_decode(msg, &p);
+        pr_debug("%s: RING_ACK seq:%u node:%u result:%u",
+                 name, p.seq, p.node, p.result);
+		break;
+	}
+	case MAVLINK_MSG_ID_RING_ERROR: {
+		mavlink_ring_error_t p;
+		mavlink_msg_ring_error_decode(msg, &p);
+        pr_debug("%s: RING_ERROR seq:%u, node:%u from:%u->%u code:%u",
+                 name, p.seq, p.error_node, p.error_link_from,
+                 p.error_link_to, p.error_code);
 		break;
 	}
 	default:
@@ -386,16 +409,16 @@ int mavlink_receive_and_process(struct mavlink_device *mav, u32 timeout_ms)
 			size_t len;
 
 			mavlink_msg_file_transfer_start_decode(&mav->rx_msg, &ft);
-			pr_info("FT START dir=%d size=%u name=%s\n",
-				ft.direction, ft.file_size, ft.filename);
+			pr_info("FT START dir=%d size=%u path=%s\n",
+				ft.direction, ft.file_size, ft.path);
 
 			mav->ft.direction = ft.direction;
 			mav->ft.total_bytes = ft.file_size;
 			mav->ft.transferred = 0;
 			mav->ft.error_code = MAV_FT_ERR_NONE;
-			len = strnlen(ft.filename, sizeof(ft.filename));
-			memcpy(mav->ft.filename, ft.filename, len);
-			mav->ft.filename[len] = '\0';
+			len = strnlen(ft.path, sizeof(mav->ft.path) - 1);
+			memcpy(mav->ft.path, ft.path, len);
+			mav->ft.path[len] = '\0';
 			mav->ft.state = MAV_FT_TRANSFERRING;
 			mav->ft.active = 1;
 			break;
@@ -468,6 +491,56 @@ int mavlink_receive_and_process(struct mavlink_device *mav, u32 timeout_ms)
 
 			mavlink_send_bootloader_ack(mav, cmd.command,
 						    MAV_BL_ACK_ACCEPTED);
+			break;
+		}
+
+		case MAVLINK_MSG_ID_RING_CMD: {
+			mavlink_ring_cmd_t cmd;
+
+			mavlink_msg_ring_cmd_decode(&mav->rx_msg, &cmd);
+			mav->ring_cmd.pending = 1;
+			mav->ring_cmd.seq = cmd.seq;
+			mav->ring_cmd.cmd = cmd.cmd;
+			mav->ring_cmd.src_arm = cmd.src_arm;
+			mav->ring_cmd.dst_arm = cmd.dst_arm;
+			mav->ring_cmd.current_arm = cmd.current_arm;
+			mav->ring_cmd.direction = cmd.direction;
+			mav->ring_cmd.payload_len = cmd.payload_len;
+			if (mav->ring_cmd.payload_len > MAVLINK_RING_PAYLOAD_LEN)
+				mav->ring_cmd.payload_len = MAVLINK_RING_PAYLOAD_LEN;
+			memcpy(mav->ring_cmd.payload, cmd.payload, MAVLINK_RING_PAYLOAD_LEN);
+			pr_debug("RING_CMD seq=%u cmd=%u src=%u dst=%u cur=%u dir=%u\n",
+					cmd.seq, cmd.cmd, cmd.src_arm, cmd.dst_arm,
+					cmd.current_arm, cmd.direction);
+			break;
+		}
+
+		case MAVLINK_MSG_ID_RING_ACK: {
+			mavlink_ring_ack_t ack;
+
+			mavlink_msg_ring_ack_decode(&mav->rx_msg, &ack);
+			mav->ring_ack.pending = 1;
+			mav->ring_ack.seq = ack.seq;
+			mav->ring_ack.node = ack.node;
+			mav->ring_ack.result = ack.result;
+			pr_debug("RING_ACK seq=%u node=%u result=%u\n",
+					ack.seq, ack.node, ack.result);
+			break;
+		}
+
+		case MAVLINK_MSG_ID_RING_ERROR: {
+			mavlink_ring_error_t err;
+
+			mavlink_msg_ring_error_decode(&mav->rx_msg, &err);
+			mav->ring_error.pending = 1;
+			mav->ring_error.seq = err.seq;
+			mav->ring_error.error_code = err.error_code;
+			mav->ring_error.error_node = err.error_node;
+			mav->ring_error.error_link_from = err.error_link_from;
+			mav->ring_error.error_link_to = err.error_link_to;
+			pr_debug("RING_ERROR seq=%u node=%u link=%u->%u code=%u\n",
+					err.seq, err.error_node,
+					err.error_link_from, err.error_link_to, err.error_code);
 			break;
 		}
 
@@ -564,7 +637,7 @@ int mavlink_query_motor_status(struct mavlink_device *mav, u8 motor_id,
 }
 
 int mavlink_send_ft_start(struct mavlink_device *mav, u8 direction,
-			  const char *filename, u32 file_size, u32 timeout_ms)
+			  const char *path, u32 file_size, u32 timeout_ms)
 {
 	mavlink_file_transfer_start_t payload;
 	mavlink_message_t msg;
@@ -573,9 +646,9 @@ int mavlink_send_ft_start(struct mavlink_device *mav, u8 direction,
 
 	payload.direction = direction;
 	payload.file_size = file_size;
-	len = strnlen(filename, sizeof(payload.filename) - 1);
-	memcpy(payload.filename, filename, len);
-	payload.filename[len] = '\0';
+	len = strnlen(path, sizeof(payload.path) - 1);
+	memcpy(payload.path, path, len);
+	payload.path[len] = '\0';
 
 	mavlink_msg_file_transfer_start_encode(mav->sysid, mav->compid,
 					       &msg, &payload);
@@ -740,6 +813,64 @@ int mavlink_send_bootloader_ack(struct mavlink_device *mav, u8 command,
 					  &msg, &payload);
 
 	return mavlink_send_encoded_data(mav, &msg);
+}
+
+int mavlink_send_ring_cmd(struct mavlink_device *mav, u16 seq, u16 cmd,
+                          u8 src_arm, u8 dst_arm, u8 current_arm,
+						  u8 direction, const u8 *payload, u8 payload_len)
+{
+    mavlink_ring_cmd_t ring_cmd;
+    mavlink_message_t msg;
+
+    memset(&ring_cmd, 0, sizeof(ring_cmd));
+    ring_cmd.seq = seq;
+    ring_cmd.cmd = cmd;
+    ring_cmd.src_arm = src_arm;
+    ring_cmd.dst_arm = dst_arm;
+    ring_cmd.current_arm = current_arm;
+    ring_cmd.direction = direction;
+    if (payload_len > MAVLINK_RING_PAYLOAD_LEN)
+        payload_len = MAVLINK_RING_PAYLOAD_LEN;
+    ring_cmd.payload_len = payload_len;
+    if (payload && payload_len)
+        memcpy(ring_cmd.payload, payload, payload_len);
+
+    mavlink_msg_ring_cmd_encode(mav->sysid, mav->compid, &msg, &ring_cmd);
+
+    return mavlink_send_encoded_data(mav, &msg);
+}
+
+int mavlink_send_ring_ack(struct mavlink_device *mav, u16 seq,
+                          u8 ack_node, u8 result)
+{
+    mavlink_ring_ack_t payload;
+    mavlink_message_t msg;
+
+    payload.seq = seq;
+    payload.node = ack_node;
+    payload.result = result;
+
+    mavlink_msg_ring_ack_encode(mav->sysid, mav->compid, &msg, &payload);
+
+    return mavlink_send_encoded_data(mav, &msg);
+}
+
+int mavlink_send_ring_error(struct mavlink_device *mav, u16 seq,
+                            u8 error_node, u8 error_link_from,
+                            u8 error_link_to, u16 error_code)
+{
+    mavlink_ring_error_t payload;
+    mavlink_message_t msg;
+
+    payload.seq = seq;
+    payload.error_code = error_code;
+    payload.error_node = error_node;
+    payload.error_link_from = error_link_from;
+    payload.error_link_to = error_link_to;
+
+    mavlink_msg_ring_error_encode(mav->sysid, mav->compid, &msg, &payload);
+
+    return mavlink_send_encoded_data(mav, &msg);
 }
 
 #ifdef DESIGN_VERIFICATION_MAVLINK

@@ -1,5 +1,5 @@
 /**
- * @file pov_blend.h
+ * @file blend.h
  * @brief Porter-Duff Alpha compositing for POV multi-layer rendering
  *
  * Implements 13 standard Porter-Duff compositing operators using Q8
@@ -225,5 +225,7 @@ static inline void porter_duff_apply_global_alpha(
 
 	pixel->alpha = (u8)(((u16)pixel->alpha * (u16)global_alpha) >> 8);
 }
+
+int pov_compose_layers(const char *path);
 
 #endif /* POV_BLEND_H */

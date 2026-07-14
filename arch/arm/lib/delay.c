@@ -15,34 +15,6 @@
 #include <linux/module.h>
 #include <linux/timex.h>
 
-void __loop_delay(unsigned long cycles)
-{
-	cycles_t start = get_cycles();
-
-	while ((get_cycles() - start) < cycles)
-		cpu_relax();
-}
-
-void __loop_const_udelay(unsigned long xloops)
-{
-	unsigned long long loops = xloops;
-	loops *= arm_delay_ops.ticks_per_jiffy;
-	__loop_delay(loops >> UDELAY_SHIFT);
-}
-
-void __loop_udelay(unsigned long usecs)
-{
-#ifdef CONFIG_JIFFIES_DELAY
-    ktime_t start = ktime_get();
-    ktime_t end = ktime_add_ns(start, usecs * NSEC_PER_USEC);
-    
-    while (ktime_before(ktime_get(), end))
-        cpu_relax();
-#else
-	__loop_const_udelay(usecs * UDELAY_MULT);
-#endif
-}
-
 /*
  * Default to the loop-based delay implementation.
  */

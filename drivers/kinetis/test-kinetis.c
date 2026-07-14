@@ -290,6 +290,9 @@ int t_my9221_send_packet(int argc, char **argv);
 
 #ifdef DESIGN_VERIFICATION_TLC5971
 int t_tlc5971_send_packet(int argc, char **argv);
+int t_tlc5971_set_color(int argc, char **argv);
+int t_tlc5971_brightness(int argc, char **argv);
+int t_tlc5971_blank(int argc, char **argv);
 #endif
 
 #ifdef DESIGN_VERIFICATION_W25QXXX
@@ -658,6 +661,9 @@ struct test_case_typedef kinetis_case_table[] = {
 #endif
 #ifdef DESIGN_VERIFICATION_TLC5971
 	{"tlc5971.send",                t_tlc5971_send_packet},
+	{"tlc5971.color",            	t_tlc5971_set_color},
+	{"tlc5971.brightness",           t_tlc5971_brightness},
+	{"tlc5971.blank",                t_tlc5971_blank},
 #endif
 #ifdef DESIGN_VERIFICATION_W25QXXX
 	{"w25qxxx.device-init",         t_w25qxxx_device_init},

@@ -33,6 +33,7 @@ struct hall_device {
 	/*< Platform-specific time read function (simulation or hardware TIM) */
 
 	struct tim_task fake_pulse_task;
+	void *priv;
 
 	/* Per-instance Kalman filter state */
 	kalman_t                kf;

@@ -334,6 +334,7 @@ int fatfs_delete_dir(const char *dir_path)
 	FILINFO fno;
 	char buffer[FATFS_BUFFER_SIZE];
 	char entry_path[FATFS_BUFFER_SIZE];
+	int ret;
 
 	if (!dir_path) {
 		pr_err("Invalid parameter: dir_path is NULL\n");
@@ -385,11 +386,10 @@ int fatfs_delete_dir(const char *dir_path)
 		/* Delete file or directory */
 		if (fno.fattrib & AM_DIR) {
 			/* Recursively delete subdirectory */
-			res = f_unlink(entry_path);
-			if (res != FR_OK) {
-				pr_err("Failed to delete directory %s: %d\n", entry_path, res);
+			ret = fatfs_delete_dir(entry_path);
+			if (ret < 0) {
 				f_closedir(&dir);
-				return fatfs_error_to_linux_error(res);
+				return ret;
 			}
 		} else {
 			/* Delete file */

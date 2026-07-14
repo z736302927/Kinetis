@@ -73,6 +73,13 @@ struct task_struct init_task = {
 };
 bool static_key_initialized = true;
 
+/*
+ * This should be approx 2 Bo*oMips to start (note initial shift), and will
+ * still work even if initially too large, it will just take slightly longer
+ */
+unsigned long loops_per_jiffy = (1<<12);
+EXPORT_SYMBOL(loops_per_jiffy);
+
 /* Fake system state for embedded systems */
 enum system_states system_state = SYSTEM_BOOTING;
 

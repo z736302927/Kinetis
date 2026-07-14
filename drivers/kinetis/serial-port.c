@@ -137,9 +137,14 @@ struct serial_port *serial_port_alloc(struct serial_port_ops *ops, const char *n
 	serial->rx_complete = false;
 	serial->ops = ops;
 
-	if (serial->ops && serial->ops->init) {
-		serial->ops->init(serial);
+	if (!serial->ops || !serial->ops->init || !serial->ops->disable || !serial->ops->enable) {
+		pr_err("serial_port_alloc: ops, init, disable, or enable is NULL\n");
+		kfree(serial);
+		return ERR_PTR(-EINVAL);
 	}
+
+	serial->ops->init(serial);
+	serial->ops->disable();
 
 	return serial;
 }
@@ -248,6 +253,12 @@ int serial_port_transmit_bytes(struct serial_port *serial, const u8 *data, u16 s
 		pr_warn("Transmit size(%u) too large, truncating to %d bytes", size, SERIAL_PORT_BUFFER_SIZE - 1);
 	}
 
+#if KINETIS_FAKE_SIM
+	while (serial->transmited_size > 0) {
+		udelay(1);
+	}
+#endif
+
 	memcpy(serial->tx_buffer, data, size);
 	serial->transmited_size = size;
 	snprintf(prefix, sizeof(prefix), "sp-%s tx: ", SP_NAME(serial));
@@ -265,6 +276,12 @@ int serial_port_transmit_byte(struct serial_port *serial, u8 byte)
 {
 	char prefix[64];
 	u16 tx_size;
+
+#if KINETIS_FAKE_SIM
+	while (serial->transmited_size > 0) {
+		udelay(1);
+	}
+#endif
 
 	serial->tx_buffer[0] = byte;
 	serial->transmited_size = 1;

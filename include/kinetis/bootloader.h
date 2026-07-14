@@ -7,12 +7,6 @@
 extern "C" {
 #endif
 
-enum bootloader_mode {
-	BL_MODE_RUN       = 0x00,
-	BL_MODE_UPDATE    = 0x01,
-	BL_MODE_RECOVERY  = 0x02,
-};
-
 enum bootloader_fsm_state {
 	BL_STATE_INIT       = 0,
 	BL_STATE_CHECK_MODE,
@@ -43,21 +37,6 @@ struct bootloader_ops {
 	struct flash_ops *flash;
 };
 
-struct bootloader_config {
-	u32 magic;              /* Magic number: must be BOOTLOADER_MAGIC */
-	u32 version;            /* Config structure version (currently 1) */
-	u8  mode;               /* Current bootloader mode (enum bootloader_mode) */
-	u8  reserved1[3];       /* Padding for alignment */
-	u32 firmware_size;      /* Current firmware size in bytes */
-	u32 firmware_crc32;     /* Current firmware CRC32 */
-	u8  firmware_ver_major; /* Firmware version major */
-	u8  firmware_ver_minor; /* Firmware version minor */
-	u16 firmware_ver_patch; /* Firmware version patch */
-	u32 update_count;       /* Total number of successful updates */
-	u32 last_update_time;   /* Timestamp of last update (if available) */
-	u8  reserved2[32];      /* Reserved for future use */
-} __packed;
-
 struct mavlink_device;
 struct serial_port;
 
@@ -74,10 +53,12 @@ struct bootloader_mem_layout {
 
 struct bootloader_context {
 	u8 *rom_base;
-	u8 *config_addr;
 	u8 *firmware_addr;
 	struct bootloader_mem_layout layout;
-	struct bootloader_config config;
+
+	u32 firmware_size;
+	u32 firmware_crc32;
+	char firmware_filename[64];
 
 	struct mavlink_device *app_mavlink;
 	struct serial_port *app_port;
@@ -99,23 +80,27 @@ struct bootloader_context {
 #define BOOTLOADER_BASE_ADDR     ROM_BASE_ADDR
 #define BOOTLOADER_SIZE          (64u * 1024u)
 
-/* Config placed at the very end of flash so it occupies its own last sector.
- * This allows write_config_to_flash() to safely erase+write without touching
- * bootloader or firmware code (which share earlier sectors). */
-#define BL_CONFIG_BASE_ADDR         (ROM_BASE_ADDR + ROM_TOTAL_SIZE - sizeof(struct bootloader_config))
-#define BL_CONFIG_SIZE              sizeof(struct bootloader_config)
-
 #define FIRMWARE_BASE_ADDR       (BOOTLOADER_BASE_ADDR + BOOTLOADER_SIZE)
-#define FIRMWARE_MAX_SIZE        (ROM_TOTAL_SIZE - BOOTLOADER_SIZE - BL_CONFIG_SIZE)
+#define FIRMWARE_MAX_SIZE        (ROM_TOTAL_SIZE - BOOTLOADER_SIZE)
 
-/* Magic number for config region validation */
-#define BOOTLOADER_MAGIC         0x4B4C4652u   /* "KLFR" */
+/* App creates this file on FatFS to request firmware update. */
+#define BL_UPDATE_FLAG_PATH      "0:/update.flag"
+#define BL_UPDATE_FLAG_MAGIC     0x55474655u  /* "UFGU" */
+
+/** @brief On-disk format of the update flag file (64 bytes). */
+struct bootloader_update_flag {
+	u32 magic;                             /* Must be BL_UPDATE_FLAG_MAGIC */
+	u32 firmware_size;                     /* Expected firmware size in bytes */
+	u32 firmware_crc32;                    /* Expected firmware CRC32 */
+	u32 reserved;                          /* Reserved, set to 0 */
+	char firmware_filename[48];            /* Firmware filename, null-terminated */
+} __packed;
 
 /* Firmware path on FatFS */
 #define BL_FIRMWARE_PATH         "0:/firmware"
-#define BL_BACKUP_PATH         	 "0:/backup"
-#define BL_COMPUTER_PATH		 "0:/computer"
-#define BL_FIRMWARE_NAME    	 "firmware.bin"
+#define BL_BACKUP_PATH           "0:/backup"
+#define BL_COMPUTER_PATH         "0:/computer"
+#define BL_FIRMWARE_NAME         "firmware.bin"
 
 /* Flash read/write chunk size (heap allocated) */
 #define BL_FLASH_CHUNK           4096

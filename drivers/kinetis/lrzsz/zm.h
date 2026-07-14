@@ -1,7 +1,7 @@
 #ifndef LIBZMODEM_ZM_H
 #define LIBZMODEM_ZM_H
 
-#include "../../fs/fatfs/ff.h"
+#include "fatfs/ff.h"
 
 #include "_zmodem.h"
 

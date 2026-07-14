@@ -49,8 +49,9 @@
 #include <linux/string.h>
 #include <linux/mtd/mtd.h>
 
-#include <kinetis/spi_soft.h>
-#include <kinetis/w25qxxx.h>
+// #include <kinetis/spi_soft.h>
+// #include <kinetis/w25qxxx.h>
+#include "kinetis/w25qxx_port.h"
 
 #include "../ff_gen_drv.h"
 #include "kinetis-core.h"
@@ -65,7 +66,8 @@
 /* Disk status */
 static volatile DSTATUS disk_stat = STA_NOINIT;
 
-extern struct w25qxxx_device *w25qxxx_dev;
+// extern struct w25qxxx_device *w25qxxx_dev;
+extern w25qxx_handle_t *ld_w25qxx_handle;
 
 /* Private function prototypes -----------------------------------------------*/
 DSTATUS flash_disk_initialize(BYTE);
@@ -106,8 +108,10 @@ DSTATUS flash_disk_initialize(BYTE lun)
 
 	switch (lun) {
 	case 0:
-//            w25qxxx_init(W25Q128);
-		if (w25qxxx_dev)
+// //            w25qxxx_init(W25Q128);
+// 		if (w25qxxx_dev)
+// 			disk_stat = disk_status(0);
+		if (ld_w25qxx_handle->inited)
 			disk_stat = disk_status(0);
 		break;
 
@@ -127,12 +131,15 @@ DSTATUS flash_disk_initialize(BYTE lun)
 DSTATUS flash_disk_status(BYTE lun)
 {
 	disk_stat = STA_NOINIT;
-	u8 jedec[3];
+// 	u8 jedec[3];
+	uint8_t mfr, device_id[2];
 
 	switch (lun) {
 	case 0:
-		w25qxxx_read_jedec_id(w25qxxx_dev, jedec);
-		if (jedec[0] == 0xEF)
+// 		w25qxxx_read_jedec_id(w25qxxx_dev, jedec);
+// 		if (jedec[0] == 0xEF)
+		w25qxx_get_jedec_id(ld_w25qxx_handle, &mfr, device_id);
+		if (mfr == 0xEF)
 			disk_stat &= ~STA_NOINIT;
 
 		break;
@@ -160,16 +167,19 @@ DRESULT flash_disk_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
 
 	switch (lun) {
 	case 0:
+// 		pr_debug("flash read: sector=%lu count=%u addr=0x%08X len=%u\n",
+// 		         sector, count, sector << STORAGE_SEC_SIZ_POWER, count << STORAGE_SEC_SIZ_POWER);
 // 		mtd_write(&kineits->nor->mtd,
 // 			sector << STORAGE_SEC_SIZ_POWER,
 // 			count << STORAGE_SEC_SIZ_POWER,
 // 			&retlen,
 // 			buff);
-		w25qxxx_read_data(w25qxxx_dev, sector << STORAGE_SEC_SIZ_POWER, buff, count << STORAGE_SEC_SIZ_POWER);
+// 		w25qxxx_read_data(w25qxxx_dev, sector << STORAGE_SEC_SIZ_POWER, buff, count << STORAGE_SEC_SIZ_POWER);
+		w25qxx_read(ld_w25qxx_handle, sector << STORAGE_SEC_SIZ_POWER, (uint8_t *)buff, count << STORAGE_SEC_SIZ_POWER);
 		break;
 
 	default:
-		break;
+		return RES_PARERR;
 	}
 
 	return RES_OK;
@@ -188,20 +198,26 @@ DRESULT flash_disk_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
 {
 	struct kineits_system *kineits = lib_get_stm32_val();
 	size_t retlen;
+	int ret;
 
 	switch (lun) {
 	case 0:
+// 		pr_debug("flash write: sector=%lu count=%u addr=0x%08X len=%u\n",
+// 		         sector, count, sector << STORAGE_SEC_SIZ_POWER, count << STORAGE_SEC_SIZ_POWER);
 // 		mtd_write(&kineits->nor->mtd,
 // 			sector << STORAGE_SEC_SIZ_POWER,
 // 			count << STORAGE_SEC_SIZ_POWER,
 // 			&retlen,
 // 			buff);
-		if (w25qxxx_write_data(w25qxxx_dev, sector << STORAGE_SEC_SIZ_POWER, (u8 *)buff, count << STORAGE_SEC_SIZ_POWER))
+// 		ret = w25qxxx_write_data(w25qxxx_dev, sector << STORAGE_SEC_SIZ_POWER, (u8 *)buff, count << STORAGE_SEC_SIZ_POWER);
+		ret = w25qxx_write(ld_w25qxx_handle, sector << STORAGE_SEC_SIZ_POWER, (uint8_t *)buff, count << STORAGE_SEC_SIZ_POWER);
+		if (ret) {
 			return RES_ERROR;
+		}
 		break;
 
 	default:
-		break;
+		return RES_PARERR;
 	}
 
 	return RES_OK;
@@ -233,7 +249,8 @@ DRESULT flash_disk_ioctl(BYTE lun, BYTE cmd, void *buff)
 
 		/* Get number of sectors on the disk (DWORD) */
 		case GET_SECTOR_COUNT :
-			*(DWORD *)buff = (w25qxxx_dev->max_addr + 1) >> STORAGE_SEC_SIZ_POWER;
+// 			*(DWORD *)buff = (w25qxxx_dev->max_addr + 1) >> STORAGE_SEC_SIZ_POWER;
+			*(DWORD *)buff = (W25QXX_MAX_ADDR(ld_w25qxx_handle->type) + 1) >> STORAGE_SEC_SIZ_POWER;
 			res = RES_OK;
 			break;
 

@@ -29,7 +29,7 @@ typedef void (*firmware_entry)(void);
  * @param layout:   Memory layout descriptor
  * @param chip_ops: Platform operations structure (must not be NULL)
  * @return Bootloader context pointer on success, NULL on failure
- * @note Computes config_addr and firmware_addr from layout fields.
+ * @note Computes firmware_addr from layout fields.
  *       Caller must eventually call bootloader_free() to release resources.
  */
 struct bootloader_context *bootloader_init(const struct bootloader_mem_layout *layout,
@@ -44,10 +44,9 @@ struct bootloader_context *bootloader_init(const struct bootloader_mem_layout *l
 		return NULL;
 	}
 
-	if (layout->firmware_max_size + layout->bootloader_size + sizeof(struct bootloader_config) > layout->rom_size) {
-		pr_err("layout: firmware (0x%x) + bootloader (0x%x) + config (%zu) exceeds ROM (0x%x)\n",
-		       layout->firmware_max_size, layout->bootloader_size,
-		       sizeof(struct bootloader_config), layout->rom_size);
+	if (layout->firmware_max_size + layout->bootloader_size > layout->rom_size) {
+		pr_err("layout: firmware (0x%x) + bootloader (0x%x) exceeds ROM (0x%x)\n",
+		       layout->firmware_max_size, layout->bootloader_size, layout->rom_size);
 		return NULL;
 	}
 
@@ -58,7 +57,6 @@ struct bootloader_context *bootloader_init(const struct bootloader_mem_layout *l
 
 	bl_ctx->layout = *layout;
 	bl_ctx->rom_base = layout->rom_base;
-	bl_ctx->config_addr = layout->rom_base + layout->rom_size - sizeof(struct bootloader_config);
 	bl_ctx->firmware_addr = layout->rom_base + layout->bootloader_size;
 	bl_ctx->ops = chip_ops;
 	bl_ctx->ops->flash = flash_ops;
@@ -130,15 +128,16 @@ static int write_firmware_to_chip(struct bootloader_context *bl_ctx)
 	u32 offset = 0;
 	UINT br;
 	char firmware_path[64];
+	const char *fn;
 	u32 expected_size;
 	u32 expected_crc;
 	int ret;
 
-	/* Use firmware info from MAVLink command, fall back to config */
-	expected_size = bl_ctx->app_mavlink->bl.firmware_size;
-	expected_crc  = bl_ctx->app_mavlink->bl.firmware_crc32;
-	snprintf(firmware_path, sizeof(firmware_path),
-		 "%s/%s", BL_BACKUP_PATH, bl_ctx->app_mavlink->bl.filename);
+	/* Use firmware info from context (populated by flag file or MAVLink) */
+	expected_size = bl_ctx->firmware_size;
+	expected_crc  = bl_ctx->firmware_crc32;
+	snprintf(firmware_path, sizeof(firmware_path), "%s/%s", BL_BACKUP_PATH,
+		 bl_ctx->firmware_filename[0] ? bl_ctx->firmware_filename : BL_FIRMWARE_NAME);
 
 	ret = f_open(&fp, firmware_path, FA_READ);
 	if (ret != FR_OK) {
@@ -194,15 +193,16 @@ static int write_firmware_to_chip(struct bootloader_context *bl_ctx)
 	}
 
 	f_close(&fp);
-	
-	ret = fatfs_copy_file(BL_BACKUP_PATH, bl_ctx->app_mavlink->bl.filename, BL_FIRMWARE_PATH, NULL);
+
+	fn = bl_ctx->firmware_filename[0] ?  bl_ctx->firmware_filename : BL_FIRMWARE_NAME;
+	ret = fatfs_copy_file(BL_BACKUP_PATH, fn, BL_FIRMWARE_PATH, NULL);
 	if (ret != FR_OK) {
 		ret = -EIO;
 		goto cleanup;
 	}
 
 	snprintf(firmware_path, sizeof(firmware_path),
-		 "%s/%s", BL_FIRMWARE_PATH, bl_ctx->app_mavlink->bl.filename);
+		 "%s/%s", BL_FIRMWARE_PATH, fn);
 
 	ret = f_open(&fp, firmware_path, FA_READ);
 	if (ret != FR_OK) {
@@ -243,9 +243,9 @@ static int write_firmware_to_chip(struct bootloader_context *bl_ctx)
 	pr_info("Flash: write complete (%u bytes at 0x%08x)\n",
 		total_size, (u64)bl_ctx->firmware_addr);
 
-	/* Update config with new firmware info */
-	bl_ctx->config.firmware_size = total_size;
-	bl_ctx->config.firmware_crc32 = calc_crc32;
+	/* Store firmware metadata for verification */
+	bl_ctx->firmware_size = total_size;
+	bl_ctx->firmware_crc32 = calc_crc32;
 
 	ret = 0;
 
@@ -326,31 +326,6 @@ static int is_firmware_valid(struct bootloader_context *bl_ctx)
 	return 1;
 }
 
-/**
- * @brief Write bootloader_config back to flash (erase sector then write).
- */
-static int write_config_to_flash(struct bootloader_context *bl_ctx)
-{
-	int ret;
-
-	ret = bl_ctx->ops->flash->erase((u64)bl_ctx->config_addr,
-				       sizeof(struct bootloader_config));
-	if (ret < 0) {
-		pr_err("Config: erase failed (%d)\n", ret);
-		return ret;
-	}
-
-	ret = bl_ctx->ops->flash->write((u64)bl_ctx->config_addr,
-				       (const u8 *)&bl_ctx->config,
-				       sizeof(struct bootloader_config));
-	if (ret < 0) {
-		pr_err("Config: write failed (%d)\n", ret);
-		return ret;
-	}
-
-	return 0;
-}
-
 static void jump_to_firmware(struct bootloader_context *bl_ctx)
 {
 	u32 stack_ptr;
@@ -418,8 +393,8 @@ static int verify_flash_crc(struct bootloader_context *bl_ctx)
 		return -ENOMEM;
 	}
 
-	for (offset = 0; offset < bl_ctx->config.firmware_size; offset += BL_FLASH_CHUNK) {
-		u32 chunk = bl_ctx->config.firmware_size - offset;
+	for (offset = 0; offset < bl_ctx->firmware_size; offset += BL_FLASH_CHUNK) {
+		u32 chunk = bl_ctx->firmware_size - offset;
 		if (chunk > BL_FLASH_CHUNK)
 			chunk = BL_FLASH_CHUNK;
 
@@ -437,9 +412,9 @@ static int verify_flash_crc(struct bootloader_context *bl_ctx)
 	calc_crc32 ^= ~0;
 
 	pr_info("Verify: flash CRC32=0x%08x, expected=0x%08x\n",
-		calc_crc32, bl_ctx->config.firmware_crc32);
+		calc_crc32, bl_ctx->firmware_crc32);
 
-	if (calc_crc32 != bl_ctx->config.firmware_crc32) {
+	if (calc_crc32 != bl_ctx->firmware_crc32) {
 		pr_err("Verify: CRC32 mismatch!\n");
 		ret = -EIO;
 	}
@@ -475,6 +450,12 @@ static void check_server_cmd(struct bootloader_context *bl_ctx)
 			bl_ctx->app_mavlink->bl.command,
 			bl_ctx->app_mavlink->bl.firmware_size,
 			bl_ctx->app_mavlink->bl.filename);
+
+		bl_ctx->firmware_size = bl_ctx->app_mavlink->bl.firmware_size;
+		bl_ctx->firmware_crc32 = bl_ctx->app_mavlink->bl.firmware_crc32;
+		strncpy(bl_ctx->firmware_filename, bl_ctx->app_mavlink->bl.filename,
+				sizeof(bl_ctx->firmware_filename) - 1);
+
 		set_fsm_state(bl_ctx, BL_STATE_RECEIVE);
 		break;
 
@@ -486,57 +467,74 @@ static void check_server_cmd(struct bootloader_context *bl_ctx)
 
 }
 
+static int read_update_flag(struct bootloader_context *bl_ctx)
+{
+	struct bootloader_update_flag flag;
+	FIL fp;
+	UINT br;
+	int ret;
+
+	ret = f_open(&fp, BL_UPDATE_FLAG_PATH, FA_READ);
+	if (ret != FR_OK)
+		return -ENOENT;
+
+	memset(&flag, 0, sizeof(flag));
+	ret = f_read(&fp, &flag, sizeof(flag), &br);
+	f_close(&fp);
+
+	if (ret != FR_OK || br < sizeof(flag.magic) + sizeof(flag.firmware_size)) {
+		pr_err("update_flag: read failed, ret=%d br=%u\n", ret, br);
+		return -EIO;
+	}
+
+	if (flag.magic != BL_UPDATE_FLAG_MAGIC) {
+		pr_err("update_flag: bad magic 0x%08x\n", flag.magic);
+		return -EINVAL;
+	}
+
+	bl_ctx->firmware_size  = flag.firmware_size;
+	bl_ctx->firmware_crc32 = flag.firmware_crc32;
+	strncpy(bl_ctx->firmware_filename, flag.firmware_filename,
+		sizeof(bl_ctx->firmware_filename) - 1);
+
+	pr_info("update_flag: size=%u crc=0x%08x file=%s\n",
+		bl_ctx->firmware_size, bl_ctx->firmware_crc32,
+		bl_ctx->firmware_filename);
+
+	return 0;
+}
+
 /**
  * @brief Main bootloader entry and FSM loop
  * @return 0 on success (never returns normally in production),
  *         negative error code on failure after max retries
- * @note This function either jumps to firmware (COMPLETE) or loops
- *       forever handling firmware updates (WAIT_CMD / ERROR retry).
+ * @note Boot decision: check update_flag on FatFS -> if exists, enter update;
+ *       otherwise check firmware vector table -> if valid, jump; else enter update.
  *       After max retries (3) the function exits with -EIO.
  */
 int bootloader_flow(struct bootloader_context *bl_ctx)
 {
 	u64 now;
 	int ret;
+	bool enter_update = false;
 
 	set_fsm_state(bl_ctx, BL_STATE_CHECK_MODE);
 
-	memcpy(&bl_ctx->config, bl_ctx->config_addr, sizeof(struct bootloader_config));
-
-	// bl_ctx->config.magic = BOOTLOADER_MAGIC;
-	// bl_ctx->config.version = 1;
-	// bl_ctx->config.mode = BL_MODE_RUN;
-	// ret = write_config_to_flash(bl_ctx);
-	// if (ret < 0)
-	// 	pr_err("Failed to write config, jumping anyway...\n");
-
-	if (bl_ctx->config.magic != BOOTLOADER_MAGIC) {
-		pr_warn("Bootloader config magic mismatch: 0x%08x, expected 0x%08x, enter update mode\n",
-			bl_ctx->config.magic, BOOTLOADER_MAGIC);
-
-		memset(&bl_ctx->config, 0, sizeof(struct bootloader_config));
-		bl_ctx->config.magic = BOOTLOADER_MAGIC;
-		bl_ctx->config.version = 1;
-		bl_ctx->config.mode = BL_MODE_UPDATE;
+	ret = read_update_flag(bl_ctx);
+	if (ret == 0) {
+		enter_update = true;
+		pr_info("Update flag detected, entering update mode\n");
+	} else if (is_firmware_valid(bl_ctx)) {
+		pr_info("Firmware valid, jumping to application...\n");
+		set_fsm_state(bl_ctx, BL_STATE_JUMP_APP);
+		jump_to_firmware(bl_ctx);
+		/* Should never return */
 	} else {
-		pr_info("Bootloader config loaded: mode=%d, firmware_size=%u, firmware_crc32=0x%08x\n",
-			bl_ctx->config.mode, bl_ctx->config.firmware_size, bl_ctx->config.firmware_crc32);
+		pr_warn("No valid firmware and no update flag, entering update mode\n");
+		enter_update = true;
 	}
 
-	switch (bl_ctx->config.mode) {
-	case BL_MODE_RUN:
-		if (is_firmware_valid(bl_ctx)) {
-			pr_info("Bootloader in RUN mode, jumping to application...\n");
-			set_fsm_state(bl_ctx, BL_STATE_JUMP_APP);
-			jump_to_firmware(bl_ctx);
-			/* Should never return */
-		} else {
-			pr_warn("APP not valid, entering update mode\n");
-			bl_ctx->config.mode = BL_MODE_UPDATE;
-		}
-
-	case BL_MODE_UPDATE:
-		pr_info("Bootloader in UPDATE mode, waiting for firmware...\n");
+	if (enter_update) {
 		ret = fatfs_create_dirs(BL_FIRMWARE_PATH);
 		if (ret)
 			goto err;
@@ -544,18 +542,7 @@ int bootloader_flow(struct bootloader_context *bl_ctx)
 		if (ret)
 			goto err;
 
-		set_fsm_state(bl_ctx, BL_STATE_RECEIVE);
-		break;
-
-	case BL_MODE_RECOVERY:
-		pr_info("Bootloader in RECOVERY mode, waiting for firmware...\n");
-		break;
-
-	default:
-		pr_warn("Bootloader in unknown mode %d, entering recovery mode\n",
-			bl_ctx->config.mode);
-		bl_ctx->config.mode = BL_MODE_RECOVERY;
-		break;
+		set_fsm_state(bl_ctx, BL_STATE_WAIT_CMD);
 	}
 
 	/* ─── Main FSM Loop ───────────────────────────────── */
@@ -596,17 +583,12 @@ int bootloader_flow(struct bootloader_context *bl_ctx)
 
 		case BL_STATE_COMPLETE:
 			pr_info("Update successful! Finalizing...\n");
-			bl_ctx->config.mode = BL_MODE_RUN;
-			bl_ctx->config.update_count++;
-			ret = write_config_to_flash(bl_ctx);
-			if (ret < 0)
-				pr_err("Failed to write config, jumping anyway...\n");
+			fatfs_delete_file(NULL, BL_UPDATE_FLAG_PATH);
 #ifdef KINETIS_FAKE_SIM
 			pr_info("simulation: update complete, returning\n");
 			return 0;
 #else
 			pr_info("Jumping to new firmware...\n");
-			/* Free bootloader context before jump, we won't be back */
 			jump_to_firmware(bl_ctx);
 #endif
 			break;
@@ -616,12 +598,12 @@ int bootloader_flow(struct bootloader_context *bl_ctx)
 			if (bl_ctx->retry_count >= 3) {
 				pr_err("Max retries reached (%d), aborting\n",
 				       bl_ctx->retry_count);
+				fatfs_delete_file(NULL, BL_UPDATE_FLAG_PATH);
 				ret = -EIO;
 				goto err;
 			}
 			pr_warn("Update failed (retry %d/3), waiting for retry...\n",
 				bl_ctx->retry_count);
-			bl_ctx->config.mode = BL_MODE_UPDATE;
 			set_fsm_state(bl_ctx, BL_STATE_WAIT_CMD);
 			break;
 
@@ -688,9 +670,10 @@ static void *bl_computer_thread(void *data)
 int t_bootloader_flow_test(int argc, char *argv[])
 {
 	struct bootloader_context *bl_ctx = NULL;
+	struct bootloader_update_flag flag;
+	struct bootloader_mem_layout layout;
 	struct serial_port *serial_computer = NULL;
 	struct bl_thread_arg *thread_arg = NULL;
-	struct bootloader_config *cfg;
 	pthread_t thread = 0;
 	u8 *file_buf = NULL;
 	u32 fw_size = FIRMWARE_SIZE;
@@ -698,7 +681,8 @@ int t_bootloader_flow_test(int argc, char *argv[])
 	u32 fw_offset;
 	char computer_fw_path[64];
 	char firmware_fw_path[64];
-	struct bootloader_mem_layout layout;
+	FIL fp;
+	UINT bw;
 	int ret = 0;
 
 	layout.rom_base = (u8 *)ROM_BASE_ADDR;
@@ -728,7 +712,7 @@ int t_bootloader_flow_test(int argc, char *argv[])
 		return -ENOMEM;
 	layout.rom_base = general_flash_addr;
 
-	fw_offset = layout.bootloader_size + sizeof(struct bootloader_config);
+	fw_offset = layout.bootloader_size;
 
 	/* ── 2. Firmware file on computer side ──────────── */
 	ret = fatfs_create_dirs(BL_COMPUTER_PATH);
@@ -761,7 +745,25 @@ int t_bootloader_flow_test(int argc, char *argv[])
 	pr_info("firmware: %s (%u bytes, CRC32=0x%08x)\n",
 		computer_fw_path, fw_size, fw_crc32);
 
-	/* ── 3. Bootloader init ────────────────────────── */
+	/* ── 3. Write update flag to trigger bootloader update mode ── */
+	memset(&flag, 0, sizeof(flag));
+	flag.magic = BL_UPDATE_FLAG_MAGIC;
+	flag.firmware_size = fw_size;
+	flag.firmware_crc32 = fw_crc32;
+	strncpy(flag.firmware_filename, BL_FIRMWARE_NAME, sizeof(flag.firmware_filename) - 1);
+
+	if (f_open(&fp, BL_UPDATE_FLAG_PATH, FA_CREATE_ALWAYS | FA_WRITE) != FR_OK) {
+		ret = -EIO;
+		goto cleanup;
+	}
+	ret = f_write(&fp, &flag, sizeof(flag), &bw);
+	f_close(&fp);
+	if (ret != FR_OK || bw != sizeof(flag)) {
+		ret = -EACCES;
+		goto cleanup;
+	}
+
+	/* ── 4. Bootloader init ────────────────────────── */
 	bl_ctx = bootloader_init(&layout, &general_bootloader_ops,
 				 &general_flash_ops, &usart1_serial_port_ops);
 	if (!bl_ctx) {
@@ -769,17 +771,10 @@ int t_bootloader_flow_test(int argc, char *argv[])
 		goto cleanup;
 	}
 
-	cfg = (struct bootloader_config *)bl_ctx->config_addr;
-	cfg->magic = BOOTLOADER_MAGIC;
-	cfg->version = 1;
-	cfg->mode = BL_MODE_UPDATE;
-	memcpy(&bl_ctx->config, bl_ctx->config_addr,
-	       sizeof(struct bootloader_config));
-
 	pr_info("is_firmware_valid (before) = %d\n",
 		is_firmware_valid(bl_ctx));
 
-	/* ── 4. Serial port pair ───────────────────────── */
+	/* ── 5. Serial port pair ───────────────────────── */
 	serial_computer = serial_port_alloc(&usart1_serial_port_ops,
 					    "bl-computer");
 	if (IS_ERR(serial_computer)) {
@@ -792,7 +787,7 @@ int t_bootloader_flow_test(int argc, char *argv[])
 	serial_port_start_thread(bl_ctx->app_port, SERIAL_PORT_DF_OTHERS,
 				 NULL, serial_computer);
 
-	/* ── 5. Start PC simulation thread ─────────────── */
+	/* ── 6. Start PC simulation thread ─────────────── */
 	thread_arg = kzalloc(sizeof(*thread_arg), GFP_KERNEL);
 	if (!thread_arg) {
 		ret = -ENOMEM;
@@ -811,7 +806,7 @@ int t_bootloader_flow_test(int argc, char *argv[])
 		goto cleanup;
 	}
 
-	/* ── 6. Run bootloader FSM ─────────────────────── */
+	/* ── 7. Run bootloader FSM ─────────────────────── */
 	ret = bootloader_flow(bl_ctx);
 
 	pthread_join(thread, NULL);
@@ -824,6 +819,7 @@ cleanup:
 	serial_port_free(serial_computer);
 	bootloader_free(bl_ctx);
 	kfree(file_buf);
+	fatfs_delete_file(NULL, BL_UPDATE_FLAG_PATH);
 	fatfs_delete_file(NULL, computer_fw_path);
 	fatfs_delete_dir(BL_COMPUTER_PATH);
 	fatfs_delete_dir(BL_FIRMWARE_PATH);

@@ -6,6 +6,7 @@
 // #include "wiced_tcpip.h"
 
 #define POV_IMAGE_PATH                 "0:/pov_images"
+#define POV_LAYER_COUNT                4
 #define POV_FIRMWARE_PATH              "0:/firmware"
 #define APP_IMAGE_PATH                 "0:/app_images"
 #define STATOR_UPDATE_DIR              "0:/computer"
@@ -25,7 +26,14 @@
 #define POV_COL_TIME_US                92
 
 #define POV_SPI_CLOCK_HZ               20000000
-#define POV_SPI_SEND_TIME_US           76
+#define POV_LED_DRIVER_LEDS_PER_IC     4
+#define POV_LED_DRIVER_IC_PER_GROUP    (POV_LEDS_PER_GROUP / POV_LED_DRIVER_LEDS_PER_IC)
+#define POV_LED_DRIVER_PACKET_BYTES    28
+#define POV_LED_DRIVER_GROUP_BYTES     (POV_LED_DRIVER_IC_PER_GROUP * POV_LED_DRIVER_PACKET_BYTES)
+#define POV_LED_DRIVER_COL_BYTES       (POV_LED_DRIVER_GROUP_BYTES * POV_SPI_GROUPS)
+#define POV_LED_DRIVER_ICO_NEAR_MCU    1
+#define POV_SPI_SEND_TIME_US           (((POV_LED_DRIVER_GROUP_BYTES * 8ULL * 1000000ULL) + \
+                                       POV_SPI_CLOCK_HZ - 1) / POV_SPI_CLOCK_HZ)
 
 /* Porter-Duff Multi-Layer Compositing */
 #define POV_MAX_LAYERS                  4
@@ -33,8 +41,8 @@
 /* 256 × 4 = 1024 bytes per column per layer */
 #define POV_BYTES_PER_LAYER_COL         (POV_LED_COUNT * POV_BYTES_PER_PIXEL_RGBA)
 
-#define POV_PREFETCH_COLS               8
-#define POV_PREFETCH_BYTES              (POV_PREFETCH_COLS * POV_BYTES_PER_COL)
+#define POV_PREFETCH_COLS               4
+#define POV_PREFETCH_BYTES              (POV_PREFETCH_COLS * POV_LED_DRIVER_COL_BYTES)
 
 #define POV_STABLE_THRESHOLD_RPM       2
 #define POV_STABLE_DURATION_MS         1000
@@ -47,6 +55,14 @@
 #define POV_TIM_PRESCALER              199
 
 #define POV_QSPI_BASE_ADDR             0x90000000
+
+#define POV_DEFAULT_ARM_ID             0
+#define POV_ARM_COUNT                  4
+#define POV_ARM_BROADCAST              255
+#define POV_RING_ACK_TIMEOUT_MS        3000
+#define POV_RING_FILE_TIMEOUT_MS       600000
+#define POV_RING_LINK_TIMEOUT_MS       2000
+#define POV_RING_IMAGE_APPLY_DELAY_FRAMES 2
 
 #define POV_HOST_SYSID                 1
 #define POV_HOST_COMPID                0

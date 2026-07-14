@@ -10,13 +10,15 @@ C_SOURCES += $(wildcard ../drivers/kinetis/fsm.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/hc-05.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/led.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/mavlink.c)
-C_SOURCES += $(wildcard ../drivers/kinetis/w25qxxx.c)
+# C_SOURCES += $(wildcard ../drivers/kinetis/w25qxxx.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/lrzsz/*.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/kalman-clib/src/matrix.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/kalman-clib/src/kalman.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/kalman-clib/src/cholesky.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/nrf24l01/src/driver_nrf24l01.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/nrf24l01_port.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/w25qxx/src/driver_w25qxx.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/w25qxx_port.c)
 
 # CubeMX core/peripheral sources
 C_SOURCES += $(wildcard $(CHIP_SRC_DIR)/Core/Src/*.c)
@@ -40,6 +42,8 @@ C_INCLUDES += -I../drivers/kinetis/CmBacktrace/cm_backtrace
 C_INCLUDES += -I../drivers/kinetis/kalman-clib/include
 C_INCLUDES += -I../drivers/kinetis/nrf24l01/src
 C_INCLUDES += -I../drivers/kinetis/nrf24l01/interface
+C_INCLUDES += -I../drivers/kinetis/w25qxx/src
+C_INCLUDES += -I../drivers/kinetis/w25qxx/interface
 
 HEADER_DIRS += ../arch/arm/mach-stm32
 

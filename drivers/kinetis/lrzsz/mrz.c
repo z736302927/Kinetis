@@ -6,7 +6,7 @@
 #include <linux/random.h>
 
 #include "kinetis/fatfs-intf.h"
-#include "../../fs/fatfs/ff.h"
+#include "fatfs/ff.h"
 
 #include "zmodem.h"
 

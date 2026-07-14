@@ -123,6 +123,7 @@ void hall_hall_isr(struct hall_device *dev, u32 capture_value)
 	/* Store filtered period_ticks (round to nearest integer)   */
 	dev->period_ticks = (u32)(x->data[0] + 0.5f);
 
+#if KINETIS_FAKE_SIM
 	/* Log comparison: raw vs filtered (every 8 pulses)         */
 	if ((pulse_cnt++ & 7) == 0) {
 		raw_rpm = capture_value ? (s32)(60000000 / capture_value) : 0;
@@ -134,6 +135,7 @@ void hall_hall_isr(struct hall_device *dev, u32 capture_value)
 			dev->period_ticks, filter_rpm,
 			delta);
 	}
+#endif
 }
 
 struct hall_device *hall_alloc_dev(u32 angular_resolution, u32(*read_rotated_time)(struct hall_device *dev))

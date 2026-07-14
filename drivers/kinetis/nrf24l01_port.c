@@ -27,7 +27,7 @@
 
 /* Reassembly cache: MAVLINK_MAX_PACKET_LEN = 255+12+13 = 280 bytes max.
  * Use 512 to leave headroom and avoid cache overflow during burst RX. */
-#define NRF24L01_RX_CACHE_SIZE 512
+#define NRF24L01_RX_CACHE_SIZE 		512
 
 #define NRF24L01_MAX_PAYLOAD       32
 

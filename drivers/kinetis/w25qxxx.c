@@ -796,7 +796,7 @@ void w25qxxx_read_data(struct w25qxxx_device *dev, u32 addr, u8 *pdata, u32 leng
 	}
 
 	if (dev->spi->qspi_read) {
-		qrb.instruction = READ_DATA;
+		qrb.instruction = FAST_READ;
 		qrb.instruction_mode = 1;
 		qrb.address = addr;
 		qrb.address_size = w25qxxx_need_4byte_addr(dev->id) ? 4 : 3;
@@ -839,7 +839,7 @@ void w25qxxx_read_data_with_4byte_addr(struct w25qxxx_device *dev, u32 addr, u8 
 	u8 sub_addr[4];
 
 	if (dev->spi->qspi_read) {
-		qrb.instruction = READ_DATA_WITH_4Byte_ADDRESS;
+		qrb.instruction = FAST_READ_WITH_4Byte_ADDRESS;
 		qrb.instruction_mode = 1;
 		qrb.address = addr;
 		qrb.address_size = 4;
@@ -1032,9 +1032,9 @@ static int w25qxxx_page_program(struct w25qxxx_device *dev, u32 addr, u8 *pdata,
 	}
 
 	ret = w25qxxx_wait_busy(dev, W25Q_PAGE_PROGRAM_TIMEOUT);
-
 	if (ret) {
-		pr_err("Programing page is timeout.\n");
+		pr_err("Programing page is timeout at address 0x%08X.\n", addr);
+		return ret;
 	}
 
 	return 0;
@@ -1059,8 +1059,12 @@ static int w25qxxx_multi_page_program(struct w25qxxx_device *dev, u32 addr, u8 *
 	if (sub_addr == 0) {
 		/* length < W25Q_PAGE_SIZE */
 		if (num_of_page == 0) {
-			w25qxxx_page_program(dev, addr, pdata, length);
-		} else { /* length > W25Q_PAGE_SIZE */
+			ret = w25qxxx_page_program(dev, addr, pdata, length);
+			if (ret) {
+				pr_err("Page programming failed at address 0x%08X\n", addr);
+				return ret;
+			}
+		} else { /* length >= W25Q_PAGE_SIZE */
 			/* Let me write down all the integer pages */
 			while (num_of_page--) {
 				ret = w25qxxx_page_program(dev, addr, pdata, W25Q_PAGE_SIZE);
@@ -1118,7 +1122,11 @@ static int w25qxxx_multi_page_program(struct w25qxxx_device *dev, u32 addr, u8 *
 			num_of_page =  length / W25Q_PAGE_SIZE;
 			num_of_single = length % W25Q_PAGE_SIZE;
 
-			w25qxxx_page_program(dev, addr, pdata, cnt);
+			ret = w25qxxx_page_program(dev, addr, pdata, cnt);
+			if (ret) {
+				pr_err("Page programming failed at address 0x%08X\n", addr);
+				return ret;
+			}
 
 			addr +=  cnt;
 			pdata += cnt;
@@ -1214,14 +1222,10 @@ static int w25qxxx_process_partial_sector(struct w25qxxx_device *dev, u32 start_
 	u32 addr = 0;
 	u32 i = 0;
 	int ret;
-	u8 *w25qxxx_single_sector = NULL;
+	u8 w25qxxx_single_sector[SECTOR_SIZE];
 
-	/* 分配临时缓冲区，确保线程安全 */
-	w25qxxx_single_sector = kmalloc(SECTOR_SIZE, GFP_KERNEL);
-	if (!w25qxxx_single_sector) {
-		pr_err("Failed to allocate memory for sector buffer\n");
-		return -ENOMEM;
-	}
+	if (length == 0)
+		return 0;
 
 	offset = start_addr % SECTOR_SIZE;
 	addr = start_addr - offset;
@@ -1236,28 +1240,22 @@ static int w25qxxx_process_partial_sector(struct w25qxxx_device *dev, u32 start_
 			ret = w25qxxx_sector_erase(dev, addr);
 			if (ret) {
 				pr_err("Sector erase failed at address 0x%08X\n", addr);
-				kfree(w25qxxx_single_sector);
 				return ret;
 			}
 			ret = w25qxxx_multi_page_program(dev, addr, w25qxxx_single_sector, SECTOR_SIZE);
 			if (ret) {
 				pr_err("Multi page programming failed at address 0x%08X\n", addr);
-				kfree(w25qxxx_single_sector);
 				return ret;
 			}
-			kfree(w25qxxx_single_sector);  /* 释放缓冲区 */
-			return 0;  /* 返回0表示成功，而不是-EPIPE */
+			return 0;
 		}
 	}
 
 	ret = w25qxxx_multi_page_program(dev, start_addr, pdata, length);
 	if (ret) {
 		pr_err("Multi page programming failed at address 0x%08X\n", start_addr);
-		kfree(w25qxxx_single_sector);
 		return ret;
 	}
-
-	kfree(w25qxxx_single_sector);
 
 	return 0;
 }
@@ -1286,10 +1284,13 @@ static int w25qxxx_multi_sector_program(struct w25qxxx_device *dev, u32 addr, u8
 			if (ret) {
 				return ret;
 			}
-		} else { /* length > SECTOR_SIZE */
+		} else { /* length >= SECTOR_SIZE */
 			/* Let me write down all the integer pages */
 			while (num_of_sector--) {
-				w25qxxx_sector_erase(dev, addr);
+				ret = w25qxxx_sector_erase(dev, addr);
+				if (ret) {
+					return ret;
+				}
 				ret = w25qxxx_multi_page_program(dev, addr, pdata, SECTOR_SIZE);
 				if (ret) {
 					return ret;
@@ -1300,9 +1301,11 @@ static int w25qxxx_multi_sector_program(struct w25qxxx_device *dev, u32 addr, u8
 			}
 
 			/* If you have more than one page of data, write it down*/
-			ret = w25qxxx_process_partial_sector(dev, addr, pdata, num_of_single);
-			if (ret) {
-				return ret;
+			if (num_of_single) {
+				ret = w25qxxx_process_partial_sector(dev, addr, pdata, num_of_single);
+				if (ret) {
+					return ret;
+				}
 			}
 		}
 	}
@@ -1350,7 +1353,10 @@ static int w25qxxx_multi_sector_program(struct w25qxxx_device *dev, u32 addr, u8
 
 			/* Write all the integer pages */
 			while (num_of_sector--) {
-				w25qxxx_sector_erase(dev, addr);
+				ret = w25qxxx_sector_erase(dev, addr);
+				if (ret) {
+					return ret;
+				}
 				ret = w25qxxx_multi_page_program(dev, addr, pdata, SECTOR_SIZE);
 				if (ret) {
 					return ret;

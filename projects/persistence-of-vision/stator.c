@@ -9,6 +9,8 @@
 #include "kinetis/bootloader.h"
 #include "kinetis/nrf24l01_port.h"
 
+#include "fatfs/ff.h"
+
 #include "config.h"
 #include "stator.h"
 #include "motor.h"
@@ -136,7 +138,10 @@ static void process_motor_commands(struct tim_task *task)
 	}
 
 	case MAVLINK_MSG_ID_BOOTLOADER_UPDATE_CMD: {
-		struct bootloader_config bl_cfg;
+		struct bootloader_update_flag flag;
+		FIL fp;
+		UINT bw;
+		FRESULT res;
 
 		pr_info("cmd: bootloader update - cmd=%d size=%u crc=0x%08x name=%s\n",
 			stator->mavlink->bl.command,
@@ -144,18 +149,26 @@ static void process_motor_commands(struct tim_task *task)
 			stator->mavlink->bl.firmware_crc32,
 			stator->mavlink->bl.filename);
 
-		memset(&bl_cfg, 0, sizeof(bl_cfg));
-		bl_cfg.magic = BOOTLOADER_MAGIC;
-		bl_cfg.version = 1;
-		bl_cfg.mode = BL_MODE_UPDATE;
-		bl_cfg.firmware_size = stator->mavlink->bl.firmware_size;
-		bl_cfg.firmware_crc32 = stator->mavlink->bl.firmware_crc32;
+		/* Write update flag file on FatFS so bootloader picks it up after reset */
+		memset(&flag, 0, sizeof(flag));
+		flag.magic = BL_UPDATE_FLAG_MAGIC;
+		flag.firmware_size = stator->mavlink->bl.firmware_size;
+		flag.firmware_crc32 = stator->mavlink->bl.firmware_crc32;
+		if (stator->mavlink->bl.filename[0])
+			strncpy(flag.firmware_filename, stator->mavlink->bl.filename,
+				sizeof(flag.firmware_filename) - 1);
 
-		if (stator->flash->erase(BL_CONFIG_BASE_ADDR, sizeof(bl_cfg)) < 0 ||
-		    stator->flash->write(BL_CONFIG_BASE_ADDR, (const u8 *)&bl_cfg, sizeof(bl_cfg)) < 0) {
-			pr_err("Failed to write boot config to flash\n");
+		if (f_open(&fp, BL_UPDATE_FLAG_PATH, FA_CREATE_ALWAYS | FA_WRITE) != FR_OK) {
+			pr_err("Failed to create update flag file\n");
 			break;
 		}
+		res = f_write(&fp, &flag, sizeof(flag), &bw);
+		if (res != FR_OK || bw != sizeof(flag)) {
+			pr_err("Failed to write update flag file\n");
+			f_close(&fp);
+			break;
+		}
+		f_close(&fp);
 
 		set_stator_state(stator, STATOR_ENTER_BOOTLOADER);
 		break;
@@ -213,15 +226,8 @@ struct pov_stator *pov_stator_alloc(struct serial_port_ops *motor_serial_ops,
 	tim_task_add(&stator->motor.sim_task, "motor_sim_task",
 		SLAVE_PID_PERIOD_MS * 1000, true, false, motor_simulation);
 
-// 	tim_task_add(&stator->heartbeat_task, "stator heartbeat",
-// 		POV_HEARTBEAT_INTERVAL_MS * 1000, true, false, stator_heartbeat_task);
-// 	stator_heartbeat_task(&stator->heartbeat_task);
-
 	tim_task_add(&stator->pid_task, "pid_task",
 		SLAVE_PID_PERIOD_MS * 1000, true, false, control_motor);
-
-	tim_task_add(&stator->process_cmd_task, "process_cmd_task",
-		100000, true, false, process_motor_commands);
 
 	return stator;
 
@@ -303,15 +309,24 @@ void pov_stator_fsm(struct pov_stator *stator)
 			/* Still running, wait for completion */
 		} else {
 			/* RELAY_DONE or RELAY_FAILED */
-// 			if (stator->relay_tuner.state == RELAY_DONE) {
-// 				pr_info("relay tuning done, gains written. Stopping motor.\n");
-// 			} else {
-// 				pr_warn("relay tuning failed, keeping default gains. Stopping motor.\n");
-// 			}
-// 			motor_set_pwm(&stator->motor, 0);
-// 			pid_positional_reset(&stator->pid);
-// 			stator->mavlink->motors[STATOR_MOTOR_ID].target_speed = 0;
-// 			set_stator_state(stator, STATOR_WAIT_ROTOR);
+			if (stator->relay_tuner.state == RELAY_DONE) {
+				pr_info("relay tuning done, gains written. Stopping motor.\n");
+			} else {
+				pr_warn("relay tuning failed, keeping default gains. Stopping motor.\n");
+			}
+			motor_set_pwm(&stator->motor, 0);
+			pid_positional_reset(&stator->pid);
+			stator->mavlink->motors[STATOR_MOTOR_ID].target_speed = 0;
+
+			stator->motor_port->ops->enable();
+
+			tim_task_add(&stator->heartbeat_task, "stator heartbeat",
+				POV_HEARTBEAT_INTERVAL_MS * 1000, true, false, stator_heartbeat_task);
+
+			tim_task_add(&stator->process_cmd_task, "process_cmd_task",
+				100000, true, false, process_motor_commands);
+
+			set_stator_state(stator, STATOR_WAIT_ROTOR);
 		}
 		break;
 	}
@@ -320,7 +335,7 @@ void pov_stator_fsm(struct pov_stator *stator)
 		/* Check if rotor heartbeat has timed out */
 		u64 now = basic_timer_get_ms();
 
-		if (now - stator->last_rotor_heartbeat_ms > (u64)POV_HEARTBEAT_INTERVAL_MS) {
+		if (now - stator->last_rotor_heartbeat_ms > (u64)POV_HEARTBEAT_INTERVAL_MS * 2) {
 			pr_warn("rotor heartbeat timeout (%llu ms), safe stop (PWM=0, coast by inertia)\n",
 				now - stator->last_rotor_heartbeat_ms);
 			motor_set_pwm(&stator->motor, 0);

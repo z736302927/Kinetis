@@ -223,6 +223,80 @@ static void *phone_thread_func(void *arg)
 	return NULL;
 }
 
+struct fake_ring_peer {
+	struct serial_port *master_port;
+	struct serial_port *port;
+	struct mavlink_device *mav;
+	pthread_t thread;
+	volatile u8 running;
+};
+
+static void *fake_ring_peer_thread(void *arg)
+{
+	struct fake_ring_peer *peer = arg;
+	const char *rx_dir = POV_IMAGE_PATH "/fake-ring";
+	struct mavlink_ring_cmd_state cmd;
+	int ret;
+
+	while (peer->running) {
+		if (!peer->mav || serial_port_data_available(peer->port) == 0) {
+			mdelay(1);
+			continue;
+		}
+		mavlink_receive_and_process(peer->mav, 10);
+		if (!peer->mav->ring_cmd.pending) {
+			continue;
+		}
+
+		cmd = peer->mav->ring_cmd;
+		peer->mav->ring_cmd.pending = 0;
+
+		switch (cmd.cmd) {
+		case MAV_RING_CMD_IMAGE:
+			mavlink_send_ring_ack(peer->mav, cmd.seq,
+				POV_ARM_COUNT - 1, MAV_RING_OK);
+			break;
+		case MAV_RING_CMD_FILE:
+			mavlink_send_ring_ack(peer->mav, cmd.seq,
+				POV_ARM_COUNT - 1, MAV_RING_READY);
+			fatfs_create_dirs(rx_dir);
+			ret = lrzsz_rz(peer->port, rx_dir);
+			if (ret > 0) {
+				mavlink_send_ring_ack(peer->mav, cmd.seq,
+					POV_ARM_COUNT - 1, MAV_RING_OK);
+			} else {
+				mavlink_send_ring_error(peer->mav, cmd.seq,
+					POV_ARM_COUNT - 1,
+					cmd.current_arm,
+					POV_ARM_COUNT - 1,
+					MAV_RING_ERR_LINK_TIMEOUT);
+			}
+			break;
+		default:
+			mavlink_send_ring_error(peer->mav, cmd.seq,
+				POV_ARM_COUNT - 1,
+				cmd.current_arm,
+				POV_ARM_COUNT - 1,
+				MAV_RING_ERR_NOT_SUPPORTED);
+			break;
+		}
+	}
+
+	return NULL;
+}
+
+static void fake_ring_peer_stop(struct fake_ring_peer *peer)
+{
+	if (peer->running) {
+		peer->running = 0;
+		pthread_join(peer->thread, NULL);
+	}
+	serial_port_stop_thread(peer->master_port);
+	mavlink_free(peer->mav);
+	serial_port_free(peer->port);
+	memset(peer, 0, sizeof(*peer));
+}
+
 #endif /* KINETIS_FAKE_SIM */
 
 // static void wifi_task_cb(struct tim_task *task)
@@ -252,6 +326,7 @@ int app_main(void)
 #if KINETIS_FAKE_SIM
 	static pthread_t timer_thread;
 	static pthread_t phone_thread;
+	static struct fake_ring_peer fake_ring = { 0 };
 #endif
 	int ret = 0;
 
@@ -265,48 +340,53 @@ int app_main(void)
 	motor_ops = &usart2_serial_port_ops;
 #endif
 	rotor = pov_rotor_alloc(&general_flash_ops, &general_bootloader_ops,
-		motor_ops, &usart6_serial_port_ops,
-		&spi1_master, &spi6_master,
-		hall_read_rotated_time);
+			motor_ops, &usart6_serial_port_ops,
+			&uart4_serial_port_ops, &uart5_serial_port_ops,
+			&spi1_master, &spi6_master,
+			hall_read_rotated_time);
 	if (!rotor) {
 		pr_err("pov: failed to allocate rotor\n");
 		return -ENOMEM;
 	}
 	stm32_serial_port[1] = rotor->motor_port;
 	stm32_serial_port[2] = rotor->app_port;
+	stm32_serial_port[3] = rotor->ring_cw_port;
+	stm32_serial_port[4] = rotor->ring_ccw_port;
 #if POV_USE_MT6701
 #else
 	hall_dev = rotor->angle_sensor;
 #endif
 
-// 	rotor->wifi = wifi_init(WIFI_SSID, WIFI_PASSWORD, 1,
-// 		WIFI_STATIC_IP, WIFI_STATIC_GW, WIFI_STATIC_NETMASK);
-// 	if (rotor->wifi) {
-// 	} else {
-// 		return -ENOMEM;
-// 	}
-// 
-// 	ret = tim_task_add(&rotor->wifi->schedule_task, "wifi_poll", WIFI_POLL_INTERVAL_MS * 1000,
-// 				true, false, wifi_task_cb);
-// 	if (ret != 0)
-// 		return ret;
+	// 	rotor->wifi = wifi_init(WIFI_SSID, WIFI_PASSWORD, 1,
+	// 		WIFI_STATIC_IP, WIFI_STATIC_GW, WIFI_STATIC_NETMASK);
+	// 	if (rotor->wifi) {
+	// 	} else {
+	// 		return -ENOMEM;
+	// 	}
+	//
+	// 	ret = tim_task_add(&rotor->wifi->schedule_task, "wifi_poll", WIFI_POLL_INTERVAL_MS * 1000,
+	// 				true, false, wifi_task_cb);
+	// 	if (ret != 0)
+	// 		return ret;
 
 #else
 	rotor = pov_rotor_alloc(&general_flash_ops, &general_bootloader_ops,
-		&usart1_serial_port_ops, &usart2_serial_port_ops,
-		&spi1_master, &spi1_master, hall_read_rotated_time);
+			&usart1_serial_port_ops, &usart2_serial_port_ops,
+			&uart4_serial_port_ops, &uart5_serial_port_ops,
+			&spi1_master, &spi1_master, hall_read_rotated_time);
 	if (!rotor) {
 		pr_err("pov: failed to allocate rotor\n");
 		return -ENOMEM;
 	}
 	stator = pov_stator_alloc(&usart1_serial_port_ops,
-				 &general_flash_ops, &general_bootloader_ops,
-				 hall_read_rotated_time);
+			&general_flash_ops, &general_bootloader_ops,
+			hall_read_rotated_time);
 	if (!stator) {
 		pr_err("pov: failed to allocate stator\n");
 		pov_rotor_free(rotor);
 		return -ENOMEM;
 	}
+	stator->hall->priv = rotor->angle_sensor;
 
 	serial_port_start_thread(rotor->motor_port, SERIAL_PORT_DF_OTHERS,
 		NULL, stator->motor_port);
@@ -322,17 +402,17 @@ int app_main(void)
 		goto out;
 	}
 
-// 	/* Start phone APP simulation thread */
-// 	phone_thread_switch = 1;
-// 	ret = pthread_create(&phone_thread, NULL, phone_thread_func, rotor);
-// 	if (ret != 0) {
-// 		phone_thread_switch = 0;
-// 		pr_err("pov: failed to create phone thread: %d\n", ret);
-// 		/* Stop timer thread before exit to prevent resource leak */
-// 		stator_thread_switch = 0;
-// 		pthread_join(timer_thread, NULL);
-// 		goto out;
-// 	}
+	// 	/* Start phone APP simulation thread */
+	// 	phone_thread_switch = 1;
+	// 	ret = pthread_create(&phone_thread, NULL, phone_thread_func, rotor);
+	// 	if (ret != 0) {
+	// 		phone_thread_switch = 0;
+	// 		pr_err("pov: failed to create phone thread: %d\n", ret);
+	// 		/* Stop timer thread before exit to prevent resource leak */
+	// 		stator_thread_switch = 0;
+	// 		pthread_join(timer_thread, NULL);
+	// 		goto out;
+	// 	}
 	mdelay(1000);
 #endif /* KINETIS_FAKE_SIM */
 
@@ -345,9 +425,12 @@ int app_main(void)
 
 	stator_thread_switch = 0;
 	pthread_join(timer_thread, NULL);
-#endif /* KINETIS_FAKE_SIM */
+#endif
 
 out:
+#if KINETIS_FAKE_SIM
+	fake_ring_peer_stop(&fake_ring);
+#endif
 	pov_rotor_free(rotor);
 	pov_stator_free(stator);
 
@@ -360,8 +443,8 @@ out:
 	motor_ops = &usart2_serial_port_ops;
 #endif
 	stator = pov_stator_alloc(motor_ops,
-				&general_flash_ops, &general_bootloader_ops,
-				hall_read_rotated_time);
+			&general_flash_ops, &general_bootloader_ops,
+			hall_read_rotated_time);
 	if (!stator) {
 		pr_err("pov: failed to allocate stator\n");
 		return -ENOMEM;

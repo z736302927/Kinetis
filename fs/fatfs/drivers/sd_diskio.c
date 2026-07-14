@@ -162,12 +162,24 @@ DSTATUS SD_status(BYTE lun)
 DRESULT SD_read(BYTE lun, BYTE *buff, LBA_t sector, UINT count)
 {
 	DRESULT res = RES_ERROR;
+	uint32_t tmo;
 
+#if defined(STM32H743xx)
+	/* Polling mode: CPU directly reads SDMMC FIFO, no D-Cache issues.
+	 * IRQ is disabled inside BSP_SD_ReadBlocks to prevent RX FIFO
+	 * overflow; hardware DTIMER handles timeout instead of SysTick. */
+	if (BSP_SD_ReadBlocks((uint32_t *)buff,
+		(uint32_t)(sector),
+		count, SD_TIMEOUT) == MSD_OK) {
+		res = RES_OK;
+	}
+#else
 	if (BSP_SD_ReadBlocks_DMA((uint32_t *)buff,
 		(uint32_t)(sector),
 		count) == MSD_OK) {
 		res = RES_OK;
 	}
+#endif
 
 	return res;
 }
@@ -190,6 +202,13 @@ DRESULT SD_write(BYTE lun, const BYTE *buff, LBA_t sector, UINT count)
 	DRESULT res = RES_ERROR;
 	uint32_t tmo;
 
+#if defined(STM32H743xx)
+	if (BSP_SD_WriteBlocks((uint32_t *)buff,
+		(uint32_t)(sector),
+		count, SD_TIMEOUT) == MSD_OK) {
+		res = RES_OK;
+	}
+#else
 	if (BSP_SD_WriteBlocks_DMA((uint32_t *)buff,
 		(uint32_t)(sector),
 		count) != MSD_OK) {
@@ -208,6 +227,7 @@ DRESULT SD_write(BYTE lun, const BYTE *buff, LBA_t sector, UINT count)
 	}
 
 	res = RES_OK;
+#endif
 
 	return res;
 }

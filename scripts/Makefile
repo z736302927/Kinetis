@@ -387,8 +387,9 @@ $(BUILD_DIR)/%.bin: $(BUILD_DIR)/%.elf
 	$(BIN) $< $@
 endif
 
-# Force rebuild if headers change
-# $(OBJS): $(HEADERS)  # 注释掉这行，让GCC的自动依赖机制来处理真正的依赖关系
+compiledb:
+	compiledb make compile
+	@$(ECHO) "compile_commands.json generated ($(words $(C_SOURCES)) source entries)"
 
 # Clean target
 clean:
@@ -580,4 +581,4 @@ print-cmd:
 # The - before include prevents make from failing if the files don't exist yet
 -include $(C_OBJS:.o=.d) $(S_OBJS:.o=.d)
 
-.PHONY: all compile clean run debug print-sources print-objects print-os print-vars check-sources test-dirs create-dirs test-cmd print-cmd print-headers check-deps analyze-deps
+.PHONY: all compile clean run debug print-sources print-objects print-os print-vars check-sources test-dirs create-dirs test-cmd print-cmd print-headers check-deps analyze-deps compiledb
