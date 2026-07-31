@@ -48,12 +48,12 @@ void arm_dwt_init(void)
 	/* Reset cycle counter */
 	writel(0, &DWT->CYCCNT);
 	/* Enable cycle counter (CYCCNTENA) */
-	writel(readl(&DWT->CTRL) | DWT_CTRL_CYCCNTENA_Msk, &DWT->CTRL);					
+	writel(readl(&DWT->CTRL) | DWT_CTRL_CYCCNTENA_Msk, &DWT->CTRL);
 }
 
 u64 arm_dwt_read(struct clocksource *cs)
 {
-    return (u64)DWT->CYCCNT;
+	return (u64)DWT->CYCCNT;
 }
 
 unsigned long read_chip_timer(void)
@@ -63,12 +63,12 @@ unsigned long read_chip_timer(void)
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-    if (htim->Instance == TIM4) {
-        xtime_update(1);
-        update_sched_clock();
-    } else if (htim->Instance == TIM5) {
-        basic_timer_isr(1000000);
-    }
+	if (htim->Instance == TIM4) {
+		xtime_update(1);
+		update_sched_clock();
+	} else if (htim->Instance == TIM5) {
+		basic_timer_isr(1000000);
+	}
 }
 
 static void led_hal_set(u8 red, u8 green, u8 blue)
@@ -194,14 +194,16 @@ static struct transfer_complete_result stm32_spi_result[4];
 
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
 {
-	if (hspi->Instance == hspi1.Instance)
+	if (hspi->Instance == hspi1.Instance) {
 		stm32_spi_result[0].tx_done = 1;
+	}
 }
 
 void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
 {
-	if (hspi->Instance == hspi1.Instance)
+	if (hspi->Instance == hspi1.Instance) {
 		stm32_spi_result[0].rx_done = 1;
+	}
 }
 
 void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
@@ -218,10 +220,11 @@ struct serial_port *stm32_serial_port[5];
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-	if (huart->Instance == huart1.Instance)
+	if (huart->Instance == huart1.Instance) {
 		stm32_uart_result[0].tx_done = 1;
-	else if (huart->Instance == huart2.Instance)
+	} else if (huart->Instance == huart2.Instance) {
 		stm32_uart_result[1].tx_done = 1;
+	}
 }
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, u16 Size)
@@ -238,7 +241,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 		HAL_UART_AbortReceive(&huart2);
 		HAL_UART_Init(&huart2);
 		HAL_UARTEx_ReceiveToIdle_DMA(&huart2, stm32_serial_port[1]->rx_buffer,
-					     SERIAL_PORT_BUFFER_SIZE);
+			SERIAL_PORT_BUFFER_SIZE);
 		__HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_TC | DMA_IT_HT);
 		// ATOMIC_CLEAR_BIT(huart2.Instance->CR3, USART_CR3_EIE);
 		stm32_uart_result[1].error = 1;
@@ -248,21 +251,23 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 struct transfer_complete_result sd_dma_result;
 
 #if defined(STM32H743xx)
-#define SD_INST hsd1.Instance
+#define SD_INST                     hsd1.Instance
 #elif defined(STM32F407xx)
-#define SD_INST hsd->Instance
+#define SD_INST                     hsd->Instance
 #endif
 
 void HAL_SD_TxCpltCallback(SD_HandleTypeDef *hsd)
 {
-	if (hsd->Instance == SD_INST)
+	if (hsd->Instance == SD_INST) {
 		sd_dma_result.tx_done = 1;
+	}
 }
 
 void HAL_SD_RxCpltCallback(SD_HandleTypeDef *hsd)
 {
-	if (hsd->Instance == SD_INST)
+	if (hsd->Instance == SD_INST) {
 		sd_dma_result.rx_done = 1;
+	}
 }
 
 void HAL_SD_ErrorCallback(SD_HandleTypeDef *hsd)
@@ -277,16 +282,18 @@ int fputc(int ch, FILE *f)
 {
 	/* Place your implementation of fputc here */
 	/* e.g. write a character to the USART3 and Loop until the end of transmission */
-	if (HAL_UART_Transmit(&huart1, (u8 *)&ch, 1, 100) != HAL_OK)
+	if (HAL_UART_Transmit(&huart1, (u8 *)&ch, 1, 100) != HAL_OK) {
 		return -1;
+	}
 
 	return ch;
 }
 
 int _putc(int ch)
 {
-	if (HAL_UART_Transmit(&huart1, (u8 *)&ch, 1, 100) != HAL_OK)
+	if (HAL_UART_Transmit(&huart1, (u8 *)&ch, 1, 100) != HAL_OK) {
 		return -1;
+	}
 
 	return ch;
 }
@@ -297,8 +304,9 @@ int _puts(char *string, int cnt)
 	int ret;
 
 	/* Output cnt characters from string to console */
-	if (!string || cnt <= 0)
+	if (!string || cnt <= 0) {
 		return 0;
+	}
 
 	stm32_uart_result[0].tx_done = 0;
 	stm32_uart_result[0].error = 0;
@@ -309,9 +317,10 @@ int _puts(char *string, int cnt)
 	}
 
 	ret = readl_poll_timeout(&stm32_uart_result[0].tx_done, val,
-				 val || stm32_uart_result[0].error, 100, 100000);
-	if (ret < 0)
+			val || stm32_uart_result[0].error, 100, 100000);
+	if (ret < 0) {
 		return -1;
+	}
 
 	return cnt;
 }
@@ -420,16 +429,26 @@ static int usart2_init(struct serial_port *serial)
 	serial->baud_rate = huart2.Init.BaudRate;
 
 	switch (huart2.Init.Parity) {
-	case UART_PARITY_ODD:  serial->parity = 1; break;
-	case UART_PARITY_EVEN: serial->parity = 2; break;
-	default:               serial->parity = 0; break;
+	case UART_PARITY_ODD:
+		serial->parity = 1;
+		break;
+	case UART_PARITY_EVEN:
+		serial->parity = 2;
+		break;
+	default:
+		serial->parity = 0;
+		break;
 	}
 
 	switch (huart2.Init.WordLength) {
 #if defined(STM32H743xx)
-	case UART_WORDLENGTH_7B: serial->data_bits = 7; break;
+	case UART_WORDLENGTH_7B:
+		serial->data_bits = 7;
+		break;
 #endif
-	default:                 serial->data_bits = 8; break;
+	default:
+		serial->data_bits = 8;
+		break;
 	}
 
 	serial->flow_control = (huart2.Init.HwFlowCtl == UART_HWCONTROL_NONE) ? 0 : 2;
@@ -455,8 +474,9 @@ static int usart2_transmit_bytes(const u8 *data, u16 size)
 	}
 
 	ret = readl_poll_timeout(&stm32_uart_result[1].tx_done, val, val || stm32_uart_result[1].error, 100, 100000);
-	if (ret < 0)
+	if (ret < 0) {
 		return ret;
+	}
 
 	return 0;
 }
@@ -474,7 +494,7 @@ static int usart2_receive_cb(struct serial_port *serial)
 }
 
 static int usart2_config(struct serial_port *serial, u32 baud_rate,
-			       u8 parity, u8 data_bits, u8 flow_control)
+	u8 parity, u8 data_bits, u8 flow_control)
 {
 	u32 word_length;
 	u32 parity_cfg;
@@ -485,17 +505,27 @@ static int usart2_config(struct serial_port *serial, u32 baud_rate,
 
 	/* Map parity: 0=None, 1=Odd, 2=Even */
 	switch (parity) {
-	case 1:  parity_cfg = UART_PARITY_ODD;  break;
-	case 2:  parity_cfg = UART_PARITY_EVEN; break;
-	default: parity_cfg = UART_PARITY_NONE; break;
+	case 1:
+		parity_cfg = UART_PARITY_ODD;
+		break;
+	case 2:
+		parity_cfg = UART_PARITY_EVEN;
+		break;
+	default:
+		parity_cfg = UART_PARITY_NONE;
+		break;
 	}
 
 	/* Map data bits */
 	switch (data_bits) {
 #if defined(STM32H743xx)
-	case 7:  word_length = UART_WORDLENGTH_7B; break;
+	case 7:
+		word_length = UART_WORDLENGTH_7B;
+		break;
 #endif
-	default: word_length = UART_WORDLENGTH_8B; break;
+	default:
+		word_length = UART_WORDLENGTH_8B;
+		break;
 	}
 
 	huart2.Init.BaudRate     = baud_rate;
@@ -511,8 +541,9 @@ static int usart2_config(struct serial_port *serial, u32 baud_rate,
 #endif
 
 	while (retry--) {
-		if (HAL_UART_Init(&huart2) == HAL_OK)
+		if (HAL_UART_Init(&huart2) == HAL_OK) {
 			break;
+		}
 		HAL_Delay(10);
 	}
 
@@ -590,14 +621,14 @@ struct serial_port_ops usart2_serial_port_ops = {
  * Flash Sector Sizes
  * H7: Uniform 128KB sectors (bank 1, sectors 0-7)
  *     Program via 256-bit FLASHWORD (32 bytes)
- * F4: Mixed: 4Ã—16KB + 1Ã—64KB + 7Ã—128KB = 1MB
+ * F4: Mixed: 4×16KB + 1×64KB + 7×128KB = 1MB
  *     Program via 32-bit word
  *********************************************************************/
 #ifdef STM32H743xx
-#define BL_FLASH_SECTOR_SIZE     0x20000u  /* 128KB per sector */
-#define BL_FLASH_WORD_SIZE       32u       /* 256-bit FLASHWORD */
-#define BL_FLASH_VOLTAGE_RANGE   FLASH_VOLTAGE_RANGE_3
-#define BL_FLASH_TYPEPROGRAM     FLASH_TYPEPROGRAM_FLASHWORD
+#define BL_FLASH_SECTOR_SIZE        0x20000u  /* 128KB per sector */
+#define BL_FLASH_WORD_SIZE          32u       /* 256-bit FLASHWORD */
+#define BL_FLASH_VOLTAGE_RANGE      FLASH_VOLTAGE_RANGE_3
+#define BL_FLASH_TYPEPROGRAM        FLASH_TYPEPROGRAM_FLASHWORD
 
 static int stm32_flash_erase(u64 addr, u32 size)
 {
@@ -607,7 +638,7 @@ static int stm32_flash_erase(u64 addr, u32 size)
 
 	if (addr + size > (u64)FLASH_BANK1_BASE + ROM_TOTAL_SIZE) {
 		pr_err("stm32_flash_erase: addr 0x%llx+%u out of range\n",
-		       addr, size);
+			addr, size);
 		return -EINVAL;
 	}
 
@@ -625,7 +656,7 @@ static int stm32_flash_erase(u64 addr, u32 size)
 
 		if (HAL_FLASHEx_Erase(&erase_init, &sector_error) != HAL_OK) {
 			pr_err("stm32_flash_erase: sector %u failed, err 0x%lx\n",
-			       sector, HAL_FLASH_GetError());
+				sector, HAL_FLASH_GetError());
 			HAL_FLASH_Lock();
 			return -EIO;
 		}
@@ -641,7 +672,7 @@ static int stm32_flash_write(u64 addr, const u8 *data, u32 size)
 
 	if (addr + size > (u64)FLASH_BANK1_BASE + ROM_TOTAL_SIZE) {
 		pr_err("stm32_flash_write: addr 0x%llx+%u out of range\n",
-		       addr, size);
+			addr, size);
 		return -EINVAL;
 	}
 
@@ -654,33 +685,33 @@ static int stm32_flash_write(u64 addr, const u8 *data, u32 size)
 		int ret;
 
 		if (word_off != 0 ||
-		    (size - offset) < BL_FLASH_WORD_SIZE) {
+			(size - offset) < BL_FLASH_WORD_SIZE) {
 			/* Unaligned or partial: read-modify-write */
 			u32 aligned_addr = flash_addr &
-					   ~(BL_FLASH_WORD_SIZE - 1);
+				~(BL_FLASH_WORD_SIZE - 1);
 			u8 buf[32];  /* 256-bit max */
 
 			memcpy(buf, (void *)(uintptr_t)aligned_addr,
-			       BL_FLASH_WORD_SIZE);
+				BL_FLASH_WORD_SIZE);
 			copy_sz = (size - offset < BL_FLASH_WORD_SIZE - word_off)
-				  ? (size - offset)
-				  : (BL_FLASH_WORD_SIZE - word_off);
+				? (size - offset)
+				: (BL_FLASH_WORD_SIZE - word_off);
 			memcpy(buf + word_off, data + offset, copy_sz);
 
 			ret = HAL_FLASH_Program(BL_FLASH_TYPEPROGRAM,
-						aligned_addr,
-						(u32)(uintptr_t)buf);
+					aligned_addr,
+					(u32)(uintptr_t)buf);
 		} else {
 			/* Aligned full flash-word */
 			ret = HAL_FLASH_Program(BL_FLASH_TYPEPROGRAM,
-						flash_addr,
-						(u32)(uintptr_t)(data + offset));
+					flash_addr,
+					(u32)(uintptr_t)(data + offset));
 			copy_sz = BL_FLASH_WORD_SIZE;
 		}
 
 		if (ret != HAL_OK) {
 			pr_err("stm32_flash_write: failed at 0x%08x, err 0x%lx\n",
-			       flash_addr, HAL_FLASH_GetError());
+				flash_addr, HAL_FLASH_GetError());
 			HAL_FLASH_Lock();
 			return -EIO;
 		}
@@ -696,7 +727,7 @@ static int stm32_flash_read(u64 addr, u8 *buf, u32 size)
 {
 	if (addr + size > (u64)FLASH_BANK1_BASE + ROM_TOTAL_SIZE) {
 		pr_err("stm32_flash_read: addr 0x%llx+%u out of range\n",
-		       addr, size);
+			addr, size);
 		return -EINVAL;
 	}
 
@@ -705,16 +736,16 @@ static int stm32_flash_read(u64 addr, u8 *buf, u32 size)
 }
 
 #elif defined(STM32F407xx)
-#define BL_FLASH_SECTOR_SIZE_REF 0x20000u  /* default sector size reference */
-#define BL_FLASH_WORD_SIZE       4u        /* 32-bit word */
-#define BL_FLASH_VOLTAGE_RANGE   FLASH_VOLTAGE_RANGE_3
-#define BL_FLASH_TYPEPROGRAM     FLASH_TYPEPROGRAM_WORD
-#define BL_F4_SECTOR_COUNT       12
+#define BL_FLASH_SECTOR_SIZE_REF    0x20000u  /* default sector size reference */
+#define BL_FLASH_WORD_SIZE          4u        /* 32-bit word */
+#define BL_FLASH_VOLTAGE_RANGE      FLASH_VOLTAGE_RANGE_3
+#define BL_FLASH_TYPEPROGRAM        FLASH_TYPEPROGRAM_WORD
+#define BL_F4_SECTOR_COUNT          12
 
 const u32 stm32_sector_size[BL_F4_SECTOR_COUNT] = {
-	0x4000,  0x4000,  0x4000,  0x4000,   /* 16KB Ã— 4 */
-	0x10000,                             /* 64KB Ã— 1 */
-	0x20000, 0x20000, 0x20000,           /* 128KB Ã— 7 */
+	0x4000,  0x4000,  0x4000,  0x4000,   /* 16KB × 4 */
+	0x10000,                             /* 64KB × 1 */
+	0x20000, 0x20000, 0x20000,           /* 128KB × 7 */
 	0x20000, 0x20000, 0x20000, 0x20000
 };
 
@@ -725,8 +756,9 @@ static int stm32_flash_get_sector(u32 addr)
 
 	for (u8 i = 0; i < BL_F4_SECTOR_COUNT; i++) {
 		accum += stm32_sector_size[i];
-		if (offset < accum)
+		if (offset < accum) {
 			return i;
+		}
 	}
 	return -EINVAL;
 }
@@ -740,7 +772,7 @@ static int stm32_flash_erase(u64 addr, u32 size)
 
 	if (addr + size > (u64)FLASH_BASE + ROM_TOTAL_SIZE) {
 		pr_err("stm32_flash_erase: addr 0x%llx+%u out of range\n",
-		       addr, size);
+			addr, size);
 		return -EINVAL;
 	}
 
@@ -763,7 +795,7 @@ static int stm32_flash_erase(u64 addr, u32 size)
 
 		if (HAL_FLASHEx_Erase(&erase_init, &sector_error) != HAL_OK) {
 			pr_err("stm32_flash_erase: sector %d failed, err 0x%lx\n",
-			       sector, HAL_FLASH_GetError());
+				sector, HAL_FLASH_GetError());
 			HAL_FLASH_Lock();
 			return -EIO;
 		}
@@ -779,7 +811,7 @@ static int stm32_flash_write(u64 addr, const u8 *data, u32 size)
 
 	if (addr + size > (u64)FLASH_BASE + ROM_TOTAL_SIZE) {
 		pr_err("stm32_flash_write: addr 0x%llx+%u out of range\n",
-		       addr, size);
+			addr, size);
 		return -EINVAL;
 	}
 
@@ -794,28 +826,29 @@ static int stm32_flash_write(u64 addr, const u8 *data, u32 size)
 		int ret;
 
 		copy_sz = BL_FLASH_WORD_SIZE - word_off;
-		if (copy_sz > (size - offset))
+		if (copy_sz > (size - offset)) {
 			copy_sz = size - offset;
+		}
 
 		if (word_off != 0 || copy_sz < BL_FLASH_WORD_SIZE) {
 			/* Unaligned or partial: read-modify-write */
 			memcpy(&data_word, (void *)(uintptr_t)aligned_addr,
-			       sizeof(data_word));
+				sizeof(data_word));
 			memcpy((u8 *)&data_word + word_off,
-			       data + offset, copy_sz);
+				data + offset, copy_sz);
 
 			ret = HAL_FLASH_Program(BL_FLASH_TYPEPROGRAM,
-						aligned_addr, data_word);
+					aligned_addr, data_word);
 		} else {
 			/* Aligned full word */
 			memcpy(&data_word, data + offset, sizeof(data_word));
 			ret = HAL_FLASH_Program(BL_FLASH_TYPEPROGRAM,
-						flash_addr, data_word);
+					flash_addr, data_word);
 		}
 
 		if (ret != HAL_OK) {
 			pr_err("stm32_flash_write: failed at 0x%08x, err 0x%lx\n",
-			       flash_addr, HAL_FLASH_GetError());
+				flash_addr, HAL_FLASH_GetError());
 			HAL_FLASH_Lock();
 			return -EIO;
 		}
@@ -831,7 +864,7 @@ static int stm32_flash_read(u64 addr, u8 *buf, u32 size)
 {
 	if (addr + size > (u64)FLASH_BASE + ROM_TOTAL_SIZE) {
 		pr_err("stm32_flash_read: addr 0x%llx+%u out of range\n",
-		       addr, size);
+			addr, size);
 		return -EINVAL;
 	}
 
@@ -849,7 +882,7 @@ struct flash_ops general_flash_ops = {
 
 static void stm32_clear_pending_irqs(void)
 {
-	/* Disable and clear ALL NVIC interrupts â€” no pending IRQ may
+	/* Disable and clear ALL NVIC interrupts — no pending IRQ may
 	 * fire during the transition using the newly assigned VTOR. */
 	for (int i = 0; i < 8; i++) {
 		NVIC->ICER[i] = 0xFFFFFFFF;

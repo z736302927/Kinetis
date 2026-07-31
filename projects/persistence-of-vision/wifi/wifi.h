@@ -14,12 +14,12 @@ extern "C" {
 #include "tcp_ap.h"
 
 enum wifi_state {
-    WIFI_STATE_OFF = 0,
-    WIFI_STATE_INIT,
-    WIFI_STATE_JOINING,
-    WIFI_STATE_DHCP,
-    WIFI_STATE_CONNECTED,
-    WIFI_STATE_ERROR,
+	WIFI_STATE_OFF = 0,
+	WIFI_STATE_INIT,
+	WIFI_STATE_JOINING,
+	WIFI_STATE_DHCP,
+	WIFI_STATE_CONNECTED,
+	WIFI_STATE_ERROR,
 };
 
 struct wifi_manager {
@@ -27,16 +27,16 @@ struct wifi_manager {
 	enum wifi_state state;
 	volatile int dhcp_bound;
 
-    char ssid[33];
-    char password[65];
+	char ssid[33];
+	char password[65];
 	u8 ssid_length;
 	u8 password_length;
-    u8 use_dhcp;
-    u32 static_ip;
-    u32 static_gateway;
-    u32 static_subnet_mask;    
+	u8 use_dhcp;
+	u32 static_ip;
+	u32 static_gateway;
+	u32 static_subnet_mask;
 
-    struct tcp_ap *ap;
+	struct tcp_ap *ap;
 
 	struct tim_task schedule_task;
 };
@@ -44,8 +44,8 @@ struct wifi_manager {
 void wifi_schedule();
 
 struct wifi_manager *wifi_init(char *ssid, char *password,
-    u8 use_dhcp,
-    u32 ip, u32 gateway, u32 subnet_mask);
+	u8 use_dhcp,
+	u32 ip, u32 gateway, u32 subnet_mask);
 
 void wifi_get_ip_str(struct wifi_manager *wifi, char *buf);
 

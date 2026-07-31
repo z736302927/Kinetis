@@ -68,9 +68,9 @@ int app_main(void)
 	}
 
 	bl_ctx = bootloader_init(&layout,
-				 &general_bootloader_ops,
-				 &general_flash_ops,
-				 &usart2_serial_port_ops);
+			&general_bootloader_ops,
+			&general_flash_ops,
+			&usart2_serial_port_ops);
 	if (!bl_ctx) {
 		pr_err("Bootloader init failed\n");
 		return -ENOMEM;

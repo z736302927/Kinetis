@@ -15,14 +15,41 @@ from pathlib import Path
 
 ENCODINGS = ['utf-8', 'gbk', 'gb2312', 'latin1']
 
+# Common garbled characters produced when GBK bytes are mistakenly decoded as
+# UTF-8 — used as a heuristic to detect encoding misdetection.
+_GBK_GARBLE_RE = re.compile(
+    r'[\u00c0-\u024f'     # Latin-1 Supplement + Latin Extended-A/B
+    r'\u0400-\u04ff'      # Cyrillic
+    r'\u0370-\u03ff'      # Greek
+    r']'
+)
 
-def read_file_content(file_path):
-    """Read file content with automatic encoding detection.
 
-    Returns:
-        (str content, str encoding_used) on success, (None, None) on failure.
-    """
-    for encoding in ENCODINGS:
+def _has_cjk(content):
+    """Check if content contains CJK unified ideographs."""
+    return bool(re.search(r'[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]', content))
+
+
+def _looks_like_gbk_misread(content):
+    """Heuristic: check if UTF-8 decode produced garbled-GBK-looking
+    characters (accented Latin + Cyrillic + Greek) with no real CJK."""
+    if not content:
+        return False
+    if _has_cjk(content):
+        return False  # real UTF-8 content with Chinese
+    garble_count = len(_GBK_GARBLE_RE.findall(content))
+    if garble_count == 0:
+        return False
+    # If >2% of non-space chars are in the garbled range, suspect GBK
+    non_space = content.replace(' ', '').replace('\n', '').replace('\t', '')
+    if non_space and garble_count / len(non_space) > 0.02:
+        return True
+    return False
+
+
+def _try_decode_file(file_path, encodings):
+    """Try each encoding in order; returns (content, encoding) or (None, None)."""
+    for encoding in encodings:
         try:
             with open(file_path, 'r', encoding=encoding) as f:
                 return f.read(), encoding
@@ -31,19 +58,39 @@ def read_file_content(file_path):
     return None, None
 
 
+def read_file_content(file_path):
+    """Read file content with automatic encoding detection.
+
+    Detects and corrects the common case where GBK-encoded Chinese text is
+    mistakenly decoded as valid (but garbled) UTF-8.
+
+    Returns:
+        (str content, str encoding_used) on success, (None, None) on failure.
+    """
+    content, enc = _try_decode_file(file_path, ENCODINGS)
+    if content is None:
+        return None, None
+
+    # If UTF-8 succeeded but looks like garbled GBK, re-read with GBK
+    if enc == 'utf-8' and _looks_like_gbk_misread(content):
+        for fallback in ['gbk', 'gb2312']:
+            content2, enc2 = _try_decode_file(file_path, [fallback])
+            if content2 is not None:
+                return content2, enc2
+
+    return content, enc
+
+
 def read_file_lines(file_path):
     """Read file lines with automatic encoding detection.
 
     Returns:
         (list[str] lines, str encoding_used) or (None, None).
     """
-    for encoding in ENCODINGS:
-        try:
-            with open(file_path, 'r', encoding=encoding) as f:
-                return f.readlines(), encoding
-        except (UnicodeDecodeError, OSError):
-            continue
-    return None, None
+    content, enc = read_file_content(file_path)
+    if content is None:
+        return None, None
+    return content.splitlines(True), enc
 
 
 def write_file(file_path, content, encoding='utf-8'):
@@ -322,7 +369,7 @@ def find_identifiers_in_file(file_path):
             continue
         if ident.isupper():
             continue  # 全大写是宏风格，不处理
-        # 已经是纯小写+下划线且不太长 → 跳过
+        # 已经是纯小写+下划线且不太长 -> 跳过
         if re.match(r'^[a-z]+(_[a-z0-9]+)*$', ident) and len(ident) <= 15:
             continue
         filtered_id.add(ident)
@@ -808,11 +855,11 @@ def process_file_pipeline(file_path, astyle_path, astyle_options, project_root, 
     if format_ids:
         format_identifiers_in_project(project_root, file_path)
 
-    # Step 5
-    ok2, _, err2 = format_with_astyle(file_path, astyle_path, astyle_options)
-    if not ok2:
-        print(f"  Second astyle error: {err2}")
-        return False, None
+        # Step 5 (only needed after identifier formatting changes code)
+        ok2, _, err2 = format_with_astyle(file_path, astyle_path, astyle_options)
+        if not ok2:
+            print(f"  Second astyle error: {err2}")
+            return False, None
 
     return True, out
 
@@ -920,14 +967,15 @@ Examples:
   python format_code.py ./src
   python format_code.py ./src ./lib --dry-run
   python format_code.py . --astyle /usr/bin/astyle --style=allman
+  python format_code.py ./src --format-names
 
 Pipeline (order):
   1. astyle code formatting
   2. #define value alignment
   3. Move trailing comments to line above
-  4. Format identifiers to Linux style
-  5. Second astyle pass
-  6. Format filenames to Linux style (optional)
+  4. Format identifiers to Linux style (--format-names)
+  5. Second astyle pass (--format-names)
+  6. Format filenames to Linux style (--format-names)
 """)
 
     parser.add_argument('directories', nargs='*', default=['.'],
@@ -954,15 +1002,15 @@ Pipeline (order):
                         help='Move trailing comments [default: enabled]')
     parser.add_argument('--no-move-comments', action='store_false', dest='move_comments')
 
-    parser.add_argument('--format-ids', action='store_true', default=True,
-                        help='Format identifiers [default: enabled]')
-    parser.add_argument('--no-format-ids', action='store_false', dest='format_ids')
-
-    parser.add_argument('--format-filenames', action='store_true', default=True,
-                        help='Format filenames [default: enabled]')
-    parser.add_argument('--no-format-filenames', action='store_false', dest='format_filenames')
+    parser.add_argument('--format-names', action='store_true', default=False,
+                        help='Format names: identifiers + filenames (steps 4-6)')
 
     args = parser.parse_args()
+
+    # --format-names enables both identifier and filename formatting
+    format_ids = args.format_names
+    format_filenames = args.format_names
+
     astyle_opts = build_astyle_options(args.style, args.indent, args.max_length)
 
     print("=" * 60)
@@ -973,19 +1021,20 @@ Pipeline (order):
     print(f"  Style: {args.style}, Indent: {args.indent}, Max-length: {args.max_length}")
     print(f"  Extensions: {', '.join(args.extensions)}")
     print(f"  Dry-run: {args.dry_run}")
-    print(f"  Pipeline steps: astyle → #define-align → comments → identifiers → astyle")
-    print(f"  Filename formatting: {args.format_filenames}")
+    print(f"  Pipeline: astyle -> #define-align -> comments"
+          f"{' -> identifiers -> astyle' if format_ids else ''}")
+    print(f"  Format names (steps 4-6): {format_ids or format_filenames}")
     print("=" * 60)
 
     # Steps 1-5
     total, success, failed, stats = format_multiple_directories(
         args.directories, args.astyle, astyle_opts, args.dry_run,
-        args.align_defines, args.move_comments, args.format_ids)
+        args.align_defines, args.move_comments, format_ids)
 
     # Step 6: filenames
     renamed_total = 0
     found_total = 0
-    if args.format_filenames:
+    if format_filenames:
         for d in args.directories:
             if not os.path.isdir(d):
                 continue
@@ -1002,7 +1051,7 @@ Pipeline (order):
     print(f"  Code files: {total}")
     print(f"  Success: {success}")
     print(f"  Failed: {len(failed)}")
-    if args.format_filenames:
+    if format_filenames:
         print(f"  Filenames found: {found_total}, renamed: {renamed_total}")
 
     if not args.dry_run:

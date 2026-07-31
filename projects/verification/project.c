@@ -6,12 +6,12 @@
 
 int board_init(void)
 {
-    int ret = 0;
+	int ret = 0;
 
-    return ret;
+	return ret;
 }
 
 int app_main(void)
 {
-    return k_test_case_schedule();
+	return k_test_case_schedule();
 }

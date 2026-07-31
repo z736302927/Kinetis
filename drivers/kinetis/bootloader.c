@@ -619,6 +619,37 @@ err:
 	return ret;
 }
 
+int bootloader_write_update_flag(u32 firmware_size, u32 firmware_crc32,
+				 const char *filename)
+{
+	struct bootloader_update_flag flag;
+	FIL fp;
+	UINT bw;
+	FRESULT res;
+
+	memset(&flag, 0, sizeof(flag));
+	flag.magic = BL_UPDATE_FLAG_MAGIC;
+	flag.firmware_size = firmware_size;
+	flag.firmware_crc32 = firmware_crc32;
+	if (filename && filename[0])
+		strncpy(flag.firmware_filename, filename,
+			sizeof(flag.firmware_filename) - 1);
+
+	if (f_open(&fp, BL_UPDATE_FLAG_PATH, FA_CREATE_ALWAYS | FA_WRITE) != FR_OK) {
+		pr_err("Failed to create update flag file\n");
+		return -EIO;
+	}
+	res = f_write(&fp, &flag, sizeof(flag), &bw);
+	if (res != FR_OK || bw != sizeof(flag)) {
+		pr_err("Failed to write update flag file\n");
+		f_close(&fp);
+		return -EIO;
+	}
+	f_close(&fp);
+
+	return 0;
+}
+
 #ifdef DESIGN_VERIFICATION_BOOTLOADER
 
 /* ─── Mock Flash ──────────────────────────────────────────── */

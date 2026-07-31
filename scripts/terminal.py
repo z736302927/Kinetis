@@ -248,7 +248,7 @@ def generate_report(output_dir, prefix_log_map, main_log_file):
 
             if analysis['has_error']:
                 failed_tests += 1
-                f.write(f"状态: ❌ FAILED\n")
+                f.write(f"状态: [FAIL] FAILED\n")
 
                 for keyword, errors in analysis['errors'].items():
                     f.write(f"\n  [{keyword}] 发现 {len(errors)} 处:\n")
@@ -267,7 +267,7 @@ def generate_report(output_dir, prefix_log_map, main_log_file):
                 })
             else:
                 passed_tests += 1
-                f.write(f"状态: ✅ PASSED\n")
+                f.write(f"状态: [OK] PASSED\n")
 
             f.write("\n")
 
@@ -288,7 +288,7 @@ def generate_report(output_dir, prefix_log_map, main_log_file):
         f.write(f"\n主日志文件: {main_log_file}\n")
         f.write("-" * 80 + "\n")
 
-    print(f"✅ 测试报告已生成: {report_file}")
+    print(f"[OK] 测试报告已生成: {report_file}")
     print(
         f"\n测试结果: 通过 {passed_tests}/{total_tests}, 失败 {failed_tests}/{total_tests}")
 
@@ -645,7 +645,7 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
                 break
 
             # ============================================================
-            # ✅ 关键修改：滑动超时窗口（有输出就重置计时器）
+            # [OK] 关键修改：滑动超时窗口（有输出就重置计时器）
             # ============================================================
             test_status = TestStatus.NOT_FOUND
             no_output_timeout = 60    # 无输出超时时间（秒）
@@ -665,13 +665,13 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
                 try:
                     while True:
                         line = output_queue.get_nowait()
-                        last_output_time = time.time()  # ✅ 收到输出，重置超时计时器
+                        last_output_time = time.time()  # [OK] 收到输出，重置超时计时器
 
                         # 检查状态
                         status = check_test_status(line)
                         if status != TestStatus.NOT_FOUND:
                             test_status = status
-                            # ✅ 检测到状态后，继续读取后续输出（可能包含提示符）
+                            # [OK] 检测到状态后，继续读取后续输出（可能包含提示符）
                             # 不立即 break，继续等待一小段时间让所有输出完成
                             time.sleep(0.1)  # 等待可能的后续输出
                             break
@@ -681,10 +681,10 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
                 if test_status != TestStatus.NOT_FOUND:
                     break
 
-                # ✅ 检查无输出时间（而不是总执行时间）
+                # [OK] 检查无输出时间（而不是总执行时间）
                 no_output_duration = time.time() - last_output_time
                 if no_output_duration > no_output_timeout:
-                    print(f"⚠️ 已 {no_output_timeout} 秒无新输出，判定超时")
+                    print(f"[WARN] 已 {no_output_timeout} 秒无新输出，判定超时")
                     break
 
                 # 进度提示（每 5 秒无输出时显示）
@@ -704,21 +704,21 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
                 pass  # 不等待提示符，直接进入下一次循环
 
             elif test_status == TestStatus.FAIL:
-                print(f"❌ 检测到 TEST FAIL，停止执行")
+                print(f"[FAIL] 检测到 TEST FAIL，停止执行")
                 all_passed = False
                 failed_at_command = i
                 fail_reason = "TEST FAIL"
                 break
 
             elif test_status == TestStatus.NOT_EXIST:
-                print(f"❌ 检测到 TEST NOT EXIST，停止执行")
+                print(f"[FAIL] 检测到 TEST NOT EXIST，停止执行")
                 all_passed = False
                 failed_at_command = i
                 fail_reason = "TEST NOT_EXIST"
                 break
 
             else:
-                print(f"⚠️ 未检测到测试状态标记")
+                print(f"[WARN] 未检测到测试状态标记")
 
                 # 显示最近收到的输出
                 print("最近 5 行输出：")
@@ -749,10 +749,10 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
         separator = "-" * 80
         summary = f"\n\n{separator}\n"
         if all_passed:
-            summary += "✅ 所有命令执行完成且检测到 TEST PASS\n"
+            summary += "[OK] 所有命令执行完成且检测到 TEST PASS\n"
         else:
             if fail_reason:
-                summary += f"❌ 执行失败：在命令 {failed_at_command} 处检测到 {fail_reason}\n"
+                summary += f"[FAIL] 执行失败：在命令 {failed_at_command} 处检测到 {fail_reason}\n"
                 if failed_at_command and failed_at_command <= len(commands):
                     summary += f"失败命令：{commands[failed_at_command-1]}\n"
         summary += f"测试结束时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
@@ -847,17 +847,49 @@ Kinetis 自动化测试脚本
 python terminal.py [命令文件路径] [可执行程序路径]
 
 或：
-python terminal.py
+python terminal.py                # exe 路径从编译输出自动检测
 
 示例：
-python terminal.py Kinetis_Plan.txt .\\output\\Four-Axis-Flight.exe
+python terminal.py
+python terminal.py Kinetis_Plan.testlist .\\output\\persistence-of-vision\\fake\\persistence-of-vision.exe
     """)
+
+
+def parse_exe_from_makefile(makefile_path):
+    """
+    解析 Makefile，推测编译输出的可执行文件路径
+    返回可执行文件路径，失败返回 None
+    """
+    try:
+        with open(makefile_path, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+    except Exception:
+        return None
+
+    # 解析 PROJECT 变量（处理 ?= 和 = 两种赋值）
+    project_match = re.search(r'^PROJECT\s*\??=\s*(\S+)', content, re.MULTILINE)
+    if not project_match:
+        return None
+    project = project_match.group(1)
+
+    # 解析 PLATFORM_MK 变量
+    platform_mk_match = re.search(r'^PLATFORM_MK\s*\??=\s*(\S+)', content, re.MULTILINE)
+    if not platform_mk_match:
+        return None
+    platform_mk = platform_mk_match.group(1)
+    platform_base = os.path.splitext(platform_mk)[0]  # 去掉 .mk 后缀
+
+    # BUILD_DIR 格式: output/$(PROJECT)/$(basename $(PLATFORM_MK))
+    # TARGET 格式:   $(BUILD_DIR)/$(PROJECT).exe
+    exe_name = project + '.exe'
+    exe_relative = os.path.join('output', project, platform_base, exe_name)
+    return exe_relative
 
 
 def compile_program(makefile_path='Makefile', target='compile'):
     """
     执行 make compile 编译程序
-    返回是否成功
+    返回 (是否成功, 可执行文件路径)
     """
     print(f"开始编译程序...")
     print(f"Makefile: {makefile_path}")
@@ -881,18 +913,29 @@ def compile_program(makefile_path='Makefile', target='compile'):
             print(result.stderr)
 
         if result.returncode == 0:
-            print("✅ 编译成功")
-            return True
+            print("[OK] 编译成功")
+            # 从编译输出中提取实际生成的可执行文件路径
+            exe_path = None
+            for line in result.stdout.splitlines():
+                # 匹配 "Compilation completed: <path>"
+                m = re.search(r'Compilation completed:\s*(.+)', line)
+                if m:
+                    exe_path = m.group(1).strip().strip('"')
+                    break
+            # 若输出中没有路径，尝试从 Makefile 推测
+            if not exe_path:
+                exe_path = parse_exe_from_makefile(makefile_path)
+            return (True, exe_path)
         else:
-            print(f"❌ 编译失败，退出码: {result.returncode}")
-            return False
+            print(f"[FAIL] 编译失败，退出码: {result.returncode}")
+            return (False, None)
 
     except subprocess.TimeoutExpired:
-        print("❌ 编译超时")
-        return False
+        print("[FAIL] 编译超时")
+        return (False, None)
     except Exception as e:
-        print(f"❌ 编译出错: {e}")
-        return False
+        print(f"[FAIL] 编译出错: {e}")
+        return (False, None)
 
 
 def main():
@@ -906,26 +949,22 @@ def main():
         return
 
     default_cmd_file = r".\Kinetis_Plan.testlist"
-    default_exe_path = r".\output\Four-Axis-Flight.exe"
 
     if len(sys.argv) >= 3:
         cmd_file = sys.argv[1]
-        exe_path = sys.argv[2]
+        user_exe_path = sys.argv[2]
     elif len(sys.argv) == 2:
         cmd_file = sys.argv[1]
-        exe_path = default_exe_path
+        user_exe_path = None
     else:
         cmd_file = default_cmd_file
-        exe_path = default_exe_path
+        user_exe_path = None
         print(f"使用默认命令文件：{cmd_file}")
-        print(f"使用默认可执行文件：{exe_path}")
         print()
 
     if not os.path.exists(cmd_file):
         print(f"错误：命令文件 '{cmd_file}' 不存在")
         return
-
-    exe_path = os.path.abspath(exe_path)
 
     # 清理旧的 log 目录
     log_dir = os.path.join(os.getcwd(), 'output', 'log')
@@ -934,20 +973,32 @@ def main():
         try:
             import shutil
             shutil.rmtree(log_dir)
-            print("✅ 旧日志已清理")
+            print("[OK] 旧日志已清理")
         except Exception as e:
-            print(f"⚠️ 清理旧日志失败: {e}")
+            print(f"[WARN] 清理旧日志失败: {e}")
 
-    # 先编译程序
+    # 先编译程序，并从输出中获取 exe 路径
     makefile_path = os.path.join(os.path.dirname(
         cmd_file) if os.path.dirname(cmd_file) else '.', 'Makefile')
     if os.path.exists(makefile_path):
-        compile_success = compile_program(makefile_path)
+        compile_success, build_exe_path = compile_program(makefile_path)
         if not compile_success:
             print("编译失败，终止执行")
             return
     else:
         print(f"警告：未找到 Makefile，跳过编译步骤")
+        build_exe_path = None
+
+    # 确定最终的可执行文件路径：命令行指定 > 编译输出 > Makefile 推测
+    if user_exe_path:
+        exe_path = os.path.abspath(user_exe_path)
+        print(f"使用用户指定的可执行文件：{exe_path}")
+    elif build_exe_path:
+        exe_path = os.path.abspath(build_exe_path)
+        print(f"可执行文件（从编译自动检测）：{exe_path}")
+    else:
+        print("错误：无法确定可执行文件路径，请通过命令行参数指定")
+        return
 
     if not os.path.exists(exe_path):
         print(f"错误：可执行程序 '{exe_path}' 不存在")
@@ -967,10 +1018,10 @@ def main():
         print(f"... 还有 {len(commands) - 20} 条命令")
 
     print("\n执行策略:")
-    print("  ✅ TEST PASS  -> 继续执行下一条命令")
-    print("  ❌ TEST FAIL  -> 立即停止执行")
-    print("  ❌ TEST NOT EXIST -> 立即停止执行")
-    print("  ⏱️  超时 (60 秒) -> 停止执行")
+    print("  [OK] TEST PASS  -> 继续执行下一条命令")
+    print("  [FAIL] TEST FAIL  -> 立即停止执行")
+    print("  [FAIL] TEST NOT EXIST -> 立即停止执行")
+    print("  [TIME]  超时 (60 秒) -> 停止执行")
 
     print("\n开始执行...\n")
     success = run_interactive_mode(

@@ -134,6 +134,9 @@ void bootloader_free(struct bootloader_context *bl_ctx);
  */
 int bootloader_flow(struct bootloader_context *bl_ctx);
 
+int bootloader_write_update_flag(u32 firmware_size, u32 firmware_crc32,
+				 const char *filename);
+
 #ifdef __cplusplus
 }
 #endif

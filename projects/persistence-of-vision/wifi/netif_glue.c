@@ -20,11 +20,11 @@
 #include "netif_glue.h"
 
 #ifdef ADD_LWIP_EAPOL_SUPPORT
-#define ETHTYPE_EAPOL 0x888E
+#define ETHTYPE_EAPOL    0x888E
 #endif
 
-#define IFNAME0 'w'
-#define IFNAME1 'l'
+#define IFNAME0          'w'
+#define IFNAME1          'l'
 
 #define MULTICAST_IP_TO_MAC(ip) {(u8)0x01,             \
 		(u8)0x00,             \
@@ -40,12 +40,14 @@ static err_t lwip_igmp_mac_filter(struct netif *netif, const ip4_addr_t *group, 
 
 	switch (action) {
 	case IGMP_ADD_MAC_FILTER:
-		if (wwd_wifi_register_multicast_address(&mac) != WWD_SUCCESS)
+		if (wwd_wifi_register_multicast_address(&mac) != WWD_SUCCESS) {
 			return ERR_VAL;
+		}
 		break;
 	case IGMP_DEL_MAC_FILTER:
-		if (wwd_wifi_unregister_multicast_address(&mac) != WWD_SUCCESS)
+		if (wwd_wifi_unregister_multicast_address(&mac) != WWD_SUCCESS) {
 			return ERR_VAL;
+		}
 		break;
 	default:
 		return ERR_VAL;
@@ -63,8 +65,9 @@ static void low_level_init(struct netif *netif)
 {
 	netif->hwaddr_len = ETHARP_HWADDR_LEN;
 
-	if (wwd_wifi_get_mac_address((wiced_mac_t *)(netif->hwaddr), netif->state) != WWD_SUCCESS)
+	if (wwd_wifi_get_mac_address((wiced_mac_t *)(netif->hwaddr), netif->state) != WWD_SUCCESS) {
 		return;
+	}
 
 	netif->mtu = WICED_PAYLOAD_MTU;
 	netif->flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_LINK_UP;
@@ -95,16 +98,18 @@ void host_network_process_ethernet_data(wiced_buffer_t buffer,
 	u8 tmp[12];
 	u16 ethertype;
 
-	if (buffer == NULL)
+	if (buffer == NULL) {
 		return;
+	}
 
 	eth_hdr = (struct eth_hdr *)buffer->payload;
 	ethertype = htons(eth_hdr->type);
 
 	if (filter_ethernet_packet_cb != NULL &&
 		filter_ethertype == ethertype &&
-		filter_interface == interface)
+		filter_interface == interface) {
 		filter_ethernet_packet_cb(buffer->payload, filter_userdata);
+	}
 
 	if (ethertype == WICED_ETHERTYPE_8021Q) {
 		memcpy(tmp, buffer->payload, 12);
@@ -118,8 +123,9 @@ void host_network_process_ethernet_data(wiced_buffer_t buffer,
 	}
 
 	if (WICED_DEEP_SLEEP_IS_ENABLED() && WICED_DEEP_SLEEP_SAVE_PACKETS_NUM != 0) {
-		if (wiced_deep_sleep_save_packet(buffer, interface))
+		if (wiced_deep_sleep_save_packet(buffer, interface)) {
 			return;
+		}
 	}
 
 	switch (ethertype) {
@@ -174,8 +180,9 @@ err_t ethernetif_init(struct netif *netif)
 {
 	LWIP_ASSERT("netif != NULL", (netif != NULL));
 
-	if (netif->state > WWD_ETHERNET_INTERFACE)
+	if (netif->state > WWD_ETHERNET_INTERFACE) {
 		return ERR_ARG;
+	}
 
 	NETIF_INIT_SNMP(netif, snmp_ifType_ethernet_csmacd, 100000000);
 

@@ -16,8 +16,8 @@
 #include <kinetis/spi_soft.h>
 #include <kinetis/real-time-clock.h>
 #include <kinetis/basic-timer.h>
-#include "kinetis/bootloader.h"
-#include "kinetis/nrf24l01_port.h"
+#include <kinetis/bootloader.h>
+#include <kinetis/nrf24l01_port.h>
 
 #include "lrzsz/zmodem.h"
 #include "fatfs/ff.h"
@@ -56,18 +56,32 @@ static void *stator_thread_func(void *arg)
 
 static volatile u8 phone_thread_switch;
 
+static u32 phone_pick_operation(const u32 *weights, u32 n, u32 total)
+{
+	u32 r = get_random_u32() % total;
+	u32 sum = 0;
+
+	for (u32 i = 0; i < n; i++) {
+		sum += weights[i];
+		if (r < sum)
+			return i;
+	}
+	return n - 1;
+}
+
 static void *phone_thread_func(void *arg)
 {
 	struct pov_rotor *rotor = (struct pov_rotor *)arg;
 	struct serial_port *phone_port = NULL;
 	struct mavlink_device *phone_mavlink = NULL;
 	u32 operation;
-	int ret;
+	u32 burst_count;
+	static const u32 weights[] = { 10, 15, 15, 12, 8, 8, 10, 10, 5, 7 };
+	int ret = 0;
 
 	phone_port = serial_port_alloc(&usart1_serial_port_ops, "phone");
-	if (!phone_port) {
+	if (!phone_port)
 		return NULL;
-	}
 
 	phone_mavlink = mavlink_init(phone_port, 3, 0, "phone");
 	if (!phone_mavlink) {
@@ -85,134 +99,194 @@ static void *phone_thread_func(void *arg)
 	/* Wait for connection: bidirectional heartbeat exchange.
 	 * Both sides may power on in any order, so keep sending and
 	 * listening until each side has heard the other. */
-	while (1) {
+	while (phone_thread_switch) {
 		mavlink_send_heartbeat(phone_mavlink, MAV_SYS_ACTIVE, 0, 0);
 
-		/* Check if rotor's heartbeat arrived */
 		if (serial_port_data_available(phone_port) > 0) {
 			mavlink_receive_and_process(phone_mavlink, 10);
 
-			if (phone_mavlink->sys_status == MAV_SYS_ACTIVE) {
+			if (phone_mavlink->sys_status == MAV_SYS_ACTIVE)
 				break;
-			}
 		}
 
 		sleep(1);
 	}
 
+	if (!phone_thread_switch)
+		goto cleanup;
+
+	/*
+	 * Operation weights (total = 100):
+	 *   0  Heartbeat keep-alive            10
+	 *   1  Upload single .pov image        15
+	 *   2  IMAGE_CONTROL NEXT              15
+	 *   3  IMAGE_CONTROL PREVIOUS          12
+	 *   4  IMAGE_CONTROL REPLAY            8
+	 *   5  IMAGE_CONTROL PLAY_INDEX (0..N)  8
+	 *   6  Query motor status              10
+	 *   7  Burst: 2-4 rapid operations     10
+	 *   8  Download request (FT_START DOWN) 5
+	 *   9  File list request                7
+	 */
 	while (phone_thread_switch) {
-		/* Simulate user thinking time: 3~7 seconds */
-		sleep(3 + (get_random_u32() % 5));
+		/* Variable idle delay simulating user browsing */
+		sleep(2 + (get_random_u32() % 6));
 
-		/* Randomly pick an operation (0-7) */
-		operation = get_random_u32() % 8;
+		operation = phone_pick_operation(weights, ARRAY_SIZE(weights), 100);
 
+		ret = 0;
 		switch (operation) {
-		/* ── Heartbeat ─────────────────────────────────── */
+		/* ── Heartbeat ─────────────────────────────── */
 		case 0:
-			mavlink_send_heartbeat(phone_mavlink, MAV_SYS_ACTIVE, 0, 0);
+			mavlink_send_heartbeat(phone_mavlink,
+				MAV_SYS_ACTIVE, 0, 0);
 			pr_info("phone: sent HEARTBEAT\n");
 			break;
 
-		/* ── Upload a test .pov file ──────────────────── */
+		/* ── Upload single .pov file ───────────────── */
 		case 1: {
 			DIR dir;
 			FILINFO fno;
 			FRESULT res;
+			const char *chosen = NULL;
+			u32 chosen_size = 0;
 
 			res = f_opendir(&dir, APP_IMAGE_PATH);
 			if (res != FR_OK) {
-				pr_err("failed to open '%s': %d\n", APP_IMAGE_PATH, res);
+				pr_err("phone: failed to open '%s': %d\n",
+					APP_IMAGE_PATH, res);
 				break;
 			}
 
+			/* Collect just one random .pov file */
 			while (1) {
 				res = f_readdir(&dir, &fno);
-				if (res != FR_OK || fno.fname[0] == 0) {
-					break;    /* End of directory or error */
-				}
-
-				/* Skip directories and system files */
-				if (fno.fattrib & (AM_DIR | AM_SYS)) {
+				if (res != FR_OK || fno.fname[0] == 0)
+					break;
+				if (fno.fattrib & (AM_DIR | AM_SYS))
 					continue;
-				}
 
-				/* Check if it's an .pov file */
-				if (fno.fsize > 0) {
-					char *ext = strrchr(fno.fname, '.');
-					const char *file_list[] = { fno.fname };
-					if (ext && strcmp(ext, ".pov") == 0) {
-						ret = mavlink_send_ft_start(phone_mavlink, MAV_FT_UPLOAD, fno.fname, fno.fsize, 3000);
-						if (ret != 0) {
-							break;
-						}
-						pr_info("send image: %s\n", fno.fname);
-						ret = lrzsz_sz(phone_port, 1, file_list);
-						if (ret != 0) {
-							break;
-						}
-					}
+				char *ext = strrchr(fno.fname, '.');
+				if (ext && strcmp(ext, ".pov") == 0) {
+					chosen = fno.fname;
+					chosen_size = fno.fsize;
+					/* 50% chance to stop on first match
+					 * for single-file realism */
+					if (get_random_u32() & 1)
+						break;
 				}
 			}
 
+			if (chosen) {
+				const char *file_list[] = { chosen };
+				ret = mavlink_send_ft_start(phone_mavlink,
+					MAV_FT_UPLOAD, chosen, chosen_size, 3000);
+				if (ret == 0) {
+					pr_info("phone: upload '%s' (%u B)\n",
+						chosen, chosen_size);
+					ret = lrzsz_sz(phone_port, 1, file_list);
+				}
+			}
 			f_closedir(&dir);
-
 			break;
 		}
 
-		/* ── IMAGE_CONTROL: next ─────────────────────── */
+		/* ── IMAGE_CONTROL NEXT ────────────────────── */
 		case 2:
 			ret = mavlink_send_image_control(phone_mavlink,
-					MAV_IMAGE_NEXT, 0);
-			if (ret < 0) {
+				MAV_IMAGE_NEXT, 0);
+			if (ret < 0)
 				pr_err("phone: IMAGE_CONTROL NEXT failed: %d\n", ret);
-			} else {
+			else
 				pr_info("phone: sent IMAGE_CONTROL NEXT\n");
-			}
 			break;
 
-		/* ── IMAGE_CONTROL: previous ─────────────────── */
+		/* ── IMAGE_CONTROL PREVIOUS ────────────────── */
 		case 3:
 			ret = mavlink_send_image_control(phone_mavlink,
-					MAV_IMAGE_PREVIOUS, 0);
-			if (ret < 0) {
+				MAV_IMAGE_PREVIOUS, 0);
+			if (ret < 0)
 				pr_err("phone: IMAGE_CONTROL PREVIOUS failed: %d\n", ret);
-			} else {
+			else
 				pr_info("phone: sent IMAGE_CONTROL PREVIOUS\n");
-			}
 			break;
 
-		/* ── IMAGE_CONTROL: replay ───────────────────── */
+		/* ── IMAGE_CONTROL REPLAY ──────────────────── */
 		case 4:
 			ret = mavlink_send_image_control(phone_mavlink,
-					MAV_IMAGE_REPLAY, 0);
-			if (ret < 0) {
+				MAV_IMAGE_REPLAY, 0);
+			if (ret < 0)
 				pr_err("phone: IMAGE_CONTROL REPLAY failed: %d\n", ret);
-			} else {
+			else
 				pr_info("phone: sent IMAGE_CONTROL REPLAY\n");
-			}
 			break;
 
-		/* ── IMAGE_CONTROL: play index 0 ─────────────── */
+		/* ── IMAGE_CONTROL PLAY_INDEX ──────────────── */
 		case 5:
 			ret = mavlink_send_image_control(phone_mavlink,
-					MAV_IMAGE_PLAY_INDEX, 0);
-			if (ret < 0) {
+				MAV_IMAGE_PLAY_INDEX, get_random_u32() % 5);
+			if (ret < 0)
 				pr_err("phone: IMAGE_CONTROL PLAY_INDEX failed: %d\n", ret);
-			} else {
-				pr_info("phone: sent IMAGE_CONTROL PLAY_INDEX 0\n");
+			else
+				pr_info("phone: sent IMAGE_CONTROL PLAY_INDEX\n");
+			break;
+
+		/* ── Query motor status ────────────────────── */
+		case 6:
+			ret = mavlink_query_motor_status(phone_mavlink,
+				0, 3000);
+			if (ret < 0)
+				pr_err("phone: query motor status failed: %d\n", ret);
+			else
+				pr_info("phone: query motor status OK\n");
+			break;
+
+		/* ── Burst: rapid-fire 2~4 operations ──────── */
+		case 7:
+			burst_count = 2 + (get_random_u32() % 3);
+			pr_info("phone: burst start (%u ops)\n",
+				burst_count);
+			for (u32 i = 0; i < burst_count && phone_thread_switch; i++) {
+				usleep(500000 + (get_random_u32() % 500000));
+				mavlink_send_image_control(phone_mavlink,
+					get_random_u32() & 1 ?
+					MAV_IMAGE_NEXT :
+					MAV_IMAGE_PREVIOUS, 0);
 			}
+			pr_info("phone: burst end\n");
+			/* Longer pause after burst */
+			sleep(4 + (get_random_u32() % 6));
+			break;
+
+		/* ── Download request ──────────────────────── */
+		case 8: {
+			/* Request first image via FT_START DOWNLOAD.
+			 * The rotor side must handle this; here we
+			 * just exercise the protocol path. */
+			ret = mavlink_send_ft_start(phone_mavlink,
+				MAV_FT_DOWNLOAD, "test.pov", 0, 3000);
+			if (ret < 0)
+				pr_err("phone: FT_START DOWNLOAD failed: %d\n", ret);
+			else
+				pr_info("phone: sent FT_START DOWNLOAD\n");
+			break;
+		}
+
+		/* ── File list request ─────────────────────── */
+		case 9:
+			ret = mavlink_send_ft_list(phone_mavlink, 0, 0, 0, "");
+			if (ret < 0)
+				pr_err("phone: FT_LIST request failed: %d\n", ret);
+			else
+				pr_info("phone: sent FT_LIST request\n");
 			break;
 
 		default:
 			break;
 		}
-
-		if (ret != 0) {
-			break;
-		}
 	}
 
+cleanup:
 	pr_info("phone: thread stopping\n");
 
 	serial_port_stop_thread(phone_port);
@@ -223,78 +297,48 @@ static void *phone_thread_func(void *arg)
 	return NULL;
 }
 
-struct fake_ring_peer {
-	struct serial_port *master_port;
-	struct serial_port *port;
-	struct mavlink_device *mav;
-	pthread_t thread;
-	volatile u8 running;
-};
+static volatile u8 arm_thread_switch;
 
-static void *fake_ring_peer_thread(void *arg)
+static void *arm_thread_func(void *arg)
 {
-	struct fake_ring_peer *peer = arg;
-	const char *rx_dir = POV_IMAGE_PATH "/fake-ring";
-	struct mavlink_ring_cmd_state cmd;
-	int ret;
+	struct pov_rotor *rotor = arg;
 
-	while (peer->running) {
-		if (!peer->mav || serial_port_data_available(peer->port) == 0) {
-			mdelay(1);
-			continue;
-		}
-		mavlink_receive_and_process(peer->mav, 10);
-		if (!peer->mav->ring_cmd.pending) {
-			continue;
-		}
-
-		cmd = peer->mav->ring_cmd;
-		peer->mav->ring_cmd.pending = 0;
-
-		switch (cmd.cmd) {
-		case MAV_RING_CMD_IMAGE:
-			mavlink_send_ring_ack(peer->mav, cmd.seq,
-				POV_ARM_COUNT - 1, MAV_RING_OK);
-			break;
-		case MAV_RING_CMD_FILE:
-			mavlink_send_ring_ack(peer->mav, cmd.seq,
-				POV_ARM_COUNT - 1, MAV_RING_READY);
-			fatfs_create_dirs(rx_dir);
-			ret = lrzsz_rz(peer->port, rx_dir);
-			if (ret > 0) {
-				mavlink_send_ring_ack(peer->mav, cmd.seq,
-					POV_ARM_COUNT - 1, MAV_RING_OK);
-			} else {
-				mavlink_send_ring_error(peer->mav, cmd.seq,
-					POV_ARM_COUNT - 1,
-					cmd.current_arm,
-					POV_ARM_COUNT - 1,
-					MAV_RING_ERR_LINK_TIMEOUT);
-			}
-			break;
-		default:
-			mavlink_send_ring_error(peer->mav, cmd.seq,
-				POV_ARM_COUNT - 1,
-				cmd.current_arm,
-				POV_ARM_COUNT - 1,
-				MAV_RING_ERR_NOT_SUPPORTED);
-			break;
-		}
+	while (arm_thread_switch) {
+		pov_rotor_display(rotor);
 	}
 
 	return NULL;
 }
 
-static void fake_ring_peer_stop(struct fake_ring_peer *peer)
+static struct pov_rotor *create_arm(struct pov_rotor *last, pthread_t *arm_thread)
 {
-	if (peer->running) {
-		peer->running = 0;
-		pthread_join(peer->thread, NULL);
+	struct pov_rotor *current;
+	int ret;
+
+	current = pov_rotor_alloc(&general_flash_ops, &general_bootloader_ops,
+			&usart1_serial_port_ops, &usart2_serial_port_ops,
+			&uart4_serial_port_ops, &uart5_serial_port_ops,
+			&spi1_master, &spi1_master, hall_read_rotated_time);
+	if (!current) {
+		pr_err("pov: failed to allocate arm\n");
+		return NULL;
 	}
-	serial_port_stop_thread(peer->master_port);
-	mavlink_free(peer->mav);
-	serial_port_free(peer->port);
-	memset(peer, 0, sizeof(*peer));
+
+	serial_port_start_thread(current->ring_ccw_port, SERIAL_PORT_DF_OTHERS,
+		NULL, last->ring_cw_port);
+	serial_port_start_thread(last->ring_cw_port, SERIAL_PORT_DF_OTHERS,
+		NULL, current->ring_ccw_port);
+
+	arm_thread_switch = 1;
+	ret = pthread_create(arm_thread, NULL, arm_thread_func, current);
+	if (ret != 0) {
+		arm_thread_switch = 0;
+		pr_err("pov: failed to create timer thread: %d\n", ret);
+		pov_rotor_free(current);
+		return NULL;
+	}
+
+	return current;
 }
 
 #endif /* KINETIS_FAKE_SIM */
@@ -320,13 +364,14 @@ int board_init(void)
 
 int app_main(void)
 {
-	struct pov_rotor *rotor = NULL;
-	struct pov_stator *stator = NULL;
+	struct pov_rotor *first, *last;
+	struct pov_stator *stator;
 	struct serial_port_ops *motor_ops;
 #if KINETIS_FAKE_SIM
-	static pthread_t timer_thread;
-	static pthread_t phone_thread;
-	static struct fake_ring_peer fake_ring = { 0 };
+	pthread_t stator_thread;
+	pthread_t phone_thread;
+	pthread_t arm_threads[POV_ARM_COUNT];
+	u8 arm_count = 0;
 #endif
 	int ret = 0;
 
@@ -339,43 +384,43 @@ int app_main(void)
 #else
 	motor_ops = &usart2_serial_port_ops;
 #endif
-	rotor = pov_rotor_alloc(&general_flash_ops, &general_bootloader_ops,
+	first = pov_rotor_alloc(&general_flash_ops, &general_bootloader_ops,
 			motor_ops, &usart6_serial_port_ops,
 			&uart4_serial_port_ops, &uart5_serial_port_ops,
 			&spi1_master, &spi6_master,
 			hall_read_rotated_time);
-	if (!rotor) {
-		pr_err("pov: failed to allocate rotor\n");
+	if (!first) {
+		pr_err("pov: failed to allocate first\n");
 		return -ENOMEM;
 	}
-	stm32_serial_port[1] = rotor->motor_port;
-	stm32_serial_port[2] = rotor->app_port;
-	stm32_serial_port[3] = rotor->ring_cw_port;
-	stm32_serial_port[4] = rotor->ring_ccw_port;
+	stm32_serial_port[1] = first->motor_port;
+	stm32_serial_port[2] = first->app_port;
+	stm32_serial_port[3] = first->ring_cw_port;
+	stm32_serial_port[4] = first->ring_ccw_port;
 #if POV_USE_MT6701
 #else
-	hall_dev = rotor->angle_sensor;
+	hall_dev = first->angle_sensor;
 #endif
 
-	// 	rotor->wifi = wifi_init(WIFI_SSID, WIFI_PASSWORD, 1,
-	// 		WIFI_STATIC_IP, WIFI_STATIC_GW, WIFI_STATIC_NETMASK);
-	// 	if (rotor->wifi) {
-	// 	} else {
-	// 		return -ENOMEM;
-	// 	}
-	//
-	// 	ret = tim_task_add(&rotor->wifi->schedule_task, "wifi_poll", WIFI_POLL_INTERVAL_MS * 1000,
-	// 				true, false, wifi_task_cb);
-	// 	if (ret != 0)
-	// 		return ret;
+// 	first->wifi = wifi_init(WIFI_SSID, WIFI_PASSWORD, 1,
+// 		WIFI_STATIC_IP, WIFI_STATIC_GW, WIFI_STATIC_NETMASK);
+// 	if (first->wifi) {
+// 	} else {
+// 		return -ENOMEM;
+// 	}
+//
+// 	ret = tim_task_add(&first->wifi->schedule_task, "wifi_poll", WIFI_POLL_INTERVAL_MS * 1000,
+// 				true, false, wifi_task_cb);
+// 	if (ret != 0)
+// 		return ret;
 
 #else
-	rotor = pov_rotor_alloc(&general_flash_ops, &general_bootloader_ops,
+	first = pov_rotor_alloc(&general_flash_ops, &general_bootloader_ops,
 			&usart1_serial_port_ops, &usart2_serial_port_ops,
 			&uart4_serial_port_ops, &uart5_serial_port_ops,
 			&spi1_master, &spi1_master, hall_read_rotated_time);
-	if (!rotor) {
-		pr_err("pov: failed to allocate rotor\n");
+	if (!first) {
+		pr_err("pov: failed to allocate first\n");
 		return -ENOMEM;
 	}
 	stator = pov_stator_alloc(&usart1_serial_port_ops,
@@ -383,55 +428,61 @@ int app_main(void)
 			hall_read_rotated_time);
 	if (!stator) {
 		pr_err("pov: failed to allocate stator\n");
-		pov_rotor_free(rotor);
+		pov_rotor_free(first);
 		return -ENOMEM;
 	}
-	stator->hall->priv = rotor->angle_sensor;
+	stator->hall->priv = first->angle_sensor;
 
-	serial_port_start_thread(rotor->motor_port, SERIAL_PORT_DF_OTHERS,
+	serial_port_start_thread(first->motor_port, SERIAL_PORT_DF_OTHERS,
 		NULL, stator->motor_port);
 	serial_port_start_thread(stator->motor_port, SERIAL_PORT_DF_OTHERS,
-		NULL, rotor->motor_port);
+		NULL, first->motor_port);
 
-	/* Start timer thread for stator simulation */
 	stator_thread_switch = 1;
-	ret = pthread_create(&timer_thread, NULL, stator_thread_func, stator);
+	ret = pthread_create(&stator_thread, NULL, stator_thread_func, stator);
 	if (ret != 0) {
 		stator_thread_switch = 0;
 		pr_err("pov: failed to create timer thread: %d\n", ret);
 		goto out;
 	}
 
-	// 	/* Start phone APP simulation thread */
-	// 	phone_thread_switch = 1;
-	// 	ret = pthread_create(&phone_thread, NULL, phone_thread_func, rotor);
-	// 	if (ret != 0) {
-	// 		phone_thread_switch = 0;
-	// 		pr_err("pov: failed to create phone thread: %d\n", ret);
-	// 		/* Stop timer thread before exit to prevent resource leak */
-	// 		stator_thread_switch = 0;
-	// 		pthread_join(timer_thread, NULL);
-	// 		goto out;
-	// 	}
+	for (int i = 1; i < POV_ARM_COUNT; i++) {
+		if (i == 1)
+			last = create_arm(first, &arm_threads[arm_count]);
+		else
+			last = create_arm(last, &arm_threads[arm_count]);
+		if (!last)
+			goto out;
+		arm_count++;
+	}
+
+	phone_thread_switch = 1;
+	ret = pthread_create(&phone_thread, NULL, phone_thread_func, first);
+	if (ret != 0) {
+		phone_thread_switch = 0;
+		pr_err("pov: failed to create phone thread: %d\n", ret);
+		goto out;
+	}
 	mdelay(1000);
 #endif /* KINETIS_FAKE_SIM */
 
-	ret = pov_rotor_display(rotor);
-
-#if KINETIS_FAKE_SIM
-	/* Shutdown threads */
-	phone_thread_switch = 0;
-	pthread_join(phone_thread, NULL);
-
-	stator_thread_switch = 0;
-	pthread_join(timer_thread, NULL);
-#endif
+	ret = pov_rotor_display(first);
 
 out:
 #if KINETIS_FAKE_SIM
-	fake_ring_peer_stop(&fake_ring);
+	if (phone_thread_switch) {
+		phone_thread_switch = 0;
+		pthread_join(phone_thread, NULL);
+	}
+	if (stator_thread_switch) {
+		stator_thread_switch = 0;
+		pthread_join(stator_thread, NULL);
+	}
+	arm_thread_switch = 0;
+	for (int i = 0; i < arm_count; i++)
+		pthread_join(arm_threads[i], NULL);
 #endif
-	pov_rotor_free(rotor);
+	pov_rotor_free(first);
 	pov_stator_free(stator);
 
 #elif POV_RUN_MODE == POV_RUN_SLAVE

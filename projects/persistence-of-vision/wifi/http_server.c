@@ -11,8 +11,8 @@
 
 #include "http_server.h"
 
-#define HTTP_TRANSMIT_SIZE 2048
-#define HTTP_RECEIVE_SIZE 1024
+#define HTTP_TRANSMIT_SIZE    2048
+#define HTTP_RECEIVE_SIZE     1024
 
 struct http_connection {
 	struct list_head list;
@@ -33,8 +33,9 @@ static err_t http_accept(void *arg, struct tcp_pcb *pcb, err_t err)
 {
 	struct http_connection *connection;
 
-	if (err != ERR_OK)
+	if (err != ERR_OK) {
 		return err;
+	}
 
 	connection = kzalloc(sizeof(struct http_connection));
 	if (!connection) {
@@ -61,8 +62,9 @@ static err_t http_receive_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err
 	struct http_connection *connection = (struct http_connection *)arg;
 	u32 copy_len;
 
-	if (!connection || !pcb)
+	if (!connection || !pcb) {
 		return ERR_ARG;
+	}
 
 	if (p == NULL || err != ERR_OK) {
 		list_del_init(&connection->list);
@@ -73,8 +75,9 @@ static err_t http_receive_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err
 	}
 
 	copy_len = p->tot_len;
-	if (connection->receive_length + copy_len > HTTP_RECEIVE_SIZE - 1)
+	if (connection->receive_length + copy_len > HTTP_RECEIVE_SIZE - 1) {
 		copy_len = HTTP_RECEIVE_SIZE - 1 - connection->receive_length;
+	}
 
 	pbuf_copy_partial(p, &connection->receive_buffer[connection->receive_length], copy_len, 0);
 	connection->receive_length += copy_len;
@@ -126,8 +129,9 @@ static void http_process_request(struct http_connection *connection)
 	}
 
 	body_start = strstr(connection->receive_buffer, "\r\n\r\n");
-	if (body_start)
+	if (body_start) {
 		body_start += 4;
+	}
 
 	if (strcmp(method, "GET") == 0) {
 		if (strcmp(path, "/") == 0 || strcmp(path, "/index.html") == 0) {
@@ -184,17 +188,20 @@ static void http_send_file_list(struct http_connection *connection)
 
 	while (1) {
 		res = f_readdir(&dir, &fno);
-		if (res != FR_OK || fno.fname[0] == 0)
+		if (res != FR_OK || fno.fname[0] == 0) {
 			break;
+		}
 
-		if (fno.fattrib & (AM_DIR | AM_SYS))
+		if (fno.fattrib & (AM_DIR | AM_SYS)) {
 			continue;
+		}
 
 		length = strlen(connection->transmit_buffer);
 		length += snprintf(connection->transmit_buffer + length, HTTP_TRANSMIT_SIZE - length, "<tr><td><a href=\"/%s\">%s</a></td><td>%lu</td></tr>",
 				fno.fname, fno.fname, fno.fsize);
-		if (length < 0 || length >= HTTP_TRANSMIT_SIZE)
+		if (length < 0 || length >= HTTP_TRANSMIT_SIZE) {
 			break;
+		}
 	}
 
 	f_closedir(&dir);
@@ -238,8 +245,9 @@ static void http_send_file(struct http_connection *connection, const char *path)
 
 	do {
 		res = f_read(&file, connection->transmit_buffer, HTTP_TRANSMIT_SIZE, &br);
-		if (res != FR_OK || br == 0)
+		if (res != FR_OK || br == 0) {
 			break;
+		}
 		tcp_write(connection->pcb, connection->transmit_buffer, br, TCP_WRITE_FLAG_COPY);
 	} while (br == HTTP_TRANSMIT_SIZE);
 
@@ -296,8 +304,9 @@ static void http_send_response(struct http_connection *connection, const char *s
 
 	tcp_write(connection->pcb, header, length, TCP_WRITE_FLAG_COPY);
 
-	if (body && body_length > 0)
+	if (body && body_length > 0) {
 		tcp_write(connection->pcb, body, body_length, TCP_WRITE_FLAG_COPY);
+	}
 
 	tcp_output(connection->pcb);
 	connection->responded = 1;
@@ -306,14 +315,16 @@ static void http_send_response(struct http_connection *connection, const char *s
 int http_server_init(void)
 {
 	tcp_pcb_listen = tcp_new();
-	if (!tcp_pcb_listen)
+	if (!tcp_pcb_listen) {
 		return -ENOMEM;
+	}
 
 	tcp_bind(tcp_pcb_listen, IP_ADDR_ANY, WIFI_HTTP_PORT);
 
 	tcp_pcb_listen = tcp_listen(tcp_pcb_listen);
-	if (!tcp_pcb_listen)
+	if (!tcp_pcb_listen) {
 		return -ENOMEM;
+	}
 
 	tcp_accept(tcp_pcb_listen, http_accept);
 

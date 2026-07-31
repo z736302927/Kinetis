@@ -47,8 +47,9 @@ static void motor_simulation_step(struct motor_controller *motor)
 	s32 target_rpm = (motor->pwm_duty * motor->max_rpm) / 10000;
 
 	/* Bidirectional: REVERSE → negative target RPM */
-	if (motor->direction == SLAVE_MOTOR_DIR_REVERSE)
+	if (motor->direction == SLAVE_MOTOR_DIR_REVERSE) {
 		target_rpm = -target_rpm;
+	}
 
 	/* Low-pass filter: current += alpha * (target - current) */
 	motor->sim_rpm_fixed += ((target_rpm << MOTOR_SIM_SCALE_BITS) - motor->sim_rpm_fixed)
@@ -56,7 +57,7 @@ static void motor_simulation_step(struct motor_controller *motor)
 
 	/* Hysteresis dead-zone: snap small values to zero */
 	if (motor->sim_rpm_fixed > -(1 << (MOTOR_SIM_SCALE_BITS - 1)) &&
-	    motor->sim_rpm_fixed <  (1 << (MOTOR_SIM_SCALE_BITS - 1))) {
+		motor->sim_rpm_fixed < (1 << (MOTOR_SIM_SCALE_BITS - 1))) {
 		motor->sim_rpm_fixed = 0;
 	}
 
@@ -64,15 +65,15 @@ static void motor_simulation_step(struct motor_controller *motor)
 
 	if (motor->measured_rpm != 0) {
 		u32 abs_rpm = motor->measured_rpm > 0
-			    ? (u32)motor->measured_rpm
-			    : (u32)(-motor->measured_rpm);
+			? (u32)motor->measured_rpm
+			: (u32)(-motor->measured_rpm);
 		motor->period_us = 60000000 / abs_rpm;
 	} else {
 		motor->period_us = 0;
 	}
 
 	motor->status = (motor->measured_rpm != 0)
-		      ? POV_STATUS_RUNNING : POV_STATUS_STOPPED;
+		? POV_STATUS_RUNNING : POV_STATUS_STOPPED;
 
 }
 

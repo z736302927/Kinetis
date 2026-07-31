@@ -3491,7 +3491,7 @@ void *kmem_cache_alloc(struct kmem_cache *cachep, gfp_t flags)
 
 	ret = mem_alloc(cachep->size);
     if (ret != NULL) {
-        if (flags | __GFP_ZERO)
+        if (flags & __GFP_ZERO)
             memset(ret, 0, cachep->size);
     }
 
@@ -3659,7 +3659,7 @@ static __always_inline void *__do_kmalloc(size_t size, gfp_t flags,
 // 		return NULL;
 	ret = mem_alloc(size);
     if (ret != NULL) {
-        if (flags | __GFP_ZERO)
+        if (flags & __GFP_ZERO)
             memset(ret, 0, size);
     }
 
@@ -3702,7 +3702,7 @@ void *krealloc(const void *p, size_t new_size, gfp_t flags)
 
 	ret = mem_realloc(p, new_size);
     if (ret != NULL) {
-        if (flags | __GFP_ZERO)
+        if (flags & __GFP_ZERO)
             memset(ret, 0, new_size);
     }
 

@@ -11,9 +11,9 @@
 #include "blend.h"
 
 static int validate_raw_layer_file(FIL *fp,
-				   const struct pov_image_header *header,
-				   const char *path,
-				   int require_display_cols)
+	const struct pov_image_header *header,
+	const char *path,
+	int require_display_cols)
 {
 	FSIZE_t body_size;
 	FSIZE_t expected_size;
@@ -24,8 +24,8 @@ static int validate_raw_layer_file(FIL *fp,
 	}
 
 	if (header->leds_per_group != POV_LEDS_PER_GROUP ||
-	    header->spi_groups != POV_SPI_GROUPS ||
-	    (require_display_cols && header->columns != POV_DISPLAY_COLS)) {
+		header->spi_groups != POV_SPI_GROUPS ||
+		(require_display_cols && header->columns != POV_DISPLAY_COLS)) {
 		pr_warn("blend: geometry mismatch in %s (cols=%u leds/group=%u groups=%u)\n",
 			path, header->columns, header->leds_per_group,
 			header->spi_groups);
@@ -39,8 +39,8 @@ static int validate_raw_layer_file(FIL *fp,
 	}
 
 	if (header->version == POV_IMG_VERSION &&
-	    (header->payload_format != POV_PAYLOAD_RAW_RGB ||
-	     header->bytes_per_col != POV_BYTES_PER_COL)) {
+		(header->payload_format != POV_PAYLOAD_RAW_RGB ||
+			header->bytes_per_col != POV_BYTES_PER_COL)) {
 		pr_warn("blend: %s is not raw RGB (format=%u stride=%u)\n",
 			path, header->payload_format, header->bytes_per_col);
 		return -EINVAL;
@@ -73,20 +73,24 @@ static FRESULT open_background_file(const char *layer_path, FIL *fp, char *full_
 	full_path[0] = '\0';
 
 	res = f_opendir(&dir, layer_path);
-	if (res != FR_OK)
+	if (res != FR_OK) {
 		return FR_NO_FILE;
+	}
 
 	res = FR_NO_FILE;
 	while (1) {
 		memset(&fno, 0, sizeof(fno));
 		rd = f_readdir(&dir, &fno);
-		if (rd != FR_OK || fno.fname[0] == 0)
+		if (rd != FR_OK || fno.fname[0] == 0) {
 			break;
-		if (fno.fattrib & (AM_DIR | AM_SYS))
+		}
+		if (fno.fattrib & (AM_DIR | AM_SYS)) {
 			continue;
+		}
 		ext = strrchr(fno.fname, '.');
-		if (!ext || strcmp(ext, ".pov") != 0)
+		if (!ext || strcmp(ext, ".pov") != 0) {
 			continue;
+		}
 
 		snprintf(full_path, path_len, "%s/%s", layer_path, fno.fname);
 		res = f_open(fp, full_path, FA_READ);
@@ -127,9 +131,9 @@ static void rgba_to_led_driver_col(const struct rgba_pixel *rgba, u8 *out)
 	for (group = 0; group < POV_SPI_GROUPS; group++) {
 		for (ic = 0; ic < POV_LED_DRIVER_IC_PER_GROUP; ic++) {
 			u32 base = group * POV_LEDS_PER_GROUP +
-				   ic * POV_LED_DRIVER_LEDS_PER_IC;
+				ic * POV_LED_DRIVER_LEDS_PER_IC;
 			u32 wire_ic = POV_LED_DRIVER_ICO_NEAR_MCU ?
-				      (POV_LED_DRIVER_IC_PER_GROUP - 1 - ic) : ic;
+				(POV_LED_DRIVER_IC_PER_GROUP - 1 - ic) : ic;
 			u16 r[POV_LED_DRIVER_LEDS_PER_IC];
 			u16 g[POV_LED_DRIVER_LEDS_PER_IC];
 			u16 b[POV_LED_DRIVER_LEDS_PER_IC];
@@ -142,7 +146,7 @@ static void rgba_to_led_driver_col(const struct rgba_pixel *rgba, u8 *out)
 			}
 
 			u8 *ic_out = out + (group * POV_LED_DRIVER_GROUP_BYTES \
-				+ wire_ic * POV_LED_DRIVER_PACKET_BYTES);
+					+ wire_ic * POV_LED_DRIVER_PACKET_BYTES);
 			tlc5971_pack_chip(r, g, b, ic_out);
 		}
 	}
@@ -154,13 +158,15 @@ static int read_column(FIL *fp, u8 *buf, FSIZE_t first_frame)
 	UINT br;
 
 	res = f_read(fp, buf, POV_BYTES_PER_COL, &br);
-	if (res != FR_OK)
+	if (res != FR_OK) {
 		return -EIO;
+	}
 	if (br == 0) {
 		f_lseek(fp, first_frame);
 		res = f_read(fp, buf, POV_BYTES_PER_COL, &br);
-		if (res != FR_OK || br != POV_BYTES_PER_COL)
+		if (res != FR_OK || br != POV_BYTES_PER_COL) {
 			return -EIO;
+		}
 	} else if (br != POV_BYTES_PER_COL) {
 		return -EIO;
 	}
@@ -216,12 +222,13 @@ int pov_compose_layers(const char *path)
 	/* Open each background layer 1-3, at most one will be opened. */
 	for (i = 1; i < 4; i++) {
 		res = open_background_file(layer_dir_path[i], &layer_fp[i], layer_file_path[i], sizeof(layer_file_path[i]));
-		if (res != FR_OK)
+		if (res != FR_OK) {
 			continue;
+		}
 		res = f_read(&layer_fp[i], &header, sizeof(header), &bw);
 		if (res != FR_OK || bw != sizeof(header)) {
 			pr_err("blend: cannot read header in %s: %d\n",
-				 layer_file_path[i], res);
+				layer_file_path[i], res);
 			f_close(&layer_fp[i]);
 			continue;
 		}
@@ -247,13 +254,16 @@ int pov_compose_layers(const char *path)
 		int blend_opened = 0;
 		int display_blended = 0;
 
-		if (f_readdir(&dir0, &fno0) != FR_OK || fno0.fname[0] == 0)
+		if (f_readdir(&dir0, &fno0) != FR_OK || fno0.fname[0] == 0) {
 			break;
-		if (fno0.fattrib & (AM_DIR | AM_SYS))
+		}
+		if (fno0.fattrib & (AM_DIR | AM_SYS)) {
 			continue;
+		}
 		ext = strrchr(fno0.fname, '.');
-		if (ext == NULL || strcmp(ext, ".pov") != 0)
+		if (ext == NULL || strcmp(ext, ".pov") != 0) {
 			continue;
+		}
 
 		snprintf(layer_file_path[0], sizeof(layer_file_path[0]), "%s/%s", layer_dir_path[0], fno0.fname);
 		snprintf(blend_file_path, sizeof(blend_file_path), "%s/%s", blend_dir_path, fno0.fname);
@@ -273,7 +283,7 @@ int pov_compose_layers(const char *path)
 		res = f_read(&layer_fp[0], &header, sizeof(header), &bw);
 		if (res != FR_OK || bw != sizeof(header)) {
 			pr_err("blend: cannot read header in %s: %d(got %u)\n",
-				 layer_file_path[0], res, bw);
+				layer_file_path[0], res, bw);
 			f_close(&layer_fp[0]);
 			continue;
 		}
@@ -298,8 +308,9 @@ int pov_compose_layers(const char *path)
 		}
 
 		for (i = 1; i < 4; i++) {
-			if (layer_fp[i].obj.fs)
+			if (layer_fp[i].obj.fs) {
 				f_lseek(&layer_fp[i], sizeof(header));
+			}
 		}
 
 		// total_cols = (f_size(&layer_fp[0]) - sizeof(struct pov_image_header)) / POV_BYTES_PER_COL;
@@ -312,8 +323,9 @@ int pov_compose_layers(const char *path)
 		pr_info("blend: compositing %s (%u cols)...\n",
 			fno0.fname, total_cols);
 		for (col = 0; col < total_cols; col++) {
-			if ((col % 360) == 0 || col == total_cols - 1)
+			if ((col % 360) == 0 || col == total_cols - 1) {
 				pr_info("blend: %s %u/%u\n", fno0.fname, col, total_cols);
+			}
 			if (read_column(&layer_fp[0], rgb_buf, sizeof(header)) < 0) {
 				pr_warn("blend: read_column failed at col %u in %s\n", col, layer_file_path[0]);
 				goto close_file;
@@ -322,13 +334,16 @@ int pov_compose_layers(const char *path)
 			rgb_to_rgba_col(rgb_buf, rgba_dst);
 
 			for (i = 1; i < 4; i++) {
-				if (!layer_fp[i].obj.fs)
+				if (!layer_fp[i].obj.fs) {
 					continue;
-				if (read_column(&layer_fp[i], rgb_buf, sizeof(header)) < 0)
+				}
+				if (read_column(&layer_fp[i], rgb_buf, sizeof(header)) < 0) {
 					continue;
+				}
 				rgb_to_rgba_col(rgb_buf, rgba_src);
-				for (px = 0; px < POV_LED_COUNT; px++)
+				for (px = 0; px < POV_LED_COUNT; px++) {
 					porter_duff_composite_pixel(&rgba_dst[px], &rgba_src[px], POV_PD_SRC_OVER);
+				}
 			}
 
 			rgba_to_led_driver_col(rgba_dst, led_driver_buf);
@@ -344,20 +359,24 @@ int pov_compose_layers(const char *path)
 		pr_info("blend: wrote %s, (%u bytes)\n", blend_file_path, f_size(&blend_fp));
 
 close_file:
-		if (layer0_opened)
+		if (layer0_opened) {
 			f_close(&layer_fp[0]);
-		if (blend_opened)
+		}
+		if (blend_opened) {
 			f_close(&blend_fp);
-		if (display_blended)
+		}
+		if (display_blended) {
 			f_unlink(blend_file_path);
+		}
 	}
 
 	f_closedir(&dir0);
 
 out_bg:
 	for (i = 1; i < 4; i++) {
-		if (layer_fp[i].obj.fs)
+		if (layer_fp[i].obj.fs) {
 			f_close(&layer_fp[i]);
+		}
 	}
 
 out_free:

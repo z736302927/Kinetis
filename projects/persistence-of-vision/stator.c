@@ -6,8 +6,9 @@
 #include <linux/slab.h>
 
 #include <kinetis/basic-timer.h>
-#include "kinetis/bootloader.h"
-#include "kinetis/nrf24l01_port.h"
+#include <kinetis/serial-port.h>
+#include <kinetis/bootloader.h>
+#include <kinetis/nrf24l01_port.h>
 
 #include "fatfs/ff.h"
 
@@ -17,7 +18,7 @@
 #include "interface.h"
 
 static void set_stator_state(struct pov_stator *stator,
-			     enum pov_stator_state new_state)
+	enum pov_stator_state new_state)
 {
 	if (new_state != stator->state) {
 		pr_info("state %s -> %s\n",
@@ -35,7 +36,7 @@ static void stator_heartbeat_task(struct tim_task *task)
 
 	/* Always send heartbeat so rotor can detect us */
 	mavlink_send_heartbeat(stator->mavlink, MAV_SYS_ACTIVE,
-		 stator->uptime_s, stator->mavlink->error_count);
+		stator->uptime_s, stator->mavlink->error_count);
 }
 
 static void control_motor(struct tim_task *task)
@@ -44,8 +45,9 @@ static void control_motor(struct tim_task *task)
 	s32 set_point, meas, output;
 
 	if (stator->state != STATOR_TUNING_MOTOR &&
-	    stator->state != STATOR_ACTIVE)
+		stator->state != STATOR_ACTIVE) {
 		return;
+	}
 
 	set_point = stator->mavlink->motors[STATOR_MOTOR_ID].target_speed;
 	meas      = stator->motor.measured_rpm;   /* signed — motor supports fwd/rev */
@@ -55,7 +57,7 @@ static void control_motor(struct tim_task *task)
 	 * phase 1 (default PID) from phase 2 (bang-bang relay).
 	 */
 	if (stator->state == STATOR_TUNING_MOTOR &&
-	    stator->relay_tuner.state == RELAY_RUNNING) {
+		stator->relay_tuner.state == RELAY_RUNNING) {
 		output = pid_relay_update(&stator->relay_tuner, meas);
 	} else {
 		output = pid_positional_update(&stator->pid, set_point, meas, SLAVE_PID_PERIOD_MS);
@@ -127,7 +129,7 @@ static void process_motor_commands(struct tim_task *task)
 
 		mavlink_msg_motor_status_query_decode(&stator->mavlink->rx_msg, &query);
 		if (query.motor_id >= MAVLINK_MOTOR_COUNT &&
-		    query.motor_id != 255) {
+			query.motor_id != 255) {
 			pr_err("invalid motor_id=%u\n", query.motor_id);
 			break;
 		}
@@ -138,10 +140,7 @@ static void process_motor_commands(struct tim_task *task)
 	}
 
 	case MAVLINK_MSG_ID_BOOTLOADER_UPDATE_CMD: {
-		struct bootloader_update_flag flag;
-		FIL fp;
-		UINT bw;
-		FRESULT res;
+		int ret;
 
 		pr_info("cmd: bootloader update - cmd=%d size=%u crc=0x%08x name=%s\n",
 			stator->mavlink->bl.command,
@@ -149,26 +148,11 @@ static void process_motor_commands(struct tim_task *task)
 			stator->mavlink->bl.firmware_crc32,
 			stator->mavlink->bl.filename);
 
-		/* Write update flag file on FatFS so bootloader picks it up after reset */
-		memset(&flag, 0, sizeof(flag));
-		flag.magic = BL_UPDATE_FLAG_MAGIC;
-		flag.firmware_size = stator->mavlink->bl.firmware_size;
-		flag.firmware_crc32 = stator->mavlink->bl.firmware_crc32;
-		if (stator->mavlink->bl.filename[0])
-			strncpy(flag.firmware_filename, stator->mavlink->bl.filename,
-				sizeof(flag.firmware_filename) - 1);
-
-		if (f_open(&fp, BL_UPDATE_FLAG_PATH, FA_CREATE_ALWAYS | FA_WRITE) != FR_OK) {
-			pr_err("Failed to create update flag file\n");
+		ret = bootloader_write_update_flag(stator->mavlink->bl.firmware_size,
+				stator->mavlink->bl.firmware_crc32,
+				stator->mavlink->bl.filename);
+		if (ret < 0)
 			break;
-		}
-		res = f_write(&fp, &flag, sizeof(flag), &bw);
-		if (res != FR_OK || bw != sizeof(flag)) {
-			pr_err("Failed to write update flag file\n");
-			f_close(&fp);
-			break;
-		}
-		f_close(&fp);
 
 		set_stator_state(stator, STATOR_ENTER_BOOTLOADER);
 		break;
@@ -216,7 +200,7 @@ struct pov_stator *pov_stator_alloc(struct serial_port_ops *motor_serial_ops,
 
 	pid_positional_init(&stator->pid, SLAVE_PID_KP, SLAVE_PID_KI, SLAVE_PID_KD);
 	pid_relay_init(&stator->relay_tuner, &stator->pid,
-		       SLAVE_PID_RELAY_AMP, 0, POV_TARGET_RPM, SLAVE_PID_RELAY_CYCLES);
+		SLAVE_PID_RELAY_AMP, 0, POV_TARGET_RPM, SLAVE_PID_RELAY_CYCLES);
 
 	stator->tuning_stable_ticks = 0;
 
@@ -296,7 +280,7 @@ void pov_stator_fsm(struct pov_stator *stator)
 		if (stator->relay_tuner.state == RELAY_IDLE) {
 			err = POV_TARGET_RPM - rpm;
 			if (err >= -SLAVE_TUNING_STABLE_THRESH &&
-			    err <= SLAVE_TUNING_STABLE_THRESH) {
+				err <= SLAVE_TUNING_STABLE_THRESH) {
 				stator->tuning_stable_ticks++;
 				if (stator->tuning_stable_ticks >= SLAVE_TUNING_STABLE_TICKS) {
 					pr_info("motor stable at err=%d, starting relay tuning\n", err);
@@ -358,14 +342,65 @@ void pov_stator_fsm(struct pov_stator *stator)
 		 * when rotor heartbeat is first received. */
 		break;
 
-	case STATOR_ENTER_BOOTLOADER:
+	case STATOR_ENTER_BOOTLOADER: {
+		struct serial_port *rotor_motor_port;
+		struct bootloader_context *bl_ctx = NULL;
+		struct bootloader_mem_layout layout;
+
 		motor_set_pwm(&stator->motor, 0);
 
+#if KINETIS_FAKE_SIM
+
+		if (!general_flash_addr) {
+			general_flash_addr = kzalloc(ROM_TOTAL_SIZE, GFP_KERNEL);
+			if (!general_flash_addr)
+				break;
+		}
+
+		layout.rom_base = general_flash_addr;
+		layout.rom_size = ROM_TOTAL_SIZE;
+		layout.bootloader_size = BOOTLOADER_SIZE;
+		layout.firmware_max_size = FIRMWARE_MAX_SIZE;
+		layout.sram.start = (u8 *)0x20000000u;
+		layout.sram.end   = (u8 *)0x20040000u;
+
+		bl_ctx = bootloader_init(&layout, &general_bootloader_ops,
+				&general_flash_ops,
+				&usart1_serial_port_ops);
+		if (!bl_ctx) {
+			kfree(general_flash_addr);
+			general_flash_addr = NULL;
+			break;
+		}
+
+		rotor_motor_port = (struct serial_port *)stator->motor_port->private;
+		serial_port_stop_thread(stator->motor_port);
+		serial_port_stop_thread(rotor_motor_port);
+
+		serial_port_start_thread(bl_ctx->app_port, SERIAL_PORT_DF_OTHERS,
+			NULL, rotor_motor_port);
+		serial_port_start_thread(rotor_motor_port, SERIAL_PORT_DF_OTHERS,
+			NULL, bl_ctx->app_port);
+
+		bootloader_flow(bl_ctx);
+
+		serial_port_stop_thread(bl_ctx->app_port);
+		serial_port_stop_thread(rotor_motor_port);
+
+		serial_port_start_thread(stator->motor_port, SERIAL_PORT_DF_OTHERS,
+			NULL, rotor_motor_port);
+		serial_port_start_thread(rotor_motor_port, SERIAL_PORT_DF_OTHERS,
+			NULL, stator->motor_port);
+
+		bootloader_free(bl_ctx);
+#else
 		if (stator->bl_ops && stator->bl_ops->system_reset) {
 			stator->bl_ops->system_reset();
 		} else {
 			pr_err("No system_reset available, cannot enter bootloader!\n");
 		}
+#endif
 		break;
+	}
 	}
 }

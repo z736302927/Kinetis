@@ -6,9 +6,9 @@
 #include "hall.h"
 
 /* Adaptive Q threshold and amplification factor */
-#define HALL_DELTA_THRESHOLD 2000 /* |delta| > 2000 ticks → speed change */
-#define HALL_Q_STEADY 25.0f		  /* process noise ~5  ticks std dev     */
-#define HALL_Q_TRANSIENT 2500.0f  /* process noise ~50 ticks std dev     */
+#define HALL_DELTA_THRESHOLD    2000 /* |delta| > 2000 ticks �� speed change */
+#define HALL_Q_STEADY           25.0f		  /* process noise ~5  ticks std dev     */
+#define HALL_Q_TRANSIENT        2500.0f  /* process noise ~50 ticks std dev     */
 
 static void hall_kalman_init_dev(struct hall_device *dev)
 {
@@ -34,27 +34,27 @@ static void hall_kalman_init_dev(struct hall_device *dev)
 		&mb->S_inv,
 		&mb->temp_HP, &mb->temp_PHt, &mb->temp_KHP);
 
-	/* A = [1] — period stays constant between predictions */
+	/* A = [1] ? period stays constant between predictions */
 	mat = kalman_get_state_transition(kf);
 	matrix_set(mat, 0, 0, 1.0f);
 
-	/* B = [1] — inject process noise via B*Q*B' */
+	/* B = [1] ? inject process noise via B*Q*B' */
 	mat = kalman_get_input_transition(kf);
 	matrix_set(mat, 0, 0, 1.0f);
 
-	/* x0 = 66667 — initial guess: 900 RPM theoretical period */
+	/* x0 = 66667 ? initial guess: 900 RPM theoretical period */
 	mat = kalman_get_state_vector(kf);
 	mat->data[0] = 66667.0f;
 
-	/* P0 = 1e6 — large initial uncertainty, fast convergence */
+	/* P0 = 1e6 ? large initial uncertainty, fast convergence */
 	mat = kalman_get_system_covariance(kf);
 	matrix_set(mat, 0, 0, 1000000.0f);
 
-	/* H = [1] — direct measurement model */
+	/* H = [1] ? direct measurement model */
 	mat = kalman_get_measurement_transformation(kfm);
 	matrix_set(mat, 0, 0, 1.0f);
 
-	/* R = [400] — measurement noise (~20 ticks std dev) */
+	/* R = [400] ? measurement noise (~20 ticks std dev) */
 	mat = kalman_get_process_noise(kfm);
 	matrix_set(mat, 0, 0, 400.0f);
 }

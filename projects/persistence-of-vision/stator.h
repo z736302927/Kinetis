@@ -3,7 +3,7 @@
 
 #include <linux/types.h>
 
-#include "kinetis/tim-task.h"
+#include <kinetis/tim-task.h>
 #include <kinetis/mavlink.h>
 
 #include "motor.h"
@@ -31,8 +31,9 @@ static inline const char *stator_state_name(enum pov_stator_state s)
 		"INIT", "TUNING_MOTOR", "WAIT_ROTOR", "ACTIVE", "SAFE_STOP",
 		"ENTER_BOOTLOADER"
 	};
-	if ((unsigned)s >= sizeof(names) / sizeof(names[0]))
+	if ((unsigned)s >= sizeof(names) / sizeof(names[0])) {
 		return "?";
+	}
 	return names[s];
 }
 

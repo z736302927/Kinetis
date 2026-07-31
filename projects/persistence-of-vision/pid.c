@@ -61,10 +61,12 @@ void pid_positional_set_output(struct pid_positional *ctrl, s32 current_output)
 {
 	ctrl->integral = (s64)current_output << PID_SCALE_BITS;
 
-	if (ctrl->integral > (s64)ctrl->int_max << PID_SCALE_BITS)
+	if (ctrl->integral > (s64)ctrl->int_max << PID_SCALE_BITS) {
 		ctrl->integral = (s64)ctrl->int_max << PID_SCALE_BITS;
-	if (ctrl->integral < (s64)ctrl->int_min << PID_SCALE_BITS)
+	}
+	if (ctrl->integral < (s64)ctrl->int_min << PID_SCALE_BITS) {
 		ctrl->integral = (s64)ctrl->int_min << PID_SCALE_BITS;
+	}
 
 	ctrl->prev_output = clamp(current_output, ctrl->out_min, ctrl->out_max);
 	ctrl->d_filtered  = 0;
@@ -137,10 +139,12 @@ s32 pid_positional_update(struct pid_positional *ctrl, s32 set_point,
 		ctrl->integral += (s64)ctrl->ki * (s64)err;
 
 		/* Clamp integral (limits are in output-scale units) */
-		if (ctrl->integral > integral_limit_hi)
+		if (ctrl->integral > integral_limit_hi) {
 			ctrl->integral = integral_limit_hi;
-		if (ctrl->integral < integral_limit_lo)
+		}
+		if (ctrl->integral < integral_limit_lo) {
 			ctrl->integral = integral_limit_lo;
+		}
 	}
 
 	/* ── 5. 输出合成（积分右移 8 位） ────────────────────── */
@@ -151,10 +155,11 @@ s32 pid_positional_update(struct pid_positional *ctrl, s32 set_point,
 	/* ── 6. 变化率限制 ───────────────────────────────────── */
 	if (ctrl->slew_rate > 0) {
 		delta = output - ctrl->prev_output;
-		if (delta > ctrl->slew_rate)
+		if (delta > ctrl->slew_rate) {
 			output = ctrl->prev_output + ctrl->slew_rate;
-		else if (delta < -ctrl->slew_rate)
+		} else if (delta < -ctrl->slew_rate) {
 			output = ctrl->prev_output - ctrl->slew_rate;
+		}
 	}
 
 	/* ── 7. 分量诊断 ─────────────────────────────────────── */
@@ -216,12 +221,14 @@ void pid_relay_init(struct pid_relay_tuner *t, struct pid_positional *pid,
  */
 void pid_relay_start(struct pid_relay_tuner *t)
 {
-	if (!t->pid)
+	if (!t->pid) {
 		return;
+	}
 
 	/* Auto-capture bias from last known output */
-	if (t->bias == 0)
+	if (t->bias == 0) {
 		t->bias = t->pid->prev_output;
+	}
 
 	t->state        = RELAY_RUNNING;
 	t->sample_count = 0;
@@ -244,11 +251,10 @@ void pid_relay_start(struct pid_relay_tuner *t)
 }
 
 /*
- * Compute Ku/Tu → Kp/Ki/Kd and write to PID.  Extracted so both
- * the normal-completion path and the filtered-timeout path share
- * the same arithmetic.
+ * Compute Ku/Tu → Kp/Ki/Kd via Ziegler-Nichols and write to PID.
+ * Uses conservative Ki factor 1000 (Ti=Tu) for slow motor plants.
  */
-static void relay_compute_gains(struct pid_relay_tuner *t)
+static void relay_finish_tuning(struct pid_relay_tuner *t)
 {
 	s32 avg_half_period, avg_amplitude;
 	s32 ku_q8, tu_ticks;
@@ -276,9 +282,7 @@ static void relay_compute_gains(struct pid_relay_tuner *t)
 	ku_q8 = (s32)(((s64)4 * (s64)t->relay_amp * 113 * PID_SCALE) / (355 * (s64)avg_amplitude));
 
 	/*
-	 * Critical period in ticks:  Tu = avg_period * 2
-	 * avg_period is already half-period sum / cycle_count,
-	 * so Tu = avg_period * 2 = sum_period / cycle_count
+	 * Critical period in ticks:  Tu = sum_period / cycle_count
 	 */
 	tu_ticks = (s32)(t->sum_period / t->cycle_count);
 
@@ -286,21 +290,17 @@ static void relay_compute_gains(struct pid_relay_tuner *t)
 	 * Ziegler-Nichols with conservative factor 0.5:
 	 *
 	 *   Kp = 0.3 * Ku * 0.5  = 0.15 * Ku
-	 *   Ki = (2 * Kp) / Tu   = 2 * Kp / (tu_ticks * dt_ms / 1000)
-	 *                          = (2000 * Kp) / (tu_ticks * dt_ms)
-	 *   Kd = (Kp * Tu) / 8   = Kp * (tu_ticks * dt_ms / 1000) / 8
-	 *                          = (Kp * tu_ticks * dt_ms) / 8000
+	 *   Ki = Kp / Ti with Ti = Tu (full-period, factor 1000 for slow motors)
+	 *   Kd = (Kp * Tu) / 8
 	 */
 	kp_q8 = (ku_q8 * 15) / 100; /* 0.15 * Ku */
 
-	/* Ki: 2*Kp/Tu,  both in Q8.8,  Tu in seconds */
 	if (tu_ticks > 0 && SLAVE_PID_PERIOD_MS > 0) {
-		ki_q8 = (s32)(((s64)2000 * kp_q8) / ((s64)tu_ticks * SLAVE_PID_PERIOD_MS));
+		ki_q8 = (s32)(((s64)1000 * kp_q8) / ((s64)tu_ticks * SLAVE_PID_PERIOD_MS));
 	} else {
 		ki_q8 = 0;
 	}
 
-	/* Kd: Kp * Tu / 8 */
 	if (SLAVE_PID_PERIOD_MS > 0) {
 		kd_q8 = (s32)(((s64)kp_q8 * tu_ticks * SLAVE_PID_PERIOD_MS) / 8000);
 	} else {
@@ -347,14 +347,17 @@ s32 pid_relay_update(struct pid_relay_tuner *t, s32 meas)
 	s32 desired_sign;      /* +1 = high (bias+amp), -1 = low (bias-amp) */
 	bool do_switch;        /* Relay actually changes output this tick */
 
-	if (t->state == RELAY_IDLE)
+	if (t->state == RELAY_IDLE) {
 		return t->bias;
+	}
 
-	if (t->state == RELAY_DONE || t->state == RELAY_FAILED)
+	if (t->state == RELAY_DONE || t->state == RELAY_FAILED) {
 		return 0;
+	}
 
-	if (!t->pid)
+	if (!t->pid) {
 		return 0;
+	}
 
 	t->sample_count++;
 	if (t->sample_count > RELAY_TIMEOUT_SAMPLES) {
@@ -375,24 +378,28 @@ s32 pid_relay_update(struct pid_relay_tuner *t, s32 meas)
 	 * the plant can respond, which would produce tiny oscillation
 	 * amplitude and inflated Ku.
 	 */
-	if (t->half_ticks && t->half_ticks < t->min_half_ticks)
+	if (t->half_ticks && t->half_ticks < t->min_half_ticks) {
 		desired_sign = t->last_relay_sign;
+	}
 
 	do_switch = (desired_sign != t->last_relay_sign);
 
 	/* ── Compute actual relay output ─────────────────────────── */
-	if (desired_sign >= 0)
+	if (desired_sign >= 0) {
 		relay_output = t->bias + t->relay_amp;
-	else
+	} else {
 		relay_output = t->bias - t->relay_amp;
+	}
 
 	/* ── Track peaks within the current half-cycle ───────────── */
 	if (err >= 0) {
-		if (err > t->peak_pos)
+		if (err > t->peak_pos) {
 			t->peak_pos = err;
+		}
 	} else {
-		if (err < t->peak_neg)
+		if (err < t->peak_neg) {
 			t->peak_neg = err;
+		}
 	}
 	t->half_ticks++;
 
@@ -432,10 +439,11 @@ s32 pid_relay_update(struct pid_relay_tuner *t, s32 meas)
 		}
 
 		/* Start new half-cycle peak tracking */
-		if (err >= 0)
+		if (err >= 0) {
 			t->peak_pos = err;
-		else
+		} else {
 			t->peak_neg = err;
+		}
 
 		t->last_relay_sign = desired_sign;
 		t->in_positive_half = (desired_sign >= 0);
@@ -445,58 +453,7 @@ s32 pid_relay_update(struct pid_relay_tuner *t, s32 meas)
 
 	/* ── Enough cycles collected? ────────────────────────── */
 	if (t->cycle_count >= t->min_cycles) {
-		s32 avg_half_period, avg_amplitude;
-		s32 ku_q8, tu_ticks;
-		s32 kp_q8, ki_q8, kd_q8;
-
-		avg_half_period = (s32)(t->sum_period / (2 * t->cycle_count));
-		avg_amplitude   = (s32)(t->sum_amplitude / t->cycle_count);
-
-		if (avg_half_period <= 0 || avg_amplitude <= 0) {
-			pr_err("relay_tuner: invalid averages half_period=%d amplitude=%d\n",
-				avg_half_period, avg_amplitude);
-			t->state = RELAY_FAILED;
-			return 0;
-		}
-
-		ku_q8 = (s32)(((s64)4 * (s64)t->relay_amp * 113 * PID_SCALE)
-			/ (355 * (s64)avg_amplitude));
-
-		tu_ticks = (s32)(t->sum_period / t->cycle_count);
-
-		kp_q8 = (ku_q8 * 15) / 100; /* 0.15 * Ku */
-
-		/*
-		 * Ki = Kp / Ti  with Ti = Tu (full-period integral time).
-		 * Original Z-N uses Ti = Tu/2 (→ Ki = 2*Kp/Tu).
-		 * For slow motors (τ ≫ oscillation period) we stretch Ti
-		 * to Tu (factor 1000 instead of 2000) to avoid overshoot.
-		 */
-		if (tu_ticks > 0 && SLAVE_PID_PERIOD_MS > 0) {
-			ki_q8 = (s32)(((s64)1000 * kp_q8) / ((s64)tu_ticks * SLAVE_PID_PERIOD_MS));
-		} else {
-			ki_q8 = 0;
-		}
-
-		if (SLAVE_PID_PERIOD_MS > 0) {
-			kd_q8 = (s32)(((s64)kp_q8 * tu_ticks * SLAVE_PID_PERIOD_MS) / 8000);
-		} else {
-			kd_q8 = 0;
-		}
-
-		pr_info("relay_tuner: done  Ku=%d(Q8.8)  Tu=%d ticks\n", ku_q8, tu_ticks);
-		pr_info("relay_tuner: Z-N  Kp=%d  Ki=%d  Kd=%d (Q8.8)\n", kp_q8, ki_q8, kd_q8);
-
-		t->pid->kp = kp_q8;
-		t->pid->ki = ki_q8;
-		t->pid->kd = kd_q8;
-
-		t->ku = ku_q8;
-		t->tu = tu_ticks;
-
-		pid_positional_reset(t->pid);
-
-		t->state = RELAY_DONE;
+		relay_finish_tuning(t);
 		return 0;
 	}
 

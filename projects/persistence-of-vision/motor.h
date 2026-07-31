@@ -3,7 +3,7 @@
 
 #include <linux/types.h>
 
-#include "kinetis/tim-task.h"
+#include <kinetis/tim-task.h>
 
 #if KINETIS_FAKE_SIM
 #include <pthread.h>

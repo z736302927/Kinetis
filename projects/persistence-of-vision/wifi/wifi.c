@@ -24,7 +24,6 @@
 
 #include "../config.h"
 
-
 static void wifi_status(struct wifi_manager *wifi)
 {
 	char ip_str[16];
@@ -57,8 +56,9 @@ static void wifi_status(struct wifi_manager *wifi)
 		break;
 	}
 
-	if (wifi->state == WIFI_STATE_CONNECTED)
+	if (wifi->state == WIFI_STATE_CONNECTED) {
 		pr_info("  IP:      %s\n", ip_str);
+	}
 }
 
 void wifi_scan(void)
@@ -119,8 +119,8 @@ static void wifi_netif_status_cb(struct wifi_manager *wifi)
 }
 
 struct wifi_manager *wifi_init(char *ssid, char *password,
-    u8 use_dhcp,
-    u32 ip, u32 gateway, u32 subnet_mask)
+	u8 use_dhcp,
+	u32 ip, u32 gateway, u32 subnet_mask)
 {
 	struct wifi_manager *wifi;
 	wwd_result_t result;
@@ -129,8 +129,9 @@ struct wifi_manager *wifi_init(char *ssid, char *password,
 	int ret;
 
 	wifi = kzalloc(sizeof(*wifi), GFP_KERNEL);
-	if (!wifi)
+	if (!wifi) {
 		return NULL;
+	}
 
 	wifi->state = WIFI_STATE_INIT;
 	wifi->static_ip = ip;
@@ -141,8 +142,9 @@ struct wifi_manager *wifi_init(char *ssid, char *password,
 	lwip_init();
 
 	result = wwd_management_wifi_on(WICED_COUNTRY_CHINA);
-	if (result != WWD_SUCCESS)
+	if (result != WWD_SUCCESS) {
 		goto err_free;
+	}
 
 	if (use_dhcp) {
 		ip4_addr_set_zero(&ipaddr);
@@ -170,8 +172,9 @@ struct wifi_manager *wifi_init(char *ssid, char *password,
 
 	if (!netif_add(&wifi->netif, &ipaddr, &netmask, &gw,
 		WWD_STA_INTERFACE,
-		ethernetif_init, netif_input))
+		ethernetif_init, netif_input)) {
 		goto err_free;
+	}
 
 	netif_set_default(&wifi->netif);
 	netif_set_status_callback(&wifi->netif,
@@ -188,19 +191,22 @@ struct wifi_manager *wifi_init(char *ssid, char *password,
 	wifi->state = WIFI_STATE_JOINING;
 
 	wifi->ssid_length = strlen(ssid);
-	if (wifi->ssid_length > 32)
+	if (wifi->ssid_length > 32) {
 		wifi->ssid_length = 32;
+	}
 	strncpy(wifi->ssid, ssid, wifi->ssid_length);
 
 	wifi->password_length = strlen(password);
-	if (wifi->password_length > 64)
+	if (wifi->password_length > 64) {
 		wifi->password_length = 64;
+	}
 	strncpy(wifi->password, password, wifi->password_length);
 
 	result = wwd_wifi_join(wifi->ssid, WICED_SECURITY_WPA2_AES_PSK,
-		wifi->password, wifi->password_length, NULL, WWD_STA_INTERFACE);
-	if (result != WWD_SUCCESS)
+			wifi->password, wifi->password_length, NULL, WWD_STA_INTERFACE);
+	if (result != WWD_SUCCESS) {
 		goto err_netif_remove;
+	}
 
 	if (use_dhcp) {
 		ip4_addr_t fb_ip, fb_mask, fb_gw;

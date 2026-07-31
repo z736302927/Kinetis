@@ -22,24 +22,24 @@ typedef int32_t   s32_t;
 
 typedef uintptr_t mem_ptr_t;
 
-#define U16_F PRIu16
-#define S16_F PRId16
-#define X16_F PRIx16
-#define U32_F PRIu32
-#define S32_F PRId32
-#define X32_F PRIx32
+#define U16_F                 PRIu16
+#define S16_F                 PRId16
+#define X16_F                 PRIx16
+#define U32_F                 PRIu32
+#define S32_F                 PRId32
+#define X32_F                 PRIx32
 
-#define SZT_F "zu"
+#define SZT_F                 "zu"
 
 typedef int sys_prot_t;
 
 #ifdef __GNUC__
 #define PACK_STRUCT_BEGIN
-#define PACK_STRUCT_STRUCT __attribute__ ((__packed__))
+#define PACK_STRUCT_STRUCT    __attribute__ ((__packed__))
 #define PACK_STRUCT_END
 #define PACK_STRUCT_FIELD(x) x
 #elif defined( __IAR_SYSTEMS_ICC__ )
-#define PACK_STRUCT_BEGIN __packed
+#define PACK_STRUCT_BEGIN     __packed
 #define PACK_STRUCT_STRUCT
 #define PACK_STRUCT_END
 #define PACK_STRUCT_FIELD(x) x
@@ -51,7 +51,7 @@ typedef int sys_prot_t;
 #endif
 
 #ifndef BYTE_ORDER
-#define BYTE_ORDER LITTLE_ENDIAN
+#define BYTE_ORDER            LITTLE_ENDIAN
 #endif
 
 extern u32 host_platform_random(void);

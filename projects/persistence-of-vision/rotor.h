@@ -3,7 +3,7 @@
 
 #include <linux/types.h>
 
-#include "kinetis/fatfs.h"
+#include <kinetis/fatfs.h>
 #include <kinetis/mavlink.h>
 #include <kinetis/led.h>
 #include <kinetis/bootloader.h>

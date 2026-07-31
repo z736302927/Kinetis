@@ -10,7 +10,7 @@
 
 #include "tcp_ap.h"
 
-#define LOG_RING_SIZE 4096
+#define LOG_RING_SIZE    4096
 
 struct tcp_ap {
 	char ring[LOG_RING_SIZE];
@@ -28,25 +28,31 @@ static void tcp_ap_send(struct tcp_ap *ap)
 	u32 avail, length;
 	err_t ret;
 
-	if (!ap->connected || ap->sending)
+	if (!ap->connected || ap->sending) {
 		return;
+	}
 
-	if (ap->head >= ap->tail)
+	if (ap->head >= ap->tail) {
 		avail = ap->head - ap->tail;
-	else
+	} else {
 		avail = LOG_RING_SIZE - ap->tail + ap->head;
+	}
 
-	if (avail == 0)
+	if (avail == 0) {
 		return;
+	}
 
 	length = avail;
-	if (length > tcp_sndbuf(ap->pcb))
+	if (length > tcp_sndbuf(ap->pcb)) {
 		length = tcp_sndbuf(ap->pcb);
-	if (length == 0)
+	}
+	if (length == 0) {
 		return;
+	}
 
-	if (ap->tail + length > LOG_RING_SIZE)
+	if (ap->tail + length > LOG_RING_SIZE) {
 		length = LOG_RING_SIZE - ap->tail;
+	}
 
 	ret = tcp_write(ap->pcb, &ap->ring[ap->tail], length, TCP_WRITE_FLAG_COPY);
 	if (ret == ERR_OK) {
@@ -79,11 +85,13 @@ static err_t tcp_ap_transmit_cb(void *arg, struct tcp_pcb *pcb, u16 length)
 	ap->sending = 0;
 
 	ap->tail += length;
-	if (ap->tail >= LOG_RING_SIZE)
+	if (ap->tail >= LOG_RING_SIZE) {
 		ap->tail -= LOG_RING_SIZE;
+	}
 
-	if (ap->head != ap->tail)
+	if (ap->head != ap->tail) {
 		tcp_ap_send(ap);
+	}
 
 	return ERR_OK;
 }
@@ -104,11 +112,13 @@ static err_t tcp_ap_receive_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, e
 {
 	struct tcp_ap *ap = (struct tcp_ap *)arg;
 
-	if (p)
+	if (p) {
 		pbuf_free(p);
+	}
 
-	if (err != ERR_OK)
+	if (err != ERR_OK) {
 		tcp_ap_error_cb(arg, err);
+	}
 
 	return ERR_OK;
 }
@@ -118,15 +128,17 @@ struct tcp_ap *tcp_ap_alloc(const char *server_ip, u16 server_port)
 	struct tcp_ap *ap;
 
 	ap = kzalloc(sizeof(struct tcp_ap), GFP_KERNEL);
-	if (!ap)
+	if (!ap) {
 		return NULL;
+	}
 
 	ap->server_port = server_port;
 	ip4addr_aton(server_ip, &ap->server_ip);
 
 	ap->pcb = tcp_new();
-	if (!ap->pcb)
+	if (!ap->pcb) {
 		return NULL;
+	}
 
 	tcp_arg(ap->pcb, &ap);
 	tcp_sent(ap->pcb, tcp_ap_transmit_cb);
@@ -155,18 +167,22 @@ int tcp_ap_send_data(struct tcp_ap *ap, const void *data, u32 length)
 {
 	u32 space, first;
 
-	if (!ap || length == 0)
+	if (!ap || length == 0) {
 		return -EINVAL;
+	}
 
-	if (ap->head >= ap->tail)
+	if (ap->head >= ap->tail) {
 		space = LOG_RING_SIZE - ap->head + ap->tail - 1;
-	else
+	} else {
 		space = ap->tail - ap->head - 1;
+	}
 
-	if (length > space)
+	if (length > space) {
 		length = space;
-	if (length == 0)
+	}
+	if (length == 0) {
 		return -EINVAL;
+	}
 
 	if (ap->head + length > LOG_RING_SIZE) {
 		first = LOG_RING_SIZE - ap->head;
@@ -176,12 +192,14 @@ int tcp_ap_send_data(struct tcp_ap *ap, const void *data, u32 length)
 	} else {
 		memcpy(&ap->ring[ap->head], data, length);
 		ap->head += length;
-		if (ap->head >= LOG_RING_SIZE)
+		if (ap->head >= LOG_RING_SIZE) {
 			ap->head = 0;
+		}
 	}
 
-	if (ap->connected && !ap->sending && ap->pcb)
+	if (ap->connected && !ap->sending && ap->pcb) {
 		tcp_ap_send(ap);
+	}
 
 	return length;
 }

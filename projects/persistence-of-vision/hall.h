@@ -1,5 +1,4 @@
 
-
 #ifndef POV_HALL_H
 #define POV_HALL_H
 
@@ -7,8 +6,8 @@
 
 #include <kinetis/tim-task.h>
 
-#define EXTERN_INLINE_MATRIX static INLINE
-#define EXTERN_INLINE_KALMAN static INLINE
+#define EXTERN_INLINE_MATRIX    static INLINE
+#define EXTERN_INLINE_KALMAN    static INLINE
 #include "kalman.h"
 
 struct hall_kf_backing {

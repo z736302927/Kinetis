@@ -61,6 +61,12 @@
 #include "braille.h"
 #include "internal.h"
 
+#if KINETIS_FAKE_SIM
+#include <pthread.h>
+
+pthread_mutex_t printk_mutex;
+#endif
+
 int console_printk[4] = {
 	CONSOLE_LOGLEVEL_DEFAULT,	/* console_loglevel */
 	MESSAGE_LOGLEVEL_DEFAULT,	/* default_message_loglevel */
@@ -2031,11 +2037,17 @@ asmlinkage int vprintk_emit(int facility, int level,
 
 //	boot_delay_msec(level);
 //	printk_delay();
-//
-//	/* This stops the holder of console_sem just where we want him */
-//	logbuf_lock_irqsave(flags);
+
+	/* This stops the holder of console_sem just where we want him */
+#if KINETIS_FAKE_SIM
+    pthread_mutex_lock(&printk_mutex);
 	printed_len = vprintk_store(facility, level, dev_info, fmt, args);
-//	logbuf_unlock_irqrestore(flags);
+    pthread_mutex_unlock(&printk_mutex);
+#else
+// 	logbuf_lock_irqsave(flags);
+	printed_len = vprintk_store(facility, level, dev_info, fmt, args);
+// 	logbuf_unlock_irqrestore(flags);
+#endif
 
 	/* If called from the scheduler, we can not call up(). */
 	if (!in_sched) {
@@ -2099,13 +2111,9 @@ asmlinkage __visible int printk(const char *fmt, ...)
 	int r;
 	unsigned long flags;
 
-	raw_spin_lock(&logbuf_lock);
-
 	va_start(args, fmt);
 	r = vprintk_func(fmt, args);
 	va_end(args);
-
-	raw_spin_unlock(&logbuf_lock);
 
 	return r;
 }

@@ -109,7 +109,7 @@ void pid_positional_set_output(struct pid_positional *ctrl, s32 current_output);
  * @return          Actuator output (clamped to [out_min, out_max])
  */
 s32 pid_positional_update(struct pid_positional *ctrl, s32 set_point,
-			  s32 meas, u32 dt_ms);
+	s32 meas, u32 dt_ms);
 
 /*
  * RELAY_IDLE    — not started
@@ -174,7 +174,7 @@ struct pid_relay_tuner {
  * @param min_cycles Minimum cycles to collect before stopping
  */
 void pid_relay_init(struct pid_relay_tuner *t, struct pid_positional *pid,
-		    s32 relay_amp, s32 bias, s32 set_point, u32 min_cycles);
+	s32 relay_amp, s32 bias, s32 set_point, u32 min_cycles);
 
 /**
  * @brief Start the relay tuning process.
