@@ -16,7 +16,8 @@
 static bool
 approver_cb(const char *filename, size_t size, u64 date)
 {
-	pr_err("Sender requests to send %s: %zu bytes\n", filename, size);
+	pr_info("Sender requests to send %s: %zu bytes\n", filename, size);
+
 	return true;
 }
 
@@ -24,20 +25,21 @@ static
 bool tick_cb(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left)
 {
 	static long last_sec_left = 0;
+
 	if (last_sec_left != sec_left && sec_left != 0) {
-		pr_err("%s: Bytes Received:%7ld/%7ld   BPS:%-8ld ETA %02d:%02d\n",
+		pr_info("%s: Bytes Received:%7ld/%7ld   BPS:%-8ld ETA %02d:%02d\n",
 			fname, bytes_sent, bytes_total,
 			last_bps, min_left, sec_left);
 		last_sec_left = sec_left;
 	}
-	mdelay(1000);
+
 	return true;
 }
 
 static void complete_cb(const char *filename, int result, size_t size, u64 date)
 {
 	if (result == RZSZ_NO_ERROR) {
-		pr_err("'%s': received\n", filename);
+		pr_info("'%s': received\n", filename);
 	} else {
 		pr_err("'%s': failed to receive\n", filename);
 	}
@@ -51,7 +53,9 @@ int lrzsz_rz(struct serial_port *serial, const char *directory)
 			complete_cb,
 			0,
 			RZSZ_FLAGS_NONE);
-	pr_err("Received %zu bytes.\n", bytes);
+
+	pr_info("Received %zu bytes.\n", bytes);
+
 	return (bytes > 0) ? (int)bytes : -EIO;
 }
 
@@ -73,7 +77,7 @@ t_mrz(int argc, char *argv[])
 			complete_cb,
 			0,
 			RZSZ_FLAGS_NONE);
-	pr_err("Received %zu bytes.\n", bytes);
+	pr_info("Received %zu bytes.\n", bytes);
 
 	serial_port_free(serial);
 	return 0;
@@ -100,7 +104,7 @@ int t_mrz_receive_specified_file(int argc, char *argv[])
 			complete_cb,
 			0,
 			RZSZ_FLAGS_NONE);
-	pr_err("Received %zu bytes.\n", bytes);
+	pr_info("Received %zu bytes.\n", bytes);
 
 	serial_port_free(serial);
 

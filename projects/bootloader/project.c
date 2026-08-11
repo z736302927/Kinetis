@@ -42,7 +42,7 @@ int board_init(void)
 #endif
 }
 
-int app_main(void)
+int app_main(int argc, char **argv)
 {
 	struct bootloader_context *bl_ctx;
 	struct bootloader_mem_layout layout;

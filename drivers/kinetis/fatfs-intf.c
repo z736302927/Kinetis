@@ -131,6 +131,7 @@ int fatfs_create_dirs(const char *path)
 				pr_err("Failed to create directory %s: %d\n", full_path, res);
 				return fatfs_error_to_linux_error(res);
 			}
+			f_sync(NULL);
 		} else {
 			/* Other error */
 			pr_err("Failed to stat directory %s: %d\n", full_path, res);
@@ -239,7 +240,10 @@ int fatfs_find_file(char *file_path, char *file_name)
 		ret = 0;
 		f_close(&file);
 	} else {
-		pr_err("Failed to open file %s: %d\n", buffer, res);
+		if (res == FR_NO_FILE)
+			pr_warn("File not found: %s\n", buffer);
+		else
+			pr_err("Failed to open file %s: %d\n", buffer, res);
 		ret = fatfs_error_to_linux_error(res);
 	}
 

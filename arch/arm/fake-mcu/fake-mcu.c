@@ -139,18 +139,32 @@ static struct clocksource clocksource_fake = {
 
 #define STM32_SERIAL_NAME "ttySTM"
 
+static pthread_mutex_t console_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 int _putc(int ch)
 {
-	return printf("%c", ch);
+	int ret;
+
+	pthread_mutex_lock(&console_mutex);
+	ret = fputc(ch, stdout);
+	fflush(stdout);
+	pthread_mutex_unlock(&console_mutex);
+
+	return ret;
 }
 
 int _puts(char *string, int cnt)
 {
-	/* Output cnt characters from string to console */
+	int ret = 0;
+
 	if (string && cnt > 0) {
-		return printf("%.*s", cnt, string);
+		pthread_mutex_lock(&console_mutex);
+		ret = fwrite(string, 1, cnt, stdout);
+		fflush(stdout);
+		pthread_mutex_unlock(&console_mutex);
 	}
-	return 0;
+
+	return ret;
 }
 
 int __init initialize_ptr_random(void);
@@ -499,7 +513,7 @@ int main(int argc, char **argv)
 	pr_info("|  Project: %-30s|\n", PROJECT_NAME);
 	pr_info("|-----------------------------------------|\n");
 
-	return app_main();
+	return app_main(argc, argv);
 
 err:
 	pr_err("system crash, error code: %s(%d)\n",

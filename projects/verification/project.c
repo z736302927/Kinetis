@@ -11,7 +11,7 @@ int board_init(void)
 	return ret;
 }
 
-int app_main(void)
+int app_main(int argc, char **argv)
 {
 	return k_test_case_schedule();
 }

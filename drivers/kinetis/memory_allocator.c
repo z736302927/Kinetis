@@ -51,7 +51,7 @@ typedef uint64_t u64;
 
 // ---------- Memory pool symbols from linker script ----------
 // Numbered pools (_mempool0 … _mempool3) for easy extensibility.
-// mem_init_default() iterates all slots — only non-zero ones are registered.
+// mem_init() iterates all slots — only non-zero ones are registered.
 // Backward compat: _memory_pool_start/end are PROVIDE aliases to _mempool0_*
 #ifdef KINETIS_FAKE_SIM
 #define STATIC_POOL_SIZE (2 * 1024 * 1024)
@@ -102,6 +102,37 @@ static int need_sort = 0;  // Flag to indicate if blocks need sorting
 
 static mem_region_t g_regions[MAX_MEM_REGIONS];
 static int g_region_count = 0;
+
+#if KINETIS_FAKE_SIM
+#include <pthread.h>
+
+static pthread_once_t mem_lock_once = PTHREAD_ONCE_INIT;
+static pthread_mutex_t mem_lock;
+
+static void mem_lock_init(void)
+{
+	pthread_mutexattr_t attr;
+
+	pthread_mutexattr_init(&attr);
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+	pthread_mutex_init(&mem_lock, &attr);
+	pthread_mutexattr_destroy(&attr);
+}
+
+static inline void mem_lock_acquire(void)
+{
+	pthread_once(&mem_lock_once, mem_lock_init);
+	pthread_mutex_lock(&mem_lock);
+}
+
+static inline void mem_lock_release(void)
+{
+	pthread_mutex_unlock(&mem_lock);
+}
+#else
+static inline void mem_lock_acquire(void) { }
+static inline void mem_lock_release(void) { }
+#endif
 
 // ---------- Internal helpers ----------
 
@@ -327,6 +358,8 @@ void mem_init_with_config(const mem_region_config *configs, int num_regions)
 	int i;
 	char size_str[32];
 
+	mem_lock_acquire();
+
 	for (i = 0; i < MAX_BLOCKS; i++) {
 		blocks[i].start = NULL;
 		blocks[i].size = 0;
@@ -361,12 +394,14 @@ void mem_init_with_config(const mem_region_config *configs, int num_regions)
 	pr_info("maximum blocks: %d (shared across all regions)", MAX_BLOCKS);
 
 	initialized = 1;
+
+	mem_lock_release();
 }
 
 // ====================================================================
-// Initialization — RECOMMENDED: use mem_init_default()
+// Initialization — RECOMMENDED: use mem_init()
 //
-// mem_init_default() auto-discovers all pool sections from linker symbols.
+// mem_init() auto-discovers all pool sections from linker symbols.
 // Pools are numbered _mempool0 through _mempool3 (MAX_MEM_REGIONS slots).
 // Only non-zero pools are registered as allocatable regions.
 //
@@ -412,11 +447,13 @@ static void _mempool_get_bounds(int idx, u32 *start, u32 *end)
 
 #endif /* !KINETIS_FAKE_SIM */
 
-void mem_init_default(void)
+void mem_init(void)
 {
 	mem_region_config configs[MAX_MEM_REGIONS];
 	int count = 0;
 	int i;
+
+	mem_lock_acquire();
 
 #ifdef KINETIS_FAKE_SIM
 	configs[count].start = (void *)memory_pool;
@@ -445,13 +482,9 @@ void mem_init_default(void)
 #endif
 
 	mem_init_with_config(configs, count);
-}
 
-// Backward compatible initialization — calls mem_init_default()
-void mem_init(void)
-{
-	mem_init_default();
-}
+	mem_lock_release();
+} 
 
 // ---------- Core allocation logic ----------
 
@@ -506,10 +539,13 @@ void *mem_alloc_aligned(u32 size, u32 alignment)
 {
 	int r;
 	void *aligned_ptr;
+	void *ret;
 	u32 aligned_size;
 	char alloc_size_str[32], used_size_str[32], total_size_str[32];
 	char rused_str[32], rsize_str[32];
 	u32 utilization;
+
+	mem_lock_acquire();
 
 	// Initialize memory manager on first allocation
 	if (!initialized) {
@@ -518,7 +554,8 @@ void *mem_alloc_aligned(u32 size, u32 alignment)
 
 	if (size == 0) {
 		pr_warn("malloc called with size 0");
-		return NULL;
+		ret = NULL;
+		goto out;
 	}
 
 	if (alignment == 0) {
@@ -528,13 +565,15 @@ void *mem_alloc_aligned(u32 size, u32 alignment)
 	// Check if alignment is power of 2
 	if (!IS_POWER_OF_2(alignment)) {
 		pr_warn("alignment %u is not a power of 2", alignment);
-		return NULL;
+		ret = NULL;
+		goto out;
 	}
 
 	/* Calculate aligned size with overflow check */
 	if (size > 0xFFFFFFFF - (alignment - 1)) {
 		pr_warn("size overflow during alignment calculation (size=%u, alignment=%u)", size, alignment);
-		return NULL;
+		ret = NULL;
+		goto out;
 	}
 
 	/* 使用64位计算对齐大小，然后转换为32位 */
@@ -556,7 +595,8 @@ void *mem_alloc_aligned(u32 size, u32 alignment)
 				alloc_size_str, (u64)aligned_ptr, alignment, r, g_regions[r].name,
 				rused_str, rsize_str, utilization);
 
-			return aligned_ptr;
+			ret = aligned_ptr;
+			goto out;
 		}
 	}
 
@@ -581,7 +621,11 @@ void *mem_alloc_aligned(u32 size, u32 alignment)
 		}
 	}
 
-	return NULL;
+	ret = NULL;
+
+out:
+	mem_lock_release();
+	return ret;
 }
 
 // Custom memory allocation function (default 4-byte alignment)
@@ -594,10 +638,13 @@ void *mem_alloc(u32 size)
 void *mem_alloc_aligned_from_region(int region_id, u32 size, u32 alignment)
 {
 	void *aligned_ptr;
+	void *ret;
 	u32 aligned_size;
 	char alloc_size_str[32];
 	char rused_str[32], rsize_str[32];
 	u32 utilization;
+
+	mem_lock_acquire();
 
 	if (!initialized) {
 		mem_init();
@@ -605,12 +652,14 @@ void *mem_alloc_aligned_from_region(int region_id, u32 size, u32 alignment)
 
 	if (region_id < 0 || region_id >= g_region_count) {
 		pr_warn("invalid region_id %d (max %d)", region_id, g_region_count - 1);
-		return NULL;
+		ret = NULL;
+		goto out;
 	}
 
 	if (size == 0) {
 		pr_warn("malloc called with size 0");
-		return NULL;
+		ret = NULL;
+		goto out;
 	}
 
 	if (alignment == 0) {
@@ -619,12 +668,14 @@ void *mem_alloc_aligned_from_region(int region_id, u32 size, u32 alignment)
 
 	if (!IS_POWER_OF_2(alignment)) {
 		pr_warn("alignment %u is not a power of 2", alignment);
-		return NULL;
+		ret = NULL;
+		goto out;
 	}
 
 	if (size > 0xFFFFFFFF - (alignment - 1)) {
 		pr_warn("size overflow during alignment calculation (size=%u, alignment=%u)", size, alignment);
-		return NULL;
+		ret = NULL;
+		goto out;
 	}
 
 	aligned_size = (u32)ALIGN_UP(size, alignment);
@@ -643,7 +694,11 @@ void *mem_alloc_aligned_from_region(int region_id, u32 size, u32 alignment)
 			rused_str, rsize_str, utilization);
 	}
 
-	return aligned_ptr;
+	ret = aligned_ptr;
+
+out:
+	mem_lock_release();
+	return ret;
 }
 
 // Allocate from a specific region (default 4-byte alignment)
@@ -661,9 +716,11 @@ void mem_free(void *ptr)
 	int region_id = -1;
 	char freed_size_str[32], user_size_str[32];
 
+	mem_lock_acquire();
+
 	if (ptr == NULL) {
 		pr_warn("free called with NULL pointer");
-		return;
+		goto out;
 	}
 
 	// Find corresponding block
@@ -716,11 +773,14 @@ void mem_free(void *ptr)
 				block_count = 0;
 			}
 
-			return;
+			goto out;
 		}
 	}
 
 	pr_warn("invalid pointer %#llx or double free detected", (u64)ptr);
+
+out:
+	mem_lock_release();
 }
 
 // Zero allocation (default 4-byte alignment)
@@ -767,19 +827,23 @@ void *mem_realloc(void *ptr, u32 new_size)
 void *mem_realloc_aligned(void *ptr, u32 new_size, u32 alignment)
 {
 	void *new_ptr;
+	void *ret;
 	int i;
 	u32 old_size = 0;
-	u32 old_actual_size = 0;
 	u32 copy_size;
 	char old_size_str[32], new_size_str[32];
 
+	mem_lock_acquire();
+
 	if (ptr == NULL) {
-		return mem_alloc_aligned(new_size, alignment);
+		ret = mem_alloc_aligned(new_size, alignment);
+		goto out;
 	}
 
 	if (new_size == 0) {
 		mem_free(ptr);
-		return NULL;
+		ret = NULL;
+		goto out;
 	}
 
 	if (alignment == 0) {
@@ -788,21 +852,22 @@ void *mem_realloc_aligned(void *ptr, u32 new_size, u32 alignment)
 
 	if (!IS_POWER_OF_2(alignment)) {
 		pr_warn("alignment %u is not a power of 2", alignment);
-		return NULL;
+		ret = NULL;
+		goto out;
 	}
 
 	// Find original block size
 	for (i = 0; i < block_count; i++) {
 		if (blocks[i].start == ptr && blocks[i].status == BLOCK_USED) {
 			old_size = blocks[i].size;
-			old_actual_size = blocks[i].actual_size;
 			break;
 		}
 	}
 
 	if (i == block_count) {
 		pr_warn("invalid pointer %#llx in realloc", (u64)ptr);
-		return NULL;
+		ret = NULL;
+		goto out;
 	}
 
 	// If new size <= old size, return original pointer
@@ -811,7 +876,8 @@ void *mem_realloc_aligned(void *ptr, u32 new_size, u32 alignment)
 		blocks[i].size = new_size;
 		pr_info("realloc shrink: %u->%u bytes, %#llx->%#llx (align: %u)",
 			old_size, new_size, (u64)ptr, (u64)ptr, alignment);
-		return ptr;
+		ret = ptr;
+		goto out;
 	}
 
 	// Allocate new memory
@@ -819,7 +885,8 @@ void *mem_realloc_aligned(void *ptr, u32 new_size, u32 alignment)
 	if (new_ptr == NULL) {
 		// Don't free original memory on realloc failure, keep original pointer valid
 		pr_warn("realloc failed to allocate %u bytes, keeping original pointer", new_size);
-		return ptr;
+		ret = ptr;
+		goto out;
 	}
 
 	// Copy data - use memmove to handle memory overlap
@@ -834,7 +901,11 @@ void *mem_realloc_aligned(void *ptr, u32 new_size, u32 alignment)
 
 	pr_info("realloc expand: %s->%s bytes, %#llx->%#llx (align: %u)",
 		old_size_str, new_size_str, (u64)ptr, (u64)new_ptr, alignment);
-	return new_ptr;
+	ret = new_ptr;
+
+out:
+	mem_lock_release();
+	return ret;
 }
 
 // ---------- Alignment utilities ----------
@@ -870,25 +941,29 @@ int mem_get_region_count(void)
 
 const char *mem_get_region_name(int region_id)
 {
-	if (region_id < 0 || region_id >= g_region_count) return NULL;
+	if (region_id < 0 || region_id >= g_region_count)
+		return NULL;
 	return g_regions[region_id].name;
 }
 
 u32 mem_get_region_size(int region_id)
 {
-	if (region_id < 0 || region_id >= g_region_count) return 0;
+	if (region_id < 0 || region_id >= g_region_count)
+		return 0;
 	return g_regions[region_id].size;
 }
 
 u32 mem_get_region_used(int region_id)
 {
-	if (region_id < 0 || region_id >= g_region_count) return 0;
+	if (region_id < 0 || region_id >= g_region_count)
+		return 0;
 	return g_regions[region_id].memory_used;
 }
 
 u32 mem_get_region_free(int region_id)
 {
-	if (region_id < 0 || region_id >= g_region_count) return 0;
+	if (region_id < 0 || region_id >= g_region_count)
+		return 0;
 	return g_regions[region_id].size - g_regions[region_id].memory_used;
 }
 
@@ -896,9 +971,9 @@ u32 mem_get_used(void)
 {
 	int i;
 	u32 total = 0;
-	for (i = 0; i < g_region_count; i++) {
+
+	for (i = 0; i < g_region_count; i++)
 		total += g_regions[i].memory_used;
-	}
 	return total;
 }
 
@@ -906,9 +981,9 @@ u32 mem_get_free(void)
 {
 	int i;
 	u32 total = 0;
-	for (i = 0; i < g_region_count; i++) {
+
+	for (i = 0; i < g_region_count; i++)
 		total += g_regions[i].size - g_regions[i].memory_used;
-	}
 	return total;
 }
 
@@ -916,9 +991,9 @@ u32 mem_get_total(void)
 {
 	int i;
 	u32 total = 0;
-	for (i = 0; i < g_region_count; i++) {
+
+	for (i = 0; i < g_region_count; i++)
 		total += g_regions[i].size;
-	}
 	return total;
 }
 
@@ -927,9 +1002,9 @@ u32 mem_get_total(void)
 int mem_get_usage_percent(void)
 {
 	u32 total_size = mem_get_total();
-	if (total_size == 0) {
+
+	if (total_size == 0)
 		return 0;
-	}
 	return (int)((mem_get_used() * 100) / total_size);
 }
 
@@ -940,9 +1015,8 @@ int mem_get_used_blocks_count(void)
 	int i;
 
 	for (i = 0; i < block_count; i++) {
-		if (blocks[i].status == BLOCK_USED) {
+		if (blocks[i].status == BLOCK_USED)
 			count++;
-		}
 	}
 	return count;
 }
@@ -954,11 +1028,9 @@ int mem_get_free_blocks_count(void)
 	int i;
 
 	for (i = 0; i < MAX_BLOCKS; i++) {
-		if (blocks[i].status == BLOCK_FREE) {
+		if (blocks[i].status == BLOCK_FREE)
 			count++;
-		}
 	}
-
 	return count;
 }
 
@@ -1027,10 +1099,8 @@ int mem_get_fragmentation_percent(void)
 	u32 total_free = mem_get_free();
 	u32 largest_free = mem_get_largest_free_block();
 
-	if (total_free == 0 || largest_free == 0) {
+	if (total_free == 0 || largest_free == 0)
 		return 0;
-	}
-
 	return (int)(100 - (largest_free * 100) / total_free);
 }
 
@@ -1063,9 +1133,6 @@ void mem_print_stats(void)
 	int fragmentation = mem_get_fragmentation_percent();
 	char total_str[32], used_str[32], free_str[32], largest_str[32];
 	int r;
-
-	// Ensure blocks are sorted for accurate statistics
-	ensure_blocks_sorted();
 
 	pr_info("memory statistics");
 	pr_info("--- multi-region overview: ---");
@@ -1117,9 +1184,6 @@ void mem_print_summary(void)
 	char min_str[32], max_str[32], avg_str[32];
 	char largest_contig_str[32];
 	int r;
-
-	// Ensure blocks are sorted for accurate statistics
-	ensure_blocks_sorted();
 
 	// Calculate block statistics
 	for (i = 0; i < block_count; i++) {

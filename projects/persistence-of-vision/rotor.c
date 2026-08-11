@@ -28,6 +28,13 @@
 #include <kinetis/w25qxx_port.h>
 #include <kinetis/step-debug.h>
 
+#define rotor_info(rotor, fmt, ...) \
+	pr_info("arm %d: " fmt, (rotor)->arm_id, ##__VA_ARGS__)
+#define rotor_err(rotor, fmt, ...) \
+	pr_err("arm %d: " fmt, (rotor)->arm_id, ##__VA_ARGS__)
+#define rotor_warn(rotor, fmt, ...) \
+	pr_warn("arm %d: " fmt, (rotor)->arm_id, ##__VA_ARGS__)
+
 #include "lrzsz/zmodem.h"
 
 #include "blend.h"
@@ -235,7 +242,7 @@ free:
 	return ret;
 }
 
-int pov_scan_images(struct pov_rotor *pov)
+int pov_scan_images(struct pov_rotor *rotor)
 {
 	DIR dir;
 	FILINFO fno;
@@ -243,19 +250,19 @@ int pov_scan_images(struct pov_rotor *pov)
 	char full_path[128];
 	int ret = 0;
 
-	pov->image_count = 0;
+	rotor->image_count = 0;
 
 	snprintf(full_path, sizeof(full_path), "%s/%s", POV_IMAGE_PATH, "blend");
 	res = f_opendir(&dir, full_path);
 	if (res != FR_OK) {
-		pr_err("failed to open '%s': %d\n", full_path, res);
+		rotor_err(rotor, "failed to open '%s': %d\n", full_path, res);
 		return -ENOENT;
 	}
 
 	while (1) {
 		/* Guard against array overflow */
-		if (pov->image_count >= POV_MAX_IMAGE_COUNT) {
-			pr_warn("max image count (%d) reached, stopping scan\n",
+		if (rotor->image_count >= POV_MAX_IMAGE_COUNT) {
+			rotor_warn(rotor, "max image count (%d) reached, stopping scan\n",
 				POV_MAX_IMAGE_COUNT);
 			break;
 		}
@@ -274,14 +281,14 @@ int pov_scan_images(struct pov_rotor *pov)
 		if (fno.fsize > 0) {
 			char *ext = strrchr(fno.fname, '.');
 			if (ext && strcmp(ext, ".pov") == 0) {
-				pov->image_names[pov->image_count] = kstrdup(fno.fname, GFP_KERNEL);
-				if (!pov->image_names[pov->image_count]) {
-					pr_err("failed to allocate name for '%s'\n", fno.fname);
+				rotor->image_names[rotor->image_count] = kstrdup(fno.fname, GFP_KERNEL);
+				if (!rotor->image_names[rotor->image_count]) {
+					rotor_err(rotor, "failed to allocate name for '%s'\n", fno.fname);
 					ret = -ENOMEM;
 					goto out;
 				}
-				pr_info("found image: %s\n", pov->image_names[pov->image_count]);
-				pov->image_count++;
+				rotor_info(rotor, "found image: %s\n", rotor->image_names[rotor->image_count]);
+				rotor->image_count++;
 			}
 		}
 	}
@@ -291,14 +298,14 @@ out:
 
 	/* Release already allocated names on failure */
 	if (ret < 0) {
-		for (u8 i = 0; i < pov->image_count; i++) {
-			kfree(pov->image_names[i]);
-			pov->image_names[i] = NULL;
+		for (u8 i = 0; i < rotor->image_count; i++) {
+			kfree(rotor->image_names[i]);
+			rotor->image_names[i] = NULL;
 		}
-		pov->image_count = 0;
+		rotor->image_count = 0;
 	}
 
-	pr_info("found %d images in %s\n", pov->image_count, full_path);
+	rotor_info(rotor, "found %d images in %s\n", rotor->image_count, full_path);
 
 	return ret;
 }
@@ -349,7 +356,7 @@ static int pov_validate_display_image(FIL *fp,
 	return 0;
 }
 
-int pov_load_images(struct pov_rotor *pov, const char *filename)
+int pov_load_images(struct pov_rotor *rotor, const char *filename)
 {
 	FRESULT res;
 	UINT br;
@@ -357,49 +364,49 @@ int pov_load_images(struct pov_rotor *pov, const char *filename)
 	int ret;
 
 	snprintf(file_path, sizeof(file_path), "%s/%s/%s", POV_IMAGE_PATH, "blend", filename);
-	res = f_open(&pov->image_file, file_path, FA_READ);
+	res = f_open(&rotor->image_file, file_path, FA_READ);
 	if (res != FR_OK) {
-		pr_err("failed to open '%s': %d\n", filename, res);
+		rotor_err(rotor, "failed to open '%s': %d\n", filename, res);
 		return -EIO;
 	}
 
-	res = f_read(&pov->image_file, &pov->image_header, sizeof(pov->image_header), &br);
-	if (res != FR_OK || br != sizeof(pov->image_header)) {
-		pr_err("failed to read header: %d(got %u)\n", res, br);
+	res = f_read(&rotor->image_file, &rotor->image_header, sizeof(rotor->image_header), &br);
+	if (res != FR_OK || br != sizeof(rotor->image_header)) {
+		rotor_err(rotor, "failed to read header: %d(got %u)\n", res, br);
 		ret = -EIO;
 		goto file_err;
 	}
-	pov->pending_column += br;
+	rotor->pending_column += br;
 
-	ret = pov_validate_display_image(&pov->image_file, &pov->image_header, filename);
+	ret = pov_validate_display_image(&rotor->image_file, &rotor->image_header, filename);
 	if (ret < 0) {
 		goto file_err;
 	}
 
-	pov->images_open = 1;
-	pr_info("loaded '%s' (%d cols, %d groups), stride=%u\n",
-		filename, pov->image_header.columns, pov->image_header.spi_groups, pov->image_header.bytes_per_col);
+	rotor->images_open = 1;
+	rotor_info(rotor, "loaded '%s' (%d cols, %d groups), stride=%u\n",
+		filename, rotor->image_header.columns, rotor->image_header.spi_groups, rotor->image_header.bytes_per_col);
 	return 0;
 
 file_err:
-	f_close(&pov->image_file);
+	f_close(&rotor->image_file);
 	return ret;
 }
 
-void pov_close_image(struct pov_rotor *pov)
+void pov_close_image(struct pov_rotor *rotor)
 {
-	f_close(&pov->image_file);
-	pov->images_open = 0;
-	pov->pending_column = 0;
+	f_close(&rotor->image_file);
+	rotor->images_open = 0;
+	rotor->pending_column = 0;
 
-	pr_info("image closed\n");
+	rotor_info(rotor, "image closed\n");
 }
 
 static const char *pov_state_name(enum pov_fsm_state s)
 {
 	static const char *names[] = {
-		"WAIT_MOTOR", "WAIT_PHONE", "SEND_SPEED", "DISPLAYING", "CHECK_CMD",
-		"STATOR_UPDATE", "ERROR"
+		"WAIT_MOTOR", "WAIT_PHONE", "SEND_SPEED", "WAIT_SPEED", "DISPLAYING",
+		"CHECK_CMD", "CHECK_RING", "STATOR_UPDATE", "ERROR"
 	};
 	if ((unsigned)s >= sizeof(names) / sizeof(names[0])) {
 		return "?";
@@ -410,7 +417,9 @@ static const char *pov_state_name(enum pov_fsm_state s)
 static void set_fsm_state(struct pov_rotor *rotor, enum pov_fsm_state new_state)
 {
 	if (new_state != rotor->state) {
-		pr_info("state: %s -> %s\n", pov_state_name(rotor->state), pov_state_name(new_state));
+		if (!((rotor->state == POV_STATE_DISPLAYING && new_state == POV_STATE_CHECK_CMD) ||
+		      (rotor->state == POV_STATE_CHECK_CMD && new_state == POV_STATE_DISPLAYING)))
+			rotor_info(rotor, "state: %s -> %s\n", pov_state_name(rotor->state), pov_state_name(new_state));
 	}
 
 	rotor->state = new_state;
@@ -534,7 +543,7 @@ static int pov_reload_images_after_update(struct pov_rotor *rotor)
 	}
 
 	if (rotor->image_count == 0) {
-		pr_warn("no .pov images found after update\n");
+		rotor_warn(rotor, "no .pov images found after update\n");
 		return -ENOENT;
 	}
 
@@ -722,7 +731,7 @@ static int pov_ring_receive_layer_files(struct pov_rotor *rotor,
 		return ret;
 	}
 
-	pr_info("ring: receiving layer files into %s via %s", dest_dir, MD_NAME(mav));
+	rotor_info(rotor, "ring: receiving layer files into %s via %s", dest_dir, MD_NAME(mav));
 	ret = lrzsz_rz(mav->serial, dest_dir);
 	if (ret <= 0) {
 		return -ETIMEDOUT;
@@ -1064,7 +1073,7 @@ static void pov_ring_handle_ack(struct pov_rotor *rotor,
 	}
 
 	if (is_master_arm(rotor)) {
-		pr_info("ring: ACK seq=%u node=%u result=%u\n", ack.seq, ack.node, ack.result);
+		rotor_info(rotor, "ring: ACK seq=%u node=%u result=%u\n", ack.seq, ack.node, ack.result);
 		return;
 	}
 
@@ -1083,7 +1092,7 @@ static void pov_ring_handle_error(struct pov_rotor *rotor,
 	mav->ring_error.pending = 0;
 
 	if (is_master_arm(rotor)) {
-		pr_err("ring: ERROR seq=%u node=%u link=%u code=%u\n",
+		rotor_err(rotor, "ring: ERROR seq=%u node=%u link=%u code=%u\n",
 			err.seq, err.error_node, err.error_link_from, err.error_code);
 		return;
 	}
@@ -1155,7 +1164,7 @@ static int pov_ring_wait_result(struct pov_rotor *rotor, u16 seq,
 			}
 
 			if (mav->ring_error.pending && mav->ring_error.seq == seq) {
-				pr_err("ring: task %u failed at node %u code=%u link=%u->%u\n",
+				rotor_err(rotor, "ring: task %u failed at node %u code=%u link=%u->%u\n",
 					seq, mav->ring_error.error_node, mav->ring_error.error_code,
 					mav->ring_error.error_link_from, mav->ring_error.error_link_to);
 				mav->ring_error.pending = 0;
@@ -1166,7 +1175,7 @@ static int pov_ring_wait_result(struct pov_rotor *rotor, u16 seq,
 				u8 ack_node = mav->ring_ack.node;
 				u8 result = mav->ring_ack.result;
 
-				pr_info("ring: task %u acked by node %u result=%u\n", seq, ack_node, result);
+				rotor_info(rotor, "ring: task %u acked by node %u result=%u\n", seq, ack_node, result);
 				mav->ring_ack.pending = 0;
 				if (result == MAV_RING_OK) {
 					if (expected_ack_node == POV_ARM_BROADCAST || ack_node == expected_ack_node) {
@@ -1184,7 +1193,7 @@ static int pov_ring_wait_result(struct pov_rotor *rotor, u16 seq,
 		mdelay(5);
 	}
 
-	pr_err("ring: task %u timed out waiting for ACK/ERROR\n", seq);
+	rotor_err(rotor, "ring: task %u timed out waiting for ACK/ERROR\n", seq);
 	return -ETIMEDOUT;
 }
 
@@ -1199,7 +1208,7 @@ static int pov_ring_send_cmd_and_wait(struct pov_rotor *rotor, u16 cmd,
 	}
 
 	if (!rotor->ring_cw_mavlink) {
-		pr_warn("ring: no clockwise link configured\n");
+		rotor_warn(rotor, "ring: no clockwise link configured\n");
 		return -ENODEV;
 	}
 
@@ -1240,7 +1249,7 @@ static int pov_ring_transfer_files(struct pov_rotor *rotor, const char *layer)
 		return -EINVAL;
 	}
 	if (!rotor->ring_cw_mavlink) {
-		pr_warn("ring: no clockwise link configured\n");
+		rotor_warn(rotor, "ring: no clockwise link configured\n");
 		return -ENODEV;
 	}
 
@@ -1282,6 +1291,94 @@ static int pov_ring_transfer_files(struct pov_rotor *rotor, const char *layer)
 			POV_RING_FILE_TIMEOUT_MS, &ack, &err);
 }
 
+static int pov_send_image_files(struct pov_rotor *rotor, const char *layer)
+{
+	const char **files = NULL;
+	int count = 0;
+	int ret;
+
+	if (!pov_layer_name_valid(layer)) {
+		rotor_warn(rotor, "ZMODEM: invalid layer path '%s'\n",
+			layer ? layer : "(null)");
+		return -EINVAL;
+	}
+
+	ret = pov_ring_build_layer_file_list(layer, &files, &count);
+	if (ret < 0) {
+		rotor_warn(rotor, "ZMODEM: no files to send for %s (%d)\n",
+			layer, ret);
+		mavlink_send_ft_ack(rotor->app_mavlink, MAV_FT_DOWNLOAD,
+			MAV_FT_ERR_PROTOCOL, 0);
+		return ret;
+	}
+
+	mavlink_send_ft_ack(rotor->app_mavlink, MAV_FT_DOWNLOAD,
+		MAV_FT_ERR_NONE, 0);
+
+	rotor_info(rotor, "ZMODEM: sending %d file(s) from %s to phone...\n",
+		count, layer);
+
+	ret = lrzsz_sz(rotor->app_port, count, files);
+	pov_ring_free_file_list(files, count);
+	if (ret <= 0) {
+		rotor_warn(rotor, "ZMODEM: send failed or cancelled (%d)\n", ret);
+		return -EIO;
+	}
+
+	rotor_info(rotor, "ZMODEM: sent %d bytes\n", ret);
+	return 0;
+}
+
+static int pov_list_image_files(struct pov_rotor *rotor, const char *layer)
+{
+	DIR dir;
+	FILINFO fno;
+	FRESULT res;
+	char layer_dir[64];
+	u8 list_index;
+	int sent = 0;
+	int l;
+
+	for (l = 0; l < POV_LAYER_COUNT; l++) {
+		char name[16];
+
+		snprintf(name, sizeof(name), "layer%d", l);
+		if (layer && layer[0] != '\0' && strcmp(layer, name) != 0) {
+			continue;
+		}
+
+		snprintf(layer_dir, sizeof(layer_dir), "%s/%s",
+			POV_IMAGE_PATH, name);
+		res = f_opendir(&dir, layer_dir);
+		if (res != FR_OK) {
+			continue;
+		}
+
+		list_index = 0;
+		while (1) {
+			res = f_readdir(&dir, &fno);
+			if (res != FR_OK) {
+				break;
+			}
+			if (fno.fname[0] == 0) {
+				break;
+			}
+			if (!pov_ring_is_transfer_file(&fno)) {
+				continue;
+			}
+			mavlink_send_ft_list(rotor->app_mavlink,
+				POV_LAYER_COUNT, list_index,
+				(u32)fno.fsize, fno.fname);
+			list_index++;
+			sent++;
+		}
+		f_closedir(&dir);
+	}
+
+	rotor_info(rotor, "ft list: reported %d file(s) to phone\n", sent);
+	return 0;
+}
+
 static int pov_receive_image_files(struct pov_rotor *rotor)
 {
 	char dest_dir[64];
@@ -1289,7 +1386,7 @@ static int pov_receive_image_files(struct pov_rotor *rotor)
 	int ret;
 
 	if (!pov_layer_name_valid(layer)) {
-		pr_warn("ZMODEM: invalid layer path '%s'\n", layer ? layer : "(null)");
+		rotor_warn(rotor, "ZMODEM: invalid layer path '%s'\n", layer ? layer : "(null)");
 		return -EINVAL;
 	}
 
@@ -1299,7 +1396,7 @@ static int pov_receive_image_files(struct pov_rotor *rotor)
 		return ret;
 	}
 
-	pr_info("ZMODEM: waiting for phone to send files on app_port...\n");
+	rotor_info(rotor, "ZMODEM: waiting for phone to send files on app_port...\n");
 
 	/*
 	 * lrzsz_rz() blocks until transfer completes.
@@ -1308,11 +1405,11 @@ static int pov_receive_image_files(struct pov_rotor *rotor)
 	 */
 	ret = lrzsz_rz(rotor->app_port, dest_dir);
 	if (ret <= 0) {
-		pr_warn("ZMODEM: receive failed or cancelled (%d)\n", ret);
+		rotor_warn(rotor, "ZMODEM: receive failed or cancelled (%d)\n", ret);
 		return -EIO;
 	}
 
-	pr_info("ZMODEM: received %d bytes, rescanning images...\n", ret);
+	rotor_info(rotor, "ZMODEM: received %d bytes, rescanning images...\n", ret);
 
 	ret = pov_reload_images_after_update(rotor);
 	if (ret < 0) {
@@ -1328,23 +1425,23 @@ static int pov_receive_image_files(struct pov_rotor *rotor)
 	return 0;
 }
 
-static int pov_read_next_sector(struct pov_rotor *pov)
+static int pov_read_next_sector(struct pov_rotor *rotor)
 {
 	FRESULT res;
 	UINT br;
 	u32 read_bytes = POV_PREFETCH_COLS * POV_LED_DRIVER_COL_BYTES;
 
-	res = f_read(&pov->image_file, (u8 *)pov->led_driver_frame[pov->prefetch_ping], read_bytes, &br);
+	res = f_read(&rotor->image_file, (u8 *)rotor->led_driver_frame[rotor->prefetch_ping], read_bytes, &br);
 	if (res != FR_OK || br == 0) {
 		if (res == FR_OK && br == 0) {
 			return -ENOENT;    /* End of image */
 		}
-		pr_err("read prefetch batch failed: %d (got %u)\n", res, br);
+		rotor_err(rotor, "read prefetch batch failed: %d (got %u)\n", res, br);
 		return -EIO;
 	}
-	pov->pending_column += br;
-	pov->prefetch_ping ^= 1;
-	pov->prefetch_sent_index = 0;
+	rotor->pending_column += br;
+	rotor->prefetch_ping ^= 1;
+	rotor->prefetch_sent_index = 0;
 
 	return 0;
 }
@@ -1429,7 +1526,7 @@ static int display_image(struct pov_rotor *rotor)
 		spin_count = 0;
 		while (pov_get_angle(rotor) == last_angle) {
 			if (++spin_count > POV_DISPLAY_COLS * POV_ANGLE_TIMEOUT_FACTOR) {
-				pr_err("display: angle_sensor timeout at column %u\n", last_angle);
+				rotor_err(rotor, "display: angle_sensor timeout at column %u\n", last_angle);
 				ret = -ETIMEDOUT;
 				goto over;
 			}
@@ -1529,7 +1626,7 @@ static int pov_switch_image(struct pov_rotor *rotor, u8 index)
 	rotor->image_current = index;
 	rotor->prefetch_ping = 0;
 	rotor->prefetch_sent_index = 0;
-	pr_info("switched to image [%d]: %s (%d cols)\n",
+	rotor_info(rotor, "switched to image [%d]: %s (%d cols)\n",
 		index, rotor->image_names[index],
 		rotor->image_header.columns);
 	return 0;
@@ -1565,7 +1662,7 @@ static int pov_handle_end_of_image(struct pov_rotor *rotor)
 		rotor->pending_column = sizeof(struct pov_image_header);
 		rotor->prefetch_ping = 0;
 		rotor->prefetch_sent_index = 0;
-		pr_info("replaying current image %s\n", rotor->image_names[rotor->image_current]);
+// 		pr_info("replaying current image %s\n", rotor->image_names[rotor->image_current]);
 		return 0;
 
 	case MAV_IMAGE_NEXT: {
@@ -1583,7 +1680,7 @@ static int pov_handle_end_of_image(struct pov_rotor *rotor)
 		return pov_switch_image(rotor, cmd->image_index);
 
 	default:
-		pr_warn("unknown image action %d, replaying\n", action);
+		rotor_warn(rotor, "unknown image action %d, replaying\n", action);
 		res = f_lseek(&rotor->image_file, sizeof(struct pov_image_header));
 		if (res != FR_OK) {
 			return -EIO;
@@ -1607,8 +1704,8 @@ static int waiting_for_motor_connection(struct pov_rotor *rotor)
 	while (1) {
 		now = basic_timer_get_ms();
 
-		if (now - rotor->last_send_heartbeat_ms >= (u64)POV_HEARTBEAT_INTERVAL_MS) {
-			rotor->last_send_heartbeat_ms = now;
+		if (now - rotor->last_send_stator_heartbeat >= (u64)POV_HEARTBEAT_INTERVAL_MS) {
+			rotor->last_send_stator_heartbeat = now;
 			mavlink_send_heartbeat(rotor->motor_mavlink, MAV_SYS_ACTIVE, 0, 0);
 		}
 
@@ -1625,12 +1722,12 @@ static int waiting_for_motor_connection(struct pov_rotor *rotor)
 		/* Any message from a stator reporting ACTIVE = handshake success */
 		if (rotor->motor_mavlink->rx_count > old_rx) {
 			if (rotor->motor_mavlink->sys_status == MAV_SYS_ACTIVE) {
-				pr_info("motor connected!\n");
-				rotor->last_stator_heartbeat_ms = basic_timer_get_ms();
+				rotor_info(rotor, "motor connected!\n");
+				rotor->last_recv_stator_heartbeat = basic_timer_get_ms();
 				set_fsm_state(rotor, POV_STATE_SEND_SPEED);
 				return 0;
 			} else if (rotor->motor_mavlink->sys_status == MAV_SYS_FAULT) {
-				pr_err("motor in fault state\n");
+				rotor_err(rotor, "motor in fault state\n");
 				return -EPIPE;
 			}
 		}
@@ -1641,21 +1738,19 @@ static int waiting_for_motor_connection(struct pov_rotor *rotor)
 
 static int waiting_for_phone_connection(struct pov_rotor *rotor)
 {
-	mavlink_system_heartbeat_t payload;
+	u32 old_rx = rotor->app_mavlink->rx_count;
 
 	if (serial_port_data_available(rotor->app_mavlink->serial) == 0) {
 		return -ENODEV;
 	}
 
 	mavlink_receive_and_process(rotor->app_mavlink, 10);
-	mavlink_msg_system_heartbeat_decode(&rotor->app_mavlink->rx_msg, &payload);
 
-	/* Phone sends HEARTBEAT during handshake — any received
-	 * MAVLink message confirms the phone is alive. */
-	if (payload.status == MAV_SYS_ACTIVE) {
-		pr_info("phone connected!\n");
+	/* Any received MAVLink message confirms the phone is alive. */
+	if (rotor->app_mavlink->rx_count > old_rx) {
+		rotor_info(rotor, "phone connected!\n");
 		set_fsm_state(rotor, POV_STATE_SEND_SPEED);
-		return mavlink_send_heartbeat(rotor->app_mavlink, MAV_SYS_ACTIVE, 0, 0);
+		return 0;
 	}
 
 	return -ENODEV;
@@ -1672,7 +1767,7 @@ static int set_motor_speed(struct pov_rotor *rotor, u16 rpm)
 		return ret;
 	}
 
-	pr_info("sent target RPM=%d to motor\n", rpm);
+	rotor_info(rotor, "sent target RPM=%d to motor\n", rpm);
 
 	while (query_count < POV_SPEED_QUERY_RETRIES) {
 		ret = mavlink_query_motor_status(rotor->motor_mavlink, 0, 500);
@@ -1681,9 +1776,9 @@ static int set_motor_speed(struct pov_rotor *rotor, u16 rpm)
 		}
 
 		speed = rotor->motor_mavlink->motors[0].current_speed;
-		if (abs(speed - (s32)rpm) < 50 &&
+		if (abs(speed - (s32)rpm) < 5 &&
 			rotor->motor_mavlink->motors[0].direction == POV_DIR_FORWARD) {
-			pr_info("motor reached target RPM: %d (current=%d)\n", rpm, speed);
+			rotor_info(rotor, "motor reached target RPM: %d (current=%d)\n", rpm, speed);
 			break;
 		}
 
@@ -1692,17 +1787,31 @@ static int set_motor_speed(struct pov_rotor *rotor, u16 rpm)
 	}
 
 	speed = pov_get_rpm(rotor);
-	if (abs(speed - (s32)rpm) > 50) {
-		pr_warn("angle_sensor RPM %d out of range (target %d)\n", speed, rpm);
+	if (abs(speed - (s32)rpm) > 5) {
+		rotor_warn(rotor, "angle_sensor RPM %d out of range (target %d)\n", speed, rpm);
 		return -EAGAIN;
 	}
 
-	pr_info("speed confirmed, entering display mode\n");
+	rotor_info(rotor, "speed confirmed, entering display mode\n");
 	set_fsm_state(rotor, POV_STATE_DISPLAYING);
 
 	rotor->app_port->ops->enable();
 
 	return 0;
+}
+
+static int wait_speed_stable(struct pov_rotor *rotor)
+{
+	s32 speed = pov_get_rpm(rotor);
+
+	if (speed < 0)
+		speed = -speed;
+
+	if (abs(speed - (s32)POV_TARGET_RPM) < 5)
+		return 0;
+
+	mdelay(POV_SPEED_QUERY_INTERVAL_MS);
+	return -EAGAIN;
 }
 
 static int check_stator_heartbeat(struct pov_rotor *rotor)
@@ -1723,13 +1832,13 @@ static int check_stator_heartbeat(struct pov_rotor *rotor)
 	 * messages in the batch). */
 	if (rotor->motor_mavlink->rx_count > old_rx &&
 		rotor->motor_mavlink->sys_status == MAV_SYS_ACTIVE) {
-		rotor->last_stator_heartbeat_ms = basic_timer_get_ms();
+		rotor->last_recv_stator_heartbeat = basic_timer_get_ms();
 	}
 
 	/* Check timeout */
-	if (basic_timer_get_ms() - rotor->last_stator_heartbeat_ms > (u64)POV_HEARTBEAT_INTERVAL_MS * 2) {
-		pr_warn("stator heartbeat timeout (%llu ms)\n",
-			basic_timer_get_ms() - rotor->last_stator_heartbeat_ms);
+	if (basic_timer_get_ms() - rotor->last_recv_stator_heartbeat > (u64)POV_HEARTBEAT_INTERVAL_MS * 2) {
+		rotor_warn(rotor, "stator heartbeat timeout (%llu ms)\n",
+			basic_timer_get_ms() - rotor->last_recv_stator_heartbeat);
 		return -ETIMEDOUT;
 	}
 
@@ -1744,7 +1853,7 @@ static int display_loop(struct pov_rotor *rotor)
 	if (is_master_arm(rotor)) {
 		ret = check_stator_heartbeat(rotor);
 		if (ret < 0) {
-			pr_err("stator disconnected during display\n");
+			rotor_err(rotor, "stator disconnected during display\n");
 			set_fsm_state(rotor, POV_STATE_ERROR);
 			return ret;
 		}
@@ -1757,9 +1866,9 @@ static int display_loop(struct pov_rotor *rotor)
 		goto err;
 	}
 
-	t_end = basic_timer_get_us() - t_start;
-	pr_debug("image done: %llu us total, %llu us avg per col (%u cols)\n",
-		t_end, t_end / POV_DISPLAY_COLS, POV_DISPLAY_COLS);
+// 	t_end = basic_timer_get_us() - t_start;
+// 	pr_debug("image done: %llu us total, %llu us avg per col (%u cols)\n",
+// 		t_end, t_end / POV_DISPLAY_COLS, POV_DISPLAY_COLS);
 
 	if (is_slave_arm(rotor)) {
 		set_fsm_state(rotor, POV_STATE_CHECK_RING);
@@ -1781,7 +1890,7 @@ static void error_occurred(struct pov_rotor *rotor)
 		rotor->motor_port->ops->disable();
 		rotor->app_port->ops->disable();
 	} else {
-		set_fsm_state(rotor, POV_STATE_DISPLAYING);
+		set_fsm_state(rotor, POV_STATE_WAIT_SPEED);
 	}
 }
 
@@ -1946,8 +2055,8 @@ struct pov_rotor *pov_rotor_alloc(struct flash_ops *flash, struct bootloader_ops
 
 	/* Init heartbeat tracking: assume stator is alive at startup
 	 * (actual connection is established in WAIT_MOTOR handshake) */
-	rotor->last_stator_heartbeat_ms = basic_timer_get_ms();
-	rotor->last_send_heartbeat_ms = basic_timer_get_ms();
+	rotor->last_recv_stator_heartbeat = basic_timer_get_ms();
+	rotor->last_send_stator_heartbeat = basic_timer_get_ms();
 	rotor->ring_next_seq = 0;
 	if (rotor->motor_mavlink) {
 		mavlink_send_heartbeat(rotor->motor_mavlink, MAV_SYS_ACTIVE, 0, 0);
@@ -1979,21 +2088,35 @@ static void pov_check_phone_cmd(struct pov_rotor *rotor)
 	switch (rotor->app_mavlink->rx_msg.msgid) {
 	/* ─── File Transfer ─────────────────────────────────── */
 	case MAVLINK_MSG_ID_FILE_TRANSFER_START: {
-		pr_info("cmd: file transfer '%s' (%u bytes)\n",
-			rotor->app_mavlink->ft.path,
-			rotor->app_mavlink->ft.total_bytes);
+		const char *path = rotor->app_mavlink->ft.path;
+		u8 direction = rotor->app_mavlink->ft.direction;
+
+		rotor_info(rotor, "cmd: file transfer '%s' (%u bytes) %s\n",
+			path, rotor->app_mavlink->ft.total_bytes,
+			direction == MAV_FT_DOWNLOAD ? "download" : "upload");
 
 		rotor->app_mavlink->ft.state = MAV_FT_IDLE;
+
+		if (direction == MAV_FT_DOWNLOAD) {
+			ret = pov_send_image_files(rotor, path);
+			if (ret) {
+				rotor_err(rotor, "cmd: failed to send image files\n");
+				set_fsm_state(rotor, POV_STATE_ERROR);
+				return;
+			}
+			break;
+		}
+
 		ret = pov_receive_image_files(rotor);
 		if (ret) {
-			pr_err("cmd: failed to receive image files\n");
+			rotor_err(rotor, "cmd: failed to receive image files\n");
 			set_fsm_state(rotor, POV_STATE_ERROR);
 			return;
 		}
 
-		ret = pov_ring_transfer_files(rotor, rotor->app_mavlink->ft.path);
+		ret = pov_ring_transfer_files(rotor, path);
 		if (ret) {
-			pr_err("cmd: failed to distribute ring files\n");
+			rotor_err(rotor, "cmd: failed to distribute ring files\n");
 			set_fsm_state(rotor, POV_STATE_ERROR);
 			return;
 		}
@@ -2003,7 +2126,7 @@ static void pov_check_phone_cmd(struct pov_rotor *rotor)
 	}
 
 	case MAVLINK_MSG_ID_FILE_TRANSFER_ACK:
-		pr_info("cmd: file transfer ack\n");
+		rotor_info(rotor, "cmd: file transfer ack\n");
 		/* TODO: handle transfer ACK from phone */
 		break;
 
@@ -2014,7 +2137,7 @@ static void pov_check_phone_cmd(struct pov_rotor *rotor)
 		break;
 
 	case MAVLINK_MSG_ID_FILE_TRANSFER_CANCEL:
-		pr_info("cmd: file transfer cancelled\n");
+		rotor_info(rotor, "cmd: file transfer cancelled\n");
 		/* TODO: abort ZMODEM transfer in progress */
 		break;
 
@@ -2022,16 +2145,17 @@ static void pov_check_phone_cmd(struct pov_rotor *rotor)
 		mavlink_file_transfer_list_t fl;
 		mavlink_msg_file_transfer_list_decode(
 			&rotor->app_mavlink->rx_msg, &fl);
-		pr_info("cmd: ft list [%u/%u] %s (%u bytes)\n",
-			fl.list_index, fl.file_count,
-			fl.filename, fl.file_size);
-		/* TODO: display file list to user */
+		rotor_info(rotor, "cmd: ft list request (filter '%s')\n",
+			fl.filename[0] ? fl.filename : "<all layers>");
+		/* The request's filename carries an optional layer filter */
+		pov_list_image_files(rotor,
+			fl.filename[0] ? fl.filename : NULL);
 		break;
 	}
 
 	/* ─── Image Control ─────────────────────────────────── */
 	case MAVLINK_MSG_ID_IMAGE_CONTROL:
-		pr_info("cmd: image control\n");
+		rotor_info(rotor, "cmd: image control\n");
 
 		memset(ring_payload, 0, sizeof(ring_payload));
 		pov_ring_payload_image(ring_payload,
@@ -2041,7 +2165,7 @@ static void pov_check_phone_cmd(struct pov_rotor *rotor)
 		ret = pov_ring_send_cmd_and_wait(rotor, MAV_RING_CMD_IMAGE,
 				ring_payload, 4);
 		if (ret < 0) {
-			pr_err("cmd: ring image control failed (%d)\n", ret);
+			rotor_err(rotor, "cmd: ring image control failed (%d)\n", ret);
 			set_fsm_state(rotor, POV_STATE_ERROR);
 			return;
 		}
@@ -2052,7 +2176,7 @@ static void pov_check_phone_cmd(struct pov_rotor *rotor)
 		break;
 
 	case MAVLINK_MSG_ID_IMAGE_ACK:
-		pr_info("cmd: image ack\n");
+		rotor_info(rotor, "cmd: image ack\n");
 		/* TODO: confirm image switch completed */
 		break;
 
@@ -2061,22 +2185,31 @@ static void pov_check_phone_cmd(struct pov_rotor *rotor)
 		mavlink_motor_control_t mc;
 		mavlink_msg_motor_control_decode(
 			&rotor->app_mavlink->rx_msg, &mc);
-		pr_info("cmd: motor control target=%u speed=%d\n",
+		rotor_info(rotor, "cmd: motor control target=%u speed=%d\n",
 			mc.target_id, mc.speed);
 		/* TODO: relay to stator */
 		break;
 	}
 
-	case MAVLINK_MSG_ID_MOTOR_STATUS_QUERY:
-		pr_debug("cmd: motor status query\n");
-		/* TODO: query stator and respond */
+	case MAVLINK_MSG_ID_MOTOR_STATUS_QUERY: {
+		ret = mavlink_query_motor_status(rotor->motor_mavlink, 0, 500);
+		if (ret < 0) {
+			return;
+		}
+		rotor->motor_mavlink->motors[0].current_speed;
+
+		mavlink_send_motor_status(rotor->app_mavlink, 0,
+			rotor->motor_mavlink->motors[0].current_speed,
+			rotor->motor_mavlink->motors[0].direction,
+			rotor->motor_mavlink->motors[0].status);
 		break;
+	}
 
 	case MAVLINK_MSG_ID_MOTOR_STATUS: {
 		mavlink_motor_status_t ms;
 		mavlink_msg_motor_status_decode(
 			&rotor->app_mavlink->rx_msg, &ms);
-		pr_info("cmd: motor status id=%u speed=%d\n",
+		rotor_info(rotor, "cmd: motor status id=%u speed=%d\n",
 			ms.motor_id, ms.current_speed);
 		break;
 	}
@@ -2085,16 +2218,13 @@ static void pov_check_phone_cmd(struct pov_rotor *rotor)
 		pr_debug("cmd: motor ack\n");
 		break;
 
-	/* ─── System ───────────────────────────────────────── */
-	case MAVLINK_MSG_ID_SYSTEM_HEARTBEAT:
-		pr_debug("cmd: heartbeat\n");
-		break;
-
 	/* ─── Bootloader ──────────────────────────────────── */
 	case MAVLINK_MSG_ID_BOOTLOADER_UPDATE_CMD: {
+		struct bootloader_context *bl_ctx;
+		struct bootloader_mem_layout layout;
 		int ret;
 
-		pr_info("cmd: bootloader update - cmd=%d size=%u name=%s\n",
+		rotor_info(rotor, "cmd: bootloader update - cmd=%d size=%u name=%s\n",
 			rotor->app_mavlink->bl.command,
 			rotor->app_mavlink->bl.firmware_size,
 			rotor->app_mavlink->bl.filename);
@@ -2110,11 +2240,52 @@ static void pov_check_phone_cmd(struct pov_rotor *rotor)
 		if (ret < 0)
 			break;
 
+#if KINETIS_FAKE_SIM
+		if (!general_flash_addr) {
+			general_flash_addr = kzalloc(ROM_TOTAL_SIZE, GFP_KERNEL);
+			if (!general_flash_addr)
+				break;
+		}
+
+		layout.rom_base = general_flash_addr;
+		layout.rom_size = ROM_TOTAL_SIZE;
+		layout.bootloader_size = BOOTLOADER_SIZE;
+		layout.firmware_max_size = FIRMWARE_MAX_SIZE;
+		layout.sram.start = (u8 *)0x20000000u;
+		layout.sram.end   = (u8 *)0x20040000u;
+
+		bl_ctx = bootloader_init(&layout, rotor->bl_ops,
+				rotor->flash,
+				&usart1_serial_port_ops);
+		if (!bl_ctx) {
+			kfree(general_flash_addr);
+			general_flash_addr = NULL;
+			break;
+		}
+
+		serial_port_stop_thread(rotor->app_port);
+
+		serial_port_start_thread(bl_ctx->app_port, SERIAL_PORT_DF_OTHERS,
+			NULL, rotor->app_port->private);
+		serial_port_start_thread(rotor->app_port->private, SERIAL_PORT_DF_OTHERS,
+			NULL, bl_ctx->app_port);
+
+		bootloader_flow(bl_ctx);
+
+		serial_port_stop_thread(bl_ctx->app_port);
+		serial_port_stop_thread(rotor->app_port->private);
+
+		serial_port_start_thread(rotor->app_port, SERIAL_PORT_DF_OTHERS,
+			NULL, rotor->app_port->private);
+
+		bootloader_free(bl_ctx);
+#else
 		if (rotor->bl_ops && rotor->bl_ops->system_reset) {
 			rotor->bl_ops->system_reset();
 		} else {
-			pr_err("No system_reset available, cannot enter bootloader!\n");
+			rotor_err(rotor, "No system_reset available, cannot enter bootloader!\n");
 		}
+#endif
 		break;
 	}
 
@@ -2154,17 +2325,17 @@ static void pov_stator_update_flow(struct pov_rotor *rotor)
 
 	ret = fatfs_create_dirs(STATOR_UPDATE_DIR);
 	if (ret) {
-		pr_err("Failed to create '%s' (ret=%d)\n", STATOR_UPDATE_DIR, ret);
+		rotor_err(rotor, "Failed to create '%s' (ret=%d)\n", STATOR_UPDATE_DIR, ret);
 		goto err;
 	}
 
-	pr_info("ZMODEM: waiting for PC to send stator firmware on app_port...\n");
+	rotor_info(rotor, "ZMODEM: waiting for PC to send stator firmware on app_port...\n");
 	ret = lrzsz_rz(rotor->app_port, STATOR_UPDATE_DIR);
 	if (ret <= 0) {
-		pr_err("ZMODEM receive stator firmware failed (%d)\n", ret);
+		rotor_err(rotor, "ZMODEM receive stator firmware failed (%d)\n", ret);
 		goto err;
 	}
-	pr_info("Stator firmware received: %d bytes\n", ret);
+	rotor_info(rotor, "Stator firmware received: %d bytes\n", ret);
 
 	filename = rotor->app_mavlink->bl.filename;
 	snprintf(fw_full_path, sizeof(fw_full_path), "%s/%s",
@@ -2177,21 +2348,21 @@ static void pov_stator_update_flow(struct pov_rotor *rotor)
 			filename,
 			3000);
 	if (ret < 0) {
-		pr_err("Failed to send bootloader cmd to stator: %d\n", ret);
+		rotor_err(rotor, "Failed to send bootloader cmd to stator: %d\n", ret);
 		goto err;
 	}
-	pr_info("Sent BOOTLOADER_UPDATE_CMD to stator, waiting for reset...\n");
+	rotor_info(rotor, "Sent BOOTLOADER_UPDATE_CMD to stator, waiting for reset...\n");
 
 	/* Wait for stator to reset and bootloader to start
 	 * The stator will: write update_flag on FatFS → system_reset → bootloader init
 	 * Give it time for full reset cycle + bootloader init + FatFS mount */
 	mdelay(3000);
 
-	pr_info("ZMODEM: sending '%s' to stator on motor_port...\n", fw_full_path);
+	rotor_info(rotor, "ZMODEM: sending '%s' to stator on motor_port...\n", fw_full_path);
 	fw_paths[0] = fw_full_path;
 	ret = lrzsz_sz(rotor->motor_port, 1, fw_paths);
 	if (ret <= 0) {
-		pr_err("ZMODEM send to stator failed (%d)\n", ret);
+		rotor_err(rotor, "ZMODEM send to stator failed (%d)\n", ret);
 		goto err;
 	}
 
@@ -2216,35 +2387,35 @@ static int pov_speed_test(struct pov_rotor *rotor)
 	u64 max_us = 0, min_us = 0, open_max_us = 0;
 	u32 open_ok = 0;
 
-	pr_info("---------------------- pov speed test ----------------------\n");
+	rotor_info(rotor, "---------------------- pov speed test ----------------------\n");
 
 	period_us = 60000000u / POV_TARGET_RPM;
 	column_budget_us = period_us / POV_DISPLAY_COLS;
 
-	pr_info("config:\n");
-	pr_info("  rpm:                    %u\n", POV_TARGET_RPM);
-	pr_info("  revolution period:      %u us\n", period_us);
-	pr_info("  columns per revolution: %u\n", POV_DISPLAY_COLS);
-	pr_info("  column budget:          %u us\n", column_budget_us);
-	pr_info("  spi groups:             %u\n", POV_SPI_GROUPS);
-	pr_info("  leds per group:         %u\n", POV_LEDS_PER_GROUP);
-	pr_info("  led driver group bytes: %u\n", POV_LED_DRIVER_GROUP_BYTES);
-	pr_info("  led driver bytes/column:%u\n", POV_LED_DRIVER_COL_BYTES);
-	pr_info("  prefetch columns:       %u\n", POV_PREFETCH_COLS);
-	pr_info("  prefetch led drv bytes: %u\n", POV_PREFETCH_BYTES);
-	pr_info("  spi clock:              %u hz (%u kb/s per channel)\n",
+	rotor_info(rotor, "config:\n");
+	rotor_info(rotor, "  rpm:                    %u\n", POV_TARGET_RPM);
+	rotor_info(rotor, "  revolution period:      %u us\n", period_us);
+	rotor_info(rotor, "  columns per revolution: %u\n", POV_DISPLAY_COLS);
+	rotor_info(rotor, "  column budget:          %u us\n", column_budget_us);
+	rotor_info(rotor, "  spi groups:             %u\n", POV_SPI_GROUPS);
+	rotor_info(rotor, "  leds per group:         %u\n", POV_LEDS_PER_GROUP);
+	rotor_info(rotor, "  led driver group bytes: %u\n", POV_LED_DRIVER_GROUP_BYTES);
+	rotor_info(rotor, "  led driver bytes/column:%u\n", POV_LED_DRIVER_COL_BYTES);
+	rotor_info(rotor, "  prefetch columns:       %u\n", POV_PREFETCH_COLS);
+	rotor_info(rotor, "  prefetch led drv bytes: %u\n", POV_PREFETCH_BYTES);
+	rotor_info(rotor, "  spi clock:              %u hz (%u kb/s per channel)\n",
 		POV_SPI_CLOCK_HZ, POV_SPI_CLOCK_HZ / 8000);
 
-	pr_info("budget: revolution %u us = %u columns * %u us/column\n",
+	rotor_info(rotor, "budget: revolution %u us = %u columns * %u us/column\n",
 		period_us, POV_DISPLAY_COLS, column_budget_us);
-	pr_info("  spi needs ~%u us/column -> leaves %u us for read\n",
+	rotor_info(rotor, "  spi needs ~%u us/column -> leaves %u us for read\n",
 		POV_SPI_SEND_TIME_US,
 		column_budget_us > POV_SPI_SEND_TIME_US ?
 		column_budget_us - POV_SPI_SEND_TIME_US : 0);
-	pr_info("  minimum read speed required: %u kb/s\n",
+	rotor_info(rotor, "  minimum read speed required: %u kb/s\n",
 		POV_LED_DRIVER_COL_BYTES * 1000u / column_budget_us);
 
-	pr_info("--- 1. fatfs sequential read ---\n");
+	rotor_info(rotor, "--- 1. fatfs sequential read ---\n");
 
 	buffer = kmalloc(POV_PREFETCH_BYTES, GFP_KERNEL);
 	if (!buffer) {
@@ -2253,7 +2424,7 @@ static int pov_speed_test(struct pov_rotor *rotor)
 
 	res = f_lseek(&rotor->image_file, sizeof(struct pov_image_header));
 	if (res != FR_OK) {
-		pr_err("  f_lseek failed: %d\n", res);
+		rotor_err(rotor, "  f_lseek failed: %d\n", res);
 		ret = -EIO;
 		goto out;
 	}
@@ -2261,14 +2432,14 @@ static int pov_speed_test(struct pov_rotor *rotor)
 	total_columns = rotor->image_header.columns;
 	total_rows = total_columns / POV_PREFETCH_COLS;
 	total_bytes = total_columns * POV_LED_DRIVER_COL_BYTES;
-	pr_info("  image: %u columns * %u bytes = %u bytes\n",
+	rotor_info(rotor, "  image: %u columns * %u bytes = %u bytes\n",
 		total_columns, POV_LED_DRIVER_COL_BYTES, total_bytes);
 
 	k0 = ktime_get();
 	for (u32 row = 0; row < total_rows; row++) {
 		res = f_read(&rotor->image_file, buffer, POV_PREFETCH_BYTES, &br);
 		if (res != FR_OK || br == 0) {
-			pr_err("  f_read failed at row %u: %d (br=%u)\n",
+			rotor_err(rotor, "  f_read failed at row %u: %d (br=%u)\n",
 				row, res, br);
 			ret = -EIO;
 			goto out;
@@ -2279,7 +2450,7 @@ static int pov_speed_test(struct pov_rotor *rotor)
 	if (elapsed == 0) {
 		elapsed = 1;
 	}
-	pr_info("  read %u kb in %llu us, %llu us/column, throughput: %u kb/s\n",
+	rotor_info(rotor, "  read %u kb in %llu us, %llu us/column, throughput: %u kb/s\n",
 		total_bytes / 1024, elapsed, elapsed / total_columns,
 		(unsigned)((u64)total_bytes * 1000000u / elapsed / 1024));
 
@@ -2297,13 +2468,13 @@ static int pov_speed_test(struct pov_rotor *rotor)
 			}
 		}
 	}
-	pr_info("  prefetch latency (worst): %llu us (budget %u us for %u columns)\n",
+	rotor_info(rotor, "  prefetch latency (worst): %llu us (budget %u us for %u columns)\n",
 		max_us, POV_PREFETCH_COLS * column_budget_us, POV_PREFETCH_COLS);
 	if (max_us > (u64)POV_PREFETCH_COLS * column_budget_us) {
-		pr_warn("   read too slow, prefetch may starve display \n");
+		rotor_warn(rotor, "   read too slow, prefetch may starve display \n");
 	}
 
-	pr_info("--- 2. spi dma send (4x parallel) ---\n");
+	rotor_info(rotor, "--- 2. spi dma send (4x parallel) ---\n");
 
 	get_random_bytes(rotor->led_driver_frame, sizeof(rotor->led_driver_frame));
 
@@ -2319,22 +2490,22 @@ static int pov_speed_test(struct pov_rotor *rotor)
 	}
 	k1 = ktime_get();
 	elapsed = ktime_us_delta(k1, k0);
-	pr_info("  burst %u columns: %llu us (average %llu us/column, %u kb/s)\n",
+	rotor_info(rotor, "  burst %u columns: %llu us (average %llu us/column, %u kb/s)\n",
 		test_loops, elapsed, elapsed / test_loops,
 		(unsigned)((u64)test_loops * POV_LED_DRIVER_COL_BYTES * 1000000u / elapsed / 1024));
 	if (elapsed / test_loops > column_budget_us)
-		pr_warn("  spi too slow, average %llu us > budget %u us\n",
+		rotor_warn(rotor, "  spi too slow, average %llu us > budget %u us\n",
 			elapsed / test_loops, column_budget_us);
 	else
-		pr_info("  spi ok: average %llu us < %u us (margin %lld us)\n",
+		rotor_info(rotor, "  spi ok: average %llu us < %u us (margin %lld us)\n",
 			elapsed / test_loops, column_budget_us,
 			(s64)column_budget_us - (s64)(elapsed / test_loops));
 
-	pr_info("--- 3. combined pipeline (read to send) ---\n");
+	rotor_info(rotor, "--- 3. combined pipeline (read to send) ---\n");
 
 	res = f_lseek(&rotor->image_file, sizeof(struct pov_image_header));
 	if (res != FR_OK) {
-		pr_err("  f_lseek failed: %d\n", res);
+		rotor_err(rotor, "  f_lseek failed: %d\n", res);
 		ret = -EACCES;
 		goto out;
 	}
@@ -2349,21 +2520,21 @@ static int pov_speed_test(struct pov_rotor *rotor)
 		goto out;
 	}
 	elapsed = ktime_us_delta(k1, k0);
-	pr_info("  %u columns in %llu us (average %llu us/column, %u kb/s)\n",
+	rotor_info(rotor, "  %u columns in %llu us (average %llu us/column, %u kb/s)\n",
 		total_columns, elapsed, elapsed / total_columns,
 		(unsigned)((u64)total_columns * POV_LED_DRIVER_COL_BYTES * 1000000u /
 		elapsed / 1024));
 	if (elapsed > (u64)total_columns * column_budget_us)
-		pr_warn("  pipeline can't keep up, %llu us > %u us budget\n",
+		rotor_warn(rotor, "  pipeline can't keep up, %llu us > %u us budget\n",
 			elapsed / total_columns, column_budget_us);
 	else
-		pr_info("  pipeline ok: %llu us < %u us (margin %lld us)\n",
+		rotor_info(rotor, "  pipeline ok: %llu us < %u us (margin %lld us)\n",
 			elapsed / total_columns, column_budget_us,
 			(s64)column_budget_us - (s64)(elapsed / total_columns));
 
 	res = f_lseek(&rotor->image_file, sizeof(struct pov_image_header));
 	if (res != FR_OK) {
-		pr_err("f_lseek back to start failed: %d\n", res);
+		rotor_err(rotor, "f_lseek back to start failed: %d\n", res);
 		ret = -EACCES;
 		goto out;
 	}
@@ -2371,7 +2542,7 @@ static int pov_speed_test(struct pov_rotor *rotor)
 	rotor->prefetch_ping = 0;
 	rotor->prefetch_sent_index = 0;
 
-	pr_info("--- 4. angle sensor read latency ---\n");
+	rotor_info(rotor, "--- 4. angle sensor read latency ---\n");
 	max_us = 0;
 	min_us = ~0ULL;
 	for (u32 i = 0; i < 100; i++) {
@@ -2386,24 +2557,24 @@ static int pov_speed_test(struct pov_rotor *rotor)
 			min_us = t0;
 		}
 	}
-	pr_info("  get_angle: minimum %llu us, maximum %llu us (100 samples)\n", min_us, max_us);
+	rotor_info(rotor, "  get_angle: minimum %llu us, maximum %llu us (100 samples)\n", min_us, max_us);
 
 	required_kbps = POV_LED_DRIVER_COL_BYTES * 1000u / column_budget_us;
-	pr_info("--- 5. summary ---\n");
-	pr_info("  item                              | required                     \n");
-	pr_info("  ----------------------------------|------------------------------\n");
-	pr_info("  read speed                        | >= %u kb/s\n", required_kbps);
-	pr_info("  spi send                          | <= %u us/column\n", column_budget_us);
-	pr_info("  pipeline                          | <= %u us/column\n", column_budget_us);
-	pr_info("  angle sensor                      | < 10 us\n");
-	pr_info("  at %u rpm (2x): budget = %u us/column (spi alone needs %u us - %s)\n",
+	rotor_info(rotor, "--- 5. summary ---\n");
+	rotor_info(rotor, "  item                              | required                     \n");
+	rotor_info(rotor, "  ----------------------------------|------------------------------\n");
+	rotor_info(rotor, "  read speed                        | >= %u kb/s\n", required_kbps);
+	rotor_info(rotor, "  spi send                          | <= %u us/column\n", column_budget_us);
+	rotor_info(rotor, "  pipeline                          | <= %u us/column\n", column_budget_us);
+	rotor_info(rotor, "  angle sensor                      | < 10 us\n");
+	rotor_info(rotor, "  at %u rpm (2x): budget = %u us/column (spi alone needs %u us - %s)\n",
 		POV_TARGET_RPM * 2,
 		60000000u / (POV_TARGET_RPM * 2) / POV_DISPLAY_COLS,
 		POV_SPI_SEND_TIME_US,
 		60000000u / (POV_TARGET_RPM * 2) / POV_DISPLAY_COLS >= POV_SPI_SEND_TIME_US ?
 		"ok" : "impossible");
 
-	pr_info("---------------------- speed test done ----------------------\n");
+	rotor_info(rotor, "---------------------- speed test done ----------------------\n");
 out:
 	kfree(buffer);
 	return ret;
@@ -2427,7 +2598,7 @@ int pov_rotor_display(struct pov_rotor *rotor)
 	}
 
 	if (rotor->image_count == 0) {
-		pr_err("no .pov images found in '%s'\n", POV_IMAGE_PATH);
+		rotor_err(rotor, "no .pov images found in '%s'\n", POV_IMAGE_PATH);
 		ret = -ENOENT;
 		goto out;
 	}
@@ -2437,16 +2608,15 @@ int pov_rotor_display(struct pov_rotor *rotor)
 		goto out;
 	}
 
-	ret = pov_speed_test(rotor);
-	if (ret < 0) {
-		goto out;
-	}
-
 	if (is_master_arm(rotor)) {
-		pr_info("waiting for motor connection\n");
+		ret = pov_speed_test(rotor);
+		if (ret < 0) {
+			goto out;
+		}
+		rotor_info(rotor, "waiting for motor connection\n");
 	} else {
-		pr_info("arm %u/%u running as display slave rotor\n", rotor->arm_id, POV_ARM_COUNT);
-		set_fsm_state(rotor, POV_STATE_DISPLAYING);
+		rotor_info(rotor, "arm %u/%u waiting for speed stable\n", rotor->arm_id, POV_ARM_COUNT);
+		set_fsm_state(rotor, POV_STATE_WAIT_SPEED);
 	}
 
 	while (1) {
@@ -2455,7 +2625,7 @@ int pov_rotor_display(struct pov_rotor *rotor)
 			if (is_master_arm(rotor)) {
 				waiting_for_motor_connection(rotor);
 			} else {
-				set_fsm_state(rotor, POV_STATE_DISPLAYING);
+				set_fsm_state(rotor, POV_STATE_WAIT_SPEED);
 			}
 			break;
 
@@ -2463,7 +2633,7 @@ int pov_rotor_display(struct pov_rotor *rotor)
 			if (is_master_arm(rotor)) {
 				waiting_for_phone_connection(rotor);
 			} else {
-				set_fsm_state(rotor, POV_STATE_DISPLAYING);
+				set_fsm_state(rotor, POV_STATE_WAIT_SPEED);
 			}
 			break;
 
@@ -2471,10 +2641,10 @@ int pov_rotor_display(struct pov_rotor *rotor)
 			if (is_master_arm(rotor)) {
 				ret = set_motor_speed(rotor, POV_TARGET_RPM);
 				if (ret < 0) {
-					pr_warn("set_motor_speed failed (%d), retrying...\n", ret);
+					rotor_warn(rotor, "set_motor_speed failed (%d), retrying...\n", ret);
 				}
 			} else {
-				set_fsm_state(rotor, POV_STATE_DISPLAYING);
+				set_fsm_state(rotor, POV_STATE_WAIT_SPEED);
 			}
 			break;
 
@@ -2487,6 +2657,12 @@ int pov_rotor_display(struct pov_rotor *rotor)
 				pov_check_phone_cmd(rotor);
 			} else {
 				pov_check_ring_cmd(rotor);
+			}
+			break;
+
+		case POV_STATE_WAIT_SPEED:
+			if (wait_speed_stable(rotor) == 0) {
+				set_fsm_state(rotor, POV_STATE_DISPLAYING);
 			}
 			break;
 
@@ -2521,8 +2697,8 @@ int pov_rotor_display(struct pov_rotor *rotor)
 #endif
 			now = basic_timer_get_ms();
 
-			if (now - rotor->last_send_heartbeat_ms >= (u64)POV_HEARTBEAT_INTERVAL_MS) {
-				rotor->last_send_heartbeat_ms = now;
+			if (now - rotor->last_send_stator_heartbeat >= (u64)POV_HEARTBEAT_INTERVAL_MS) {
+				rotor->last_send_stator_heartbeat = now;
 				rotor->downtime_s++;
 				mavlink_send_heartbeat(rotor->motor_mavlink, MAV_SYS_ACTIVE, rotor->downtime_s, 0);
 			}

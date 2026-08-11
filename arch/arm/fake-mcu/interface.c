@@ -102,13 +102,13 @@ struct serial_port_ops usart1_serial_port_ops = {
 
 static int usart2_serial_transmit_bytes(const u8 *data, u16 size)
 {
-	pr_debug("usart2 tx: %u bytes", size);
+// 	pr_debug("usart2 tx: %u bytes", size);
 	return 0;
 }
 
 static int usart2_serial_receive_bytes(u8 *data, u16 size, u32 timeout_ms)
 {
-	pr_debug("usart2 rx: request %u bytes, timeout %u ms", size, timeout_ms);
+// 	pr_debug("usart2 rx: request %u bytes, timeout %u ms", size, timeout_ms);
 	return 0;
 }
 
@@ -192,13 +192,13 @@ struct serial_port_ops usart2_serial_port_ops = {
 
 static int usart3_serial_transmit_bytes(const u8 *data, u16 size)
 {
-	pr_debug("usart3 tx: %u bytes", size);
+// 	pr_debug("usart3 tx: %u bytes", size);
 	return 0;
 }
 
 static int usart3_serial_receive_bytes(u8 *data, u16 size, u32 timeout_ms)
 {
-	pr_debug("usart3 rx: request %u bytes, timeout %u ms", size, timeout_ms);
+// 	pr_debug("usart3 rx: request %u bytes, timeout %u ms", size, timeout_ms);
 	return 0;
 }
 
@@ -282,13 +282,13 @@ struct serial_port_ops usart3_serial_port_ops = {
 
 static int uart4_serial_transmit_bytes(const u8 *data, u16 size)
 {
-	pr_debug("uart4 tx: %u bytes", size);
+// 	pr_debug("uart4 tx: %u bytes", size);
 	return 0;
 }
 
 static int uart4_serial_receive_bytes(u8 *data, u16 size, u32 timeout_ms)
 {
-	pr_debug("uart4 rx: request %u bytes, timeout %u ms", size, timeout_ms);
+// 	pr_debug("uart4 rx: request %u bytes, timeout %u ms", size, timeout_ms);
 	return 0;
 }
 
@@ -372,13 +372,13 @@ struct serial_port_ops uart4_serial_port_ops = {
 
 static int uart5_serial_transmit_bytes(const u8 *data, u16 size)
 {
-	pr_debug("uart5 tx: %u bytes", size);
+// 	pr_debug("uart5 tx: %u bytes", size);
 	return 0;
 }
 
 static int uart5_serial_receive_bytes(u8 *data, u16 size, u32 timeout_ms)
 {
-	pr_debug("uart5 rx: request %u bytes, timeout %u ms", size, timeout_ms);
+// 	pr_debug("uart5 rx: request %u bytes, timeout %u ms", size, timeout_ms);
 	return 0;
 }
 
@@ -462,13 +462,13 @@ struct serial_port_ops uart5_serial_port_ops = {
 
 static int usart6_serial_transmit_bytes(const u8 *data, u16 size)
 {
-	pr_debug("usart6 tx: %u bytes", size);
+// 	pr_debug("usart6 tx: %u bytes", size);
 	return 0;
 }
 
 static int usart6_serial_receive_bytes(u8 *data, u16 size, u32 timeout_ms)
 {
-	pr_debug("usart6 rx: request %u bytes, timeout %u ms", size, timeout_ms);
+// 	pr_debug("usart6 rx: request %u bytes, timeout %u ms", size, timeout_ms);
 	return 0;
 }
 

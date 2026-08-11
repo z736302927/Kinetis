@@ -17,6 +17,10 @@ class TestStatus(Enum):
     NOT_EXIST = "NOT_EXIST"
 
 
+# 检测到多少行包含 "error" 字样后中断程序，0 表示不启用此功能
+ERROR_THRESHOLD = 10
+
+
 def remove_c_comments(text):
     """
     移除 C 语言风格的注释：// 和 /* */
@@ -330,6 +334,10 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
     output_queue = queue.Queue()
     stop_reading = threading.Event()
     prompt_received = threading.Event()
+    process_exited = threading.Event()  # 进程退出时由读取线程触发
+    error_limit_reached = threading.Event()  # error 数量达到阈值时触发
+    error_count = 0
+    error_count_lock = threading.Lock()
 
     # 主日志文件（总日志）
     main_log_file = os.path.join(output_dir, "all_test_case_output.log")
@@ -350,10 +358,11 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
     prefix_log_map = {}
 
     process = None
+    skip_commands = False  # 若 prompt 等待阶段 error 已达标，则跳过所有命令
 
     def read_output():
         """后台线程：持续读取程序输出并放入队列"""
-        nonlocal current_test_log_obj
+        nonlocal current_test_log_obj, error_count
         line_buffer = ""
         byte_count = 0
         line_count = 0
@@ -373,6 +382,7 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
                 # 检查进程是否还在运行
                 if process.poll() is not None and not stop_reading.is_set():
                     print(f"DEBUG: 进程已退出，读取剩余数据...")
+                    process_exited.set()  # 通知主线程进程已退出
                     # 进程已退出，读取剩余输出
                     try:
                         remaining_data = process.stdout.read()
@@ -409,6 +419,7 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
                     # 没有数据，检查进程是否还在运行
                     if process.poll() is not None:
                         print(f"DEBUG: 没有数据但进程已退出")
+                        process_exited.set()  # 通知主线程进程已退出
                         # 进程已退出，尝试继续读取剩余数据
                         try:
                             remaining_data = process.stdout.read()
@@ -485,6 +496,16 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
                             if '/ #' in line:
                                 prompt_received.set()
 
+                            # 统计 error 出现次数（不区分大小写）
+                            if ERROR_THRESHOLD > 0:
+                                if re.search(r'(?i)\berror\b', line):
+                                    with error_count_lock:
+                                        error_count += 1
+                                        current = error_count
+                                    if current >= ERROR_THRESHOLD:
+                                        safe_print(f"[ABORT] error 数量达到阈值 {ERROR_THRESHOLD}，中断程序\n")
+                                        error_limit_reached.set()
+
             except Exception as e:
                 print(f"读取输出时出错：{e}")
                 import traceback
@@ -522,22 +543,27 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
         time.sleep(0.1)
         print("读取线程已启动，开始读取程序输出...")
 
-        # 等待提示符（最多 30 秒）
-        if not prompt_received.wait(timeout=30):
-            print("警告：未收到提示符，但继续执行...")
-            # 输出已收到的内容帮助调试
-            print("已收到的输出预览：")
-            preview_lines = []
-            try:
-                while len(preview_lines) < 10:
-                    line = output_queue.get_nowait()
-                    preview_lines.append(line.strip())
-            except queue.Empty:
-                pass
-            for line in preview_lines:
-                print(f"  {line}")
-        else:
-            print("程序已就绪！")
+        # 等待提示符（最多 30 秒），同时检测进程是否已退出
+        # 程序一旦退出，立即停止等待，避免脚本无谓阻塞
+        prompt_timeout = 30
+        prompt_start = time.time()
+        while not prompt_received.is_set():
+            # error 阈值达到
+            if ERROR_THRESHOLD > 0 and error_limit_reached.is_set():
+                print(f"error 数量已达阈值 {ERROR_THRESHOLD}，停止等待")
+                break
+            # 进程已退出（读取线程检测到）
+            if process_exited.is_set() or process.poll() is not None:
+                print(f"程序已退出（退出码 {process.returncode}），停止等待提示符")
+                break
+            # 超时
+            if time.time() - prompt_start >= prompt_timeout:
+                print("警告：未收到提示符，但继续执行...")
+                break
+            time.sleep(0.1)
+
+        # 如果因 error 阈值退出等待，设置标志跳过后续命令执行
+        skip_commands = (ERROR_THRESHOLD > 0 and error_limit_reached.is_set())
 
     except Exception as e:
         print(f"启动程序失败：{e}")
@@ -551,8 +577,16 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
     fail_reason = None
     failed_at_command = None
 
+    # 如果 prompt 等待阶段 error 已达阈值，直接跳过所有命令
+    if skip_commands:
+        all_passed = False
+        fail_reason = f"error 数量达到阈值 {ERROR_THRESHOLD}"
+        failed_at_command = 0
+
     try:
         for i, cmd in enumerate(commands, 1):
+            if skip_commands:
+                break
             print(f"\n[{i}/{len(commands)}] 发送命令：{cmd}")
 
             # 先检查是否是 dsim_delay 命令
@@ -617,6 +651,14 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
                 except queue.Empty:
                     break
 
+            # 检查 error 数量是否达到阈值
+            if ERROR_THRESHOLD > 0 and error_limit_reached.is_set():
+                print(f"error 数量已达阈值 {ERROR_THRESHOLD}，停止执行")
+                all_passed = False
+                failed_at_command = i
+                fail_reason = f"error 数量达到阈值 {ERROR_THRESHOLD}"
+                break
+
             # 检查进程状态
             if process.poll() is not None:
                 print(f"程序已意外退出，退出码：{process.returncode}")
@@ -656,6 +698,14 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
             last_progress_time = 0  # 上次打印进度提示的时间
 
             while time.time() - start_time < max_total_time:
+                # 检查 error 阈值
+                if ERROR_THRESHOLD > 0 and error_limit_reached.is_set():
+                    print(f"error 数量已达阈值 {ERROR_THRESHOLD}，停止执行")
+                    all_passed = False
+                    failed_at_command = i
+                    fail_reason = f"error 数量达到阈值 {ERROR_THRESHOLD}"
+                    break
+
                 # 检查进程状态
                 if process.poll() is not None:
                     print("程序已退出")
@@ -698,6 +748,10 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
 
                 time.sleep(check_interval)
             # ============================================================
+
+            # 如果是因 error 阈值退出，直接 break 外层循环
+            if not all_passed:
+                break
 
             # 处理测试结果
             if test_status == TestStatus.PASS:
@@ -834,6 +888,7 @@ Kinetis 自动化测试脚本
   - TEST FAIL：立即停止执行
   - TEST NOT EXIST：立即停止执行
   - 超时 (60秒)：停止执行
+  - error 阈值 (默认20行)：当输出中出现 20 行包含 "error" 字样时停止执行
 
 日志分析关键词：
   - FAIL, ERROR, CRASH, FATAL, EXCEPTION, ASSERT, PANIC, ABORT

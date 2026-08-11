@@ -35,6 +35,7 @@ C_DEFS =  \
     -DCONFIG_FAKE_LIB \
     -DCONFIG_SIMULATION \
     -DKINETIS_FAKE_SIM=1 \
+    -DPOV_RUN_MODE=POV_RUN_HOST \
 
 # Linker configuration
 LIBS = -lm

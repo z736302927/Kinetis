@@ -8,6 +8,6 @@
 #define MCU_PLATFORM_STM32    0
 
 int board_init(void);
-int app_main(void);
+int app_main(int argc, char **argv);
 
 #endif /* _PROJECT_POV_H */

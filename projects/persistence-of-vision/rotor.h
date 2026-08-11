@@ -30,6 +30,7 @@ enum pov_fsm_state {
 	POV_STATE_WAIT_MOTOR = 0,
 	POV_STATE_WAIT_PHONE,
 	POV_STATE_SEND_SPEED,
+	POV_STATE_WAIT_SPEED,
 	POV_STATE_DISPLAYING,
 	POV_STATE_CHECK_CMD,
 	POV_STATE_CHECK_RING,
@@ -103,8 +104,8 @@ struct pov_rotor {
 
 // 	struct wifi_manager *wifi;
 
-	u64 last_stator_heartbeat_ms;    /* Last stator heartbeat timestamp */
-	u64 last_send_heartbeat_ms;      /* Last time we sent a heartbeat (rate-limit) */
+	u64 last_recv_stator_heartbeat;    /* Last stator heartbeat timestamp */
+	u64 last_send_stator_heartbeat;      /* Last time we sent a heartbeat (rate-limit) */
 
 	u8 prefetch_ping;
 	u8 prefetch_sent_index;

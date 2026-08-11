@@ -6,6 +6,6 @@
 #define PROJECT_VERSION         "1.0.0"
 
 int board_init(void);
-int app_main(void);
+int app_main(int argc, char **argv);
 
 #endif /* PROJECT_BOOTLOADER_H */

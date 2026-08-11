@@ -74,7 +74,7 @@ struct bootloader_context *bootloader_init(const struct bootloader_mem_layout *l
 		return NULL;
 	}
 
-	bl_ctx->last_send_heartbeat_ms = basic_timer_get_ms();
+	bl_ctx->last_send_stator_heartbeat = basic_timer_get_ms();
 
 	return bl_ctx;
 }
@@ -553,8 +553,8 @@ int bootloader_flow(struct bootloader_context *bl_ctx)
 
 			now = basic_timer_get_ms();
 
-			if (now - bl_ctx->last_send_heartbeat_ms >= 10000) {
-				bl_ctx->last_send_heartbeat_ms = now;
+			if (now - bl_ctx->last_send_stator_heartbeat >= 10000) {
+				bl_ctx->last_send_stator_heartbeat = now;
 				mavlink_send_heartbeat(bl_ctx->app_mavlink, MAV_SYS_ACTIVE, 0, 0);
 			}
 			break;

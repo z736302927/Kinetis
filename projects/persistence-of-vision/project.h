@@ -18,6 +18,6 @@
 #define POV_RUN_SLAVE         1
 
 int board_init(void);
-int app_main(void);
+int app_main(int argc, char **argv);
 
 #endif /* PROJECT_POV_H */

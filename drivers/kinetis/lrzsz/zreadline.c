@@ -110,7 +110,7 @@ readline_internal(zreadline_t *zr, unsigned int timeout)
 		pr_debug("Calling read: timeout=%d ms  Readnum=%d ",
 			timeout_ms, zr->readline_readnum);
 	} else {
-		pr_debug("Calling read: Readnum=%d ", zr->readline_readnum);
+// 		pr_debug("Calling read: Readnum=%d ", zr->readline_readnum);
 	}
 	zr->readline_ptr = zr->readline_buffer;
 	zr->readline_left = serial_port_receive_bytes(zr->serial,
@@ -122,7 +122,7 @@ readline_internal(zreadline_t *zr, unsigned int timeout)
 		pr_err("Read failure\n");
 		return TIMEOUT;
 	} else {
-		pr_debug("Read returned %d bytes\n", zr->readline_left);
+// 		pr_debug("Read returned %d bytes\n", zr->readline_left);
 	}
 	zr->readline_left -- ;
 	char c = *zr->readline_ptr;

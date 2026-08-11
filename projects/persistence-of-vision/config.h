@@ -10,6 +10,7 @@
 #define POV_FIRMWARE_PATH                    "0:/firmware"
 #define APP_IMAGE_PATH                       "0:/app_images"
 #define STATOR_UPDATE_DIR                    "0:/computer"
+#define PHONE_DOWNLOAD_DIR                   "0:/phone_download"
 
 #define POV_USE_NRF24L01                     0
 #define POV_USE_MT6701                       0
@@ -58,7 +59,7 @@
 #define POV_QSPI_BASE_ADDR                   0x90000000
 
 #define POV_DEFAULT_ARM_ID                   0
-#define POV_ARM_COUNT                        2
+#define POV_ARM_COUNT                        1
 #define POV_ARM_BROADCAST                    255
 #define POV_RING_ACK_TIMEOUT_MS              3000
 #define POV_RING_FILE_TIMEOUT_MS             600000
@@ -120,7 +121,6 @@
 #define SLAVE_HALL_TIMEOUT_MS                500
 
 #define SLAVE_PID_PERIOD_MS                  10
-#define SLAVE_HEARTBEAT_MS                   1000
 #define SLAVE_STATUS_MS                      100
 
 #define SLAVE_STABLE_RPM_THRESH              2

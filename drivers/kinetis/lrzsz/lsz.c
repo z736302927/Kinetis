@@ -99,6 +99,7 @@ struct sz_ {
 	long min_bps_time;
 	int hyperterm;
 	int io_mode_fd;
+	size_t total_bytes_sent;
 
 	void (*complete_cb)(const char *filename, int result, size_t size, u64 date);
 	bool (*tick_cb)(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left);
@@ -339,7 +340,7 @@ size_t zmodem_send(struct serial_port *serial,
 
 	sz_free(sz);
 
-	return 0;
+	return sz->total_bytes_sent;
 }
 
 static int
@@ -533,6 +534,9 @@ sz_transmit_file(sz_t *sz, const char *oname, const char *remotename)
 	bps = zi.bytes_sent / d;
 	pr_debug(_("Bytes Sent:%7ld   BPS:%-8ld"),
 		(long) zi.bytes_sent, bps);
+
+	sz->total_bytes_sent += zi.bytes_sent;
+
 	if (sz->complete_cb) {
 		sz->complete_cb(zi.fname, 0, zi.bytes_sent, zi.modtime);
 	}

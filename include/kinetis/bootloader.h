@@ -67,7 +67,7 @@ struct bootloader_context {
 
 	enum bootloader_fsm_state state;
 	u8 retry_count;          /* Number of consecutive ERROR -> WAIT_CMD cycles */
-	u64 last_send_heartbeat_ms;
+	u64 last_send_stator_heartbeat;
 };
 
 #ifndef ROM_BASE_ADDR

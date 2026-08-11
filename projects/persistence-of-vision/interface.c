@@ -3182,10 +3182,10 @@ void hall_fake_pulse(struct tim_task *task)
 {
 	struct hall_device *hall_dev = container_of(task, struct hall_device, fake_pulse_task);
 
-	hall_hall_isr(hall_dev, task->interval_us);
-	if (hall_dev->priv) {
-		hall_hall_isr(hall_dev->priv, task->interval_us);
-	}
+	/* Walk the priv chain: stator -> master arm -> slave arms.
+	 * On real hardware all arms share the same physical hall signal. */
+	for (struct hall_device *dev = hall_dev; dev; dev = dev->priv)
+		hall_hall_isr(dev, task->interval_us);
 }
 
 #endif

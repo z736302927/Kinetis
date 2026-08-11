@@ -6,7 +6,7 @@
 #include "hall.h"
 
 /* Adaptive Q threshold and amplification factor */
-#define HALL_DELTA_THRESHOLD    2000 /* |delta| > 2000 ticks ¡ú speed change */
+#define HALL_DELTA_THRESHOLD    2000 /* |delta| > 2000 ticks â†’ speed change */
 #define HALL_Q_STEADY           25.0f		  /* process noise ~5  ticks std dev     */
 #define HALL_Q_TRANSIENT        2500.0f  /* process noise ~50 ticks std dev     */
 
@@ -124,17 +124,17 @@ void hall_hall_isr(struct hall_device *dev, u32 capture_value)
 	dev->period_ticks = (u32)(x->data[0] + 0.5f);
 
 #if KINETIS_FAKE_SIM
-	/* Log comparison: raw vs filtered (every 8 pulses)         */
-	if ((pulse_cnt++ & 7) == 0) {
-		raw_rpm = capture_value ? (s32)(60000000 / capture_value) : 0;
-		filter_rpm = dev->period_ticks ? (s32)(60000000 / dev->period_ticks) : 0;
-		delta = (s32)capture_value - (s32)dev->period_ticks;
-		pr_info("kalman: #%-4u raw: %u(%dRPM) filter: %u(%dRPM) delta: %+d\n",
-			pulse_cnt,
-			capture_value, raw_rpm,
-			dev->period_ticks, filter_rpm,
-			delta);
-	}
+// 	/* Log comparison: raw vs filtered (every 8 pulses)         */
+// 	if ((pulse_cnt++ & 7) == 0) {
+// 		raw_rpm = capture_value ? (s32)(60000000 / capture_value) : 0;
+// 		filter_rpm = dev->period_ticks ? (s32)(60000000 / dev->period_ticks) : 0;
+// 		delta = (s32)capture_value - (s32)dev->period_ticks;
+// 		pr_info("kalman: %-4u raw: %u(%dRPM) filter: %u(%dRPM) delta: %+d\n",
+// 			pulse_cnt,
+// 			capture_value, raw_rpm,
+// 			dev->period_ticks, filter_rpm,
+// 			delta);
+// 	}
 #endif
 }
 
@@ -175,6 +175,9 @@ struct hall_device *hall_alloc_dev(u32 angular_resolution, u32(*read_rotated_tim
 
 u32 hall_read_rotated_time(struct hall_device *dev)
 {
+	if (dev->period_ticks == 0)
+		return 0;
+
 	return basic_timer_get_us() % dev->period_ticks;
 }
 #endif /* KINETIS_FAKE_SIM */

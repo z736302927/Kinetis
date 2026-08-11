@@ -28,6 +28,10 @@ extern struct hall_device *hall_dev;
 // extern struct w25qxxx_device *w25qxxx_dev;
 extern w25qxx_handle_t *ld_w25qxx_handle;
 
+#if KINETIS_FAKE_SIM
+extern u8 *general_flash_addr;
+#endif
+
 u32 hall_read_rotated_time(struct hall_device *dev);
 void hall_fake_pulse(struct tim_task *task);
 void arm_dwt_init(void);

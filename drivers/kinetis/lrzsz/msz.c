@@ -18,20 +18,21 @@ static
 bool tick_cb(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left)
 {
 	static long last_sec_left = 0;
+
 	if (last_sec_left != sec_left && sec_left != 0) {
-		pr_err("%s: Bytes Sent:%7ld/%7ld   BPS:%-8ld ETA %02d:%02d\n",
+		pr_info("%s: Bytes Sent:%7ld/%7ld   BPS:%-8ld ETA %02d:%02d\n",
 			fname, bytes_sent, bytes_total,
 			last_bps, min_left, sec_left);
 		last_sec_left = sec_left;
 	}
-	mdelay(1000);
+
 	return true;
 }
 
 static void complete_cb(const char *filename, int result, size_t size, u64 date)
 {
 	if (result == RZSZ_NO_ERROR) {
-		pr_err("'%s (%zu bytes)': successful send\n", filename, size);
+		pr_info("'%s (%zu bytes)': successful send\n", filename, size);
 	} else {
 		pr_err("'%s': failed to send\n", filename);
 	}
@@ -44,7 +45,9 @@ int lrzsz_sz(struct serial_port *serial, int n_filenames, const char **filenames
 			complete_cb,
 			0,
 			RZSZ_FLAGS_NONE);
-	pr_err("Sent %zu bytes.\n", bytes);
+
+	pr_info("Sent %zu bytes.\n", bytes);
+
 	return bytes;
 }
 
@@ -91,7 +94,7 @@ int t_msz_send_specified_file(int argc, char *argv[])
 			complete_cb,
 			0,
 			RZSZ_FLAGS_NONE);
-	pr_err("Sent %zu bytes.\n", bytes);
+	pr_info("Sent %zu bytes.\n", bytes);
 
 	serial_port_free(serial);
 
