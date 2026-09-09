@@ -38,15 +38,23 @@ static void complete_cb(const char *filename, int result, size_t size, u64 date)
 	}
 }
 
-int lrzsz_sz(struct serial_port *serial, int n_filenames, const char **filenames)
+int lrzsz_sz(struct serial_port *serial, int n_filenames, const char **filenames,
+	struct lrzsz_transfer_control *control)
 {
-	size_t bytes = zmodem_send(serial, n_filenames, filenames,
-			tick_cb,
-			complete_cb,
-			0,
-			RZSZ_FLAGS_NONE);
+	size_t bytes;
 
-	pr_info("Sent %zu bytes.\n", bytes);
+	if (control) {
+		control->cancel_requested = 0;
+		control->active = 0;
+		control->cancelled = 0;
+		control->transferred = 0;
+	}
+	bytes = zmodem_send(serial, n_filenames, filenames,
+		tick_cb, complete_cb, 0, RZSZ_FLAGS_NONE, control);
+	pr_info("Sent %zu bytes%s.\n", bytes,
+		control && control->cancelled ? " before cancellation " : "");
+	if (control && control->cancelled)
+		return -ECANCELED;
 
 	return bytes;
 }
@@ -93,7 +101,8 @@ int t_msz_send_specified_file(int argc, char *argv[])
 			tick_cb,
 			complete_cb,
 			0,
-			RZSZ_FLAGS_NONE);
+			RZSZ_FLAGS_NONE,
+			NULL);
 	pr_info("Sent %zu bytes.\n", bytes);
 
 	serial_port_free(serial);
@@ -224,7 +233,8 @@ int t_msz_send_random_file(int argc, char *argv[])
 			tick_cb,
 			complete_cb,
 			0,
-			RZSZ_FLAGS_NONE);
+			RZSZ_FLAGS_NONE,
+			NULL);
 	pr_info("Sent %zu bytes in %d files.\n", bytes, n_filenames);
 
 	pthread_join(thread, NULL);

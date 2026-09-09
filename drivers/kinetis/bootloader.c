@@ -102,7 +102,7 @@ static const char *bootloader_state_name(enum bootloader_fsm_state s)
 {
 	static const char *names[] = {
 		"INIT", "CHECK_MODE", "JUMP_APP", "WAIT_CMD",
-		"RECEIVE", "FLASH", "VERIFY", "COMPLETE", "ERROR"
+		"RECEIVE", "PROGRAM", "FLASH", "VERIFY", "COMPLETE", "ERROR"
 	};
 	if ((unsigned)s >= sizeof(names) / sizeof(names[0])) {
 		return "?";
@@ -127,7 +127,7 @@ static int write_firmware_to_chip(struct bootloader_context *bl_ctx)
 	u8 *buf = NULL;
 	u32 offset = 0;
 	UINT br;
-	char firmware_path[64];
+	char firmware_path[128];
 	const char *fn;
 	u32 expected_size;
 	u32 expected_crc;
@@ -136,8 +136,13 @@ static int write_firmware_to_chip(struct bootloader_context *bl_ctx)
 	/* Use firmware info from context (populated by flag file or MAVLink) */
 	expected_size = bl_ctx->firmware_size;
 	expected_crc  = bl_ctx->firmware_crc32;
-	snprintf(firmware_path, sizeof(firmware_path), "%s/%s", BL_BACKUP_PATH,
-		 bl_ctx->firmware_filename[0] ? bl_ctx->firmware_filename : BL_FIRMWARE_NAME);
+	if (bl_ctx->firmware_path[0]) {
+		strscpy(firmware_path, bl_ctx->firmware_path,
+			sizeof(firmware_path));
+	} else {
+		snprintf(firmware_path, sizeof(firmware_path), "%s/%s", BL_BACKUP_PATH,
+			 bl_ctx->firmware_filename[0] ? bl_ctx->firmware_filename : BL_FIRMWARE_NAME);
+	}
 
 	ret = f_open(&fp, firmware_path, FA_READ);
 	if (ret != FR_OK) {
@@ -180,29 +185,31 @@ static int write_firmware_to_chip(struct bootloader_context *bl_ctx)
 	/* Size / CRC check */
 	if (expected_size != 0 && total_size != expected_size) {
 		pr_err("Size mismatch: got %u, expected %u\n",
-		       total_size, expected_size);
+			total_size, expected_size);
 		ret = -EPIPE;
 		goto cleanup;
 	}
 
 	if (expected_crc != 0 && calc_crc32 != expected_crc) {
 		pr_err("CRC32 mismatch: got 0x%08x, expected 0x%08x\n",
-		       calc_crc32, expected_crc);
+			calc_crc32, expected_crc);
 		ret = -EPIPE;
 		goto cleanup;
 	}
 
 	f_close(&fp);
 
-	fn = bl_ctx->firmware_filename[0] ?  bl_ctx->firmware_filename : BL_FIRMWARE_NAME;
-	ret = fatfs_copy_file(BL_BACKUP_PATH, fn, BL_FIRMWARE_PATH, NULL);
-	if (ret != FR_OK) {
-		ret = -EIO;
-		goto cleanup;
-	}
+	if (!bl_ctx->firmware_path[0]) {
+		fn = bl_ctx->firmware_filename[0] ? bl_ctx->firmware_filename : BL_FIRMWARE_NAME;
+		ret = fatfs_copy_file(BL_BACKUP_PATH, fn, BL_FIRMWARE_PATH, NULL);
+		if (ret != FR_OK) {
+			ret = -EIO;
+			goto cleanup;
+		}
 
-	snprintf(firmware_path, sizeof(firmware_path),
-		 "%s/%s", BL_FIRMWARE_PATH, fn);
+		snprintf(firmware_path, sizeof(firmware_path),
+			"%s/%s", BL_FIRMWARE_PATH, fn);
+	}
 
 	ret = f_open(&fp, firmware_path, FA_READ);
 	if (ret != FR_OK) {
@@ -273,13 +280,6 @@ static int receive_firmware(struct bootloader_context *bl_ctx)
 	ret = lrzsz_rz(bl_ctx->app_port, BL_BACKUP_PATH);
 	if (ret <= 0) {
 		pr_warn("ZMODEM: receive failed or cancelled (%d)\n", ret);
-		return ret;
-	}
-
-	/* Flash firmware from filesystem to flash */
-	ret = write_firmware_to_chip(bl_ctx);
-	if (ret < 0) {
-		pr_err("Flashing firmware failed (%d)\n", ret);
 		return ret;
 	}
 
@@ -496,10 +496,12 @@ static int read_update_flag(struct bootloader_context *bl_ctx)
 	bl_ctx->firmware_crc32 = flag.firmware_crc32;
 	strncpy(bl_ctx->firmware_filename, flag.firmware_filename,
 		sizeof(bl_ctx->firmware_filename) - 1);
+	strncpy(bl_ctx->firmware_path, flag.firmware_path,
+		sizeof(bl_ctx->firmware_path) - 1);
 
-	pr_info("update_flag: size=%u crc=0x%08x file=%s\n",
+	pr_info("update_flag: size=%u crc=0x%08x file=%s path=%s\n",
 		bl_ctx->firmware_size, bl_ctx->firmware_crc32,
-		bl_ctx->firmware_filename);
+		bl_ctx->firmware_filename, bl_ctx->firmware_path);
 
 	return 0;
 }
@@ -542,7 +544,11 @@ int bootloader_flow(struct bootloader_context *bl_ctx)
 		if (ret)
 			goto err;
 
-		set_fsm_state(bl_ctx, BL_STATE_WAIT_CMD);
+		if (bl_ctx->firmware_path[0]) {
+			set_fsm_state(bl_ctx, BL_STATE_PROGRAM);
+		} else {
+			set_fsm_state(bl_ctx, BL_STATE_WAIT_CMD);
+		}
 	}
 
 	/* ─── Main FSM Loop ───────────────────────────────── */
@@ -555,18 +561,28 @@ int bootloader_flow(struct bootloader_context *bl_ctx)
 
 			if (now - bl_ctx->last_send_stator_heartbeat >= 10000) {
 				bl_ctx->last_send_stator_heartbeat = now;
-				mavlink_send_heartbeat(bl_ctx->app_mavlink, MAV_SYS_ACTIVE, 0, 0);
+				mavlink_send_heartbeat(bl_ctx->app_mavlink, MAV_SYSTEM_STATUS_ACTIVE, 0, 0);
 			}
 			break;
 
 		case BL_STATE_RECEIVE:
 			ret = receive_firmware(bl_ctx);
 			if (ret == 0) {
-				set_fsm_state(bl_ctx, BL_STATE_VERIFY);
+				set_fsm_state(bl_ctx, BL_STATE_PROGRAM);
 			} else if (ret == -ENODATA) {
 				break;
 			} else {
 				pr_err("Firmware update failed (%d), waiting for retry...\n", ret);
+				set_fsm_state(bl_ctx, BL_STATE_ERROR);
+			}
+			break;
+ 
+		case BL_STATE_PROGRAM:
+			ret = write_firmware_to_chip(bl_ctx);
+			if (ret == 0) {
+				set_fsm_state(bl_ctx, BL_STATE_VERIFY);
+			} else {
+				pr_err("Flashing firmware failed (%d)\n", ret);
 				set_fsm_state(bl_ctx, BL_STATE_ERROR);
 			}
 			break;
@@ -620,7 +636,7 @@ err:
 }
 
 int bootloader_write_update_flag(u32 firmware_size, u32 firmware_crc32,
-				 const char *filename)
+	const char *filename, const char *firmware_path)
 {
 	struct bootloader_update_flag flag;
 	FIL fp;
@@ -634,6 +650,9 @@ int bootloader_write_update_flag(u32 firmware_size, u32 firmware_crc32,
 	if (filename && filename[0])
 		strncpy(flag.firmware_filename, filename,
 			sizeof(flag.firmware_filename) - 1);
+ 	if (firmware_path && firmware_path[0])
+ 		strscpy(flag.firmware_path, firmware_path,
+ 			sizeof(flag.firmware_path));
 
 	if (f_open(&fp, BL_UPDATE_FLAG_PATH, FA_CREATE_ALWAYS | FA_WRITE) != FR_OK) {
 		pr_err("Failed to create update flag file\n");
@@ -691,7 +710,7 @@ static void *bl_computer_thread(void *data)
 	/* Step 3: Send firmware via ZMODEM */
 	pr_info("pc-sim: sending firmware via ZMODEM...\n");
 	fw_path = arg->fw_path;
-	ret = lrzsz_sz(arg->serial, 1, &fw_path);
+	ret = lrzsz_sz(arg->serial, 1, &fw_path, NULL);
 	pr_info("pc-sim: firmware send complete\n");
 
 	mavlink_free(pc_mav);

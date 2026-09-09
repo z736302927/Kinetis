@@ -100,13 +100,15 @@ s32 pid_positional_update(struct pid_positional *ctrl, s32 set_point,
 	/* ── 1. 死区检查 ────────────────────────────────────── */
 	if (ctrl->deadband > 0 &&
 		err >= -ctrl->deadband && err <= ctrl->deadband) {
-		/* Freeze: keep integral, output, and diagnostic as last tick */
+		/*
+		 * Freeze: keep integral and output as last tick.
+		 * prev_meas DOES update — we still need it once we leave deadband.
+		 * The component diagnostics are left untouched: zeroing them made
+		 * last_p/last_i/last_d useless for tuning and hid the fact that the
+		 * loop is holding (not converging) while inside the deadband.
+		 */
 		ctrl->prev_err = err;
-		/* prev_meas DOES update — we still need it once we leave deadband */
 		ctrl->prev_meas = meas;
-		ctrl->last_p   = 0;
-		ctrl->last_i   = 0;
-		ctrl->last_d   = 0;
 		ctrl->last_err = err;
 		return ctrl->prev_output;
 	}
@@ -153,6 +155,8 @@ s32 pid_positional_update(struct pid_positional *ctrl, s32 set_point,
 	output = clamp(output, ctrl->out_min, ctrl->out_max);
 
 	/* ── 6. 变化率限制 ───────────────────────────────────── */
+	/* slew_rate is in raw output units per tick, NOT Q8.8 — the value is
+	 * compared directly against (output - prev_output). */
 	if (ctrl->slew_rate > 0) {
 		delta = output - ctrl->prev_output;
 		if (delta > ctrl->slew_rate) {

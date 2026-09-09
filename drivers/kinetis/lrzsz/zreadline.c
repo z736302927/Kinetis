@@ -107,8 +107,8 @@ readline_internal(zreadline_t *zr, unsigned int timeout)
 			n = 1;
 		}
 		timeout_ms = n * 1000;  /* Convert to milliseconds */
-		pr_debug("Calling read: timeout=%d ms  Readnum=%d ",
-			timeout_ms, zr->readline_readnum);
+// 		pr_debug("Calling read: timeout=%d ms  Readnum=%d ",
+// 			timeout_ms, zr->readline_readnum);
 	} else {
 // 		pr_debug("Calling read: Readnum=%d ", zr->readline_readnum);
 	}

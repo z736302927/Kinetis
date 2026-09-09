@@ -17,12 +17,83 @@
 
 #define CONFIG_SERIAL_PORT_RING_BUFFER	1
 
-#ifdef KINETIS_FAKE_SIM
+#if KINETIS_FAKE_SIM
 #include <unistd.h>
+
+#define LOAD(value) 			__atomic_load_n(value, __ATOMIC_ACQUIRE)
+#define STORE(value, next) 		__atomic_store_n(value, next, __ATOMIC_RELEASE)
 
 static u16 serial_port_available_space(struct serial_port *serial)
 {
-	return (serial->consumer + SERIAL_PORT_BUFFER_SIZE - serial->producer - 1) % SERIAL_PORT_BUFFER_SIZE;
+	u16 producer = LOAD(&serial->producer);
+	u16 consumer = LOAD(&serial->consumer);
+
+	return (consumer + SERIAL_PORT_BUFFER_SIZE - producer - 1) % SERIAL_PORT_BUFFER_SIZE;
+}
+
+static u32 mini_random(struct communication_fault_state *fault)
+{
+	u32 value = fault->seed;
+	
+	if (!value)
+		value = 1;
+	value ^= value << 13;
+	value ^= value >> 17;
+	value ^= value << 5;
+	fault->seed = value;
+
+	return value;
+}
+
+static enum communication_fault_mode communication_fault_pick(struct serial_port *serial)
+{
+	struct communication_fault_state *fault = serial->fault;
+	enum communication_fault_mode mode;
+
+	if (!fault)
+		return COMMUNICATION_FAULT_NONE;
+
+	mode = fault->mode;
+	if (mode == COMMUNICATION_FAULT_NONE || !fault->remaining)
+		return COMMUNICATION_FAULT_NONE;
+	if (mini_random(fault) % 1000 >= fault->rate_per_mille)
+		return COMMUNICATION_FAULT_NONE;
+	if (mode == COMMUNICATION_FAULT_RANDOM)
+		mode = (mini_random(fault) & 1) ?
+			COMMUNICATION_FAULT_DROP : COMMUNICATION_FAULT_CORRUPT;
+
+	fault->remaining--;
+	fault->injected++;
+
+	return mode;
+}
+
+int communication_fault_alloc(struct serial_port *serial,
+	enum communication_fault_mode mode, u16 rate_per_mille,
+	u16 count, u32 seed)
+{
+	serial->fault = kmalloc(sizeof(*serial->fault), GFP_KERNEL);
+	if (!serial->fault)
+		return -ENOMEM;
+
+	serial->fault->seed = seed ? seed : 1;
+	serial->fault->rate_per_mille = min(rate_per_mille, 1000u);
+	serial->fault->remaining = count;
+	serial->fault->injected = 0;
+	serial->fault->mode = mode;
+
+	return 0;
+}
+
+void communication_fault_free(struct serial_port *serial)
+{
+	kfree(serial->fault);
+	serial->fault = NULL;
+}
+
+u16 communication_fault_injected(struct serial_port *serial)
+{
+	return serial->fault ? serial->fault->injected : 0;
 }
 
 void *serial_port_copy_to_self(void *para)
@@ -31,26 +102,27 @@ void *serial_port_copy_to_self(void *para)
 	char response[SERIAL_PORT_BUFFER_SIZE];
 	int i, index;
 
-	while (serial->thread_switch) {
-		if (serial->transmited_size > 0) {
+	while (LOAD(&serial->thread_switch)) {
+		if (LOAD(&serial->transmitted_size) > 0) {
 			size_t resp_len;
 
 			response[0] = '\0';
 			resp_len = serial->sim_callback(serial->tx_buffer, response, serial->private);
 
-			while (serial_port_available_space(serial) < resp_len) {
-				;
-			}
+			while (LOAD(&serial->thread_switch) && serial_port_available_space(serial) < resp_len)
+				usleep(100);
+			if (!LOAD(&serial->thread_switch))
+				break;
 
-			index = serial->producer;
+			index = LOAD(&serial->producer);
 			for (i = 0; i < resp_len; i++) {
 				serial->rx_buffer[index] = response[i];
 				index = (index + 1) % SERIAL_PORT_BUFFER_SIZE;
 			}
 			serial->ops->update_producer(serial);
-			serial->transmited_size = 0;
+			STORE(&serial->transmitted_size, 0);
 		} else {
-			;
+			usleep(100);
 		}
 	}
 
@@ -62,17 +134,25 @@ void *serial_port_copy_to_others(void *para)
 	struct serial_port *serial_boy = (struct serial_port *)para;
 	struct serial_port *serial_girl = (struct serial_port *)serial_boy->private;
 
-	while (serial_boy->thread_switch) {
-		if (serial_boy->transmited_size > 0) {
-			u16 size = serial_boy->transmited_size;
+	while (LOAD(&serial_boy->thread_switch)) {
+		u16 size = LOAD(&serial_boy->transmitted_size);
+
+		if (size > 0) {
 			u16 pos;
 			u16 tail;
+			enum communication_fault_mode fault_mode = communication_fault_pick(serial_boy);
 
-			while (serial_port_available_space(serial_girl) < size) {
-				;
+			if (fault_mode == COMMUNICATION_FAULT_DROP) {
+				STORE(&serial_boy->transmitted_size, 0);
+				continue;
 			}
 
-			pos = serial_girl->producer;
+			while (LOAD(&serial_boy->thread_switch) && serial_port_available_space(serial_girl) < size)
+				usleep(100);
+			if (!LOAD(&serial_boy->thread_switch))
+				break;
+
+			pos = LOAD(&serial_girl->producer);
 			tail = SERIAL_PORT_BUFFER_SIZE - pos;
 
 			if (size <= tail) {
@@ -81,10 +161,18 @@ void *serial_port_copy_to_others(void *para)
 				memcpy(serial_girl->rx_buffer + pos, serial_boy->tx_buffer, tail);
 				memcpy(serial_girl->rx_buffer, serial_boy->tx_buffer + tail, size - tail);
 			}
-			serial_girl->producer = (pos + size) % SERIAL_PORT_BUFFER_SIZE;
-			serial_boy->transmited_size = 0;
+
+			if (fault_mode == COMMUNICATION_FAULT_CORRUPT) {
+				u16 offset = mini_random(serial_boy->fault) % size;
+				u8 bit = 1u << (mini_random(serial_boy->fault) % 8);
+
+				serial_girl->rx_buffer[(pos + offset) % SERIAL_PORT_BUFFER_SIZE] ^= bit;
+			}
+
+			STORE(&serial_girl->producer, (pos + size) % SERIAL_PORT_BUFFER_SIZE);
+			STORE(&serial_boy->transmitted_size, 0);
 		} else {
-			;
+			usleep(100);
 		}
 	}
 
@@ -100,11 +188,11 @@ void serial_port_start_thread(struct serial_port *serial, u8 oneself,
 
 	switch (oneself) {
 	case SERIAL_PORT_DF_SELF:
-		serial->thread_switch = 1;
+		STORE(&serial->thread_switch, 1);
 		pthread_create(&serial->thread, NULL, serial_port_copy_to_self, serial);
 		break;
 	case SERIAL_PORT_DF_OTHERS:
-		serial->thread_switch = 1;
+		STORE(&serial->thread_switch, 1);
 		pthread_create(&serial->thread, NULL, serial_port_copy_to_others, serial);
 		break;
 	default:
@@ -115,11 +203,16 @@ void serial_port_start_thread(struct serial_port *serial, u8 oneself,
 void serial_port_stop_thread(struct serial_port *serial)
 {
 	if (serial->thread) {
-		serial->thread_switch = 0;
+		STORE(&serial->thread_switch, 0);
 		pthread_join(serial->thread, NULL);
 		serial->thread = 0;
 	}
 }
+#else
+
+#define LOAD(value) 			(*(value))
+#define STORE(value, next) 		do { *(value) = (next); } while (0)
+
 #endif
 
 struct serial_port *serial_port_alloc(struct serial_port_ops *ops, const char *name)
@@ -153,6 +246,7 @@ void serial_port_free(struct serial_port *serial)
 {
 #ifdef KINETIS_FAKE_SIM
 	serial_port_stop_thread(serial);
+	communication_fault_free(serial);
 #endif
 
 	if (serial->name)
@@ -163,8 +257,10 @@ void serial_port_free(struct serial_port *serial)
 void serial_port_extract_data(struct serial_port *serial)
 {
 	unsigned long flags;
+	u16 consumer = LOAD(&serial->consumer);
+	u16 producer = LOAD(&serial->producer);
 
-	serial->received_size = (serial->producer + SERIAL_PORT_BUFFER_SIZE - serial->consumer) % SERIAL_PORT_BUFFER_SIZE;
+	serial->received_size = (producer + SERIAL_PORT_BUFFER_SIZE - consumer) % SERIAL_PORT_BUFFER_SIZE;
 	serial->rx_complete = (serial->received_size > 0);
 }
 
@@ -173,8 +269,10 @@ void serial_port_clear_rx(struct serial_port *serial)
 	serial_port_extract_data(serial);
 
 	for (int i = 0; i < serial->received_size; i++) {
-		serial->rx_buffer[serial->consumer] = '\0';
-		serial->consumer = (serial->consumer + 1) % SERIAL_PORT_BUFFER_SIZE;
+		u16 consumer = LOAD(&serial->consumer);
+
+		serial->rx_buffer[consumer] = '\0';
+		STORE(&serial->consumer, (consumer + 1) % SERIAL_PORT_BUFFER_SIZE);
 	}
 	serial->rx_complete = false;
 	serial->received_size = 0;
@@ -220,9 +318,11 @@ int serial_port_receive_bytes(struct serial_port *serial, char *buffer, int size
 
 	if (serial->rx_complete) {
 		for (int i = 0; i < serial->received_size; i++) {
-			buffer[i] = serial->rx_buffer[serial->consumer];
-			serial->rx_buffer[serial->consumer] = '\0';
-			serial->consumer = (serial->consumer + 1) % SERIAL_PORT_BUFFER_SIZE;
+			u16 consumer = LOAD(&serial->consumer);
+
+			buffer[i] = serial->rx_buffer[consumer];
+			serial->rx_buffer[consumer] = '\0';
+			STORE(&serial->consumer, (consumer + 1) % SERIAL_PORT_BUFFER_SIZE);
 		}
 		if (serial->ops->receive_callback) {
 			serial->ops->receive_callback(serial);
@@ -254,17 +354,17 @@ int serial_port_transmit_bytes(struct serial_port *serial, const u8 *data, u16 s
 	}
 
 #if KINETIS_FAKE_SIM
-	while (serial->transmited_size > 0) {
+	while (LOAD(&serial->transmitted_size) > 0) {
 		udelay(1);
 	}
 #endif
 
 	memcpy(serial->tx_buffer, data, size);
-	serial->transmited_size = size;
+	STORE(&serial->transmitted_size, size);
 	snprintf(prefix, sizeof(prefix), "sp-%s tx: ", SP_NAME(serial));
 // 	print_hex_dump(KERN_DEBUG, prefix, DUMP_PREFIX_OFFSET,
 // 		16, 1,
-// 		serial->tx_buffer, serial->transmited_size, false);
+// 		serial->tx_buffer, serial->transmitted_size, false);
 
 	if (serial->ops->transmit_bytes)
 		return serial->ops->transmit_bytes(serial->tx_buffer, size);
@@ -278,22 +378,31 @@ int serial_port_transmit_byte(struct serial_port *serial, u8 byte)
 	u16 tx_size;
 
 #if KINETIS_FAKE_SIM
-	while (serial->transmited_size > 0) {
+	while (LOAD(&serial->transmitted_size) > 0) {
 		udelay(1);
 	}
 #endif
 
 	serial->tx_buffer[0] = byte;
-	serial->transmited_size = 1;
+	STORE(&serial->transmitted_size, 1);
 	snprintf(prefix, sizeof(prefix), "sp-%s tx: ", SP_NAME(serial));
 // 	print_hex_dump(KERN_DEBUG, prefix, DUMP_PREFIX_OFFSET,
 // 		16, 1,
-// 		serial->tx_buffer, serial->transmited_size, false);
+// 		serial->tx_buffer, serial->transmitted_size, false);
 
 	if (serial->ops->transmit_bytes)
 		return serial->ops->transmit_bytes(serial->tx_buffer, 1);
 
 	return 0;
+}
+
+bool serial_port_tx_idle(struct serial_port *serial)
+{
+#ifdef KINETIS_FAKE_SIM
+	return LOAD(&serial->transmitted_size) == 0;
+#else
+	return true;
+#endif
 }
 
 int serial_port_data_available(struct serial_port *serial)
@@ -304,29 +413,38 @@ int serial_port_data_available(struct serial_port *serial)
 
 bool serial_port_rx_empty(struct serial_port *serial)
 {
-    return (serial->producer == serial->consumer);
+	return LOAD(&serial->producer) == LOAD(&serial->consumer);
 }
 
 bool serial_port_rx_full(struct serial_port *serial)
 {
-    return ((serial->producer + 1) % SERIAL_PORT_BUFFER_SIZE) == serial->consumer;
+	u16 producer = LOAD(&serial->producer);
+	u16 consumer = LOAD(&serial->consumer);
+
+	return ((producer + 1) % SERIAL_PORT_BUFFER_SIZE) == consumer;
 }
 
 u16 serial_port_rx_used(struct serial_port *serial)
 {
-    if (serial->producer >= serial->consumer)
-        return serial->producer - serial->consumer;
-    else
-        return SERIAL_PORT_BUFFER_SIZE - (serial->consumer - serial->producer);
+	u16 producer = LOAD(&serial->producer);
+	u16 consumer = LOAD(&serial->consumer);
+
+	if (producer >= consumer)
+		return producer - consumer;
+	else
+		return SERIAL_PORT_BUFFER_SIZE - (consumer - producer);
 }
 
 u16 serial_port_rx_free(struct serial_port *serial)
 {
+	u16 producer = LOAD(&serial->producer);
+	u16 consumer = LOAD(&serial->consumer);
+
 	/* Leave a space of one unit */
-    if (serial->producer >= serial->consumer)
-        return SERIAL_PORT_BUFFER_SIZE - (serial->producer - serial->consumer) - 1;
-    else
-        return (serial->consumer - serial->producer) - 1;
+	if (producer >= consumer)
+		return SERIAL_PORT_BUFFER_SIZE - (producer - consumer) - 1;
+	else
+		return (consumer - producer) - 1;
 }
 
 int serial_port_config(struct serial_port *serial, u32 baud_rate, u8 parity, u8 data_bits, u8 flow_control)

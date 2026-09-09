@@ -26,6 +26,21 @@ struct virtual_at_command {
 
 struct serial_port;
 
+enum communication_fault_mode {
+	COMMUNICATION_FAULT_NONE = 0,
+	COMMUNICATION_FAULT_DROP,
+	COMMUNICATION_FAULT_CORRUPT,
+	COMMUNICATION_FAULT_RANDOM,
+};
+
+struct communication_fault_state {
+	enum communication_fault_mode mode;
+	u16 rate_per_mille;
+	u16 remaining;
+	u16 injected;
+	u32 seed;
+};
+
 struct serial_port_ops {
 	int (*init)(struct serial_port *serial);
 	int (*exit)(void);
@@ -45,10 +60,10 @@ struct serial_port {
 	u8 rx_buffer[SERIAL_PORT_BUFFER_SIZE];
 	u8 tx_buffer[SERIAL_PORT_BUFFER_SIZE];
 	u16 received_size;
-	u16 transmited_size;
+	volatile u16 transmitted_size;
 	u32 rx_scan_interval;
-	u16 producer;
-	u16 consumer;
+	volatile u16 producer;
+	volatile u16 consumer;
 	bool rx_complete;
 	bool tx_complete;
 	bool overflow;
@@ -59,8 +74,10 @@ struct serial_port {
 	u32(*sim_callback)(char *request, char *response, void *context);
 	void *private;
 
-	u8 thread_switch;
+	volatile u8 thread_switch;
 	pthread_t thread;
+
+	struct communication_fault_state *fault;
 #endif
 
 	u32 baud_rate;		/* Current baud rate: 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, etc */
@@ -86,6 +103,12 @@ void serial_port_start_thread(struct serial_port *serial, u8 oneself,
 	u32(*sim_callback)(char *request, char *response, void *context),
 	void *private);
 void serial_port_stop_thread(struct serial_port *serial);
+int communication_fault_alloc(struct serial_port *serial,
+	enum communication_fault_mode mode, u16 rate_per_mille,
+	u16 count, u32 seed);
+void communication_fault_free(struct serial_port *serial);
+u16 communication_fault_injected(struct serial_port *serial);
+bool serial_port_tx_idle(struct serial_port *serial);
 struct serial_port *serial_port_alloc(struct serial_port_ops *ops, const char *name);
 void serial_port_free(struct serial_port *serial);
 void serial_port_clear_rx(struct serial_port *serial);

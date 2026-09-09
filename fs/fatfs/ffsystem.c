@@ -38,7 +38,11 @@ void ff_memfree (
 /* Definitions of Mutex                                                   */
 /*------------------------------------------------------------------------*/
 
+#if KINETIS_FAKE_SIM
 #define OS_TYPE	5	/* 0:Win32, 1:uITRON4.0, 2:uC/OS-II, 3:FreeRTOS, 4:CMSIS-RTOS */
+#else
+#define OS_TYPE	6
+#endif
 
 
 #if   OS_TYPE == 0	/* Win32 */
@@ -115,6 +119,9 @@ int ff_mutex_create (	/* Returns 1:Function succeeded or 0:Could not create the 
 	}
 	return 1;
 
+#elif OS_TYPE == 6
+	return 1;
+
 #endif
 }
 
@@ -149,6 +156,8 @@ void ff_mutex_delete (	/* Returns 1:Function succeeded or 0:Could not delete due
 
 #elif OS_TYPE == 5
 	pthread_mutex_destroy(&pMutex[vol]);
+
+#elif OS_TYPE == 6
 
 #endif
 }
@@ -186,6 +195,9 @@ int ff_mutex_take (	/* Returns 1:Succeeded or 0:Timeout */
 #elif OS_TYPE == 5
 	return (pthread_mutex_lock(&pMutex[vol]) == 0) ? 1 : 0;
 
+#elif OS_TYPE == 6
+	return 1;
+
 #endif
 }
 
@@ -218,6 +230,8 @@ void ff_mutex_give (
 
 #elif OS_TYPE == 5
 	pthread_mutex_unlock(&pMutex[vol]);
+
+#elif OS_TYPE == 6
 
 #endif
 }

@@ -1,0 +1,110 @@
+/*
+ * Persistence-of-Vision process scenario test list
+ *
+ * terminal.py only treats the text after '|' as executable arguments.
+ * POV argument format:
+ *	[case name] [scenario] [repeat] [interval_ms] [argument]
+ *
+ * For scenario 0, the second argument is the stress duration in seconds.
+ * For scenarios 1..51, the second argument is the repeat count.
+ * Expected log errors can be configured in the companion pov.ignore file.
+ * Run from the scripts directory with:
+ *	python terminal.py --process ../projects/persistence-of-vision/pov.testlist
+ */
+
+startup_ready                      | 10 1 200
+
+upload_layer0                      | 1 1 200 layer0
+upload_layer1                      | 1 1 200 layer1
+upload_layer2                      | 1 1 200 layer2
+upload_layer3                      | 1 1 200 layer3
+
+next                               | 2 3 200
+
+previous                           | 3 3 200
+
+replay                             | 4 2 200
+
+play_index_first                   | 5 1 200 first
+play_index_middle                  | 5 1 200 middle
+play_index_last                    | 5 1 200 last
+
+query_motor                        | 6 2 200
+
+burst                              | 7 1 200
+
+download_layer0                    | 8 1 200 layer0
+download_layer1                    | 8 1 200 layer1
+download_layer2                    | 8 1 200 layer2
+download_layer3                    | 8 1 200 layer3
+
+list_all                           | 9 1 200
+list_layer0                        | 9 1 200 layer0
+list_layer1                        | 9 1 200 layer1
+list_layer2                        | 9 1 200 layer2
+list_layer3                        | 9 1 200 layer3
+list_empty_filter                  | 9 1 200 missing
+
+next_wrap                          | 11 1 200
+previous_wrap                      | 12 1 200
+image_control_sequence             | 13 1 200
+list_all_layers                    | 14 1 200
+download_all_layers                | 15 1 200
+upload_all_layers_sequential       | 16 1 200
+
+round_trip_layer0                  | 17 1 200 layer0
+round_trip_layer1                  | 17 1 200 layer1
+round_trip_layer2                  | 17 1 200 layer2
+round_trip_layer3                  | 17 1 200 layer3
+
+mixed_workflow                     | 18 1 200
+
+invalid_image_commands             | 19 1 200
+invalid_transfer_requests          | 20 1 200
+file_transfer_state                | 21 1 200
+motor_control_relay                | 22 1 200
+
+mavlink_packet_drop_recovery       | 23 1 200 324508637
+mavlink_packet_corruption_recovery | 24 1 200 17
+mavlink_random_fault_recovery      | 25 1 200 826366246
+
+storage_read_fault_recovery        | 26 1 200 270544960
+storage_write_fault_recovery       | 27 1 200 1432778632
+
+short_link_outage_recovery         | 28 1 200 2882400001
+
+storage_full_recovery              | 29 1 200
+storage_read_only_recovery         | 30 1 200
+
+active_upload_cancel_recovery      | 31 1 200
+
+bootloader_full_update             | 32 1 200
+
+/* With the default single-arm build, scenarios 33..51 print a macro warning
+ * and exit successfully.  Set POV_ARM_COUNT to 3 and rebuild to execute the
+ * following multi-arm scenarios. */
+multi_arm_image_sync               | 33 1 200
+multi_arm_file_chain               | 34 1 200
+multi_arm_link_recovery            | 35 1 200
+multi_arm_image_sequence           | 36 1 200
+multi_arm_firmware_update          | 37 1 200
+multi_arm_boot_rejoin              | 38 1 200
+multi_arm_firmware_cancel          | 39 1 200
+multi_arm_firmware_storage_full    | 40 1 200
+multi_arm_firmware_read_only       | 41 1 200
+multi_arm_firmware_corrupt         | 42 1 200
+multi_arm_firmware_flash_faults    | 43 1 200
+multi_arm_firmware_reset_resume    | 44 1 200
+multi_arm_image_cancel             | 45 1 200
+multi_arm_image_storage_faults     | 46 1 200
+multi_arm_command_reliability      | 47 1 200
+multi_arm_slave_rejoin             | 48 1 200
+multi_arm_master_rejoin            | 49 1 200
+
+/* Scenario 50 requires POV_ARM_COUNT=4; a three-arm build warns and skips it. */
+four_arm_chain                     | 50 1 200
+
+/* The final argument is the mixed-stress duration in seconds. */
+multi_arm_mixed_stress_20s         | 51 1 200 20
+
+random_stress_60s                  | 0 60

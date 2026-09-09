@@ -2,7 +2,7 @@
  * Use pr_debug for routine messages so they are compiled out unless
  * DEBUG is defined.  Keep pr_info only for state transitions and errors.
  */
-#define pr_fmt(fmt) "MAVLink: " fmt
+#define pr_fmt(fmt) "mavlink: " fmt
 
 #include <linux/slab.h>
 #include <linux/printk.h>
@@ -12,6 +12,7 @@
 
 #include "kinetis/design_verification.h"
 #include "kinetis/mavlink.h"
+#include "kinetis/basic-timer.h"
 
 /**
  * @brief Convert internal direction (s8: 0/1/-1) to wire direction (u8: 0/1/2).
@@ -268,6 +269,12 @@ static int mavlink_send_encoded_data(struct mavlink_device *mav,
 
 	return ret;
 }
+ 
+static void mavlink_reset_rx_parser(struct mavlink_device *mav)
+{
+	memset(&mav->rx_status, 0, sizeof(mav->rx_status));
+	mav->rx_status.parse_state = MAVLINK_PARSE_STATE_IDLE;
+}
 
 struct mavlink_device *mavlink_init(struct serial_port *serial,
 				    u8 sysid, u8 compid, const char *name)
@@ -284,8 +291,8 @@ struct mavlink_device *mavlink_init(struct serial_port *serial,
 		mav->name = kstrdup(name, GFP_KERNEL);
 
 	mav->rx_status.parse_state = MAVLINK_PARSE_STATE_IDLE;
-	mav->ft.state = MAV_FT_IDLE;
-	mav->sys_status = MAV_SYS_STANDBY;
+	mav->ft.state = MAV_FILE_TRANSFER_STATE_IDLE;
+	mav->sys_status = MAV_SYSTEM_STATUS_STANDBY;
 
 	return mav;
 }
@@ -307,6 +314,7 @@ void mavlink_free(struct mavlink_device *mav)
 int mavlink_receive_and_process(struct mavlink_device *mav, u32 timeout_ms)
 {
 	u8 buffer[MAVLINK_RX_BUF_SIZE];
+	int last_msgid = 0;
 	int ret;
 
 	ret = serial_port_receive_bytes(mav->serial, (char *)buffer,
@@ -315,11 +323,12 @@ int mavlink_receive_and_process(struct mavlink_device *mav, u32 timeout_ms)
 		return ret;
 
 	for (int i = 0; i < ret; i++) {
-		if (!mavlink_parse_char(MAVLINK_COMM_0, buffer[i],
-					&mav->rx_msg, &mav->rx_status))
+		if (mavlink_frame_char_buffer(&mav->rx_msg, &mav->rx_status, buffer[i], NULL, NULL) != MAVLINK_FRAMING_OK) {
 			continue;
+		}
 
 		mav->rx_count++;
+		last_msgid = mav->rx_msg.msgid;
 
 		switch (mav->rx_msg.msgid) {
 		case MAVLINK_MSG_ID_MOTOR_CONTROL: {
@@ -329,10 +338,8 @@ int mavlink_receive_and_process(struct mavlink_device *mav, u32 timeout_ms)
 			pr_debug("MOTOR CONTROL target=%d speed=%d direction=%d\n",
 				 ctrl.target_id, ctrl.speed, ctrl.direction);
 
-			if (ctrl.target_id >= MAVLINK_MOTOR_COUNT &&
-			    ctrl.target_id != 255) {
-				mavlink_send_motor_ack(mav, ctrl.target_id,
-						       MAV_ACK_INVALID_PARAM);
+			if ((ctrl.target_id >= MAVLINK_MOTOR_COUNT && ctrl.target_id != 255) ||
+				 ctrl.direction > MAV_MOTOR_DIRECTION_REVERSE) {
 				break;
 			}
 
@@ -342,7 +349,6 @@ int mavlink_receive_and_process(struct mavlink_device *mav, u32 timeout_ms)
 			for (u8 idx = start; idx < end; idx++) {
 				mav->motors[idx].target_speed = ctrl.speed;
 				mav->motors[idx].direction = dir_from_wire(ctrl.direction);
-				mavlink_send_motor_ack(mav, idx, MAV_ACK_OK);
 			}
 			break;
 		}
@@ -392,6 +398,15 @@ int mavlink_receive_and_process(struct mavlink_device *mav, u32 timeout_ms)
 			break;
 		}
 
+		case MAVLINK_MSG_ID_IMAGE_ACK: {
+			mavlink_image_ack_t ack;
+
+			mavlink_msg_image_ack_decode(&mav->rx_msg, &ack);
+			pr_debug("IMAGE ACK action=%d result=%d\n",
+				 ack.action, ack.ack_result);
+			break;
+		}
+
 		case MAVLINK_MSG_ID_SYSTEM_HEARTBEAT: {
 			mavlink_system_heartbeat_t hb;
 
@@ -419,7 +434,7 @@ int mavlink_receive_and_process(struct mavlink_device *mav, u32 timeout_ms)
 			len = strnlen(ft.path, sizeof(mav->ft.path) - 1);
 			memcpy(mav->ft.path, ft.path, len);
 			mav->ft.path[len] = '\0';
-			mav->ft.state = MAV_FT_TRANSFERRING;
+			mav->ft.state = MAV_FILE_TRANSFER_STATE_TRANSFERRING;
 			mav->ft.active = 1;
 			break;
 		}
@@ -428,6 +443,12 @@ int mavlink_receive_and_process(struct mavlink_device *mav, u32 timeout_ms)
 			mavlink_file_transfer_ack_t ack;
 
 			mavlink_msg_file_transfer_ack_decode(&mav->rx_msg, &ack);
+			mav->ft.direction = ack.direction;
+			mav->ft.transferred = 0;
+			mav->ft.total_bytes = ack.file_size;
+			mav->ft.error_code = ack.result == MAV_FT_RESULT_READY ? MAV_FT_ERR_NONE : MAV_FT_ERR_PROTOCOL;
+			mav->ft.state = ack.result == MAV_FT_RESULT_READY ? MAV_FILE_TRANSFER_STATE_TRANSFERRING : MAV_FILE_TRANSFER_STATE_ERROR;
+			mav->ft.active = ack.result == MAV_FT_RESULT_READY;
 			pr_debug("FT ACK dir=%d result=%d size=%u\n",
 				 ack.direction, ack.result, ack.file_size);
 			break;
@@ -442,9 +463,9 @@ int mavlink_receive_and_process(struct mavlink_device *mav, u32 timeout_ms)
 			mav->ft.total_bytes = prog.total_bytes;
 			mav->ft.error_code = prog.error_code;
 
-			if (prog.state == MAV_FT_COMPLETED ||
-			    prog.state == MAV_FT_CANCELLED ||
-			    prog.state == MAV_FT_ERROR)
+			if (prog.state == MAV_FILE_TRANSFER_STATE_COMPLETED ||
+			    prog.state == MAV_FILE_TRANSFER_STATE_CANCELLED ||
+			    prog.state == MAV_FILE_TRANSFER_STATE_ERROR)
 				mav->ft.active = 0;
 
 			pr_debug("FT PROGRESS state=%d xfer=%u/%u err=%d\n",
@@ -458,7 +479,8 @@ int mavlink_receive_and_process(struct mavlink_device *mav, u32 timeout_ms)
 
 			mavlink_msg_file_transfer_cancel_decode(&mav->rx_msg, &cancel);
 			pr_info("FT CANCEL dir=%d\n", cancel.direction);
-			mav->ft.state = MAV_FT_CANCELLED;
+			mav->ft.direction = cancel.direction;
+			mav->ft.state = MAV_FILE_TRANSFER_STATE_CANCELLED;
 			mav->ft.active = 0;
 			break;
 		}
@@ -551,14 +573,16 @@ int mavlink_receive_and_process(struct mavlink_device *mav, u32 timeout_ms)
 		}
 	}
 
-	return 0;
+	return last_msgid;
 }
 
 int mavlink_send_motor_control(struct mavlink_device *mav, u8 target_id,
 			       s32 speed, s8 direction, u32 timeout_ms)
 {
+	mavlink_motor_ack_t ack;
 	mavlink_motor_control_t payload;
 	mavlink_message_t msg;
+	u32 elapsed_ms = 0;
 	int ret;
 
 	payload.target_id = target_id;
@@ -571,7 +595,31 @@ int mavlink_send_motor_control(struct mavlink_device *mav, u8 target_id,
 	if (ret < 0)
 		return ret;
 
-	return mavlink_receive_and_process(mav, timeout_ms);
+	while (elapsed_ms < timeout_ms) {
+		if (serial_port_data_available(mav->serial) > 0) {
+			ret = mavlink_receive_and_process(mav, 100);
+			if (ret < 0)
+				return ret;
+			if (ret == MAVLINK_MSG_ID_MOTOR_ACK)
+				goto received;
+		}
+		msleep(10);
+		elapsed_ms += 10;
+	}
+
+	mavlink_reset_rx_parser(mav);
+
+	return -ETIMEDOUT;
+
+received:
+	mavlink_msg_motor_ack_decode(&mav->rx_msg, &ack);
+	if (target_id != 255 && ack.motor_id != target_id)
+		return -EPROTO;
+	if (ack.ack_result == MAV_ACK_RESULT_OK)
+		return 0;
+	if (ack.ack_result == MAV_ACK_RESULT_INVALID_PARAM)
+		return -EINVAL;
+	return -EIO;
 }
 
 int mavlink_send_motor_status(struct mavlink_device *mav, u16 motor_id,
@@ -621,8 +669,10 @@ int mavlink_send_image_ack(struct mavlink_device *mav, u8 action,
 int mavlink_query_motor_status(struct mavlink_device *mav, u8 motor_id,
 			       u32 timeout_ms)
 {
+	mavlink_motor_status_t status;
 	mavlink_motor_status_query_t payload;
 	mavlink_message_t msg;
+	u32 elapsed_ms = 0;
 	int ret;
 
 	payload.motor_id = motor_id;
@@ -633,15 +683,37 @@ int mavlink_query_motor_status(struct mavlink_device *mav, u8 motor_id,
 	if (ret < 0)
 		return ret;
 
-	return mavlink_receive_and_process(mav, timeout_ms);
+	while (elapsed_ms < timeout_ms) {
+		if (serial_port_data_available(mav->serial) > 0) {
+			ret = mavlink_receive_and_process(mav, 100);
+			if (ret < 0)
+				return ret;
+			if (ret == MAVLINK_MSG_ID_MOTOR_STATUS)
+				goto received;
+		}
+		msleep(10);
+		elapsed_ms += 10;
+	}
+
+	mavlink_reset_rx_parser(mav);
+
+	return -ETIMEDOUT;
+
+received:
+	mavlink_msg_motor_status_decode(&mav->rx_msg, &status);
+	if (motor_id != 255 && status.motor_id != motor_id)
+		return -EPROTO;
+	return 0;
 }
 
 int mavlink_send_ft_start(struct mavlink_device *mav, u8 direction,
 			  const char *path, u32 file_size, u32 timeout_ms)
 {
+	mavlink_file_transfer_ack_t ack;
 	mavlink_file_transfer_start_t payload;
 	mavlink_message_t msg;
 	size_t len;
+	u32 elapsed_ms = 0;
 	int ret;
 
 	payload.direction = direction;
@@ -657,7 +729,39 @@ int mavlink_send_ft_start(struct mavlink_device *mav, u8 direction,
 	if (ret < 0)
 		return ret;
 
-	return mavlink_receive_and_process(mav, timeout_ms);
+	while (elapsed_ms < timeout_ms) {
+		if (serial_port_data_available(mav->serial) > 0) {
+			ret = mavlink_receive_and_process(mav, 100);
+			if (ret < 0)
+				return ret;
+			if (ret == MAVLINK_MSG_ID_FILE_TRANSFER_ACK)
+				goto received;
+		}
+		msleep(10);
+		elapsed_ms += 10;
+	}
+
+	mavlink_reset_rx_parser(mav);
+
+	return -ETIMEDOUT;
+
+received:
+	mavlink_msg_file_transfer_ack_decode(&mav->rx_msg, &ack);
+	if (ack.direction != direction)
+		return -EPROTO;
+	switch (ack.result) {
+	case MAV_FT_RESULT_READY:
+		return 0;
+	case MAV_FT_RESULT_NO_SPACE:
+		return -ENOSPC;
+	case MAV_FT_RESULT_NOT_FOUND:
+		return -ENOENT;
+	case MAV_FT_RESULT_BUSY:
+		return -EBUSY;
+	case MAV_FT_RESULT_DENIED:
+		return -EACCES;
+	}
+	return -EIO;
 }
 
 int mavlink_send_ft_progress(struct mavlink_device *mav, u8 state,
@@ -700,8 +804,9 @@ int mavlink_send_ft_list(struct mavlink_device *mav, u8 file_count,
 	payload.file_count = file_count;
 	payload.list_index = list_index;
 	payload.file_size = file_size;
-	len = strnlen(filename, sizeof(payload.filename) - 1);
-	memcpy(payload.filename, filename, len);
+	len = filename ? strnlen(filename, sizeof(payload.filename) - 1) : 0;
+	if (len)
+		memcpy(payload.filename, filename, len);
 	payload.filename[len] = '\0';
 
 	mavlink_msg_file_transfer_list_encode(mav->sysid, mav->compid,
@@ -733,7 +838,7 @@ int mavlink_ft_enter_passthrough(struct mavlink_device *mav)
 	}
 
 	mav->ft.active = 1;
-	mav->ft.state = MAV_FT_TRANSFERRING;
+	mav->ft.state = MAV_FILE_TRANSFER_STATE_TRANSFERRING;
 	pr_info("FT entering ZMODEM passthrough mode\n");
 	return 0;
 }
@@ -741,7 +846,7 @@ int mavlink_ft_enter_passthrough(struct mavlink_device *mav)
 void mavlink_ft_exit_passthrough(struct mavlink_device *mav)
 {
 	mav->ft.active = 0;
-	mav->ft.state = MAV_FT_IDLE;
+	mav->ft.state = MAV_FILE_TRANSFER_STATE_IDLE;
 	pr_info("FT exited ZMODEM passthrough mode\n");
 }
 
@@ -778,8 +883,10 @@ int mavlink_send_bootloader_update(struct mavlink_device *mav, u8 command,
 				   u32 firmware_size, u32 firmware_crc32,
 				   const char *filename, u32 timeout_ms)
 {
+	mavlink_bootloader_ack_t ack;
 	mavlink_bootloader_update_cmd_t payload;
 	mavlink_message_t msg;
+	u32 elapsed_ms = 0;
 	size_t len;
 	int ret;
 
@@ -797,7 +904,27 @@ int mavlink_send_bootloader_update(struct mavlink_device *mav, u8 command,
 	if (ret < 0)
 		return ret;
 
-	return mavlink_receive_and_process(mav, timeout_ms);
+	while (elapsed_ms < timeout_ms) {
+		if (serial_port_data_available(mav->serial) > 0) {
+			ret = mavlink_receive_and_process(mav, 100);
+			if (ret < 0)
+				return ret;
+			if (ret == MAVLINK_MSG_ID_BOOTLOADER_ACK)
+				goto received;
+		}
+		msleep(10);
+		elapsed_ms += 10;
+	}
+
+	mavlink_reset_rx_parser(mav);
+
+	return -ETIMEDOUT;
+
+received:
+	mavlink_msg_bootloader_ack_decode(&mav->rx_msg, &ack);
+	if (ack.command != command)
+		return -EPROTO;
+	return ack.result == MAV_BL_ACK_ACCEPTED ? 0 : -EACCES;
 }
 
 int mavlink_send_bootloader_ack(struct mavlink_device *mav, u8 command,
@@ -813,6 +940,36 @@ int mavlink_send_bootloader_ack(struct mavlink_device *mav, u8 command,
 					  &msg, &payload);
 
 	return mavlink_send_encoded_data(mav, &msg);
+}
+
+int mavlink_wait_bootloader_ack(struct mavlink_device *mav, u8 command,
+				u8 expected_result, u32 timeout_ms)
+{
+	mavlink_bootloader_ack_t ack;
+	u64 deadline;
+	int ret;
+
+	if (!mav)
+		return -ENODEV;
+
+	deadline = basic_timer_get_ms() + timeout_ms;
+	while (basic_timer_get_ms() < deadline) {
+		if (serial_port_data_available(mav->serial) > 0) {
+			ret = mavlink_receive_and_process(mav, 100);
+			if (ret < 0)
+				return ret;
+			if (mav->rx_msg.msgid != MAVLINK_MSG_ID_BOOTLOADER_ACK)
+				continue;
+
+			mavlink_msg_bootloader_ack_decode(&mav->rx_msg, &ack);
+			if (ack.command != command)
+				return -EPROTO;
+			return ack.result == expected_result ? 0 : -EIO;
+		}
+		msleep(5);
+	}
+
+	return -ETIMEDOUT;
 }
 
 int mavlink_send_ring_cmd(struct mavlink_device *mav, u16 seq, u16 cmd,
@@ -883,10 +1040,21 @@ static void *mavlink_rx_thread_func(void *arg)
 	pr_info("RX thread started\n");
 
 	while (mav->thread_running) {
-		if (serial_port_data_available(mav->serial) > 0)
-			mavlink_receive_and_process(mav, 10);
-		else
+		if (serial_port_data_available(mav->serial) > 0) {
+			if (mavlink_receive_and_process(mav, 10) == MAVLINK_MSG_ID_MOTOR_CONTROL) {
+				mavlink_motor_control_t control;
+				u8 result = MAV_ACK_RESULT_OK;
+
+				mavlink_msg_motor_control_decode(&mav->rx_msg, &control);
+				if ((control.target_id >= MAVLINK_MOTOR_COUNT && control.target_id != 255) ||
+				     control.direction > MAV_MOTOR_DIRECTION_REVERSE)
+					result = MAV_ACK_RESULT_INVALID_PARAM;
+				mavlink_send_motor_ack(mav, control.target_id == 255 ? 0 : control.target_id,
+						       result);
+			}
+		} else {
 			mdelay(5);
+		}
 	}
 
 	pr_info("RX thread stopped\n");

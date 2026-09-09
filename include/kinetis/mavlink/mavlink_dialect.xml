@@ -170,7 +170,7 @@
         <!-- Bootloader (id: 50015-50016) -->
         <message id="50015" name="BOOTLOADER_UPDATE_CMD">
             <description>Host to device: initiate or control firmware update</description>
-            <field name="command" type="uint8_t" enum="MAV_BOOTLOADER_CMD">0=PREPARE, 1=START_APP, 2=RESET, 3=QUERY_INFO</field>
+            <field name="command" type="uint8_t" enum="MAV_BOOTLOADER_CMD">Bootloader or distributed command</field>
             <field name="firmware_size" type="uint32_t">Expected firmware size in bytes (0 for non-update commands)</field>
             <field name="firmware_crc32" type="uint32_t">Expected firmware CRC32 (0 for non-update commands)</field>
             <field name="filename" type="char[32]">Target firmware filename on filesystem (null-terminated)</field>
@@ -178,7 +178,7 @@
         <message id="50016" name="BOOTLOADER_ACK">
             <description>Device to host: acknowledge a bootloader command</description>
             <field name="command" type="uint8_t" enum="MAV_BOOTLOADER_CMD">Echoed command from request</field>
-            <field name="result" type="uint8_t">0=accepted, 1=denied, 2=error, 3=invalid_cmd</field>
+            <field name="result" type="uint8_t">0=accepted, 1=denied, 2=error, 3=invalid_cmd, 4=completed</field>
         </message>
 
         <!-- POV inter-arm ring (id: 50020-50022) -->

@@ -47,16 +47,20 @@ static void complete_cb(const char *filename, int result, size_t size, u64 date)
 
 int lrzsz_rz(struct serial_port *serial, const char *directory)
 {
-	size_t bytes = zmodem_receive(serial, directory, /* use specified directory */
+	int bytes;
+
+	bytes = zmodem_receive(serial, directory, /* use specified directory */
 			approver_cb, /* receive everything */
 			tick_cb,
 			complete_cb,
 			0,
-			RZSZ_FLAGS_NONE);
+			RZSZ_FLAGS_CLOBBER);
 
-	pr_info("Received %zu bytes.\n", bytes);
+	pr_info("Received %d bytes.\n", bytes);
+	if (bytes < 0)
+		return bytes ? bytes : -EIO;
 
-	return (bytes > 0) ? (int)bytes : -EIO;
+	return bytes;
 }
 
 #ifdef KINETIS_FAKE_SIM
@@ -71,13 +75,13 @@ t_mrz(int argc, char *argv[])
 		return PTR_ERR(serial);
 	}
 
-	size_t bytes = zmodem_receive(serial, NULL, /* use current directory */
+	int bytes = zmodem_receive(serial, NULL, /* use current directory */
 			approver_cb, /* receive everything */
 			tick_cb,
 			complete_cb,
 			0,
 			RZSZ_FLAGS_NONE);
-	pr_info("Received %zu bytes.\n", bytes);
+	pr_info("Received %d bytes.\n", bytes);
 
 	serial_port_free(serial);
 	return 0;
@@ -98,13 +102,13 @@ int t_mrz_receive_specified_file(int argc, char *argv[])
 		return PTR_ERR(serial);
 	}
 
-	size_t bytes = zmodem_receive(serial, LRZSZ_RZ_DIRRECTORY,
+	int bytes = zmodem_receive(serial, LRZSZ_RZ_DIRRECTORY,
 			approver_cb,
 			tick_cb,
 			complete_cb,
 			0,
 			RZSZ_FLAGS_NONE);
-	pr_info("Received %zu bytes.\n", bytes);
+	pr_info("Received %d bytes.\n", bytes);
 
 	serial_port_free(serial);
 
@@ -121,7 +125,7 @@ static void *lrzsz_sz_sim_thread(void *data)
 	struct sz_thread_arg *arg = (struct sz_thread_arg *)data;
 
 	zmodem_send(arg->serial, arg->n_filenames, arg->filenames,
-			NULL, NULL, 0, RZSZ_FLAGS_NONE);
+			NULL, NULL, 0, RZSZ_FLAGS_NONE, NULL);
 
 	return NULL;
 }
@@ -233,7 +237,7 @@ int t_mrz_receive_random_file(int argc, char *argv[])
 	}
 
 	/* Receive files */
-	size_t bytes = zmodem_receive(serial_rz, LRZSZ_RZ_DIRRECTORY,
+	int bytes = zmodem_receive(serial_rz, LRZSZ_RZ_DIRRECTORY,
 			approver_cb,
 			tick_cb,
 			complete_cb,

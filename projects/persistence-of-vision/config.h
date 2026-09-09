@@ -23,8 +23,7 @@
 #define POV_BYTES_PER_COL                    (POV_BYTES_PER_GROUP * POV_SPI_GROUPS)
 
 #define POV_TARGET_RPM                       900
-#define POV_RPS                              (POV_TARGET_RPM / 60)
-#define POV_COL_TIME_US                      92
+#define POV_COL_TIME_US                      (60000000u / POV_TARGET_RPM / POV_DISPLAY_COLS)
 
 #define POV_SPI_CLOCK_HZ                     20000000
 #define POV_LED_DRIVER_LEDS_PER_IC           4
@@ -36,32 +35,23 @@
 #define POV_SPI_SEND_TIME_US                 (((POV_LED_DRIVER_GROUP_BYTES * 8ULL * 1000000ULL) + \
 	POV_SPI_CLOCK_HZ - 1) / POV_SPI_CLOCK_HZ)
 
-/* Porter-Duff Multi-Layer Compositing */
-#define POV_MAX_LAYERS                       4
-#define POV_BYTES_PER_PIXEL_RGBA             4
-/* 256 × 4 = 1024 bytes per column per layer */
-#define POV_BYTES_PER_LAYER_COL              (POV_LED_COUNT * POV_BYTES_PER_PIXEL_RGBA)
+#if POV_SPI_SEND_TIME_US > POV_COL_TIME_US
+#warning "POV: SPI bandwidth below column budget - raise POV_SPI_CLOCK_HZ, or lower POV_LED_COUNT / POV_DISPLAY_COLS"
+#endif
 
 #define POV_PREFETCH_COLS                    4
 #define POV_PREFETCH_BYTES                   (POV_PREFETCH_COLS * POV_LED_DRIVER_COL_BYTES)
 
-#define POV_STABLE_THRESHOLD_RPM             2
-#define POV_ANGLE_TIMEOUT_FACTOR             100
-#define POV_STABLE_DURATION_MS               1000
-
 #define POV_IMAGE_FILENAME                   "pov.img"
 #define POV_IMAGE_HEADER_SIZE                sizeof(struct pov_image_header)
 
-#define POV_HALL_PULSES_PER_REV              1
 #define POV_TIM_CLOCK_HZ                     200000000
 #define POV_TIM_PRESCALER                    199
 
-#define POV_QSPI_BASE_ADDR                   0x90000000
-
 #define POV_DEFAULT_ARM_ID                   0
-#define POV_ARM_COUNT                        1
+#define POV_ARM_COUNT                        2
 #define POV_ARM_BROADCAST                    255
-#define POV_RING_ACK_TIMEOUT_MS              3000
+#define POV_RING_ACK_TIMEOUT_MS              10000
 #define POV_RING_FILE_TIMEOUT_MS             600000
 #define POV_RING_LINK_TIMEOUT_MS             2000
 #define POV_RING_IMAGE_APPLY_DELAY_FRAMES    2

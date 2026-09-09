@@ -15,6 +15,21 @@ extern "C" {
 
 /* Flags */
 #define RZSZ_FLAGS_NONE (0x0000)
+#define RZSZ_FLAGS_CLOBBER (0x0001)
+#define RZSZ_FLAGS_STREAM_FILE (0x0002)
+
+#ifndef ZMODEM_BATCH_ESCAPE
+#define ZMODEM_BATCH_ESCAPE 0
+#endif
+
+struct lrzsz_transfer_control {
+	volatile u8 cancel_requested;
+	volatile u8 active;
+	volatile u8 cancelled;
+	volatile size_t transferred;
+	/* Optional deterministic cancellation point; zero disables it. */
+	volatile size_t cancel_after;
+};
 
 /* This runs a zmodem receiver.
 
@@ -58,8 +73,8 @@ extern "C" {
    FLAGS determine how this zmodem receiver operates.
 
    The return value is the sum of the sizes of the files successfully
-   transfered. */
-size_t zmodem_receive(struct serial_port *serial,
+   transfered, or a negative error code. */
+int zmodem_receive(struct serial_port *serial,
             const char *directory,
 		      bool (*approver)(const char *filename, size_t size, u64 date),
 		      bool tick_cb(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left),
@@ -112,10 +127,12 @@ size_t zmodem_send(struct serial_port *serial,
 		   bool (*tick)(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left),
 		   void (*complete)(const char *filename, int result, size_t size, u64 date),
 		   u64 min_bps,
-		   u32 flags);
+		   u32 flags,
+         struct lrzsz_transfer_control *control);
 
 int lrzsz_rz(struct serial_port *serial, const char *directory);
-int lrzsz_sz(struct serial_port *serial, int n_filenames, const char **filenames);
+int lrzsz_sz(struct serial_port *serial, int n_filenames, const char **filenames,
+   struct lrzsz_transfer_control *control);
 
 #ifdef __cplusplus
 }

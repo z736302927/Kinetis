@@ -161,6 +161,9 @@ EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/flight/filter.c)
 EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/flight/fmu_task.c)
 EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/chinese.c)
 EXCLUDE_SOURCES += $(wildcard ../drivers/kinetis/kinetis-module-boot.c)
+ifeq ($(PLATFORM),CHIP)
+EXCLUDE_SOURCES += $(wildcard ../fs/fatfs/fault.c)
+endif
 
 C_SOURCES := $(filter-out $(EXCLUDE_SOURCES),$(C_SOURCES))
 

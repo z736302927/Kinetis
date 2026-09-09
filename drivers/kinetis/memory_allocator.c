@@ -182,22 +182,12 @@ static void insert_block_sorted(int idx, int region_id, void *start, u32 size, u
 {
 	int i, pos;
 
-	// If block array is empty, just add it
-	if (block_count == 0) {
-		blocks[0].start = start;
-		blocks[0].size = size;
-		blocks[0].actual_size = actual_size;
-		blocks[0].status = BLOCK_USED;
-		blocks[0].region_id = (u8)region_id;
-		block_count = 1;
-		need_sort = 0;  // Single element is already sorted
+	if (block_count >= MAX_BLOCKS) {
 		return;
 	}
 
-	// Ensure blocks are sorted before finding insertion position
 	ensure_blocks_sorted();
 
-	// Find insertion position
 	for (pos = 0; pos < block_count; pos++) {
 		u64 pos_addr = blocks[pos].start ? (u64)blocks[pos].start : 0;
 		if ((u64)start < pos_addr) {
@@ -205,93 +195,17 @@ static void insert_block_sorted(int idx, int region_id, void *start, u32 size, u
 		}
 	}
 
-	// If inserting at the end
-	if (pos >= block_count) {
-		// Use the free slot at idx if it's at or beyond block_count
-		if (idx >= block_count && idx < MAX_BLOCKS) {
-			// Fill the free slot
-			blocks[idx].start = start;
-			blocks[idx].size = size;
-			blocks[idx].actual_size = actual_size;
-			blocks[idx].status = BLOCK_USED;
-			blocks[idx].region_id = (u8)region_id;
-			if (idx >= block_count) {
-				block_count = idx + 1;
-			}
-		} else {
-			// Append at the end
-			blocks[block_count].start = start;
-			blocks[block_count].size = size;
-			blocks[block_count].actual_size = actual_size;
-			blocks[block_count].status = BLOCK_USED;
-			blocks[block_count].region_id = (u8)region_id;
-			block_count++;
-		}
-	} else {
-		// Insert in the middle - we need to shift and use the free slot
-
-		// First, if idx is a free slot and it's after pos, we can use it
-		if (idx >= pos && idx < MAX_BLOCKS && blocks[idx].status == BLOCK_FREE) {
-			// Fill the free slot
-			blocks[idx].start = start;
-			blocks[idx].size = size;
-			blocks[idx].actual_size = actual_size;
-			blocks[idx].status = BLOCK_USED;
-			blocks[idx].region_id = (u8)region_id;
-
-			// Now we need to re-sort
-			need_sort = 1;
-
-			// Update block_count if needed
-			if (idx >= block_count) {
-				block_count = idx + 1;
-			}
-		} else {
-			// Need to shift blocks to make room
-			// Find a free slot to use (preferably at the end)
-			int free_slot = find_free_block();
-			if (free_slot == -1) {
-				// This shouldn't happen as we checked earlier
-				return;
-			}
-
-			// Shift blocks from pos to free_slot
-			if (free_slot >= block_count) {
-				// Free slot is at or beyond current count
-				blocks[free_slot].start = start;
-				blocks[free_slot].size = size;
-				blocks[free_slot].actual_size = actual_size;
-				blocks[free_slot].status = BLOCK_USED;
-				blocks[free_slot].region_id = (u8)region_id;
-				if (free_slot >= block_count) {
-					block_count = free_slot + 1;
-				}
-			} else {
-				// Free slot is within current blocks, need to shift
-				for (i = block_count; i > pos; i--) {
-					if (i < MAX_BLOCKS) {
-						blocks[i] = blocks[i - 1];
-					}
-				}
-				// Insert at pos
-				blocks[pos].start = start;
-				blocks[pos].size = size;
-				blocks[pos].actual_size = actual_size;
-				blocks[pos].status = BLOCK_USED;
-				blocks[pos].region_id = (u8)region_id;
-				block_count++;
-				if (block_count > MAX_BLOCKS) {
-					block_count = MAX_BLOCKS;
-				}
-			}
-
-			// Mark that we need to sort (blocks were shifted)
-			need_sort = 1;
-		}
+	for (i = block_count; i > pos; i--) {
+		blocks[i] = blocks[i - 1];
 	}
 
-	// After insertion, ensure blocks are sorted
-	ensure_blocks_sorted();
+	blocks[pos].start = start;
+	blocks[pos].size = size;
+	blocks[pos].actual_size = actual_size;
+	blocks[pos].status = BLOCK_USED;
+	blocks[pos].region_id = region_id;
+	block_count++;
+	need_sort = 1;
 }
 
 // Find suitable space with alignment consideration within a specific region
@@ -711,7 +625,6 @@ void *mem_alloc_from_region(int region_id, u32 size)
 void mem_free(void *ptr)
 {
 	int i;
-	int j;
 	u32 freed_actual_size;
 	int region_id = -1;
 	char freed_size_str[32], user_size_str[32];
@@ -752,26 +665,15 @@ void mem_free(void *ptr)
 					freed_size_str, (u64)ptr, user_size_str);
 			}
 
-			// Mark as free
-			blocks[i].status = BLOCK_FREE;
-			blocks[i].start = NULL;
-			blocks[i].size = 0;
-			blocks[i].actual_size = 0;
-			blocks[i].region_id = 0;
-
-			// Mark that sorting may be needed
-			need_sort = 1;
-
-			// Try to compress block array from the end
-			for (j = block_count - 1; j >= 0; j--) {
-				if (blocks[j].status == BLOCK_USED) {
-					block_count = j + 1;
-					break;
-				}
-			}
-			if (j < 0) {
-				block_count = 0;
-			}
+			for (; i + 1 < block_count; i++)
+				blocks[i] = blocks[i + 1];
+			block_count--;
+			blocks[block_count].start = NULL;
+			blocks[block_count].size = 0;
+			blocks[block_count].status = BLOCK_FREE;
+			blocks[block_count].actual_size = 0;
+			blocks[block_count].region_id = 0;
+			need_sort = 0;
 
 			goto out;
 		}

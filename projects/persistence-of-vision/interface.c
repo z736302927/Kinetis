@@ -158,10 +158,7 @@ void chip_rtc_calendar_set(struct tm *rtc, u8 format)
 	sdate.Year = rtc->tm_year;
 	sdate.Month = rtc->tm_mon;
 	sdate.Date = rtc->tm_mday;
-
-	if (rtc->tm_wday != 0) {
-		sdate.WeekDay = rtc->tm_wday;
-	}
+	sdate.WeekDay = rtc->tm_wday;
 
 	if (format == KRTC_FORMAT_BIN) {
 		HAL_RTC_SetDate(&hrtc, &sdate, RTC_FORMAT_BIN);
@@ -205,10 +202,7 @@ void chip_rtc_calendar_get(struct tm *rtc, u8 format)
 	rtc->tm_year = sdate.Year;
 	rtc->tm_mon = sdate.Month;
 	rtc->tm_mday = sdate.Date;
-
-	if (rtc->tm_wday != 0) {
-		rtc->tm_wday = sdate.WeekDay;
-	}
+	rtc->tm_wday = sdate.WeekDay;
 
 	/* Get the RTC current Time */
 	if (format == KRTC_FORMAT_BIN) {
@@ -265,7 +259,9 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
 	}
 }
 
-static struct transfer_complete_result stm32_spi_result[4] = {
+static struct transfer_complete_result stm32_spi_result[6] = {
+	{ .tx_done = 1, .rx_done = 0, .error = 0 },
+	{ .tx_done = 1, .rx_done = 0, .error = 0 },
 	{ .tx_done = 1, .rx_done = 0, .error = 0 },
 	{ .tx_done = 1, .rx_done = 0, .error = 0 },
 	{ .tx_done = 1, .rx_done = 0, .error = 0 },
@@ -284,6 +280,8 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
 		stm32_spi_result[2].tx_done = 1;
 	} else if (hspi->Instance == hspi4.Instance) {
 		stm32_spi_result[3].tx_done = 1;
+	} else if (hspi->Instance == hspi6.Instance) {
+		stm32_spi_result[5].tx_done = 1;
 	}
 #endif
 }
@@ -300,6 +298,8 @@ void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef *hspi)
 		stm32_spi_result[2].rx_done = 1;
 	} else if (hspi->Instance == hspi4.Instance) {
 		stm32_spi_result[3].rx_done = 1;
+	} else if (hspi->Instance == hspi6.Instance) {
+		stm32_spi_result[5].rx_done = 1;
 	}
 #endif
 }
@@ -319,6 +319,9 @@ void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
 	} else if (hspi->Instance == hspi4.Instance) {
 		pr_err("stm32_spi: DMA error 0x%lx\n", hspi->ErrorCode);
 		stm32_spi_result[3].error = 1;
+	} else if (hspi->Instance == hspi6.Instance) {
+		pr_err("stm32_spi: DMA error 0x%lx\n", hspi->ErrorCode);
+		stm32_spi_result[5].error = 1;
 #endif
 	}
 }
@@ -578,6 +581,11 @@ static int iic1_master_transmit(u8 slave_addr, u16 reg,
 	HAL_I2C_Mem_Write_DMA(&hi2c1, (u16)slave_addr << 1, reg, I2C_MEMADD_SIZE_8BIT, pdata, length);
 
 	ret = readl_poll_timeout(&stm32_i2c_result[0].tx_done, val, val || stm32_i2c_result[0].error, 100, 100000);
+	if (stm32_i2c_result[0].error) {
+// 		HAL_I2C_Abort(&hi2c1, (u16)slave_addr << 1);
+		pr_err("stm32_i2c: write to 0x%02X DMA error\n", slave_addr);
+		return -EIO;
+	}
 	if (ret < 0) {
 		// 		HAL_I2C_Abort(&hi2c1, (u16)slave_addr << 1);
 		pr_err("stm32_i2c: write to 0x%02X timed out\n", slave_addr);
@@ -599,6 +607,11 @@ static int iic1_master_receive(u8 slave_addr, u16 reg,
 	HAL_I2C_Mem_Read_DMA(&hi2c1, (u16)slave_addr << 1, reg, I2C_MEMADD_SIZE_8BIT, pdata, length);
 
 	ret = readl_poll_timeout(&stm32_i2c_result[0].rx_done, val, val || stm32_i2c_result[0].error, 100, 100000);
+	if (stm32_i2c_result[0].error) {
+// 		HAL_I2C_Abort(&hi2c1, (u16)slave_addr << 1);
+		pr_err("stm32_i2c: read from 0x%02X DMA error\n", slave_addr);
+		return -EIO;
+	}
 	if (ret < 0) {
 		// 		HAL_I2C_Abort(&hi2c1, (u16)slave_addr << 1);
 		pr_err("stm32_i2c: read from 0x%02X timed out\n", slave_addr);
@@ -664,85 +677,110 @@ static int spi1_sck_high(void)
 
 static int spi1_write_bytes(u8 *pdata, u8 length)
 {
-	// 	u32 val;
-	// 	int ret;
-	//
-	// 	stm32_spi_result[0].tx_done = 0;
-	// 	stm32_spi_result[0].error = 0;
-	//
-	// 	HAL_SPI_Transmit_DMA(&hspi1, pdata, length);
-	//
-	// 	ret = readl_poll_timeout(&stm32_spi_result[0].tx_done, val, val || stm32_spi_result[0].error, 100, 100000);
-	// 	if (ret < 0) {
-	// 		HAL_SPI_Abort(&hspi1);
-	// 		pr_err("stm32_spi: write timed out (%u bytes)\n", length);
-	// 		return ret;
-	// 	}
+	u32 val;
+	int ret;
+
+	stm32_spi_result[0].tx_done = 0;
+	stm32_spi_result[0].error = 0;
+
+	HAL_SPI_Transmit_DMA(&hspi1, pdata, length);
+
+	ret = readl_poll_timeout(&stm32_spi_result[0].tx_done, val,
+		val || stm32_spi_result[0].error, 100, 100000);
+	if (stm32_spi_result[0].error) {
+		HAL_SPI_Abort(&hspi1);
+		pr_err("stm32_spi1: write DMA error (%u bytes)\n", length);
+		return -EIO;
+	}
+	if (ret < 0) {
+		HAL_SPI_Abort(&hspi1);
+		pr_err("stm32_spi1: write timed out (%u bytes)\n", length);
+		return ret;
+	}
 
 	return 0;
 }
 
 static int spi1_read_bytes(u8 *pdata, u8 length)
 {
-	// 	u32 val;
-	// 	int ret;
-	//
-	// 	stm32_spi_result[0].rx_done = 0;
-	// 	stm32_spi_result[0].error = 0;
-	//
-	// 	HAL_SPI_Receive_DMA(&hspi1, pdata, length);
-	//
-	// 	ret = readl_poll_timeout(&stm32_spi_result[0].rx_done, val, val || stm32_spi_result[0].error, 100, 100000);
-	// 	if (ret < 0) {
-	// 		HAL_SPI_Abort(&hspi1);
-	// 		pr_err("stm32_spi: read timed out (%u bytes)\n", length);
-	// 		return ret;
-	// 	}
+	u32 val;
+	int ret;
+
+	stm32_spi_result[0].rx_done = 0;
+	stm32_spi_result[0].error = 0;
+
+	HAL_SPI_Receive_DMA(&hspi1, pdata, length);
+
+	ret = readl_poll_timeout(&stm32_spi_result[0].rx_done, val,
+		val || stm32_spi_result[0].error, 100, 100000);
+	if (stm32_spi_result[0].error) {
+		HAL_SPI_Abort(&hspi1);
+		pr_err("stm32_spi1: read DMA error (%u bytes)\n", length);
+		return -EIO;
+	}
+	if (ret < 0) {
+		HAL_SPI_Abort(&hspi1);
+		pr_err("stm32_spi1: read timed out (%u bytes)\n", length);
+		return ret;
+	}
 
 	return 0;
 }
 
 static int spi1_write_byte(u8 data)
 {
-	// 	u32 val;
-	// 	int ret;
-	//
-	// 	stm32_spi_result[0].tx_done = 0;
-	// 	stm32_spi_result[0].error = 0;
-	//
-	// 	HAL_SPI_Transmit_DMA(&hspi1, &data, 1);
-	//
-	// 	ret = readl_poll_timeout(&stm32_spi_result[0].tx_done, val, val || stm32_spi_result[0].error, 100, 100000);
-	// 	if (ret < 0) {
-	// 		HAL_SPI_Abort(&hspi1);
-	// 		pr_err("stm32_spi: write timed out (1 bytes)\n");
-	// 		return ret;
-	// 	}
+	u32 val;
+	int ret;
+
+	stm32_spi_result[0].tx_done = 0;
+	stm32_spi_result[0].error = 0;
+
+	HAL_SPI_Transmit_DMA(&hspi1, &data, 1);
+
+	ret = readl_poll_timeout(&stm32_spi_result[0].tx_done, val,
+		val || stm32_spi_result[0].error, 100, 100000);
+	if (stm32_spi_result[0].error) {
+		HAL_SPI_Abort(&hspi1);
+		pr_err("stm32_spi1: write DMA error (1 byte)\n");
+		return -EIO;
+	}
+	if (ret < 0) {
+		HAL_SPI_Abort(&hspi1);
+		pr_err("stm32_spi1: write timed out (1 byte)\n");
+		return ret;
+	}
 
 	return 0;
 }
 
 static u8 spi1_read_byte(void)
 {
-	u8 data;
-	// 	u32 val;
-	// 	int ret;
-	//
-	// 	stm32_spi_result[0].rx_done = 0;
-	// 	stm32_spi_result[0].error = 0;
-	//
-	// 	HAL_SPI_Receive_DMA(&hspi1, &data, 1);
-	//
-	// 	ret = readl_poll_timeout(&stm32_spi_result[0].rx_done, val, val || stm32_spi_result[0].error, 100, 100000);
-	// 	if (ret < 0) {
-	// 		HAL_SPI_Abort(&hspi1);
-	// 		pr_err("stm32_spi: read timed out (1 bytes)\n");
-	// 		return 0;
-	// 	}
+	u8 data = 0;
+	u32 val;
+	int ret;
+
+	stm32_spi_result[0].rx_done = 0;
+	stm32_spi_result[0].error = 0;
+
+	HAL_SPI_Receive_DMA(&hspi1, &data, 1);
+
+	ret = readl_poll_timeout(&stm32_spi_result[0].rx_done, val,
+		val || stm32_spi_result[0].error, 100, 100000);
+	if (stm32_spi_result[0].error) {
+		HAL_SPI_Abort(&hspi1);
+		pr_err("stm32_spi1: read DMA error (1 byte)\n");
+		return 0;
+	}
+	if (ret < 0) {
+		HAL_SPI_Abort(&hspi1);
+		pr_err("stm32_spi1: read timed out (1 byte)\n");
+		return 0;
+	}
 
 	return data;
 }
 
+#if defined(STM32H743xx)
 static void qspi1_read(struct qspi_request_block *qrb)
 {
 	QSPI_CommandTypeDef qspi_cmd;
@@ -995,10 +1033,11 @@ static int qspi1_poll(struct qspi_request_block *qrb, u32 timeout_us)
 	sConfig.Interval           = 0x10;
 	sConfig.AutomaticStop      = QSPI_AUTOMATIC_STOP_ENABLE;
 
+	/* Saturate instead of overflowing: 0xFFFFFFFF us would wrap to ~998 ms. */
 	hal_ret = HAL_QSPI_AutoPolling(&hqspi, &sCommand, &sConfig,
-			(timeout_us + 999) / 1000);
+			(timeout_us > 0xffffffffu - 999u) ? 0xffffffffu : (timeout_us + 999) / 1000);
 	if (hal_ret != HAL_OK) {
-		ret - ETIMEDOUT;
+		ret = -ETIMEDOUT;
 	}
 
 	CLEAR_BIT(hqspi.Instance->CR, QUADSPI_CR_PMM | QUADSPI_CR_APMS | QUADSPI_CR_DMAEN);
@@ -1006,12 +1045,21 @@ static int qspi1_poll(struct qspi_request_block *qrb, u32 timeout_us)
 	return ret;
 }
 
+#endif
+
 static int spi1_master_init(void)
 {
 	return 0;
 }
 
 struct w25qxxx_device *w25qxxx_dev;
+
+static volatile u8 flash_wait_for_completion = 1;
+
+void flash_set_wait_for_completion(u8 enable)
+{
+	flash_wait_for_completion = enable ? 1 : 0;
+}
 
 struct spi_master spi1_master = {
 	.cs_low      = spi1_cs_low,
@@ -1025,13 +1073,16 @@ struct spi_master spi1_master = {
 	.read_byte   = spi1_read_byte,
 	.write_bytes = spi1_write_bytes,
 	.read_bytes  = spi1_read_bytes,
+#if defined(STM32H743xx)
 	.qspi_read   = qspi1_read,
 	.qspi_write  = qspi1_write,
 	.qspi_poll   = qspi1_poll,
 	.set_mode	 = spi1_set_mode,
+#endif
 	.init        = spi1_master_init,
 };
 
+#if defined(STM32H743xx)
 static int spi6_cs_low(void)
 {
 	HAL_GPIO_WritePin(GPIOG, GPIO_PIN_11, GPIO_PIN_RESET);
@@ -1078,15 +1129,21 @@ static int spi6_write_bytes(u8 *pdata, u8 length)
 	u32 val;
 	int ret;
 
-	stm32_spi_result[0].tx_done = 0;
-	stm32_spi_result[0].error = 0;
+	stm32_spi_result[5].tx_done = 0;
+	stm32_spi_result[5].error = 0;
 
 	HAL_SPI_Transmit_DMA(&hspi6, pdata, length);
 
-	ret = readl_poll_timeout(&stm32_spi_result[0].tx_done, val, val || stm32_spi_result[0].error, 100, 100000);
+	ret = readl_poll_timeout(&stm32_spi_result[5].tx_done, val,
+		val || stm32_spi_result[5].error, 100, 100000);
+	if (stm32_spi_result[5].error) {
+		HAL_SPI_Abort(&hspi6);
+		pr_err("stm32_spi6: write DMA error (%u bytes)\n", length);
+		return -EIO;
+	}
 	if (ret < 0) {
 		HAL_SPI_Abort(&hspi6);
-		pr_err("stm32_spi: write timed out (%u bytes)\n", length);
+		pr_err("stm32_spi6: write timed out (%u bytes)\n", length);
 		return ret;
 	}
 
@@ -1098,15 +1155,21 @@ static int spi6_read_bytes(u8 *pdata, u8 length)
 	u32 val;
 	int ret;
 
-	stm32_spi_result[0].rx_done = 0;
-	stm32_spi_result[0].error = 0;
+	stm32_spi_result[5].rx_done = 0;
+	stm32_spi_result[5].error = 0;
 
 	HAL_SPI_Receive_DMA(&hspi6, pdata, length);
 
-	ret = readl_poll_timeout(&stm32_spi_result[0].rx_done, val, val || stm32_spi_result[0].error, 100, 100000);
+	ret = readl_poll_timeout(&stm32_spi_result[5].rx_done, val,
+		val || stm32_spi_result[5].error, 100, 100000);
+	if (stm32_spi_result[5].error) {
+		HAL_SPI_Abort(&hspi6);
+		pr_err("stm32_spi6: read DMA error (%u bytes)\n", length);
+		return -EIO;
+	}
 	if (ret < 0) {
 		HAL_SPI_Abort(&hspi6);
-		pr_err("stm32_spi: read timed out (%u bytes)\n", length);
+		pr_err("stm32_spi6: read timed out (%u bytes)\n", length);
 		return ret;
 	}
 
@@ -1118,15 +1181,21 @@ static int spi6_write_byte(u8 data)
 	u32 val;
 	int ret;
 
-	stm32_spi_result[0].tx_done = 0;
-	stm32_spi_result[0].error = 0;
+	stm32_spi_result[5].tx_done = 0;
+	stm32_spi_result[5].error = 0;
 
 	HAL_SPI_Transmit_DMA(&hspi6, &data, 1);
 
-	ret = readl_poll_timeout(&stm32_spi_result[0].tx_done, val, val || stm32_spi_result[0].error, 100, 100000);
+	ret = readl_poll_timeout(&stm32_spi_result[5].tx_done, val,
+		val || stm32_spi_result[5].error, 100, 100000);
+	if (stm32_spi_result[5].error) {
+		HAL_SPI_Abort(&hspi6);
+		pr_err("stm32_spi6: write DMA error (1 byte)\n");
+		return -EIO;
+	}
 	if (ret < 0) {
 		HAL_SPI_Abort(&hspi6);
-		pr_err("stm32_spi: write timed out (1 bytes)\n");
+		pr_err("stm32_spi6: write timed out (1 byte)\n");
 		return ret;
 	}
 
@@ -1135,19 +1204,25 @@ static int spi6_write_byte(u8 data)
 
 static u8 spi6_read_byte(void)
 {
-	u8 data;
+	u8 data = 0;
 	u32 val;
 	int ret;
 
-	stm32_spi_result[0].rx_done = 0;
-	stm32_spi_result[0].error = 0;
+	stm32_spi_result[5].rx_done = 0;
+	stm32_spi_result[5].error = 0;
 
 	HAL_SPI_Receive_DMA(&hspi6, &data, 1);
 
-	ret = readl_poll_timeout(&stm32_spi_result[0].rx_done, val, val || stm32_spi_result[0].error, 100, 100000);
+	ret = readl_poll_timeout(&stm32_spi_result[5].rx_done, val,
+		val || stm32_spi_result[5].error, 100, 100000);
+	if (stm32_spi_result[5].error) {
+		HAL_SPI_Abort(&hspi6);
+		pr_err("stm32_spi6: read DMA error (1 byte)\n");
+		return 0;
+	}
 	if (ret < 0) {
 		HAL_SPI_Abort(&hspi6);
-		pr_err("stm32_spi: read timed out (1 bytes)\n");
+		pr_err("stm32_spi6: read timed out (1 byte)\n");
 		return 0;
 	}
 
@@ -1173,23 +1248,6 @@ struct spi_master spi6_master = {
 	.read_bytes  = spi6_read_bytes,
 	.init        = spi6_master_init,
 };
-
-uint8_t w25qxx_interface_spi_qspi_init(void)
-{
-	return 0;
-}
-
-uint8_t w25qxx_interface_spi_qspi_deinit(void)
-{
-	return 0;
-}
-
-static volatile u8 flash_wait_for_completion = 1;
-
-void flash_set_wait_for_completion(u8 enable)
-{
-	flash_wait_for_completion = enable ? 1 : 0;
-}
 
 #define QSPI_FUNCTIONAL_MODE_INDIRECT_WRITE    0x00000000U                     /*!<Indirect write mode*/
 #define QSPI_FUNCTIONAL_MODE_INDIRECT_READ     ((uint32_t)QUADSPI_CCR_FMODE_0) /*!<Indirect read mode*/
@@ -1368,6 +1426,10 @@ HAL_StatusTypeDef HAL_QSPI_Command_Custom(QSPI_HandleTypeDef *hqspi, QSPI_Comman
 				/* Update QSPI state */
 				hqspi->State = HAL_QSPI_STATE_READY;
 			}
+		}
+
+		if (status != HAL_OK) {
+			hqspi->State = HAL_QSPI_STATE_READY;
 		}
 	} else {
 		status = HAL_BUSY;
@@ -1842,6 +1904,7 @@ uint8_t w25qxx_interface_spi_qspi_write_read(uint8_t instruction, uint8_t instru
 	cmd_handler.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
 	cmd_handler.DdrMode = QSPI_DDR_MODE_DISABLE;
 	cmd_handler.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+	cmd_handler.NbData = (in_len != 0) ? in_len : out_len;
 
 	if (!flash_wait_for_completion) {
 		ret = readl_poll_timeout((volatile u32 *)&hqspi.State, val,
@@ -1884,6 +1947,17 @@ uint8_t w25qxx_interface_spi_qspi_write_read(uint8_t instruction, uint8_t instru
 		}
 	}
 
+	return 0;
+}
+#endif
+
+uint8_t w25qxx_interface_spi_qspi_init(void)
+{
+	return 0;
+}
+
+uint8_t w25qxx_interface_spi_qspi_deinit(void)
+{
 	return 0;
 }
 
@@ -1973,11 +2047,19 @@ u8 nrf24l01_interface_spi_deinit(void)
 
 u8 nrf24l01_interface_spi_read(u8 reg, u8 *buf, uint16_t len)
 {
+	if (len > 0xffu) {
+		pr_err("nrf24l01: spi read length %u exceeds 255\n", len);
+		return 1;
+	}
 	return spi_master_port_receive(&spi7_master, reg, buf, (u8)len);
 }
 
 u8 nrf24l01_interface_spi_write(u8 reg, u8 *buf, uint16_t len)
 {
+	if (len > 0xffu) {
+		pr_err("nrf24l01: spi write length %u exceeds 255\n", len);
+		return 1;
+	}
 	return spi_master_port_transmit(&spi7_master, reg, buf, (u8)len);
 }
 
@@ -2014,7 +2096,7 @@ void nrf24l01_interface_debug_print(const char *const fmt, ...)
 
 static int usart2_init(struct serial_port *serial)
 {
-	stm32_uart_port[1] = serial;
+	stm32_serial_port[1] = serial;
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart2, serial->rx_buffer, SERIAL_PORT_BUFFER_SIZE);
 	/* CIRCULAR mode: suppress DMA TC and HT interrupts, rely on USART IDLE only */
 	__HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_TC | DMA_IT_HT);
@@ -2036,6 +2118,10 @@ static int usart2_transmit_bytes(const u8 *data, u16 size)
 	}
 
 	ret = readl_poll_timeout(&stm32_uart_result[1].tx_done, val, val || stm32_uart_result[1].error, 100, 100000);
+	if (stm32_uart_result[1].error) {
+		pr_err("stm32_uart2: transmit DMA error\n");
+		return -EIO;
+	}
 	if (ret < 0) {
 		return ret;
 	}
@@ -2185,7 +2271,7 @@ struct serial_port_ops usart2_serial_port_ops = {
 
 static int usart6_init(struct serial_port *serial)
 {
-	stm32_uart_port[2] = serial;
+	stm32_serial_port[2] = serial;
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart6, serial->rx_buffer, SERIAL_PORT_BUFFER_SIZE);
 	__HAL_DMA_DISABLE_IT(&hdma_usart6_rx, DMA_IT_TC | DMA_IT_HT);
 
@@ -2347,7 +2433,7 @@ struct serial_port_ops usart6_serial_port_ops = {
 
 static int uart4_init(struct serial_port *serial)
 {
-	stm32_uart_port[3] = serial;
+	stm32_serial_port[3] = serial;
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart4, serial->rx_buffer, SERIAL_PORT_BUFFER_SIZE);
 	__HAL_DMA_DISABLE_IT(&hdma_uart4_rx, DMA_IT_TC | DMA_IT_HT);
 
@@ -2496,7 +2582,7 @@ struct serial_port_ops uart4_serial_port_ops = {
 
 static int uart5_init(struct serial_port *serial)
 {
-	stm32_uart_port[4] = serial;
+	stm32_serial_port[4] = serial;
 	HAL_UARTEx_ReceiveToIdle_DMA(&huart5, serial->rx_buffer, SERIAL_PORT_BUFFER_SIZE);
 	__HAL_DMA_DISABLE_IT(&hdma_uart5_rx, DMA_IT_TC | DMA_IT_HT);
 
@@ -2855,9 +2941,11 @@ int pov_spi_multi_wait_complete(u32 timeout_us)
 int pov_spi_multi_transmit(struct pov_rotor *rotor)
 {
 	u8 pong;
+	int ret;
 
-	if (pov_spi_multi_wait_complete(1000) != 0) {
-		return -ETIMEDOUT;
+	ret = pov_spi_multi_wait_complete(1000);
+	if (ret != 0) {
+		return ret;
 	}
 
 	/* Pulse LAT pin: HIGH then LOW */
@@ -2913,8 +3001,12 @@ static int stm32_flash_erase(u64 addr, u32 size)
 	FLASH_EraseInitTypeDef erase_init;
 	u32 sector_error;
 	u32 start_sector, end_sector, sector;
+	u32 max_sector = (ROM_TOTAL_SIZE + BL_FLASH_SECTOR_SIZE - 1) /
+		BL_FLASH_SECTOR_SIZE;
 
-	if (addr + size > (u64)FLASH_BANK1_BASE + ROM_TOTAL_SIZE) {
+	if (addr < FLASH_BANK1_BASE ||
+		addr + size > (u64)FLASH_BANK1_BASE + ROM_TOTAL_SIZE ||
+		size == 0) {
 		pr_err("stm32_flash_erase: addr 0x%llx+%u out of range\n",
 			addr, size);
 		return -EINVAL;
@@ -2922,6 +3014,12 @@ static int stm32_flash_erase(u64 addr, u32 size)
 
 	start_sector = (u32)(addr - FLASH_BANK1_BASE) / BL_FLASH_SECTOR_SIZE;
 	end_sector   = (u32)(addr + size - 1 - FLASH_BANK1_BASE) / BL_FLASH_SECTOR_SIZE;
+
+	if (max_sector == 0 || end_sector >= max_sector) {
+		pr_err("stm32_flash_erase: sector %u beyond bank (max %u)\n",
+			end_sector, max_sector ? max_sector - 1 : 0);
+		return -EINVAL;
+	}
 
 	HAL_FLASH_Unlock();
 
@@ -3029,8 +3127,13 @@ const u32 stm32_sector_size[BL_F4_SECTOR_COUNT] = {
 
 static int stm32_flash_get_sector(u32 addr)
 {
-	u32 offset = addr - FLASH_BASE;
+	u32 offset;
 	u32 accum = 0;
+
+	if (addr < FLASH_BASE) {
+		return -EINVAL;
+	}
+	offset = addr - FLASH_BASE;
 
 	for (u8 i = 0; i < BL_F4_SECTOR_COUNT; i++) {
 		accum += stm32_sector_size[i];
@@ -3048,7 +3151,9 @@ static int stm32_flash_erase(u64 addr, u32 size)
 	s32 start_sector, end_sector;
 	s32 sector;
 
-	if (addr + size > (u64)FLASH_BASE + ROM_TOTAL_SIZE) {
+	if (addr < FLASH_BASE ||
+		addr + size > (u64)FLASH_BASE + ROM_TOTAL_SIZE ||
+		size == 0) {
 		pr_err("stm32_flash_erase: addr 0x%llx+%u out of range\n",
 			addr, size);
 		return -EINVAL;
@@ -3172,6 +3277,12 @@ struct bootloader_ops general_bootloader_ops = {
 u8 pov_read_arm_id(void)
 {
 	static u8 arm_id = 0;
+
+	if (arm_id >= POV_ARM_COUNT) {
+		pr_warn("pov: more arms created than POV_ARM_COUNT (%u)\n",
+			POV_ARM_COUNT);
+		return POV_ARM_BROADCAST;
+	}
 
 	arm_id = (arm_id + 1) & 0xFF;
 

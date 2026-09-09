@@ -37,36 +37,40 @@
 /* Compatibility macros: STM32F4 (SDIO) vs STM32H7 (SDMMC) ------------------*/
 #if defined(SDMMC1)
   /* H7: SDMMC peripheral, no ClockBypass member */
-  #define SD_INSTANCE                 SDMMC1
-  #define SD_CLKREG                   SDMMC1
-  #define SD_CLOCK_EDGE_RISING        SDMMC_CLOCK_EDGE_RISING
-  #define SD_CLOCK_POWER_SAVE_DISABLE SDMMC_CLOCK_POWER_SAVE_DISABLE
-  #define SD_BUS_WIDE_1B              SDMMC_BUS_WIDE_1B
-  #define SD_BUS_WIDE_4B              SDMMC_BUS_WIDE_4B
-  #define SD_BUS_WIDE_8B              SDMMC_BUS_WIDE_8B
-  #define SD_HARDWARE_FLOW_CONTROL_DISABLE SDMMC_HARDWARE_FLOW_CONTROL_DISABLE
-  #define SD_HARDWARE_FLOW_CONTROL_ENABLE  SDMMC_HARDWARE_FLOW_CONTROL_ENABLE
-  #define SD_CLKCR_CLKDIV             SDMMC_CLKCR_CLKDIV
-  #define SD_HAS_CLOCKBYPASS          0
-  #define SD_PERIPH_NAME              "SDMMC"
-  #define SD_HANDLE                   hsd1
-  extern SD_HandleTypeDef             hsd1;
+  #define SD_INSTANCE                       SDMMC1
+  #define SD_CLKREG                         SDMMC1
+  #define SD_CLOCK_EDGE_RISING              SDMMC_CLOCK_EDGE_RISING
+  #define SD_CLOCK_POWER_SAVE_DISABLE       SDMMC_CLOCK_POWER_SAVE_DISABLE
+  #define SD_BUS_WIDE_1B                    SDMMC_BUS_WIDE_1B
+  #define SD_BUS_WIDE_4B                    SDMMC_BUS_WIDE_4B
+  #define SD_BUS_WIDE_8B                    SDMMC_BUS_WIDE_8B
+  #define SD_HARDWARE_FLOW_CONTROL_DISABLE  SDMMC_HARDWARE_FLOW_CONTROL_DISABLE
+  #define SD_HARDWARE_FLOW_CONTROL_ENABLE   SDMMC_HARDWARE_FLOW_CONTROL_ENABLE
+  #define SD_CLKCR_CLKDIV                   SDMMC_CLKCR_CLKDIV
+  #define SD_HAS_CLOCKBYPASS                0
+  #define SD_PERIPH_NAME                    "SDMMC"
+  #define SD_HANDLE                         hsd1
+  extern SD_HandleTypeDef                   hsd1;
+  #define SD_CLEAN_DCACHE(addr, len)        SCB_CleanDCache_by_Addr((uint32_t *)(addr), (len))
+  #define SD_INVALIDATE_DCACHE(addr, len)   SCB_InvalidateDCache_by_Addr((uint32_t *)(addr), (len))
 #elif defined(SDIO)
   /* F4: SDIO peripheral, has ClockBypass member */
-  #define SD_INSTANCE                 SDIO
-  #define SD_CLKREG                   SDIO
-  #define SD_CLOCK_EDGE_RISING        SDIO_CLOCK_EDGE_RISING
-  #define SD_CLOCK_POWER_SAVE_DISABLE SDIO_CLOCK_POWER_SAVE_DISABLE
-  #define SD_BUS_WIDE_1B              SDIO_BUS_WIDE_1B
-  #define SD_BUS_WIDE_4B              SDIO_BUS_WIDE_4B
-  #define SD_BUS_WIDE_8B              SDIO_BUS_WIDE_8B
-  #define SD_HARDWARE_FLOW_CONTROL_DISABLE SDIO_HARDWARE_FLOW_CONTROL_DISABLE
-  #define SD_HARDWARE_FLOW_CONTROL_ENABLE  SDIO_HARDWARE_FLOW_CONTROL_ENABLE
-  #define SD_CLKCR_CLKDIV             SDIO_CLKCR_CLKDIV
-  #define SD_HAS_CLOCKBYPASS          1
-  #define SD_PERIPH_NAME              "SDIO"
-  #define SD_HANDLE                   hsd
-  extern SD_HandleTypeDef             hsd;
+  #define SD_INSTANCE                       SDIO
+  #define SD_CLKREG                         SDIO
+  #define SD_CLOCK_EDGE_RISING              SDIO_CLOCK_EDGE_RISING
+  #define SD_CLOCK_POWER_SAVE_DISABLE       SDIO_CLOCK_POWER_SAVE_DISABLE
+  #define SD_BUS_WIDE_1B                    SDIO_BUS_WIDE_1B
+  #define SD_BUS_WIDE_4B                    SDIO_BUS_WIDE_4B
+  #define SD_BUS_WIDE_8B                    SDIO_BUS_WIDE_8B
+  #define SD_HARDWARE_FLOW_CONTROL_DISABLE  SDIO_HARDWARE_FLOW_CONTROL_DISABLE
+  #define SD_HARDWARE_FLOW_CONTROL_ENABLE   SDIO_HARDWARE_FLOW_CONTROL_ENABLE
+  #define SD_CLKCR_CLKDIV                   SDIO_CLKCR_CLKDIV
+  #define SD_HAS_CLOCKBYPASS                1
+  #define SD_PERIPH_NAME                    "SDIO"
+  #define SD_HANDLE                         hsd
+  extern SD_HandleTypeDef                   hsd;
+  #define SD_CLEAN_DCACHE(addr, len)        do { } while (0)
+  #define SD_INVALIDATE_DCACHE(addr, len)   do { } while (0)
 #else
   #error "Neither SDMMC1 nor SDIO peripheral is defined. Check STM32 HAL headers."
 #endif
@@ -269,6 +273,7 @@ __weak uint8_t BSP_SD_Init(void)
     }
   }
 
+#if defined(SDMMC1)
   if (card_info.CardType != CARD_SDSC) {
     if (HAL_SD_ConfigSpeedBusOperation(&SD_HANDLE, SDMMC_SPEED_MODE_HIGH) == HAL_OK) {
       pr_info("%s: step3.5 - High Speed OK", SD_PERIPH_NAME);
@@ -276,6 +281,7 @@ __weak uint8_t BSP_SD_Init(void)
       pr_info("%s: step3.5 - High Speed not supported, staying at Default Speed", SD_PERIPH_NAME);
     }
   }
+#endif
 
   /* --- Step 4: Set read/write clocks based on card type ---
    *            Read          Write
@@ -439,7 +445,7 @@ __weak uint8_t BSP_SD_ReadBlocks_DMA(uint32_t *pData, uint32_t ReadAddr, uint32_
   sd_dma_result.rx_done = 0;
   sd_dma_result.error   = 0;
 
-  SCB_CleanDCache_by_Addr((uint32_t *)pData, NumOfBlocks * 512);
+  SD_CLEAN_DCACHE(pData, NumOfBlocks * 512);
 
   if (HAL_SD_ReadBlocks_DMA(&SD_HANDLE, (uint8_t *)pData, ReadAddr, NumOfBlocks) != HAL_OK)
   {
@@ -465,7 +471,7 @@ __weak uint8_t BSP_SD_ReadBlocks_DMA(uint32_t *pData, uint32_t ReadAddr, uint32_
   }
 
   if (sd_state == MSD_OK)
-    SCB_InvalidateDCache_by_Addr((uint32_t *)pData, NumOfBlocks * 512);
+    SD_INVALIDATE_DCACHE(pData, NumOfBlocks * 512);
 
   return sd_state;
 }
@@ -504,7 +510,7 @@ __weak uint8_t BSP_SD_WriteBlocks_DMA(uint32_t *pData, uint32_t WriteAddr, uint3
   sd_dma_result.tx_done = 0;
   sd_dma_result.error   = 0;
 
-  SCB_CleanDCache_by_Addr((uint32_t *)pData, NumOfBlocks * 512);
+  SD_CLEAN_DCACHE(pData, NumOfBlocks * 512);
 
   /* Write block(s) in DMA transfer mode */
   if (HAL_SD_WriteBlocks_DMA(&SD_HANDLE, (uint8_t *)pData, WriteAddr, NumOfBlocks) != HAL_OK)

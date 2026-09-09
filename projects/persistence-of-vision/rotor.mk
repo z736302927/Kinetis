@@ -23,6 +23,7 @@ C_SOURCES += $(wildcard ../drivers/kinetis/nrf24l01/src/driver_nrf24l01.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/nrf24l01_port.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/w25qxx/src/driver_w25qxx.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/w25qxx_port.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/bootloader.c)
 
 # CubeMX core/peripheral sources
 C_SOURCES += $(wildcard $(CHIP_SRC_DIR)/Core/Src/*.c)
@@ -90,6 +91,8 @@ C_SOURCES += $(wildcard ../drivers/kinetis/CmBacktrace/cm_backtrace/*.c)
 # C_SOURCES += $(LWIP_ROOT)/src/netif/ethernet.c
 
 # C_SOURCES += $(wildcard ../projects/persistence-of-vision/wifi/*.c)
+
+EXCLUDE_SOURCES += $(wildcard ../projects/persistence-of-vision/test.c)
 
 # Startup assembly
 S_SOURCES += $(CHIP_SRC_DIR)/startup_stm32h743xx.s

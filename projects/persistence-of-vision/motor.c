@@ -39,7 +39,9 @@ void motor_stop(struct motor_controller *motor)
 {
 	motor_set_pwm(motor, 0);
 	motor_set_direction(motor, 0);
+	motor->sim_rpm_fixed = 0;
 	motor->measured_rpm = 0;
+	motor->period_us = 0;
 }
 
 static void motor_simulation_step(struct motor_controller *motor)

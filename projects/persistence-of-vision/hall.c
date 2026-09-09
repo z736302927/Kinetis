@@ -92,7 +92,6 @@ void hall_hall_isr(struct hall_device *dev, u32 capture_value)
 	matrix_t *z = kalman_get_measurement_vector(kfm);
 	matrix_t *x = kalman_get_state_vector(kf);
 	matrix_t *Q = kalman_get_input_covariance(kf);
-	static u32 pulse_cnt;
 	s32 delta;
 	s32 raw_rpm;
 	s32 filter_rpm;
@@ -125,7 +124,7 @@ void hall_hall_isr(struct hall_device *dev, u32 capture_value)
 
 #if KINETIS_FAKE_SIM
 // 	/* Log comparison: raw vs filtered (every 8 pulses)         */
-// 	if ((pulse_cnt++ & 7) == 0) {
+// 	if ((dev->pulse_cnt++ & 7) == 0) {
 // 		raw_rpm = capture_value ? (s32)(60000000 / capture_value) : 0;
 // 		filter_rpm = dev->period_ticks ? (s32)(60000000 / dev->period_ticks) : 0;
 // 		delta = (s32)capture_value - (s32)dev->period_ticks;

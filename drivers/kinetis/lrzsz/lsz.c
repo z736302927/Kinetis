@@ -100,13 +100,39 @@ struct sz_ {
 	int hyperterm;
 	int io_mode_fd;
 	size_t total_bytes_sent;
+	bool stream_file;
+	bool input_open;
 
 	void (*complete_cb)(const char *filename, int result, size_t size, u64 date);
 	bool (*tick_cb)(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left);
+	long total_bytes;
+	int calcs_done;
+	long last_error_count;
+	int last_blklen;
+	long last_bytes_per_error;
 
+	struct lrzsz_transfer_control *control;
 };
 
 typedef struct sz_ sz_t;
+
+static void sz_release_file_buffer(sz_t *sz)
+{
+	if (sz->mm_addr)
+		kfree(sz->mm_addr);
+
+	sz->mm_addr = NULL;
+	sz->mm_size = 0;
+}
+
+static void sz_close_input_file(sz_t *sz)
+{
+	if (sz->input_open) {
+		f_close(sz->input_f);
+		sz->input_open = false;
+	}
+}
+
 
 static sz_t *
 sz_init(struct serial_port *serial, size_t readnum, size_t bufsize, int no_timeout,
@@ -118,8 +144,8 @@ sz_init(struct serial_port *serial, size_t readnum, size_t bufsize, int no_timeo
 	long min_bps, long min_bps_time,
 	char *tcp_server_address, int tcp_socket, int hyperterm,
 	void (*complete_cb)(const char *filename, int result, size_t size, u64 date),
-	bool (*tick_cb)(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left)
-)
+	bool (*tick_cb)(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left),
+	struct lrzsz_transfer_control *control)
 {
 	sz_t *sz = kmalloc(sizeof(sz_t), GFP_KERNEL);
 	memset(sz, 0, sizeof(sz_t));
@@ -157,6 +183,7 @@ sz_init(struct serial_port *serial, size_t readnum, size_t bufsize, int no_timeo
 	sz->hyperterm = hyperterm;
 	sz->complete_cb = complete_cb;
 	sz->tick_cb = tick_cb;
+	sz->control = control;
 	sz->input_f = kmalloc(sizeof(FIL), GFP_KERNEL);
 	return sz;
 }
@@ -170,6 +197,8 @@ sz_free(sz_t *sz)
 	if (sz->zm) {
 		zm_free(sz->zm);
 	}
+	sz_close_input_file(sz);
+	sz_release_file_buffer(sz);
 	kfree(sz->input_f);
 	kfree(sz);
 }
@@ -245,12 +274,14 @@ size_t zmodem_send(struct serial_port *serial,
 	bool (*tick)(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left),
 	void (*complete)(const char *filename, int result, size_t size, u64 date),
 	u64 min_bps,
-	u32 flags)
+	u32 flags,
+ 	struct lrzsz_transfer_control *control)
 {
+ 	size_t total_bytes_sent;
 	sz_t *sz = sz_init(serial,
 			SERIAL_PORT_BUFFER_SIZE, /* readnum */
 			SERIAL_PORT_BUFFER_SIZE, /* bufsize */
-			1, /* no_timeout */
+			no_timeout, /* no_timeout */
 			600,	/* rxtimeout */
 			0, 	/* znulls */
 			0,	/* eflag */
@@ -280,8 +311,15 @@ size_t zmodem_send(struct serial_port *serial,
 			-1,	  /* tcp_socket */
 			0,	  /* hyperterm */
 			complete,  /* file complete callback */
-			tick	      /* tick callback */
+			tick,	      /* tick callback */
+			control
 		);
+	sz->stream_file = !!(flags & RZSZ_FLAGS_STREAM_FILE);
+	if (control) {
+		control->active = 1;
+		control->cancelled = 0;
+		control->transferred = 0;
+	}
 	pr_info("initial protocol is ZMODEM");
 	if (sz->start_blklen == 0) {
 		sz->start_blklen = 1024;
@@ -338,9 +376,12 @@ size_t zmodem_send(struct serial_port *serial,
 		pr_info(_("Transfer complete"));
 	}
 
+	total_bytes_sent = sz->total_bytes_sent;
+	if (control)
+		control->active = 0;
 	sz_free(sz);
 
-	return sz->total_bytes_sent;
+	return total_bytes_sent;
 }
 
 static int
@@ -466,6 +507,12 @@ sz_transmit_file(sz_t *sz, const char *oname, const char *remotename)
 	FRESULT res;
 	int ret;
 
+	/* Every pathname owns a distinct mapped buffer.  Some valid ZRINIT
+	 * paths return before the normal ZEOF cleanup, so never carry a map
+	 * into the next file. */
+	sz_close_input_file(sz);
+	sz_release_file_buffer(sz);
+
 	/* First we do many checks to ensure that the filename is
 	 * valid and that the user is permitted to send these
 	 * files. */
@@ -475,6 +522,7 @@ sz_transmit_file(sz_t *sz, const char *oname, const char *remotename)
 		++sz->errcnt;
 		return OK;
 	}
+	sz->input_open = true;
 	strcpy(name, oname);
 	/* Check for directory or block special files */
 
@@ -535,10 +583,13 @@ sz_transmit_file(sz_t *sz, const char *oname, const char *remotename)
 	pr_debug(_("Bytes Sent:%7ld   BPS:%-8ld"),
 		(long) zi.bytes_sent, bps);
 
-	sz->total_bytes_sent += zi.bytes_sent;
+	/* A successful ZRINIT means the receiver accepted the complete file.
+	 * zi.bytes_sent is a protocol cursor and may have been rewritten by a
+	 * late ZRPOS, so it is not a reliable completed-byte total. */
+	sz->total_bytes_sent += zi.bytes_total;
 
 	if (sz->complete_cb) {
-		sz->complete_cb(zi.fname, 0, zi.bytes_sent, zi.modtime);
+		sz->complete_cb(zi.fname, 0, zi.bytes_total, zi.modtime);
 	}
 
 	return 0;
@@ -719,6 +770,7 @@ sz_transmit_file_contents(sz_t *sz, struct zm_fileinfo *zi)
 		;
 	if (firstch == CAN) {
 		pr_err(_("Receiver Cancelled"));
+		sz_close_input_file(sz);
 		return ERROR;
 	}
 	if (firstch == WANTCRC) {
@@ -736,11 +788,12 @@ sz_transmit_file_contents(sz_t *sz, struct zm_fileinfo *zi)
 			break;
 		}
 		if (sz_transmit_sector(sz, sz->txbuf, ++sectnum, thisblklen) == ERROR) {
+			sz_close_input_file(sz);
 			return ERROR;
 		}
 		zi->bytes_sent += thisblklen;
 	}
-	f_close(sz->input_f);
+	sz_close_input_file(sz);
 	attempts = 0;
 	do {
 		zreadline_flushline(sz->zm->zr);
@@ -990,7 +1043,7 @@ usage(int exitcode, const char *what)
 static int
 sz_getzrxinit(sz_t *sz)
 {
-	static int dont_send_zrqinit = 1;
+	int dont_send_zrqinit = 1;
 	int old_timeout = sz->zm->rxtimeout;
 	int n;
 	u32 rxpos;
@@ -1178,32 +1231,40 @@ again:
 			 * complement of the CRC is an answering ZCRC
 			 * header." */
 			crc = 0xFFFFFFFFL;
-			if (!sz->mm_addr) {
+			if (!sz->stream_file && !sz->mm_addr) {
 				UINT br;
+
 				sz->mm_size = f_size(sz->input_f);
-				sz->mm_addr = kmalloc(sz->mm_size, GFP_KERNEL);
-				if (sz->mm_addr != NULL) {
-					f_read(sz->input_f, sz->mm_addr, sz->mm_size, &br);
-					f_close (sz->input_f);
+				if (sz->mm_size) {
+					sz->mm_addr = kmalloc(sz->mm_size, GFP_KERNEL);
+					if (sz->mm_addr) {
+						if (f_read(sz->input_f, sz->mm_addr, sz->mm_size, &br) != FR_OK ||
+							br != sz->mm_size) {
+							sz_release_file_buffer(sz);
+							f_lseek(sz->input_f, 0L);
+						} else {
+							sz_close_input_file(sz);
+						}
+					}
 				}
 			}
 			if (sz->mm_addr) {
 				size_t i;
-				size_t count;
+				size_t count = (rxpos > 0 && rxpos < sz->mm_size) ? rxpos : sz->mm_size;
 				char *p = sz->mm_addr;
-				count = (rxpos < sz->mm_size && rxpos > 0) ? rxpos : sz->mm_size;
-				for (i = 0; i < count; i++, p++) {
+
+				for (i = 0; i < count; i++, p++)
 					crc = UPDC32(*p, crc);
-			}
 			crc = ~crc;
 			} else if (sz->canseek >= 0) {
 				FRESULT ret;
 				UINT br;
 				u8 buf[256];
 
-				if (rxpos == 0) {
+				if (rxpos == 0 || rxpos > f_size(sz->input_f)) {
 					rxpos = f_size(sz->input_f);
 				}
+				f_lseek(sz->input_f, 0L);
 				while (rxpos > 0) {
 					UINT to_read = (rxpos > sizeof(buf)) ? sizeof(buf) : rxpos;
 					ret = f_read(sz->input_f, buf, to_read, &br);
@@ -1226,12 +1287,8 @@ again:
 			 * size, etc are acceptable] The receiver may respond
 			 * with a ZSKIP header, which makes the sender proceed
 			 * to the next file (if any)." */
-			if (sz->input_f) {
-				f_close(sz->input_f);
-			} else if (sz->mm_addr) {
-				kfree(sz->mm_addr);
-				sz->mm_addr = NULL;
-			}
+			sz_close_input_file(sz);
+			sz_release_file_buffer(sz);
 
 			pr_debug("receiver skipped");
 			return c;
@@ -1270,22 +1327,29 @@ again:
 static int
 sz_transmit_file_contents_by_zmodem (sz_t *sz, struct zm_fileinfo *zi)
 {
-	static int c;
-	static int junkcount;				/* Counts garbage chars received by TX */
-	static size_t last_txpos = 0;
-	static long last_bps = 0;
-	static long not_printed = 0;
-	static long total_sent = 0;
-	static u64 low_bps = 0;
+	int c;
+	int junkcount;				/* Counts garbage chars received by TX */
+	size_t last_txpos = 0;
+	long last_bps = 0;
+	long not_printed = 0;
+	long total_sent = 0;
+	u64 low_bps = 0;
 
-	/* memmap that file, if necessary */
-	if (!sz->mm_addr) {
+	if (!sz->stream_file && !sz->mm_addr) {
+		UINT br;
+
 		sz->mm_size = f_size(sz->input_f);
-		sz->mm_addr = kmalloc(sz->mm_size, GFP_KERNEL);
-		if (sz->mm_addr != NULL) {
-			UINT br;
-			f_read(sz->input_f, sz->mm_addr, sz->mm_size, &br);
-			f_close (sz->input_f);
+		if (sz->mm_size) {
+			sz->mm_addr = kmalloc(sz->mm_size, GFP_KERNEL);
+			if (sz->mm_addr) {
+				if (f_read(sz->input_f, sz->mm_addr, sz->mm_size, &br) != FR_OK ||
+				    br != sz->mm_size) {
+					sz_release_file_buffer(sz);
+					f_lseek(sz->input_f, 0L);
+				} else {
+					sz_close_input_file(sz);
+				}
+			}
 		}
 	}
 
@@ -1302,24 +1366,20 @@ waitack:
 gotack:
 		switch (c) {
 		default:
-			if (sz->input_f) {
-				f_close (sz->input_f);
-			}
+			sz_close_input_file(sz);
 			return ERROR;
 		case ZCAN:
-			if (sz->input_f) {
-				f_close (sz->input_f);
-			}
+			sz_close_input_file(sz);
 			return ERROR;
 		case ZSKIP:
-			if (sz->input_f) {
-				f_close (sz->input_f);
-			}
+			sz_close_input_file(sz);
 			return c;
 		case ZACK:
 		case ZRPOS:
 			break;
 		case ZRINIT:
+			sz_close_input_file(sz);
+			sz_release_file_buffer(sz);
 			return OK;
 		}
 		/*
@@ -1355,6 +1415,13 @@ gotack:
 	do {
 		size_t n;
 		int e;
+		if (sz->control && sz->control->cancel_requested) {
+			sz->control->cancelled = 1;
+			pr_info("transfer cancellation requested after %zu bytes\n",
+				sz->control->transferred);
+			sz_close_input_file(sz);
+			return ERROR;
+		}
 		unsigned old = sz->blklen;
 		sz->blklen = sz_calculate_block_length (sz, total_sent);
 		total_sent += sz->blklen + OVERHEAD;
@@ -1426,6 +1493,7 @@ gotack:
 							/* too bad */
 							pr_info(_("sz_transmit_file_contents_by_zmodem: bps rate %ld below min %ld"),
 								last_bps, sz->min_bps);
+							sz_close_input_file(sz);
 							return ERROR;
 						}
 					} else {
@@ -1438,6 +1506,7 @@ gotack:
 			if (sz->stop_time && now >= sz->stop_time) {
 				/* too bad */
 				pr_info(_("sz_transmit_file_contents_by_zmodem: reached stop time"));
+				sz_close_input_file(sz);
 				return ERROR;
 			}
 
@@ -1449,6 +1518,7 @@ gotack:
 					last_bps, minleft, secleft);
 				if (!more) {
 					pr_info(_("sz_transmit_file_contents_by_zmodem: tick callback returns FALSE"));
+					sz_close_input_file(sz);
 					return ERROR;
 				}
 			}
@@ -1458,6 +1528,12 @@ gotack:
 		}
 		ZM_SEND_DATA (DATAADR, n, e);
 		sz->bytcnt = zi->bytes_sent += n;
+		if (sz->control) {
+			sz->control->transferred = zi->bytes_sent;
+			if (sz->control->cancel_after && sz->control->transferred > sz->control->cancel_after) {
+				sz->control->cancel_requested = 1;
+			}
+		}
 		if (e == ZCRCW)
 			/* Spec 8.2: "ZCRCW data subpackets expect a
 			 * response before the next frame is sent." */
@@ -1521,20 +1597,14 @@ gotack:
 		case ZRINIT:
 			/* If the receiver is satisfied with the file,
 			 * it returns ZRINIT. */
-			if (sz->mm_addr) {
-				kfree(sz->mm_addr);
-				sz->mm_addr = NULL;
-			}
+			sz_close_input_file(sz);
+			sz_release_file_buffer(sz);
 			return OK;
 		case ZSKIP:
-			if (sz->input_f) {
-				f_close (sz->input_f);
-			}
+			sz_close_input_file(sz);
 			return c;
 		default:
-			if (sz->input_f) {
-				f_close (sz->input_f);
-			}
+			sz_close_input_file(sz);
 			return ERROR;
 		}
 	}
@@ -1543,30 +1613,30 @@ gotack:
 static int
 sz_calculate_block_length(sz_t *sz, long total_sent)
 {
-	static long total_bytes = 0;
-	static int calcs_done = 0;
-	static long last_error_count = 0;
-	static int last_blklen = 0;
-	static long last_bytes_per_error = 0;
+	long total_bytes = 0;
+	int calcs_done = 0;
+	long last_error_count = 0;
+	int last_blklen = 0;
+	long last_bytes_per_error = 0;
 	unsigned long best_bytes = 0;
 	long best_size = 0;
 	long this_bytes_per_error;
 	long d;
 	unsigned int i;
-	if (total_bytes == 0) {
+	if (sz->total_bytes == 0) {
 		/* called from sz_countem */
-		total_bytes = total_sent;
+		sz->total_bytes = total_sent;
 		return 0;
 	}
 
 	/* it's not good to calc blklen too early */
-	if (calcs_done++ < 5) {
+	if (sz->calcs_done++ < 5) {
 		if (sz->error_count && sz->start_blklen > 1024) {
-			return last_blklen = 1024;
+			return sz->last_blklen = 1024;
 		} else {
-			last_blklen /= 2;
+			sz->last_blklen /= 2;
 		}
-		return last_blklen = sz->start_blklen;
+		return sz->last_blklen = sz->start_blklen;
 	}
 
 	if (!sz->error_count) {
@@ -1578,23 +1648,23 @@ sz_calculate_block_length(sz_t *sz, long total_sent)
 		goto calcit;
 	}
 
-	if (sz->error_count != last_error_count) {
+	if (sz->error_count != sz->last_error_count) {
 		/* the last block was bad. shorten blocks until one block is
 		 * ok. this is because very often many errors come in an
 		 * short period */
 		if (sz->error_count & 2) {
-			last_blklen /= 2;
-			if (last_blklen < 32) {
-				last_blklen = 32;
+			sz->last_blklen /= 2;
+			if (sz->last_blklen < 32) {
+				sz->last_blklen = 32;
 			} else if (last_blklen > 512) {
-				last_blklen = 512;
+				sz->last_blklen = 512;
 			}
 			pr_notice(_("sz_calculate_block_length: reduced to %d due to error\n"),
-				last_blklen);
+				sz->last_blklen);
 		}
-		last_error_count = sz->error_count;
-		last_bytes_per_error = 0; /* force recalc */
-		return last_blklen;
+		sz->last_error_count = sz->error_count;
+		sz->last_bytes_per_error = 0; /* force recalc */
+		return sz->last_blklen;
 	}
 
 	this_bytes_per_error = total_sent / sz->error_count;
@@ -1615,30 +1685,30 @@ sz_calculate_block_length(sz_t *sz, long total_sent)
 	/* be nice to the poor machine and do the complicated things not
 	 * too often
 	 */
-	if (last_bytes_per_error > this_bytes_per_error) {
-		d = last_bytes_per_error - this_bytes_per_error;
+	if (sz->last_bytes_per_error > this_bytes_per_error) {
+		d = sz->last_bytes_per_error - this_bytes_per_error;
 	} else {
-		d = this_bytes_per_error - last_bytes_per_error;
+		d = this_bytes_per_error - sz->last_bytes_per_error;
 	}
 	if (d < 4) {
 		pr_notice(_("sz_calculate_block_length: returned old value %d due to low bpe diff\n"),
-			last_blklen);
+			sz->last_blklen);
 		pr_notice(_("sz_calculate_block_length: old %ld, new %ld, d %ld\n"),
-			last_bytes_per_error, this_bytes_per_error, d);
-		return last_blklen;
+			sz->last_bytes_per_error, this_bytes_per_error, d);
+		return sz->last_blklen;
 	}
-	last_bytes_per_error = this_bytes_per_error;
+	sz->last_bytes_per_error = this_bytes_per_error;
 
 calcit:
 	pr_notice(_("sz_calculate_block_length: calc total_bytes=%ld, bpe=%ld, ec=%ld\n"),
-		total_bytes, this_bytes_per_error, (long) sz->error_count);
+		sz->total_bytes, this_bytes_per_error, (long) sz->error_count);
 	for (i = 32; i <= sz->max_blklen; i *= 2) {
 		long ok; /* some many ok blocks do we need */
 		long failed; /* and that's the number of blocks not transmitted ok */
 		unsigned long transmitted;
-		ok = total_bytes / i + 1;
+		ok = sz->total_bytes / i + 1;
 		failed = ((long) i + OVERHEAD) * ok / this_bytes_per_error;
-		transmitted = total_bytes + ok * OVERHEAD
+		transmitted = sz->total_bytes + ok * OVERHEAD
 			+ failed * ((long) i + OVERHEAD + OVER_ERR);
 		pr_notice(_("sz_calculate_block_length: blklen %d, ok %ld, failed %ld -> %lu\n"),
 			i, ok, failed, transmitted);
@@ -1647,13 +1717,13 @@ calcit:
 			best_size = i;
 		}
 	}
-	if (best_size > 2 * last_blklen) {
-		best_size = 2 * last_blklen;
+	if (best_size > 2 * sz->last_blklen) {
+		best_size = 2 * sz->last_blklen;
 	}
-	last_blklen = best_size;
+	sz->last_blklen = best_size;
 	pr_notice(_("sz_calculate_block_length: returned %d as best\n"),
-		last_blklen);
-	return last_blklen;
+		sz->last_blklen);
+	return sz->last_blklen;
 }
 
 /*
@@ -1698,12 +1768,8 @@ sz_getinsync(sz_t *sz, struct zm_fileinfo *zi, int flag)
 			continue;
 		case ZRINIT:
 		case ZSKIP:
-			if (sz->input_f) {
-				f_close(sz->input_f);
-			} else if (sz->mm_addr) {
-				kfree(sz->mm_addr);
-				sz->mm_addr = NULL;
-			}
+			sz_close_input_file(sz);
+			sz_release_file_buffer(sz);
 			return c;
 		case ERROR:
 		default:

@@ -348,10 +348,36 @@ zm_put_escaped_char(zm_t *zm, int c)
 static void
 zm_put_escaped_string(zm_t *zm, const char *s, size_t count)
 {
+#if ZMODEM_BATCH_ESCAPE
+	u8 encoded[SERIAL_PORT_BUFFER_SIZE];
+	size_t used = 0;
+	while (count--) {
+		int c = (u8)*s++;
+		int escape = zm->escape_sequence_table[c];
+		// printf("escape %d\n", escape);
+		/* One input byte expands to at most ZDLE plus one escaped byte. */
+		if (used + 2 > ARRAY_SIZE(encoded)) {
+			serial_port_transmit_bytes(zm->serial, encoded, used);
+			used = 0;
+		}
+		if (escape == ZM_ESCAPE_ALWAYS ||
+		    (escape == ZM_ESCAPE_AFTER_AMPERSAND &&
+		     (zm->lastsent & 0x7f) == '@')) {
+			encoded[used++] = ZDLE;
+			c ^= 0x80;
+		}
+		encoded[used++] = c;
+		zm->lastsent = c;
+	}
+	if (used)
+		serial_port_transmit_bytes(zm->serial, encoded, used);
+#else
 	const char *end = s + count;
+
 	while (s != end) {
 		int last_esc = 0;
 		const char *t = s;
+
 		while (t != end) {
 			last_esc = zm->escape_sequence_table[(unsigned)((*t) & 0xFF)];
 			if (last_esc) {
@@ -388,6 +414,7 @@ zm_put_escaped_string(zm_t *zm, const char *s, size_t count)
 			s++;
 		}
 	}
+#endif
 }
 
 /* Send ZMODEM binary header hdr of type type */
@@ -526,8 +553,8 @@ zm_send_data(zm_t *zm, const char *buf, size_t length, int frameend)
 	pr_notice("zm_send_data: %lu %s", (unsigned long) length,
 		Zendnames[(frameend - ZCRCE) & 3]);
 	crc = 0;
+	zm_put_escaped_string(zm, buf, length);
 	for (size_t i = 0; i < length; i++) {
-		zm_put_escaped_char(zm, buf[i]);
 		crc = updcrc((0xFF & buf[i]), crc);
 	}
 	serial_port_transmit_byte(zm->serial, ZDLE);
@@ -660,7 +687,7 @@ crcfoo:
 				return d;
 			}
 			case GOTCAN:
-				pr_err(_("Sender Canceled"));
+				pr_warn(_("Sender Canceled"));
 				return ZCAN;
 			case TIMEOUT:
 				pr_err(_("TIMEOUT"));
@@ -722,7 +749,7 @@ crcfoo:
 					Zendnames[(d - GOTCRCE) & 3]);
 				return d;
 			case GOTCAN:
-				pr_err(_("Sender Canceled"));
+				pr_warn(_("Sender Canceled"));
 				return ZCAN;
 			case TIMEOUT:
 				pr_err(_("TIMEOUT"));
@@ -891,7 +918,7 @@ fifi:
 	case ERROR:
 	case TIMEOUT:
 	case RCDO:
-		pr_err(_("Got %s"), frametypes[c + FTOFFSET]);
+ 		pr_warn(_("Got %s"), frametypes[c + FTOFFSET]);
 	/* **** FALL THRU TO **** */
 	default:
 		if (c >= -3 && c <= FRTYPES) {
@@ -1142,11 +1169,13 @@ zm_reclaim_receive_header(zm_t *zm)
 void
 zm_ackbibi(zm_t *zm)
 {
+	int c;
 	int n;
 
 	pr_debug("ackbibi:");
 	zm_set_header_payload(zm, 0);
 	for (n = 3; --n >= 0;) {
+#if 0
 		zreadline_flushline(zm->zr);
 		zm_send_hex_header(zm, ZFIN);
 		switch (zreadline_getc(zm->zr, 100)) {
@@ -1160,6 +1189,25 @@ zm_ackbibi(zm_t *zm)
 		default:
 			break;
 		}
+#else
+		zm_send_hex_header(zm, ZFIN);
+		/* A repeated sender ZFIN may already be ahead of "OO" in the
+		* receive queue. Ignore those frame bytes without flushing the
+		* queue; otherwise the following "OO" (or a new MAVLink frame)
+		* can be discarded with them. */
+		for (;;) {
+			c = zreadline_getc(zm->zr, 100);
+			if (c == 'O') {
+				zreadline_getc(zm->zr, 1); /* Discard 2nd 'O' */
+				pr_debug("ackbibi complete");
+				return;
+			}
+			if (c == RCDO)
+				return;
+			if (c == TIMEOUT)
+				break;
+		}
+#endif
 	}
 }
 

@@ -34,6 +34,8 @@ struct hall_device {
 	struct tim_task fake_pulse_task;
 	void *priv;
 
+	u32 pulse_cnt;
+
 	/* Per-instance Kalman filter state */
 	kalman_t                kf;
 	kalman_measurement_t    kfm;

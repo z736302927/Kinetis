@@ -25,6 +25,7 @@
 #define pr_fmt(fmt) "lrz: " fmt
 
 #include <linux/printk.h>
+#include <linux/limits.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/delay.h>
@@ -47,6 +48,17 @@
 const char *program_name;		/* the name by which we were called */
 
 static int no_timeout = FALSE;
+
+/* "OOSB" means Out Of Sync Block. I once thought that if sz sents
+ * blocks a,b,c,d, of which a is ok, b fails, we might want to save
+ * c and d. But, alas, i never saw c and d.
+ */
+typedef struct oosb_t {
+	size_t pos;
+	size_t len;
+	char *data;
+	struct oosb_t *next;
+} oosb_t;
 
 struct rz_ {
 	zm_t *zm;		/* Zmodem comm primitives' state. */
@@ -124,6 +136,8 @@ struct rz_ {
 
 	size_t bytes_received;	/* Total bytes received across all files */
 	const char *directory;	/* If non-NULL, directory to save received files in. */
+	oosb_t *oosb;		/* Out-of-sync blocks named by this receive session. */
+	bool cancelled;
 
 };
 
@@ -212,8 +226,23 @@ rz_init(struct serial_port *serial, size_t readnum, size_t bufsize, int no_timeo
 	rz->complete_cb = complete_cb;
 	rz->approver_cb = approver_cb;
 	rz->bytes_received = 0;
+	rz->cancelled = false;
 	return rz;
 
+}
+ 
+static void rz_clear_oosb(rz_t *rz)
+{
+	oosb_t *block = rz->oosb;
+
+	while (block) {
+		oosb_t *next = block->next;
+
+		kfree(block->data);
+		kfree(block);
+		block = next;
+	}
+	rz->oosb = NULL;
 }
 
 void
@@ -225,6 +254,9 @@ rz_free(rz_t *rz)
 	if (rz->zm) {
 		zm_free(rz->zm);
 	}
+	rz_clear_oosb(rz);
+	if (rz->pathname)
+		kfree(rz->pathname);
 	kfree(rz->fout);
 	kfree(rz);
 }
@@ -245,7 +277,7 @@ bibi(rz_t *rz)
  * Let's receive something already.
  */
 
-size_t zmodem_receive(struct serial_port *serial,
+int zmodem_receive(struct serial_port *serial,
 	const char *directory,
 	bool approver_cb(const char *filename, size_t size, u64 date),
 	bool tick_cb(const char *fname, long bytes_sent, long bytes_total, long last_bps, int min_left, int sec_left),
@@ -256,7 +288,7 @@ size_t zmodem_receive(struct serial_port *serial,
 	rz_t *rz = rz_init(serial,
 			SERIAL_PORT_BUFFER_SIZE, /* readnum */
 			SERIAL_PORT_BUFFER_SIZE, /* bufsize */
-			1, /* no_timeout */
+			no_timeout, /* no_timeout */
 			100,		 /* rxtimeout */
 			0,		 /* znulls */
 			0,		 /* eflag */
@@ -271,9 +303,9 @@ size_t zmodem_receive(struct serial_port *serial,
 			0,		 /* min_bps */
 			120,		 /* min_bps_tim */
 			0,		 /* stop_time */
-			1,		 /* try_resume */
+			!(flags & RZSZ_FLAGS_CLOBBER), /* try_resume */
 			1,		 /* makelcpathname */
-			0,		 /* rxclob */
+			!(flags & RZSZ_FLAGS_CLOBBER), /* rxclob */
 			0,		 /* o_sync */
 			0,		 /* tcp_flag */
 			0,		 /* topipe */
@@ -284,6 +316,7 @@ size_t zmodem_receive(struct serial_port *serial,
 		);
 	rz->zm->baudrate = io_mode(rz->zm->serial, 1);
 	int exitcode = 0;
+ 	int result = 0;
 	if (rz_receive(rz) == ERROR) {
 		exitcode = 0200;
 		zreadline_canit(rz->zm->zr);
@@ -294,13 +327,18 @@ size_t zmodem_receive(struct serial_port *serial,
 	}
 	if (exitcode) {
 		pr_info(_("Transfer incomplete"));
+		result = rz->cancelled ? -ECANCELED : -EIO;
 	} else {
 		pr_info(_("Transfer complete"));
 	}
 
 	size_t bytes = rz->bytes_received;
 	rz_free(rz);
-	return bytes;
+	if (result < 0)
+		return result;
+	if (bytes > INT_MAX)
+		return -EOVERFLOW;
+	return (int)bytes;
 }
 
 static int
@@ -328,7 +366,6 @@ rz_receive(rz_t *rz)
 			goto fubar;
 		}
 		c = rz_receive_files(rz, &zi);
-		rz->bytes_received += zi.bytes_received;
 
 		if (c) {
 			goto fubar;
@@ -1124,6 +1161,7 @@ again:
 			return ERROR;
 		case ZCAN:
 			pr_info(_("got ZCAN"));
+			rz->cancelled = true;
 			return ERROR;
 		}
 	}
@@ -1145,6 +1183,8 @@ rz_receive_files(rz_t *rz, struct zm_fileinfo *zi)
 		case ZEOF: {
 			double d;
 			long bps;
+
+			rz->bytes_received += zi->bytes_received;
 			d = timing(0, NULL);
 			if (d == 0) {
 				d = 0.5;    /* can happen if timing uses time() */
@@ -1175,18 +1215,6 @@ rz_receive_files(rz_t *rz, struct zm_fileinfo *zi)
 	}
 }
 
-/* "OOSB" means Out Of Sync Block. I once thought that if sz sents
- * blocks a,b,c,d, of which a is ok, b fails, we might want to save
- * c and d. But, alas, i never saw c and d.
- */
-typedef struct oosb_t {
-	size_t pos;
-	size_t len;
-	char *data;
-	struct oosb_t *next;
-} oosb_t;
-struct oosb_t *anker = NULL;
-
 /*
  * Receive a file with ZMODEM protocol
  *  Assumes file name frame is in rz->secbuf
@@ -1201,6 +1229,7 @@ rz_receive_file(rz_t *rz, struct zm_fileinfo *zi)
 	u64 low_bps = 0;
 	size_t bytes_in_block = 0;
 
+	rz_clear_oosb(rz);
 	zi->eof_seen = FALSE;
 
 	n = 20;
@@ -1214,9 +1243,9 @@ rz_receive_file(rz_t *rz, struct zm_fileinfo *zi)
 		zm_send_hex_header(rz->zm, ZRPOS);
 		goto skip_oosb;
 nxthdr:
-		if (anker) {
+		if (rz->oosb) {
 			oosb_t *akt, *last, *next;
-			for (akt = anker, last = NULL; akt; last = akt ? akt : last, akt = next) {
+			for (akt = rz->oosb, last = NULL; akt; last = akt ? akt : last, akt = next) {
 				if (akt->pos == zi->bytes_received) {
 					rz_write_string_to_file(rz, zi, akt->data, akt->len);
 					zi->bytes_received += akt->len;
@@ -1231,7 +1260,7 @@ nxthdr:
 					if (last) {
 						last->next = akt->next;
 					} else {
-						anker = akt->next;
+						rz->oosb = akt->next;
 					}
 					kfree(akt->data);
 					kfree(akt);
@@ -1254,6 +1283,9 @@ skip_oosb:
 		case ZFILE:
 			zm_receive_data(rz->zm, rz->secbuf, MAX_BLOCK, &bytes_in_block);
 			continue;
+		case ZCAN:
+			rz->cancelled = true;
+			return ERROR;
 		case ZEOF:
 			if (zm_reclaim_receive_header(rz->zm) != (long) zi->bytes_received) {
 				/*
@@ -1309,8 +1341,8 @@ skip_oosb:
 							memcpy(neu->data, rz->secbuf, bytes_in_block);
 							neu->pos = pos;
 							neu->len = bytes_in_block;
-							neu->next = anker;
-							anker = neu;
+							neu->next = rz->oosb;
+							rz->oosb = neu;
 						} else if (neu) {
 							kfree(neu);
 						}
@@ -1373,6 +1405,7 @@ moredata:
 			switch (c = zm_receive_data(rz->zm, rz->secbuf, MAX_BLOCK, &bytes_in_block)) {
 			case ZCAN:
 				pr_debug("rz_receive_file: zm_receive_data returned %d", c);
+				rz->cancelled = true;
 				return ERROR;
 			case ERROR:	/* CRC error */
 				if (--n < 0) {

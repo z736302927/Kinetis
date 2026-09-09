@@ -8,7 +8,9 @@
 #include <kinetis/real-time-clock.h>
 #include <kinetis/basic-timer.h>
 #include <kinetis/serial-port.h>
-#include "kinetis/bootloader.h"
+#include <kinetis/bootloader.h>
+
+#include <fake-mcu/interface.h>
 
 static int usart1_serial_transmit_bytes(const u8 *data, u16 size)
 {
@@ -24,7 +26,7 @@ static int usart1_serial_receive_bytes(u8 *data, u16 size, u32 timeout_ms)
 
 static void usart1_serial_update_producer(struct serial_port *serial)
 {
-	serial->producer = (serial->producer + serial->transmited_size) % SERIAL_PORT_BUFFER_SIZE;
+	serial->producer = (serial->producer + serial->transmitted_size) % SERIAL_PORT_BUFFER_SIZE;
 	pr_debug("usart1 update producer: prod=%d cons=%d",
 		serial->producer, serial->consumer);
 }
@@ -114,7 +116,7 @@ static int usart2_serial_receive_bytes(u8 *data, u16 size, u32 timeout_ms)
 
 static void usart2_serial_update_producer(struct serial_port *serial)
 {
-	serial->producer = (serial->producer + serial->transmited_size) % SERIAL_PORT_BUFFER_SIZE;
+	serial->producer = (serial->producer + serial->transmitted_size) % SERIAL_PORT_BUFFER_SIZE;
 	pr_debug("usart2 update producer: prod=%d cons=%d",
 		serial->producer, serial->consumer);
 }
@@ -204,7 +206,7 @@ static int usart3_serial_receive_bytes(u8 *data, u16 size, u32 timeout_ms)
 
 static void usart3_serial_update_producer(struct serial_port *serial)
 {
-	serial->producer = (serial->producer + serial->transmited_size) % SERIAL_PORT_BUFFER_SIZE;
+	serial->producer = (serial->producer + serial->transmitted_size) % SERIAL_PORT_BUFFER_SIZE;
 	pr_debug("usart3 update producer: prod=%d cons=%d",
 		serial->producer, serial->consumer);
 }
@@ -294,7 +296,7 @@ static int uart4_serial_receive_bytes(u8 *data, u16 size, u32 timeout_ms)
 
 static void uart4_serial_update_producer(struct serial_port *serial)
 {
-	serial->producer = (serial->producer + serial->transmited_size) % SERIAL_PORT_BUFFER_SIZE;
+	serial->producer = (serial->producer + serial->transmitted_size) % SERIAL_PORT_BUFFER_SIZE;
 	pr_debug("uart4 update producer: prod=%d cons=%d",
 		serial->producer, serial->consumer);
 }
@@ -384,7 +386,7 @@ static int uart5_serial_receive_bytes(u8 *data, u16 size, u32 timeout_ms)
 
 static void uart5_serial_update_producer(struct serial_port *serial)
 {
-	serial->producer = (serial->producer + serial->transmited_size) % SERIAL_PORT_BUFFER_SIZE;
+	serial->producer = (serial->producer + serial->transmitted_size) % SERIAL_PORT_BUFFER_SIZE;
 	pr_debug("uart5 update producer: prod=%d cons=%d",
 		serial->producer, serial->consumer);
 }
@@ -474,7 +476,7 @@ static int usart6_serial_receive_bytes(u8 *data, u16 size, u32 timeout_ms)
 
 static void usart6_serial_update_producer(struct serial_port *serial)
 {
-	serial->producer = (serial->producer + serial->transmited_size) % SERIAL_PORT_BUFFER_SIZE;
+	serial->producer = (serial->producer + serial->transmitted_size) % SERIAL_PORT_BUFFER_SIZE;
 	pr_debug("usart6 update producer: prod=%d cons=%d",
 		serial->producer, serial->consumer);
 }
@@ -551,9 +553,34 @@ struct serial_port_ops usart6_serial_port_ops = {
 };
 
 u8 *general_flash_addr;
+static enum flash_fault_type flash_fault;
+static u32 flash_fault_injected;
+
+void flash_fault_set(enum flash_fault_type fault)
+{
+	flash_fault = fault;
+	flash_fault_injected = 0;
+}
+
+u32 flash_fault_get_injected(void)
+{
+	return flash_fault_injected;
+}
+
+static bool should_reject(enum flash_fault_type fault)
+{
+	if (flash_fault != fault || flash_fault_injected)
+		return false;
+
+	flash_fault_injected++;
+	return true;
+}
 
 static int general_flash_erase(u64 addr, u32 size)
 {
+	if (should_reject(FLASH_FAULT_ERASE))
+		return -EIO;
+
 	if (addr + size > (u64)general_flash_addr + ROM_TOTAL_SIZE) {
 		pr_err("general_erase: addr 0x%x+%u > %u\n", addr, size, ROM_TOTAL_SIZE);
 		return -EINVAL;
@@ -565,6 +592,9 @@ static int general_flash_erase(u64 addr, u32 size)
 
 static int general_flash_write(u64 addr, const u8 *data, u32 size)
 {
+	if (should_reject(FLASH_FAULT_WRITE))
+		return -EIO;
+
 	if (addr + size > (u64)general_flash_addr + ROM_TOTAL_SIZE) {
 		pr_err("general_write: addr 0x%x+%u > %u\n", addr, size, ROM_TOTAL_SIZE);
 		return -EINVAL;
@@ -576,6 +606,9 @@ static int general_flash_write(u64 addr, const u8 *data, u32 size)
 
 static int general_flash_read(u64 addr, u8 *buf, u32 size)
 {
+	if (should_reject(FLASH_FAULT_READ))
+		return -EIO;
+
 	if (addr + size > (u64)general_flash_addr + ROM_TOTAL_SIZE) {
 		pr_err("general_read: addr 0x%x+%u > %u\n", addr, size, ROM_TOTAL_SIZE);
 		return -EINVAL;

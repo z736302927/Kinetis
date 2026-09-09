@@ -338,7 +338,9 @@ int pov_compose_layers(const char *path)
 					continue;
 				}
 				if (read_column(&layer_fp[i], rgb_buf, sizeof(header)) < 0) {
-					continue;
+					pr_warn("blend: layer%d read failed at col %u, aborting %s\n",
+						i, col, fno0.fname);
+					goto close_file;
 				}
 				rgb_to_rgba_col(rgb_buf, rgba_src);
 				for (px = 0; px < POV_LED_COUNT; px++) {

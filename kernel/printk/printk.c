@@ -64,7 +64,7 @@
 #if KINETIS_FAKE_SIM
 #include <pthread.h>
 
-pthread_mutex_t printk_mutex;
+pthread_mutex_t printk_mutex = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
 int console_printk[4] = {
@@ -2040,9 +2040,9 @@ asmlinkage int vprintk_emit(int facility, int level,
 
 	/* This stops the holder of console_sem just where we want him */
 #if KINETIS_FAKE_SIM
-    pthread_mutex_lock(&printk_mutex);
+	pthread_mutex_lock(&printk_mutex);
 	printed_len = vprintk_store(facility, level, dev_info, fmt, args);
-    pthread_mutex_unlock(&printk_mutex);
+	pthread_mutex_unlock(&printk_mutex);
 #else
 // 	logbuf_lock_irqsave(flags);
 	printed_len = vprintk_store(facility, level, dev_info, fmt, args);

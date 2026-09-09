@@ -1,0 +1,45 @@
+/*
+ * Expected log errors for pov.testlist.
+ *
+ * Each active line is a Python regular expression matched against the
+ * complete log line.  Keep rules specific so that unrelated errors still fail.
+ */
+
+// Example (disabled):
+// arm 0: state: ERROR -> WAIT_MOTOR
+
+// MAVLink heartbeat reports a zero-valued error counter during normal operation.
+MAVLink: .*HEARTBEAT.*errors[=:]0\b
+\bstatus[=:]\d+\s+uptime[=:]\d+\s+errors[=:]0\b
+\berrors[=:]0\b
+\berrors[=:]00x[0-9a-fA-F]+\b
+\berrors[=:]0w=0\b
+
+// Negative multi-arm scenarios deliberately force a link transaction to time
+// out, then verify atomic rejection and a clean retry.
+ring: task \d+ timed out waiting for (ACK/ERROR|result \d+)
+ring: ERROR seq=\d+
+(?i)\[pr_debug\] MAVLink: rotor-ring-(cw|ccw): RING_ERROR seq:\d+, node:\d+ from:\d+->\d+ code:\d+
+(?i)\[pr_debug\] MAVLink: RING_ERROR seq=\d+ node=\d+ link=\d+->\d+ code=\d+
+
+// Firmware fault scenarios expect bootloader to reject the staged image or
+// simulated flash operation before retrying the same update successfully.
+bootloader: (CRC32 mismatch|Flash: erase failed|Flash: write failed|Verify: flash_read failed)
+bootloader: (Flashing firmware failed|Staged update rejected)\b
+bootloader: Flash verification failed, waiting for retry\.\.\.
+bootloader: state: (VERIFY|FLASH) -> ERROR
+bootloader: Max retries reached \(3\), aborting
+bootloader: Bootloader failed with ret=-5
+
+// Active-transfer cancellation and injected read-only/storage failures are
+// successful negative tests; paths are restricted to per-arm test fixtures.
+(Sender |Receiver )?Cancelled\b
+'0:/pov_arm\d+/[^']+': failed to (send|receive)
+cannot open 0:/pov_arm\d+/
+lsz: skipped: 0:/pov_arm\d+/firmware/ring-firmware\.bin
+lsz: skipped: 0:/pov_arm\d+/layer[0-3]/[^/]+\.pov
+
+// Ring distribution failing on the master is the expected outcome of the
+// multi-arm transfer cancel and image storage-fault scenarios; the downstream
+// arm reports the concrete per-arm failure which keeps the rule specific.
+arm \d+: cmd: failed to distribute ring files

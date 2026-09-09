@@ -48,7 +48,8 @@ struct pov_stator {
 	u32 uptime_s;
 
 	enum pov_stator_state state;
-	u64 last_rotor_heartbeat_ms;    /* Last time rotor heartbeat received */
+	u64 last_rotor_heartbeat_ms;
+	bool rotor_heartbeat_paused;
 
 	/* ── TUNING sub-state tracking ─────────────────── */
 	u32 tuning_stable_ticks;        /* Consecutive ticks where |err| < threshold */

@@ -1,3 +1,4 @@
+import argparse
 import subprocess
 import sys
 import time
@@ -5,6 +6,7 @@ import os
 import threading
 import queue
 import re
+import shlex
 from datetime import datetime
 from enum import Enum
 
@@ -20,6 +22,18 @@ class TestStatus(Enum):
 # 检测到多少行包含 "error" 字样后中断程序，0 表示不启用此功能
 ERROR_THRESHOLD = 10
 
+# 交互式模式下等待提示符的超时时间（秒）
+PROMPT_TIMEOUT = 30
+
+# 交互式模式下单条命令等待输出的超时时间（秒）
+NO_OUTPUT_TIMEOUT = 60
+
+# 交互式模式下单条命令的最大总执行时间（秒），防止死循环
+MAX_TOTAL_TIME = 300
+
+# 交互式模式下轮询队列输出的间隔（秒）
+CHECK_INTERVAL = 0.1
+
 
 def remove_c_comments(text):
     """
@@ -30,7 +44,6 @@ def remove_c_comments(text):
     result_lines = []
 
     in_multiline_comment = False
-    comment_buffer = ""  # 存储多行注释内容（不使用，但需要累加以移动指针）
 
     for line in lines:
         i = 0
@@ -44,7 +57,6 @@ def remove_c_comments(text):
                 elif i + 1 < line_length and line[i] == '/' and line[i+1] == '*':
                     in_multiline_comment = True
                     i += 2
-                    comment_buffer = ""  # 重置注释缓冲区
                 else:
                     clean_line += line[i]
                     i += 1
@@ -52,9 +64,7 @@ def remove_c_comments(text):
                 if i + 1 < line_length and line[i] == '*' and line[i+1] == '/':
                     in_multiline_comment = False
                     i += 2
-                    comment_buffer = ""  # 清空注释缓冲区
                 else:
-                    comment_buffer += line[i]
                     i += 1
 
         if not in_multiline_comment and clean_line.strip():
@@ -152,8 +162,41 @@ def get_test_prefix(cmd):
 
     return None
 
+def load_error_ignore_patterns(testlist_path):
+    """Load regex rules from the companion '<testlist_name>.ignore' file."""
+    ignore_path = os.path.splitext(os.path.abspath(testlist_path))[0] + '.ignore'
+    if not os.path.exists(ignore_path):
+        return [], ignore_path
 
-def analyze_log_file(log_path):
+    patterns = []
+    rule_index = 0
+    for line_number, raw_rule in enumerate(read_commands_from_file(ignore_path), 1):
+        rule = raw_rule.strip()
+        if not rule:
+            continue
+        marker = rule[0]
+        if marker == '-':
+            continue  # explicitly disabled
+        if marker == '+':
+            rule = rule[1:].lstrip()
+            if not rule:
+                continue
+        rule_index += 1
+        try:
+            patterns.append((rule_index, re.compile(rule)))
+        except re.error as exc:
+            raise ValueError(f"Invalid ignore regex #{rule_index} in '{ignore_path}': {exc}") from exc
+    print(f"Loaded {len(patterns)} error ignore rule(s): {ignore_path}")
+    return patterns, ignore_path
+
+def find_error_ignore_rule(line, ignore_patterns):
+    """Return the first ignore rule index matching line, or None."""
+    for rule, pattern in ignore_patterns or []:
+        if pattern.search(line):
+            return rule
+    return None
+
+def analyze_log_file(log_path, ignore_patterns=None):
     """
     分析日志文件，检查是否包含错误关键词
     返回分析结果字典
@@ -173,7 +216,8 @@ def analyze_log_file(log_path):
         'has_error': False,
         'errors': {},
         'line_count': 0,
-        'pass_count': 0
+        'pass_count': 0,
+        'ignore_patterns': []
     }
 
     first_error = None  # 记录第一个错误
@@ -183,8 +227,13 @@ def analyze_log_file(log_path):
             lines = f.readlines()
 
         result['line_count'] = len(lines)
+        start_index = 0
+        for index, line in enumerate(lines):
+            if line.rstrip('\r\n') == '-' * 80:
+                start_index = index + 1
+                break
 
-        for i, line in enumerate(lines, 1):
+        for i, line in enumerate(lines[start_index:], start_index + 1):
             # 统计 PASS
             if 'TEST PASS' in line.upper():
                 result['pass_count'] += 1
@@ -197,6 +246,15 @@ def analyze_log_file(log_path):
             for pattern, keyword in error_patterns:
                 matches = list(re.finditer(pattern, line))
                 if matches:
+                    ignore_rule = find_error_ignore_rule(line, ignore_patterns)
+                    if ignore_rule is not None:
+                        result['ignore_patterns'].append({
+                            'keyword': keyword,
+                            'line_num': i,
+                            'line_content': line.strip(),
+                            'rule': ignore_rule,
+                        })
+                        continue
                     # 记录第一个错误
                     first_error = {
                         'line_num': i,
@@ -219,7 +277,7 @@ def analyze_log_file(log_path):
     return result
 
 
-def generate_report(output_dir, prefix_log_map, main_log_file):
+def generate_report(output_dir, prefix_log_map, main_log_file, ignore_patterns=None):
     """
     生成测试报告
     """
@@ -242,13 +300,19 @@ def generate_report(output_dir, prefix_log_map, main_log_file):
 
         for prefix, log_filename in sorted(prefix_log_map.items(), key=lambda x: x[1]):
             log_path = os.path.join(output_dir, log_filename)
-            analysis = analyze_log_file(log_path)
+            analysis = analyze_log_file(log_path, ignore_patterns)
 
             f.write("-" * 80 + "\n")
             f.write(f"测试项: {prefix}\n")
             f.write(f"日志文件: {log_filename}\n")
             f.write(f"日志行数: {analysis['line_count']}\n")
-            f.write(f"PASS 数量: {analysis['pass_count']}\n")
+            f.write(f"PASS数量: {analysis['pass_count']}\n")
+            f.write(f"忽略错误数: {len(analysis['ignore_patterns'])}\n")
+            for ignored in analysis['ignore_patterns']:
+                f.write(f"  [IGNORED {ignored['keyword']}] "
+                        f"行 {ignored['line_num']}: {ignored['line_content']} "
+                        f"(rule: {ignored['rule']})\n")
+                
 
             if analysis['has_error']:
                 failed_tests += 1
@@ -257,10 +321,10 @@ def generate_report(output_dir, prefix_log_map, main_log_file):
                 for keyword, errors in analysis['errors'].items():
                     f.write(f"\n  [{keyword}] 发现 {len(errors)} 处:\n")
                     for err in errors[:5]:  # 最多显示 5 条
-                        prefix = "【首次】" if err.get(
+                        tag = "【首次】" if err.get(
                             'is_first', False) else "       "
                         f.write(
-                            f"    {prefix}行 {err['line_num']}: {err['line_content'][:100]}\n")
+                            f"    {tag}行 {err['line_num']}: {err['line_content'][:100]}\n")
                     if len(errors) > 5:
                         f.write(f"    ... 还有 {len(errors) - 5} 处\n")
 
@@ -312,6 +376,12 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
         print("没有命令可执行")
         return False
 
+    try:
+        ignore_patterns, _ = load_error_ignore_patterns(cmd_file)
+    except ValueError as exc:
+        print(f"[FAIL] {exc}")
+        return False
+
     exe_path = os.path.abspath(exe_path)
 
     if not os.path.exists(exe_path):
@@ -353,12 +423,31 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
     # 当前测试的 log 文件对象
     current_test_log_obj = None
     current_test_log_path = None
+    test_log_lock = threading.Lock()  # 保护 current_test_log_obj 的读写与切换
 
     # 记录已分配的日志文件名（避免重复编号）
     prefix_log_map = {}
 
     process = None
     skip_commands = False  # 若 prompt 等待阶段 error 已达标，则跳过所有命令
+
+    def flush_remaining_output():
+        """读取并落盘进程退出后残留的输出，返回是否成功读取到数据"""
+        try:
+            remaining_data = process.stdout.read()
+            if not remaining_data:
+                return False
+            try:
+                line_str = remaining_data.decode('utf-8', errors='replace')
+            except Exception:
+                line_str = remaining_data.decode('gbk', errors='replace')
+            safe_print(line_str)
+            main_log_obj.write(line_str)
+            main_log_obj.flush()
+            return True
+        except Exception as e:
+            print(f"DEBUG: 读取剩余数据时出错：{e}")
+            return False
 
     def read_output():
         """后台线程：持续读取程序输出并放入队列"""
@@ -383,22 +472,7 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
                 if process.poll() is not None and not stop_reading.is_set():
                     print(f"DEBUG: 进程已退出，读取剩余数据...")
                     process_exited.set()  # 通知主线程进程已退出
-                    # 进程已退出，读取剩余输出
-                    try:
-                        remaining_data = process.stdout.read()
-                        if remaining_data:
-                            try:
-                                line_str = remaining_data.decode(
-                                    'utf-8', errors='replace')
-                            except:
-                                line_str = remaining_data.decode(
-                                    'gbk', errors='replace')
-                            safe_print(line_str)
-                            # 写入主日志
-                            main_log_obj.write(line_str)
-                            main_log_obj.flush()
-                    except Exception as e:
-                        print(f"DEBUG: 读取剩余数据时出错：{e}")
+                    flush_remaining_output()
                     print(f"DEBUG: 共读取 {line_count} 行，{byte_count} 字节")
                     break
 
@@ -420,22 +494,7 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
                     if process.poll() is not None:
                         print(f"DEBUG: 没有数据但进程已退出")
                         process_exited.set()  # 通知主线程进程已退出
-                        # 进程已退出，尝试继续读取剩余数据
-                        try:
-                            remaining_data = process.stdout.read()
-                            if remaining_data:
-                                try:
-                                    line_str = remaining_data.decode(
-                                        'utf-8', errors='replace')
-                                except:
-                                    line_str = remaining_data.decode(
-                                        'gbk', errors='replace')
-                                safe_print(line_str)
-                                # 写入主日志
-                                main_log_obj.write(line_str)
-                                main_log_obj.flush()
-                        except Exception as e:
-                            print(f"DEBUG: 读取剩余数据时出错：{e}")
+                        flush_remaining_output()
                         print(f"DEBUG: 共读取 {line_count} 行，{byte_count} 字节")
                         break
 
@@ -486,11 +545,12 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
                             main_log_obj.write('\n')
                             main_log_obj.flush()
 
-                            # 如果当前有打开的测试日志文件，也写入
-                            if current_test_log_obj:
-                                current_test_log_obj.write(line)
-                                current_test_log_obj.write('\n')
-                                current_test_log_obj.flush()
+                            # 如果当前有打开的测试日志文件，也写入（加锁防止主线程切换文件）
+                            with test_log_lock:
+                                if current_test_log_obj:
+                                    current_test_log_obj.write(line)
+                                    current_test_log_obj.write('\n')
+                                    current_test_log_obj.flush()
 
                             # 检测提示符
                             if '/ #' in line:
@@ -543,9 +603,9 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
         time.sleep(0.1)
         print("读取线程已启动，开始读取程序输出...")
 
-        # 等待提示符（最多 30 秒），同时检测进程是否已退出
+        # 等待提示符（最多 PROMPT_TIMEOUT 秒），同时检测进程是否已退出
         # 程序一旦退出，立即停止等待，避免脚本无谓阻塞
-        prompt_timeout = 30
+        prompt_timeout = PROMPT_TIMEOUT
         prompt_start = time.time()
         while not prompt_received.is_set():
             # error 阈值达到
@@ -611,34 +671,35 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
 
             # 根据命令前缀打开/切换对应的 log 文件
             prefix = get_test_prefix(cmd)
-            if prefix:
-                # dsim_delay 命令不分配新的 log 文件编号
-                if not is_delay_cmd:
-                    if prefix not in prefix_log_map:
-                        # 为新前缀分配编号
-                        next_index = len(prefix_log_map) + 1
-                        prefix_log_map[prefix] = f"{next_index:03d}_{prefix}.log"
+            with test_log_lock:
+                if prefix:
+                    # dsim_delay 命令不分配新的 log 文件编号
+                    if not is_delay_cmd:
+                        if prefix not in prefix_log_map:
+                            # 为新前缀分配编号
+                            next_index = len(prefix_log_map) + 1
+                            prefix_log_map[prefix] = f"{next_index:03d}_{prefix}.log"
 
-                    log_filename = prefix_log_map[prefix]
-                    current_test_log_path = os.path.join(output_dir, log_filename)
+                        log_filename = prefix_log_map[prefix]
+                        current_test_log_path = os.path.join(output_dir, log_filename)
 
-                    try:
-                        # 如果前缀相同，继续使用同一个文件对象（追加模式）
-                        if current_test_log_obj and os.path.abspath(current_test_log_obj.name) == os.path.abspath(current_test_log_path):
-                            # 同一个文件，继续写入
-                            pass
-                        else:
-                            # 不同文件或首次打开，检查文件是否存在决定使用 'w' 还是 'a'
-                            if current_test_log_obj:
-                                current_test_log_obj.close()
-                            mode = 'w' if not os.path.exists(current_test_log_path) else 'a'
-                            current_test_log_obj = open(
-                                current_test_log_path, mode, encoding='utf-8', buffering=1)
-                    except Exception as e:
-                        print(f"警告：无法打开测试日志文件：{e}")
-                        current_test_log_obj = None
-            else:
-                current_test_log_obj = None
+                        try:
+                            # 如果前缀相同，继续使用同一个文件对象（追加模式）
+                            if current_test_log_obj and os.path.abspath(current_test_log_obj.name) == os.path.abspath(current_test_log_path):
+                                # 同一个文件，继续写入
+                                pass
+                            else:
+                                # 不同文件或首次打开，检查文件是否存在决定使用 'w' 还是 'a'
+                                if current_test_log_obj:
+                                    current_test_log_obj.close()
+                                mode = 'w' if not os.path.exists(current_test_log_path) else 'a'
+                                current_test_log_obj = open(
+                                    current_test_log_path, mode, encoding='utf-8', buffering=1)
+                        except Exception as e:
+                            print(f"警告：无法打开测试日志文件：{e}")
+                            current_test_log_obj = None
+                else:
+                    current_test_log_obj = None
 
             # 如果是 dsim_delay 命令，跳过命令发送和测试状态检查
             if is_delay_cmd:
@@ -690,11 +751,11 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
             # [OK] 关键修改：滑动超时窗口（有输出就重置计时器）
             # ============================================================
             test_status = TestStatus.NOT_FOUND
-            no_output_timeout = 60    # 无输出超时时间（秒）
-            max_total_time = 300      # 最大总执行时间（秒），防止死循环
+            no_output_timeout = NO_OUTPUT_TIMEOUT
+            max_total_time = MAX_TOTAL_TIME
             start_time = time.time()
             last_output_time = time.time()  # 最后一次收到输出的时间
-            check_interval = 0.1
+            check_interval = CHECK_INTERVAL
             last_progress_time = 0  # 上次打印进度提示的时间
 
             while time.time() - start_time < max_total_time:
@@ -862,7 +923,7 @@ def run_interactive_mode(commands, cmd_file, exe_path, output_dir='log'):
     # 生成测试报告
     if prefix_log_map:
         report_result = generate_report(
-            output_dir, prefix_log_map, main_log_file)
+            output_dir, prefix_log_map, main_log_file, ignore_patterns)
         # 根据报告结果判断整体是否通过
         all_passed = (report_result['failed'] == 0)
 
@@ -910,7 +971,7 @@ python terminal.py Kinetis_Plan.testlist .\\output\\persistence-of-vision\\fake\
     """)
 
 
-def parse_exe_from_makefile(makefile_path):
+def parse_exe_from_makefile(makefile_path, make_variable=None):
     """
     解析 Makefile，推测编译输出的可执行文件路径
     返回可执行文件路径，失败返回 None
@@ -921,17 +982,22 @@ def parse_exe_from_makefile(makefile_path):
     except Exception:
         return None
 
-    # 解析 PROJECT 变量（处理 ?= 和 = 两种赋值）
-    project_match = re.search(r'^PROJECT\s*\??=\s*(\S+)', content, re.MULTILINE)
-    if not project_match:
-        return None
-    project = project_match.group(1)
+    # 解析 PROJECT 变量：优先用显式传入的 make_variable，否则从 Makefile 读取
+    make_variable = make_variable or {}
+    project = make_variable.get('PROJECT')
+    if not project:
+        project_match = re.search(r'^PROJECT\s*\??=\s*(\S+)', content, re.MULTILINE)
+        if not project_match:
+            return None
+        project = project_match.group(1)
 
     # 解析 PLATFORM_MK 变量
-    platform_mk_match = re.search(r'^PLATFORM_MK\s*\??=\s*(\S+)', content, re.MULTILINE)
-    if not platform_mk_match:
-        return None
-    platform_mk = platform_mk_match.group(1)
+    platform_mk = make_variable.get('PLATFORM_MK')
+    if not platform_mk:
+        platform_mk_match = re.search(r'^PLATFORM_MK\s*\??=\s*(\S+)', content, re.MULTILINE)
+        if not platform_mk_match:
+            return None
+        platform_mk = platform_mk_match.group(1)
     platform_base = os.path.splitext(platform_mk)[0]  # 去掉 .mk 后缀
 
     # BUILD_DIR 格式: output/$(PROJECT)/$(basename $(PLATFORM_MK))
@@ -941,7 +1007,7 @@ def parse_exe_from_makefile(makefile_path):
     return exe_relative
 
 
-def compile_program(makefile_path='Makefile', target='compile'):
+def compile_program(makefile_path='Makefile', target='compile', make_variable=None):
     """
     执行 make compile 编译程序
     返回 (是否成功, 可执行文件路径)
@@ -950,9 +1016,12 @@ def compile_program(makefile_path='Makefile', target='compile'):
     print(f"Makefile: {makefile_path}")
     print(f"目标: {target}")
 
+    make_variable = make_variable or {}
+    make_args = [f'{name}={value}' for name, value in make_variable.items()]
+
     try:
         result = subprocess.run(
-            ['make', target],
+            ['make', *make_args, target],
             cwd=os.path.dirname(makefile_path) if os.path.dirname(
                 makefile_path) else '.',
             capture_output=True,
@@ -979,7 +1048,7 @@ def compile_program(makefile_path='Makefile', target='compile'):
                     break
             # 若输出中没有路径，尝试从 Makefile 推测
             if not exe_path:
-                exe_path = parse_exe_from_makefile(makefile_path)
+                exe_path = parse_exe_from_makefile(makefile_path, make_variable)
             return (True, exe_path)
         else:
             print(f"[FAIL] 编译失败，退出码: {result.returncode}")
@@ -992,6 +1061,224 @@ def compile_program(makefile_path='Makefile', target='compile'):
         print(f"[FAIL] 编译出错: {e}")
         return (False, None)
 
+def parse_process_cases(lines):
+    """Parse one independent process invocation from each testlist line."""
+    cases = []
+    for line_number, line in enumerate(lines, 1):
+        if '|' in line:
+            name, argument_text = line.split('|', 1)
+            name = name.strip()
+        else:
+            name = f"case_{line_number:03d}"
+            argument_text = line
+
+        if not name:
+            raise ValueError(f"Line {line_number}: case name cannot be empty")
+
+        try:
+            args = shlex.split(argument_text)
+        except ValueError as exc:
+            raise ValueError(f"Line {line_number}: {exc}") from exc
+
+        if not args:
+            raise ValueError(f"Line {line_number}: argument list cannot be empty")
+
+        cases.append({
+            'line_number': line_number,
+            'name': name,
+            'args': args,
+        })
+    return cases
+
+
+def run_process_mode(cases, exe_path, timeout=60 * 10, output_dir='logs',
+                     ignore_patterns=None):
+    """Run every case in a fresh process and judge it by exit status + log."""
+    exe_path = os.path.abspath(exe_path)
+    exe_dir = os.path.dirname(exe_path)
+    if not os.path.isabs(output_dir):
+        output_dir = os.path.join(exe_dir, output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+
+    results = []
+    print(f"Executable: {exe_path}")
+    print(f"Cases: {len(cases)}, timeout: {timeout}s per case")
+    print(f"Logs: {output_dir}")
+
+    for index, case in enumerate(cases, 1):
+        command = [exe_path] + case['args']
+        safe_name = re.sub(r'[^A-Za-z0-9_.-]', '_', case['name'])
+        safe_name = safe_name.strip('_') or f"case_{index:03d}"
+        log_name = f"{index:03d}_{safe_name}.log"
+        log_path = os.path.join(output_dir, log_name)
+        started = time.monotonic()
+        timed_out = False
+
+        print(f"{index}/{len(cases)} {case['name']}: {' '.join(case['args'])}")
+        try:
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                cwd=exe_dir,
+                text=True,
+                encoding='utf-8',
+                errors='replace',
+            )
+            try:
+                output, _ = process.communicate(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+                process.kill()
+                output, _ = process.communicate()
+        except Exception as e:
+            output = f"[FAIL] Failed to launch: {e}\n"
+            process = type('P', (), {'returncode': -1})()
+
+        elapsed = time.monotonic() - started
+        with open(log_path, 'w', encoding='utf-8') as log_file:
+            log_file.write(f"command: {' '.join(command)}\n")
+            log_file.write(f"elapsed: {elapsed:.3f}s\n")
+            log_file.write(f"returncode: {process.returncode}\n")
+            log_file.write(f"timeout: {timed_out}\n")
+            log_file.write("-" * 80 + "\n")
+            log_file.write(output)
+
+        analysis = analyze_log_file(log_path, ignore_patterns)
+        log_error = None
+        if analysis['has_error']:
+            keyword, errors = next(iter(analysis['errors'].items()))
+            first_error = errors[0]
+            log_error = {
+                'keyword': keyword,
+                'line_num': errors[0]['line_num'],
+                'line_content': errors[0]['line_content'],
+            }
+
+        passed = (not timed_out and process.returncode == 0
+                  and not log_error)
+        result = {
+            **case,
+            'passed': passed,
+            'timed_out': timed_out,
+            'returncode': process.returncode,
+            'elapsed': elapsed,
+            'log_path': log_path,
+            'log_error': log_error,
+            'ignored_errors': analysis['ignore_patterns'],
+        }
+        results.append(result)
+        status = 'PASS' if passed else 'FAIL'
+        if timed_out:
+            detail = 'timeout'
+        elif process.returncode != 0:
+            detail = f'exit={process.returncode}'
+        elif log_error:
+            detail = (f"[{log_error['keyword']}] at line "
+                      f"{log_error['line_num']}: {log_error['line_content']}")
+        else:
+            detail = (f"exit=0, no unignored error keyword "
+                      f"(ignored={len(analysis['ignore_patterns'])})")
+        print(f"[{status}] {detail}, elapsed: {elapsed:.1f}s -> {log_name}")
+
+    report_path = os.path.join(output_dir, 'process_test_result.log')
+    passed_count = sum(1 for r in results if r['passed'])
+    with open(report_path, 'w', encoding='utf-8') as report:
+        report.write(f"Generated: {datetime.now():%Y-%m-%d %H:%M:%S}\n")
+        report.write(f"Executable: {exe_path}\n")
+        report.write(f"Passed: {passed_count}/{len(results)}\n\n")
+        for result in results:
+            status = 'PASS' if result['passed'] else 'FAIL'
+            report.write(f"[{status}] name={result['name']} "
+                         f"args={' '.join(result['args'])} "
+                         f"returncode={result['returncode']} "
+                         f"timeout={result['timed_out']} "
+                         f"elapsed={result['elapsed']:.1f}s "
+                         f"log={os.path.basename(result['log_path'])}\n")
+            if result['log_error']:
+                error = result['log_error']
+                report.write(f"  {error['keyword']} line {error['line_num']}: "
+                             f"{error['line_content']}\n")
+            elif result['timed_out']:
+                report.write(f"  [TIMEOUT] process exceeded {result['elapsed']:.1f}s\n")
+            elif result['returncode'] != 0:
+                report.write(f"  [EXIT] returncode={result['returncode']} "
+                             f"(0x{result['returncode'] & 0xffffffff:08X}) "
+                             f"with no error keyword in log\n")
+            for ignored in result['ignored_errors']:
+                report.write(f"  [IGNORED] {ignored['keyword']}: "
+                             f"{ignored['line_num']}: "
+                             f"{ignored['line_content']} rule: {ignored['rule']}\n")
+
+    print(f"Result: {passed_count}/{len(results)} passed")
+    print(f"Report saved to: {report_path}")
+    return passed_count == len(results)
+
+
+def process_mode_main(args):
+    """Entry point for generic one-process-per-case testlists."""
+    if not args or args[0] in ('-h', '--help', '/?'):
+        print("Usage: python terminal.py --process <testlist> [exe]")
+        print("Each active line: [case name |] <exe arguments>")
+        return bool(args)
+
+    testlist_path = os.path.abspath(args[0])
+    if not os.path.exists(testlist_path):
+        print(f"[FAIL] Testlist does not exist: {testlist_path}")
+        return False
+
+    lines = read_commands_from_file(testlist_path)
+    try:
+        cases = parse_process_cases(lines)
+    except ValueError as exc:
+        print(f"[FAIL] Invalid process testlist: {exc}")
+        return False
+    if not cases:
+        print(f"[FAIL] No valid cases found in testlist: {testlist_path}")
+        return False
+
+    try:
+        ignore_patterns, _ = load_error_ignore_patterns(testlist_path)
+    except ValueError as exc:
+        print(f"[FAIL] {exc}")
+        return False
+
+    if len(args) > 1:
+        exe_path = os.path.abspath(args[1])
+    else:
+        scripts_dir = os.path.dirname(os.path.abspath(__file__))
+        project_dir = os.path.dirname(testlist_path)
+        project = os.path.basename(project_dir)
+        platform_mk = 'fake.mk'
+        platform_path = os.path.join(project_dir, platform_mk)
+        if not os.path.exists(platform_path):
+            print(f"[FAIL] Platform does not exist: {platform_path}")
+            return False
+
+        # The single build entry point lives in scripts/Makefile, not in the
+        # project directory (projects/<project>/ holds only *.mk platform files).
+        makefile_path = os.path.join(scripts_dir, 'Makefile')
+        if not os.path.exists(makefile_path):
+            print(f"[FAIL] Makefile does not exist: {makefile_path}")
+            return False
+
+        compile_success, build_exe_path = compile_program(
+            makefile_path,
+            make_variable={
+                'PROJECT': project,
+                'PLATFORM_MK': platform_mk
+            })
+        if not compile_success or not build_exe_path:
+            return False
+        exe_path = (build_exe_path if os.path.isabs(build_exe_path)
+                    else os.path.join(scripts_dir, build_exe_path))
+
+    if not os.path.exists(exe_path):
+        print(f"[FAIL] Executable does not exist: {exe_path}")
+        return False
+
+    return run_process_mode(cases, exe_path, ignore_patterns=ignore_patterns)
+
 
 def main():
     """主函数"""
@@ -999,21 +1286,28 @@ def main():
     print("交互式命令监控脚本")
     print("启动程序一次，连续发送所有命令")
 
-    if len(sys.argv) > 1 and sys.argv[1] in ['-h', '--help', '/?']:
-        print_usage()
-        return
+    parser = argparse.ArgumentParser(
+        description="Kinetis 自动化测试脚本：从命令文件读取指令并监控程序输出")
+    parser.add_argument(
+        '--process', action='store_true',
+        help="进入进程模式：每个 testlist 用例在独立进程中运行一次")
+    parser.add_argument(
+        'cmd_file', nargs='?', default=None,
+        help="命令文件路径（默认 ./Kinetis_Plan.testlist）")
+    parser.add_argument(
+        'exe_path', nargs='?', default=None,
+        help="可执行程序路径（可选，默认从编译输出自动检测）")
 
-    default_cmd_file = r".\Kinetis_Plan.testlist"
+    args = parser.parse_args()
 
-    if len(sys.argv) >= 3:
-        cmd_file = sys.argv[1]
-        user_exe_path = sys.argv[2]
-    elif len(sys.argv) == 2:
-        cmd_file = sys.argv[1]
-        user_exe_path = None
-    else:
-        cmd_file = default_cmd_file
-        user_exe_path = None
+    # 进程模式：每个用例独立进程，参数转发给 process_mode_main
+    if args.process:
+        success = process_mode_main(sys.argv[2:])
+        sys.exit(0 if success else 1)
+
+    cmd_file = args.cmd_file or r".\Kinetis_Plan.testlist"
+    user_exe_path = args.exe_path
+    if args.cmd_file is None:
         print(f"使用默认命令文件：{cmd_file}")
         print()
 
@@ -1021,20 +1315,12 @@ def main():
         print(f"错误：命令文件 '{cmd_file}' 不存在")
         return
 
-    # 清理旧的 log 目录
-    log_dir = os.path.join(os.getcwd(), 'output', 'log')
-    if os.path.exists(log_dir):
-        print(f"清理旧的日志目录: {log_dir}")
-        try:
-            import shutil
-            shutil.rmtree(log_dir)
-            print("[OK] 旧日志已清理")
-        except Exception as e:
-            print(f"[WARN] 清理旧日志失败: {e}")
+    # 构建入口统一位于 scripts/Makefile（与 --process 模式保持一致）
+    scripts_dir = os.path.dirname(os.path.abspath(__file__))
+    makefile_path = os.path.join(scripts_dir, 'Makefile')
 
-    # 先编译程序，并从输出中获取 exe 路径
-    makefile_path = os.path.join(os.path.dirname(
-        cmd_file) if os.path.dirname(cmd_file) else '.', 'Makefile')
+    # 清理旧的 log 目录（与 run_interactive_mode 的 output_dir='log' 拼接规则一致）
+    # 注意：output_dir 是相对 exe 目录的，日志实际落在 exe_dir/log
     if os.path.exists(makefile_path):
         compile_success, build_exe_path = compile_program(makefile_path)
         if not compile_success:
@@ -1049,7 +1335,9 @@ def main():
         exe_path = os.path.abspath(user_exe_path)
         print(f"使用用户指定的可执行文件：{exe_path}")
     elif build_exe_path:
-        exe_path = os.path.abspath(build_exe_path)
+        # build_exe_path 是相对 scripts 目录的，需拼回 scripts_dir
+        exe_path = (build_exe_path if os.path.isabs(build_exe_path)
+                    else os.path.join(scripts_dir, build_exe_path))
         print(f"可执行文件（从编译自动检测）：{exe_path}")
     else:
         print("错误：无法确定可执行文件路径，请通过命令行参数指定")
@@ -1058,6 +1346,19 @@ def main():
     if not os.path.exists(exe_path):
         print(f"错误：可执行程序 '{exe_path}' 不存在")
         return
+
+    # 清理旧日志目录（与 run_interactive_mode 的 output_dir='log' 一致，
+    # output_dir 相对 exe 目录拼接，故日志落在 exe_dir/log）
+    exe_dir = os.path.dirname(exe_path)
+    log_dir = os.path.join(exe_dir, 'log')
+    if os.path.exists(log_dir):
+        print(f"清理旧的日志目录: {log_dir}")
+        try:
+            import shutil
+            shutil.rmtree(log_dir)
+            print("[OK] 旧日志已清理")
+        except Exception as e:
+            print(f"[WARN] 清理旧日志失败: {e}")
 
     commands = read_commands_from_file(cmd_file)
 

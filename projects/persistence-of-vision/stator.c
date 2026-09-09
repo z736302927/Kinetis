@@ -35,7 +35,7 @@ static void stator_heartbeat_task(struct tim_task *task)
 	stator->uptime_s++;
 
 	/* Always send heartbeat so rotor can detect us */
-	mavlink_send_heartbeat(stator->mavlink, MAV_SYS_ACTIVE,
+	mavlink_send_heartbeat(stator->mavlink, MAV_SYSTEM_STATUS_ACTIVE,
 		stator->uptime_s, stator->mavlink->error_count);
 }
 
@@ -119,10 +119,23 @@ static void process_motor_commands(struct tim_task *task)
 
 	switch (stator->mavlink->rx_msg.msgid) {
 	case MAVLINK_MSG_ID_SYSTEM_HEARTBEAT:
+		stator->rotor_heartbeat_paused = stator->mavlink->sys_status == MAV_SYSTEM_STATUS_STANDBY;
 		break;
 
-	case MAVLINK_MSG_ID_MOTOR_CONTROL:
+	case MAVLINK_MSG_ID_MOTOR_CONTROL: {
+		mavlink_motor_control_t control;
+
+		mavlink_msg_motor_control_decode(&stator->mavlink->rx_msg, &control);
+		if ((control.target_id >= MAVLINK_MOTOR_COUNT &&
+			control.target_id != 255) ||
+			control.direction > MAV_MOTOR_DIRECTION_REVERSE) {
+			mavlink_send_motor_ack(stator->mavlink, control.target_id, MAV_ACK_RESULT_INVALID_PARAM);
+			break;
+		}
+		mavlink_send_motor_ack(stator->mavlink,
+			control.target_id == 255 ? STATOR_MOTOR_ID : control.target_id, MAV_ACK_RESULT_OK);
 		break;
+	}
 
 	case MAVLINK_MSG_ID_MOTOR_STATUS_QUERY: {
 		mavlink_motor_status_query_t query;
@@ -150,7 +163,7 @@ static void process_motor_commands(struct tim_task *task)
 
 		ret = bootloader_write_update_flag(stator->mavlink->bl.firmware_size,
 				stator->mavlink->bl.firmware_crc32,
-				stator->mavlink->bl.filename);
+				stator->mavlink->bl.filename, NULL);
 		if (ret < 0)
 			break;
 
@@ -184,7 +197,7 @@ struct pov_stator *pov_stator_alloc(struct serial_port_ops *motor_serial_ops,
 		goto err;
 	}
 
-	stator->mavlink = mavlink_init(stator->motor_port, 2, 1, "stator-mavlink");
+	stator->mavlink = mavlink_init(stator->motor_port, 2, 1, "stator-motor");
 	if (!stator->mavlink) {
 		goto err_free_port;
 	}
@@ -316,10 +329,10 @@ void pov_stator_fsm(struct pov_stator *stator)
 	}
 
 	case STATOR_ACTIVE: {
-		/* Check if rotor heartbeat has timed out */
 		u64 now = basic_timer_get_ms();
 
-		if (now - stator->last_rotor_heartbeat_ms > (u64)POV_HEARTBEAT_INTERVAL_MS * 2) {
+		if (!stator->rotor_heartbeat_paused &&
+			now - stator->last_rotor_heartbeat_ms > (u64)POV_HEARTBEAT_INTERVAL_MS * 2) {
 			pr_warn("rotor heartbeat timeout (%llu ms), safe stop (PWM=0, coast by inertia)\n",
 				now - stator->last_rotor_heartbeat_ms);
 			motor_set_pwm(&stator->motor, 0);

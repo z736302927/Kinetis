@@ -521,7 +521,7 @@ int main(int argc, char **argv)
 	pr_info("|  Project: %-30s|\n", PROJECT_NAME);
 	pr_info("|-----------------------------------------|\n");
 
-	ret = app_main();
+	ret = app_main(argc, argv);
 
 err:
 	pr_err("system crash, error code: %s(%d)\n",

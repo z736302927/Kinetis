@@ -13,6 +13,7 @@ enum bootloader_fsm_state {
 	BL_STATE_JUMP_APP,
 	BL_STATE_WAIT_CMD,
 	BL_STATE_RECEIVE,
+	BL_STATE_PROGRAM,
 	BL_STATE_FLASH,
 	BL_STATE_VERIFY,
 	BL_STATE_COMPLETE,
@@ -59,6 +60,7 @@ struct bootloader_context {
 	u32 firmware_size;
 	u32 firmware_crc32;
 	char firmware_filename[64];
+	char firmware_path[96];
 
 	struct mavlink_device *app_mavlink;
 	struct serial_port *app_port;
@@ -87,13 +89,14 @@ struct bootloader_context {
 #define BL_UPDATE_FLAG_PATH      "0:/update.flag"
 #define BL_UPDATE_FLAG_MAGIC     0x55474655u  /* "UFGU" */
 
-/** @brief On-disk format of the update flag file (64 bytes). */
+/** @brief On-disk format of the update flag file. */
 struct bootloader_update_flag {
 	u32 magic;                             /* Must be BL_UPDATE_FLAG_MAGIC */
 	u32 firmware_size;                     /* Expected firmware size in bytes */
 	u32 firmware_crc32;                    /* Expected firmware CRC32 */
 	u32 reserved;                          /* Reserved, set to 0 */
 	char firmware_filename[48];            /* Firmware filename, null-terminated */
+	char firmware_path[96];				   /* Optional staged firmware path */
 } __packed;
 
 /* Firmware path on FatFS */
@@ -135,7 +138,7 @@ void bootloader_free(struct bootloader_context *bl_ctx);
 int bootloader_flow(struct bootloader_context *bl_ctx);
 
 int bootloader_write_update_flag(u32 firmware_size, u32 firmware_crc32,
-				 const char *filename);
+	const char *filename, const char *firmware_path);
 
 #ifdef __cplusplus
 }

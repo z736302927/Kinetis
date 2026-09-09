@@ -10,6 +10,7 @@ C_SOURCES += $(wildcard ../drivers/kinetis/fsm.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/hc-05.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/led.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/mavlink.c)
+C_SOURCES += $(wildcard ../drivers/kinetis/bootloader.c)
 # C_SOURCES += $(wildcard ../drivers/kinetis/w25qxxx.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/lrzsz/*.c)
 C_SOURCES += $(wildcard ../drivers/kinetis/kalman-clib/src/matrix.c)
@@ -27,6 +28,8 @@ C_SOURCES += $(wildcard $(CHIP_SRC_DIR)/Core/Src/*.c)
 C_SOURCES += $(wildcard $(CHIP_SRC_DIR)/Drivers/STM32F4xx_HAL_Driver/Src/*.c)
 
 C_SOURCES += $(wildcard ../drivers/kinetis/CmBacktrace/cm_backtrace/*.c)
+
+EXCLUDE_SOURCES += $(wildcard ../projects/persistence-of-vision/test.c)
 
 # Startup assembly
 S_SOURCES += $(CHIP_SRC_DIR)/startup_stm32f407xx.s

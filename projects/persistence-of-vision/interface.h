@@ -29,6 +29,8 @@ extern struct hall_device *hall_dev;
 extern w25qxx_handle_t *ld_w25qxx_handle;
 
 #if KINETIS_FAKE_SIM
+#include <fake-mcu/interface.h>
+
 extern u8 *general_flash_addr;
 #endif
 

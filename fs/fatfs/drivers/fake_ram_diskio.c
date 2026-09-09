@@ -45,11 +45,11 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
-#include "../ff_gen_drv.h"
+#include "fake_ram_diskio.h"
 
 #include <kinetis/fatfs.h>
 
-static uint8_t fake_ram_array[32 * 1024 * 1024];
+static uint8_t fake_ram_array[64 * 1024 * 1024];
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 /* Block Size in Bytes */
@@ -72,7 +72,7 @@ DRESULT FAKE_RAM_DISK_write(BYTE, const BYTE *, LBA_t, UINT);
 DRESULT FAKE_RAM_DISK_ioctl(BYTE, BYTE, void *);
 #endif /* _USE_IOCTL == 1 */
 
-const Diskio_drvTypeDef fake_ram_disk_driver = {
+Diskio_drvTypeDef fake_ram_disk_driver = {
     FAKE_RAM_DISK_initialize,
     FAKE_RAM_DISK_status,
     FAKE_RAM_DISK_read,
@@ -108,7 +108,12 @@ DSTATUS FAKE_RAM_DISK_initialize(BYTE lun)
   */
 DSTATUS FAKE_RAM_DISK_status(BYTE lun)
 {
-    return Stat;
+    DSTATUS stat = Stat & (DSTATUS)~STA_PROTECT;
+
+    if (disk_fault_is_read_only(&fake_ram_disk_driver))
+        stat |= STA_PROTECT;
+
+    return stat;
 }
 
 /**
@@ -131,6 +136,9 @@ DRESULT FAKE_RAM_DISK_read(BYTE lun, BYTE *buff, LBA_t sector, UINT count)
     /* Check if device is initialized */
     if (Stat & STA_NOINIT)
         return RES_NOTRDY;
+
+    if (disk_fault_should_fail(&fake_ram_disk_driver, DISK_FAULT_READ))
+        return RES_ERROR;
 
     for (; size != 0; size--)
         *buff++ = *addr++;
@@ -159,6 +167,11 @@ DRESULT FAKE_RAM_DISK_write(BYTE lun, const BYTE *buff, LBA_t sector, UINT count
     /* Check if device is initialized */
     if (Stat & STA_NOINIT)
         return RES_NOTRDY;
+
+    if (disk_fault_is_read_only(&fake_ram_disk_driver))
+        return RES_WRPRT;
+    if (disk_fault_should_fail(&fake_ram_disk_driver, DISK_FAULT_WRITE))
+        return RES_ERROR;
 
     for (; size != 0; size--)
         *addr++ = *buff++;

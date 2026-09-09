@@ -1620,7 +1620,7 @@ int hc_05_clear_buffers(struct hc_05_device *device)
 	device->serial->producer = 0;
 	device->serial->consumer = 0;
 	device->serial->received_size = 0;
-	device->serial->transmited_size = 0;
+	device->serial->transmitted_size = 0;
 
 	pr_debug("Cleared all buffers\n");
 	return 0;

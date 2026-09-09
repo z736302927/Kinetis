@@ -55,6 +55,7 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 #include "diskio.h"
 #include "ff.h"
+#include "fault.h"
 #include "stdint.h"
 
 /* Exported types ------------------------------------------------------------*/
@@ -62,7 +63,7 @@ extern "C" {
 /**
   * @brief  Disk IO Driver structure definition
   */
-typedef struct {
+typedef struct Diskio_drvTypeDef {
     DSTATUS(*disk_initialize)(BYTE);                       /*!< Initialize Disk Drive                     */
     DSTATUS(*disk_status)(BYTE);                           /*!< Get Disk Status                           */
     DRESULT(*disk_read)(BYTE, BYTE *, LBA_t, UINT);              /*!< Read Sector(s)                            */
@@ -73,6 +74,7 @@ typedef struct {
     DRESULT(*disk_ioctl)(BYTE, BYTE, void *);                    /*!< I/O control operation when _USE_IOCTL = 1 */
 #endif /* _USE_IOCTL == 1 */
 
+    struct disk_fault_state *fault;
 } Diskio_drvTypeDef;
 
 /**

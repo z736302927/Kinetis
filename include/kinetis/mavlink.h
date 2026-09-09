@@ -30,29 +30,6 @@ extern "C" {
 #define MAVLINK_MOTOR_RUNNING      1
 #define MAVLINK_MOTOR_FAULT        2
 
-/* Ack result aliases (mapped from MAV_ACK_RESULT_* generated enums) */
-#define MAV_ACK_OK                 MAV_ACK_RESULT_OK
-#define MAV_ACK_ERROR              MAV_ACK_RESULT_ERROR
-#define MAV_ACK_INVALID_PARAM      MAV_ACK_RESULT_INVALID_PARAM
-#define MAV_ACK_MOTOR_FAULT        MAV_ACK_RESULT_MOTOR_FAULT
-
-/* Image action aliases (mapped from MAV_IMAGE_ACTION_* generated enums) */
-#define MAV_IMAGE_REPLAY           MAV_IMAGE_ACTION_REPLAY
-#define MAV_IMAGE_NEXT             MAV_IMAGE_ACTION_NEXT
-#define MAV_IMAGE_PREVIOUS         MAV_IMAGE_ACTION_PREVIOUS
-#define MAV_IMAGE_PLAY_INDEX       MAV_IMAGE_ACTION_PLAY_INDEX
-
-/* File transfer state aliases (mapped from MAV_FILE_TRANSFER_STATE_*) */
-#define MAV_FT_IDLE                MAV_FILE_TRANSFER_STATE_IDLE
-#define MAV_FT_TRANSFERRING        MAV_FILE_TRANSFER_STATE_TRANSFERRING
-#define MAV_FT_COMPLETED           MAV_FILE_TRANSFER_STATE_COMPLETED
-#define MAV_FT_CANCELLED           MAV_FILE_TRANSFER_STATE_CANCELLED
-#define MAV_FT_ERROR               MAV_FILE_TRANSFER_STATE_ERROR
-
-/* File transfer direction aliases */
-#define MAV_FT_UPLOAD              MAV_FILE_TRANSFER_DIR_UPLOAD
-#define MAV_FT_DOWNLOAD            MAV_FILE_TRANSFER_DIR_DOWNLOAD
-
 /* File transfer ack result */
 #define MAV_FT_RESULT_READY        0
 #define MAV_FT_RESULT_DENIED       1
@@ -71,38 +48,9 @@ extern "C" {
 #define MAV_BL_ACK_DENIED          1
 #define MAV_BL_ACK_ERROR           2
 #define MAV_BL_ACK_INVALID_CMD     3
-
-/* Ring direction aliases */
-#define MAV_RING_DIR_CW               MAV_RING_DIRECTION_CW
-#define MAV_RING_DIR_CCW              MAV_RING_DIRECTION_CCW
-
-/* Ring command aliases */
-#define MAV_RING_CMD_NONE_ALIAS       MAV_RING_CMD_NONE
-#define MAV_RING_CMD_IMAGE            MAV_RING_CMD_IMAGE_CONTROL
-#define MAV_RING_CMD_FILE             MAV_RING_CMD_FILE_DISTRIBUTE
-
-/* Ring result aliases */
-#define MAV_RING_OK                   MAV_RING_RESULT_OK
-#define MAV_RING_ERROR_RESULT         MAV_RING_RESULT_ERROR
-#define MAV_RING_READY                MAV_RING_RESULT_READY
-
-/* Ring error aliases */
-#define MAV_RING_ERR_OK               MAV_RING_ERR_NONE
-#define MAV_RING_ERR_BAD_PARAM        MAV_RING_ERR_INVALID_PARAM
-#define MAV_RING_ERR_EXEC             MAV_RING_ERR_EXEC_FAILED
-#define MAV_RING_ERR_LINK_TIMEOUT     MAV_RING_ERR_NEXT_LINK_TIMEOUT
-#define MAV_RING_ERR_ZM_TIMEOUT       MAV_RING_ERR_ZMODEM_TIMEOUT
-#define MAV_RING_ERR_ZM_CRC           MAV_RING_ERR_ZMODEM_CRC
-#define MAV_RING_ERR_FILE             MAV_RING_ERR_FILE_IO
-#define MAV_RING_ERR_NOT_SUPPORTED    MAV_RING_ERR_UNSUPPORTED
+#define MAV_BL_ACK_COMPLETED       4
 
 #define MAVLINK_RING_PAYLOAD_LEN      MAVLINK_MSG_RING_CMD_FIELD_PAYLOAD_LEN
-
-/* System status aliases (mapped from MAV_SYSTEM_STATUS_*) */
-#define MAV_SYS_BOOTING            MAV_SYSTEM_STATUS_BOOTING
-#define MAV_SYS_STANDBY            MAV_SYSTEM_STATUS_STANDBY
-#define MAV_SYS_ACTIVE             MAV_SYSTEM_STATUS_ACTIVE
-#define MAV_SYS_FAULT              MAV_SYSTEM_STATUS_FAULT
 
 struct mavlink_motor_state {
 	s32 target_speed;    /* RPM */
@@ -113,14 +61,14 @@ struct mavlink_motor_state {
 
 struct mavlink_image_cmd {
 	u8 pending;          /* 1 = new command received, reset after read */
-	u8 action;           /* MAV_IMAGE_REPLAY / NEXT / PREVIOUS / PLAY_INDEX */
+	u8 action;           /* MAV_IMAGE_ACTION_REPLAY / NEXT / PREVIOUS / PLAY_INDEX */
 	u16 image_index;     /* target index for PLAY_INDEX */
 };
 
 struct mavlink_ft_state {
 	u8 active;           /* 1 = transfer in progress */
-	u8 direction;        /* MAV_FT_UPLOAD / MAV_FT_DOWNLOAD */
-	u8 state;            /* MAV_FT_* */
+	u8 direction;        /* MAV_FILE_TRANSFER_DIR_UPLOAD / DOWNLOAD */
+	u8 state;            /* MAV_FILE_TRANSFER_STATE_* */
 	u8 error_code;       /* MAV_FT_ERR_* */
 	char path[64];   	 /* Destination path on the device file system */
 	u32 total_bytes;     /* Total file size */
@@ -181,7 +129,7 @@ struct mavlink_device {
 	struct mavlink_bl_cmd bl;
 
 	/* System status */
-	u8 sys_status;       /* MAV_SYS_* */
+	u8 sys_status;       /* MAV_SYSTEM_STATUS_* */
 	u16 error_count;
 	u32 uptime_s;        /* Uptime in seconds */
 
@@ -249,6 +197,8 @@ int mavlink_send_bootloader_update(struct mavlink_device *dev, u8 command,
 	u32 firmware_size, u32 firmware_crc32, const char *filename,
 	u32 timeout_ms);
 int mavlink_send_bootloader_ack(struct mavlink_device *dev, u8 command, u8 result);
+int mavlink_wait_bootloader_ack(struct mavlink_device *dev, u8 command,
+	u8 expected_result, u32 timeout_ms);
 
 int mavlink_send_ring_cmd(struct mavlink_device *dev, u16 seq, u16 cmd,
 	u8 src_arm, u8 dst_arm, u8 current_arm, u8 direction,

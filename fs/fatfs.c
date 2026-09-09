@@ -42,8 +42,8 @@ static struct fatfs_driver fatfs_drivers[] = {
 #if KINETIS_FAKE_SIM
 	{ .disk_driver = &fake_ram_disk_driver},
 #else
-	{ .disk_driver = &SD_Driver},
-// 	{ .disk_driver = &flash_disk_driver}
+	{ .disk_driver = &flash_disk_driver},
+	// { .disk_driver = &SD_Driver},
 #endif
 };
 
@@ -51,10 +51,14 @@ int process_fatfs_err(FRESULT fresult);
 
 int fatfs_init(void)
 {
+	static bool initialized = false;
 	MKFS_PARM opt;
 	/* a work buffer for the f_mkfs() */
 	uint8_t work_buffer[FF_MAX_SS];
 	int ret;
+
+	if (initialized)
+		return 0;
 
 	/*## FatFS: Link the SD driver ###########################*/
 	for (int i = 0; i < ARRAY_SIZE(fatfs_drivers); i++) {
@@ -103,6 +107,8 @@ int fatfs_init(void)
 			return -ENOSYS;
 		}
 	}
+
+	initialized = true;
 
 	return 0;
 }
